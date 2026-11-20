@@ -14,6 +14,7 @@ import { go, href } from './router'
 import { StatusDot } from './StatusDot'
 import { store } from './store'
 import { useSideColumn, WorkAside } from './WorkAside'
+import { chatLog, isAgentStep, ProcLine, secondsName, WorkLog, type Step } from './WorkLog'
 import { isUnseen, myTurn, useMarkSeen, useSeen } from './agentSeen'
 import { useDismiss } from './useDismiss'
 import { flash } from './flash'
@@ -36,7 +37,7 @@ import { APP_HINT, ATTACH_NAME, ChatQuoteMenu, Composer, CUSTOM_NAME, EFFORT_NAM
  * - 레일 "에이전트" 화면(AgentPage · AgentSide): 모든 프로젝트의 대화 목록 · 대화 · 오른쪽 세부 패널(바뀐 곳 · 작업)
  * - 오른쪽 사이드바의 에이전트 탭(AgentPanel, 10/22 안 A): 지금 프로젝트의 대화. 지금 보는 노트가 저절로 붙는다
  * - 입력란(Composer, ChatComposer.tsx): / 명령 · @ 붙이기 · 그림, 아래 줄 ＋ · 맡기는 정도 ▾ · 모델 · 생각 ▾ · 보내기(도는 중에는 멈추기)
- * - 대화: 에이전트 글은 본문처럼, 도구는 "n초 동안 일함 ›" 한 줄로 접고, 계획 · 허락은 번호 붙은 세 답(1 · 2 · 3)
+ * - 대화: 에이전트 글은 본문처럼, 생각 · 도구는 오른쪽 세부 패널의 작업 로그로 빼고 그 자리에 「과정 n」 한 줄, 계획 · 허락은 번호 붙은 세 답(1 · 2 · 3)
  * - 입력란 바로 위: 할 일 한 줄, 도는 동안 보낸 말("다음에 보냄")
  * 범위 밖 고치기와 파일 바로 쓰기는 서버가 막고, 명령은 허락 카드로 묻는다(사용자 차례 = 주황).
  */
@@ -196,73 +197,7 @@ export function useBulkChats() {
 }
 
 // ---------- 대화 줄들 ----------
-
-type Step = Extract<ChatItem, { kind: 'step' }>
-/** until = 이 도구 묶음 다음 줄의 시각 (얼마나 일했는지) */
-type Block = { kind: 'steps'; items: Step[]; until?: string } | { kind: 'one'; item: Exclude<ChatItem, { kind: 'step' }> }
-
-/** 이어진 도구 줄은 한 묶음으로 (요약 한 줄, 펼치면 모두). 할 일 줄은 입력란 위에 따로 보이므로 대화에서 뺀다 */
-export function blocksOf(items: ChatItem[]): Block[] {
-  const out: Block[] = []
-  for (const it of items) {
-    const last = out[out.length - 1]
-    if (it.kind === 'step') {
-      if (last?.kind === 'steps') last.items.push(it)
-      else out.push({ kind: 'steps', items: [it] })
-      continue
-    }
-    if (it.kind === 'todos' || (it.kind === 'user' && it.queued)) continue
-    if (last?.kind === 'steps') last.until = it.at
-    out.push({ kind: 'one', item: it })
-  }
-  return out
-}
-
-const isAgentStep = (s: Step) => s.tool === 'Task' || s.tool === 'Agent'
-const isReadStep = (s: Step) => /^(Read|Grep|Glob|LS|NotebookRead)$|^(read|list|search|get)_/.test(s.tool)
-
-const secondsName = (s: number) => (s < 60 ? t(`${s}초`, `${s}s`) : t(`${Math.round(s / 60)}분`, `${Math.round(s / 60)} min`))
-
-/** 도구 묶음의 요약: n초 동안 일함 · 읽기 n번 · 도구 n번 · 하위 에이전트 n (범위 밖 n) */
-export function stepsSummary(items: Step[], until?: string): string {
-  const agents = items.filter(isAgentStep).length
-  const reads = items.filter(isReadStep).length
-  const outside = items.filter((s) => s.outside).length
-  const tools = items.length - agents - reads
-  const from = Date.parse(items[0]?.at ?? '')
-  const to = Date.parse(until ?? items[items.length - 1]?.at ?? '')
-  const secs = Number.isFinite(from) && Number.isFinite(to) ? Math.round((to - from) / 1000) : 0
-  return [
-    secs >= 1 ? t(`${secondsName(secs)} 동안 일함`, `Worked for ${secondsName(secs)}`) : '',
-    reads ? t(`읽기 ${reads}번`, `${reads} read${reads > 1 ? 's' : ''}`) : '',
-    tools ? t(`도구 ${tools}번`, `${tools} tool call${tools > 1 ? 's' : ''}`) : '',
-    agents ? t(`하위 에이전트 ${agents}`, `${agents} subagent${agents > 1 ? 's' : ''}`) : '',
-    outside ? t(`범위 밖 ${outside}`, `${outside} outside scope`) : '',
-  ].filter(Boolean).join(' · ')
-}
-
-function StepLine({ s }: { s: Step }) {
-  const agent = isAgentStep(s)
-  return (
-    <div className={`ac-step${s.sub ? ' sub' : ''}`} data-ui="도구 줄">
-      <span className="ac-tool mono">{agent ? t('하위 에이전트', 'Subagent') : s.tool}</span>
-      <span className="ac-sum" title={s.summary}>{s.summary}</span>
-      {s.outside && <span className="tag" data-ui="범위 밖 태그" title={t('이 대화의 범위 밖을 읽었습니다', 'Read outside this conversation\'s scope')}>{t('범위 밖', 'Outside scope')}</span>}
-    </div>
-  )
-}
-
-function Steps({ items, until }: { items: Step[]; until?: string }) {
-  const [open, setOpen] = useState(false)
-  return (
-    <li className="ac-steps">
-      <button className="a ac-steps-toggle" data-ui="도구 줄 펼치기" aria-expanded={open} onClick={() => setOpen(!open)}>
-        {stepsSummary(items, until)} {open ? '▾' : '›'}
-      </button>
-      {open && items.map((s, i) => <StepLine key={i} s={s} />)}
-    </li>
-  )
-}
+// 생각 · 도구 묶음은 오른쪽 세부 패널의 작업 로그로 (WorkLog.tsx). 대화에는 「과정 n」 한 줄만
 
 // ---------- 계획 · 허락: 번호 붙은 세 답 ----------
 
@@ -451,7 +386,7 @@ function AttachChips({ attach, images }: { attach?: Attach[]; images?: number })
   )
 }
 
-function ItemView({ chat, it, who, onError, onChanges, onRewind, onPass }: { chat: Chat; it: Exclude<ChatItem, { kind: 'step' }>; who?: boolean; onError(m: string): void; onChanges?(): void; onRewind?(point: string): void; onPass?(text: string): void }) {
+function ItemView({ chat, it, who, onError, onChanges, onRewind, onPass }: { chat: Chat; it: Exclude<ChatItem, { kind: 'step' | 'think' }>; who?: boolean; onError(m: string): void; onChanges?(): void; onRewind?(point: string): void; onPass?(text: string): void }) {
   const when = new Date(it.at).toLocaleString()
   switch (it.kind) {
     // 중앙을 저절로 깨운 알림은 옅은 한 줄 (11/19: 진행은 작업 현황에서 보고, 대화에는 짧게)
@@ -476,11 +411,6 @@ function ItemView({ chat, it, who, onError, onChanges, onRewind, onPass }: { cha
       </li>
     )
     case 'error': return <li className="ac-note error-text" data-ui="대화 오류">! {it.text}</li>
-    case 'think': return (
-      <li className="ac-think" data-ui="에이전트 생각" title={when}>
-        <details><summary className="muted">{t('생각', 'Thinking')}</summary><MemoText text={it.text} /></details>
-      </li>
-    )
     case 'side': return (
       <li className="ac-sideq" data-ui="곁 질문" title={when}>
         <div className="muted ac-hint">{t('곁 질문', 'Side question')} · {it.q}</div>
@@ -654,7 +584,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, o
   }
   const toEnd = () => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; atEnd.current = true; setBehind(false) }, room = useComposerRoom(chat?.rid === CENTRAL_RID)
   if (!chat) return <div className="empty center">{error ? (error as Error).message : t('불러오는 중…', 'Loading…')}</div>
-  const live = isLive(chat.state), blocks = blocksOf(chat.items)
+  const live = isLive(chat.state), { blocks, log } = chatLog(chat.items)
   const settings: Settings = { trust: trustOf(chat), model: chat.model, effort: chat.effort, agent: chat.agent, account: chat.account ?? 'default', ...(chat.rid !== APP_RID && autoCustom(chat) && !over.trust && { custom: true }), ...over }
   const change = (s: Partial<Settings>) => {
     setOver((o) => ({ ...o, ...s }))
@@ -711,7 +641,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, o
       {chat.record && <RecordBanner rid={chat.rid} record={chat.record} />}
       <ol ref={listRef} className="ac-items" data-ui="대화 줄들" role="log" onScroll={onScroll}>
         {!!chat.trimmed && <li className="ac-note muted">{t(`오래된 앞 줄 ${chat.trimmed}개는 지웠습니다 (대화는 마지막 400줄만 둡니다)`, `${chat.trimmed} older lines were removed (a conversation keeps its last 400)`)}</li>}
-        {blocks.map((b, i) => b.kind === 'steps' ? <Steps key={i} items={b.items} until={b.until} /> : <ItemView key={i} chat={chat} it={b.item} who={chat.rid === CENTRAL_RID && hostWhoAt(blocks, i)} onError={setFail} onChanges={openChanges} onRewind={(p) => void rewind(p)} onPass={(text) => setFill({ text, n: Date.now() })} />)}
+        {blocks.map((b, i) => b.kind === 'proc' ? <ProcLine key={i} chat={chat.id} from={b.from} to={b.to} log={log} live={live && i === blocks.length - 1} pane={pane} onPane={onPane} /> : <ItemView key={i} chat={chat} it={b.item} who={chat.rid === CENTRAL_RID && hostWhoAt(blocks, i)} onError={setFail} onChanges={openChanges} onRewind={(p) => void rewind(p)} onPass={(text) => setFill({ text, n: Date.now() })} />)}
         {!!chat.draft && <li className="ac-text ac-draft" data-ui="쓰는 중인 글"><MemoText text={chat.draft} /></li>}
         {chat.state === 'running' && <li className="ac-note muted ac-working" aria-live="polite"><StatusDot s="in-progress" name={chat.compacting ? t('앞 내용을 요약하는 중', 'Summarizing earlier messages') : t('작업 중', 'Working')} label /></li>}
         {!!chat.tasks && chat.state !== 'running' && <li className="ac-note muted ac-working" data-ui="뒤에서 도는 명령" aria-live="polite"><StatusDot s="in-progress" name={t(`뒤에서 명령 ${chat.tasks}개가 도는 중 · 끝나면 이어서 합니다`, `${chat.tasks} background command${chat.tasks > 1 ? 's' : ''} running · continues when done`)} label /></li>}
@@ -898,12 +828,13 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
   // 중앙은 파일을 고치지 않으므로 이 칸을 작업 현황에 쓰고, 「이 대화」는 그 아래 접어 둔다
   if (chat.rid === CENTRAL_RID) return (
     <WorkAside>
-      <CentralBoard /><RoomManage />
+      <WorkLog chat={chat} /><CentralBoard /><RoomManage />
       <details className="ac-info-fold" data-ui="이 대화 접기"><summary>{t('이 대화', 'This conversation')} <span className="muted">{t('모델 · 토큰 · 권한 ›', 'model · tokens · permissions ›')}</span></summary><ChatInfo chat={chat} /></details>
     </WorkAside>
   )
   return (
     <WorkAside>
+      <WorkLog chat={chat} />
       <ChatInfo chat={chat} />
       {hasEdits && !chat.machine && <><h3>{t('변경사항', 'Changes')}</h3><Changes chat={chat} onSaved={onSaved} /></>}
       <section data-ui="잡은 파일">

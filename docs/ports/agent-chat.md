@@ -10,6 +10,7 @@ code:
   - apps/server/src/routes/agentChats.ts
   - apps/web/src/api/agentChats.ts
   - apps/web/src/AgentChats.tsx
+  - apps/web/src/WorkLog.tsx
   - apps/web/src/AgentChatList.tsx
   - apps/web/src/ChatComposer.tsx
 ---
@@ -32,6 +33,7 @@ code:
 | server | `apps/server/src/routes/agentChats.ts` | HTTP 경로 `/api/agent-chats/*` |
 | web | `apps/web/src/api/agentChats.ts` | 위 경로의 클라이언트 |
 | web | `apps/web/src/AgentChats.tsx` | 대화 화면: 목록 · 항목 그리기 · 허락 카드 · 고친 파일 |
+| web | `apps/web/src/WorkLog.tsx` | 작업 로그: 대화 줄을 본문과 로그로 나누는 순수 함수 `chatLog`(생각 · 이어진 도구 묶음 = 로그 한 줄, 이어진 과정 = 대화의 「과정 n–m」 한 줄), 세부 패널의 로그와 대화 ↔ 로그 오가기 |
 | web | `apps/web/src/WorkAside.tsx` | 대화 오른쪽 칸: 세부 패널과 터미널 중 하나(`useSideColumn`, 머리의 목록 · `>_` 아이콘). 터미널은 옮길 앱에 셸이 있을 때만 |
 | web | `apps/web/src/ChatComposer.tsx` | 입력란: 붙이기 · `/` 명령 · `@` 파일 · 권한 · 모델 · 생각 깊이 |
 | web | `apps/web/src/ChatQuote.tsx` | 대화 줄에서 고른 글을 「답글」로 입력란 칩(`selection`)에 더하는 메뉴. 보낼 때 서버가 인용으로 넣는다 |
