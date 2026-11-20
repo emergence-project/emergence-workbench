@@ -28,7 +28,7 @@ type Saved = Omit<RoomState, 'asking'>
 export const ROOM_DEFAULT: Saved = {
   host: 'claude-code',
   members: [{ agent: 'claude-code', perm: 'edit', by: 'user', at: '2026-11-20T00:00:00.000Z' }, { agent: 'codex', perm: 'talk', by: 'user', at: '2026-11-20T00:00:00.000Z' }],
-  rules: { hostInvite: true, defaultPerm: 'talk', callMax: 2 },
+  rules: { hostInvite: true, defaultPerm: 'talk', callMax: 2, mode: 'independent' },
 }
 
 export { mentionsOf, routeOf } from '@rw/core'
@@ -148,14 +148,14 @@ export class RoomChats extends CentralChats {
   }
 
   /** 방 사람 하나에게 묻고 답을 방에 남긴다 */
-  private async ask(c: Stored, m: RoomMember, q: string, from: 'user' | 'host'): Promise<Member> {
+  private async ask(c: Stored, m: RoomMember, q: string, from: 'user' | 'host', seen: Pick<Stored, 'items'> = c): Promise<Member> {
     const it: Member = { kind: 'member', at: now(), by: m.agent, ...(from === 'host' && { q: clip(q, 2000), from: 'host' }), ...(m.perm === 'read' && { fold: true }) }
     c.items.push(it)
     this.asking.set(m.agent, (this.asking.get(m.agent) ?? 0) + 1)
     this.touch(c)
     const t0 = Date.now()
     try {
-      it.text = clip((await this.oneShot(m.agent, memberPrompt(c, m, this.saved.host, q, from))).trim() || t('(답이 비었습니다)', '(empty answer)'), 8000)
+      it.text = clip((await this.oneShot(m.agent, memberPrompt(seen, m, this.saved.host, q, from))).trim() || t('(답이 비었습니다)', '(empty answer)'), 8000)
     } catch (e) {
       it.error = clip(e instanceof Error ? e.message : String(e), 500)
     } finally {
@@ -196,7 +196,7 @@ export class RoomChats extends CentralChats {
       if (it.kind === 'room') lines.push(`[Room: ${it.by === 'host' ? 'you' : 'the user'} ${it.act === 'rules' ? 'changed the room rules' : `${it.act === 'invite' ? 'invited' : it.act === 'remove' ? 'removed' : 'changed the permission of'} ${it.agent ? nameOf(it.agent) : ''}${it.perm ? ` (${PERM_EN[it.perm]})` : ''}`}]`)
     }
     const r = this.saved
-    const roster = `[Room members: ${r.members.map((m) => `${nameOf(m.agent)} ${PERM_EN[m.perm]}${m.agent === r.host ? ', you' : ''}`).join(' · ')}. Rules: you ${r.rules.hostInvite ? 'may invite (read-only or talk, with a reason)' : 'may not invite'}, ask at most ${r.rules.callMax} at once.]`
+    const roster = `[Room members: ${r.members.map((m) => `${nameOf(m.agent)} ${PERM_EN[m.perm]}${m.agent === r.host ? ', you' : ''}`).join(' · ')}. Rules: you ${r.rules.hostInvite ? 'may invite (read-only or talk, with a reason)' : 'may not invite'}, ask at most ${r.rules.callMax} at once. When the user calls several, they answer ${r.rules.mode === 'debate' ? 'in turn, seeing earlier answers (debate)' : 'independently, without seeing each other (independent)'}.]`
     const head = from === 0 || lines.some((l) => l.startsWith('[Room:')) ? [roster] : []
     const line = this.hostLine
     this.hostLine = ''
@@ -214,10 +214,14 @@ export class RoomChats extends CentralChats {
     c.items.push(mine)
     this.touch(c)
     const members = r.others.map((a) => this.member(a))
+    // 독립(기본, 11/20 "독립적인 답"): 모두 이 말까지의 같은 대화만 보고 서로의 답을 가린 채 동시에, 방장만 다 나온 뒤 모두의 답을 본다.
+    // 토론: 부른 차례대로, 앞사람의 답을 보고 이어 답한다
+    const debate = this.saved.rules.mode === 'debate', seen = { items: c.items.slice() }
     void (async () => {
-      for (const x of members) await this.ask(c, x, m.text, 'user')
+      if (debate) for (const x of members) await this.ask(c, x, m.text, 'user')
+      else await Promise.all(members.map((x) => this.ask(c, x, m.text, 'user', seen)))
       if (!r.host || this.chats.get(id) !== c) return
-      if (r.all) this.hostLine = `[The user called everyone (@모두). ${members.map((x) => nameOf(x.agent)).join(', ')} answered above; answer last and sum up briefly: where you agree, where you differ, what to do.]`
+      if (r.all) this.hostLine = `[The user called everyone (@모두). ${members.map((x) => nameOf(x.agent)).join(', ')} answered above, ${debate ? 'in turn, each seeing the earlier answers (debate mode)' : 'each on its own without seeing the others'}; answer last and sum up briefly: where you agree, where you differ, what to do.]`
       super.send(id, m)
       const at = c.items.lastIndexOf(mine), last = c.items.map((x) => x.kind).lastIndexOf('user')
       if (at >= 0 && last > at) { const [u] = c.items.splice(last, 1); c.items[at] = u!; this.touch(c) }
