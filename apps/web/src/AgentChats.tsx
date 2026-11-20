@@ -26,7 +26,7 @@ import { InlineEdits } from './InlineEdits'
 import { PermTable } from './AgentPermTable'
 import { ProjectPick, RecentChats } from './AgentProjectPick'
 import { ChatHerePick, useChatHere } from './ChatHere'
-import { AgentChip, agentOf, effortsOf, familyName, familyOf, fitEffort, isClaude, useChatSettings, useModels } from './AgentPick'
+import { AgentChip, agentOf, effortsOf, familyName, familyOf, fitEffort, isClaude, useChatSettings, useModels, useNewChatAccount } from './AgentPick'
 import { isReviewCommand, ReviewButton, ReviewCard } from './AgentReview'
 import { CENTRAL_PAGE, CentralBoard, CentralBoardButton, CentralLine, CentralStart } from './CentralChat'
 import { HostWho, hostWhoAt, MemberItem, RoomItem, RoomManage, RoomStrip, useComposerRoom } from './CentralRoom'
@@ -679,12 +679,12 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
   const app = rid === APP_RID
   // 고른 프로젝트만 고치고 다른 프로젝트 · 개념노트는 읽기만 (11/19 사용자 결정, '전체' 범위는 없앰). 함께 고칠 프로젝트는 also
   const [also, setAlso] = useState(() => store.get<string[]>('rw-agent-also', []))
-  const [settings, change] = useChatSettings(), here = useChatHere()
+  const [settings, change] = useChatSettings(), here = useChatHere(), acc = useNewChatAccount(settings.agent, app, change)
   const more = fixed || app ? [] : also.filter((r) => r !== rid && projects?.some((p) => p.id === r)), scope: ChatScope = app ? { kind: 'app' } : { kind: 'project', ...(more.length && { also: more }) }
   const start = async (m: ChatMessageBody) => {
     if (!rid) return false
     askNotify()
-    const c = await agentChatsApi.create({ rid, ...m, ...(here.here && { here: true }), scope, ...settingsOf(settings.trust), model: settings.model, effort: settings.effort, ...(settings.auto && { auto: settings.auto }), ...(!isClaude(settings.agent) && { agent: agentOf(settings.agent) }) })
+    const c = await agentChatsApi.create({ rid, ...m, ...(here.here && { here: true }), scope, ...settingsOf(settings.trust), model: settings.model, effort: settings.effort, ...(settings.auto && { auto: settings.auto }), ...(acc.picked && { account: acc.picked }), ...(!isClaude(settings.agent) && { agent: agentOf(settings.agent) }) })
     void client.invalidateQueries({ queryKey: qk.agentChats })
     onCreated(c)
     return true
@@ -697,7 +697,7 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
   const lead = !fixed && <ProjectPick picked={rid ? [rid, ...more] : []} projects={projects ?? []} appOk={appOk} onPick={([r = '', ...rest]) => { setPick(r); store.set('rw-agent-project', r); setAlso(rest); store.set('rw-agent-also', rest) }} />
   return (
     <div className="ac-new" data-ui="새 대화">
-      {rid && <Composer key={rid} rid={rid} lead={lead} auto={note ? { kind: 'note', ref: note.file, label: note.title } : undefined} settings={settings} onSettings={change} onSubmit={start}
+      {rid && <Composer key={rid} rid={rid} lead={lead} auto={note ? { kind: 'note', ref: note.file, label: note.title } : undefined} settings={{ ...settings, ...(acc.account && { account: acc.account }) }} onSettings={acc.onSettings} onSubmit={start}
         placeholder={app ? t('고칠 것을 쓰세요 · 그림 붙여넣기', 'What should change in the app? · paste images') : t('맡길 일을 쓰세요 · / 명령 · @ 노트 붙이기 · 그림 붙여넣기', 'What should the agent do? · / commands · @ attach · paste images')} />}
       {rid && <ChatHerePick h={here} />}{app && <span className="muted ac-hint">{t('앱 저장소의 따로 둔 폴더에서 고치고 시험합니다. 커밋 · PR은 앱이 하고, GitHub CI가 한 번 더 봅니다. 연구 프로젝트는 읽기만 합니다', 'Edits and tests in a separate folder of the app repository. The app commits and opens the PR, and GitHub CI checks again. Research projects are read-only')}</span>}
     </div>

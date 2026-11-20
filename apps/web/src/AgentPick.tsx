@@ -2,12 +2,13 @@
 // 대화를 시작할 때 Claude · Codex · Gemini 중 하나를 고르고, 시작한 대화는 그 에이전트로 고정한다 (세션이 에이전트마다 따로라서)
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
-import { agentChatsApi, api, type AgentKind, type ChatEffort, type ChatModel, type ModelChoice } from './api'
+import { agentChatsApi, api, CLAUDE_START_MODEL, type AgentKind, type ChatEffort, type ChatModel, type ModelChoice } from './api'
 import { t } from './i18n'
 import { Icon } from './icons'
 import { AgentLogo } from './agentLogos'
 import { qk } from './queries'
 import { store } from './store'
+import { useAgentAccounts } from './ClaudeAccountsSettings'
 import type { Settings } from './ChatComposer'
 
 export const AGENT_KINDS: AgentKind[] = ['claude-code', 'codex', 'gemini']
@@ -27,7 +28,6 @@ export function AgentChip({ agent }: { agent: string }) {
 const BASIC_EFFORTS: ChatEffort[] = ['low', 'medium', 'high']
 /** 맥의 Claude Code에게 모델을 묻지 못했을 때 (별칭 넷). Codex · Gemini는 기본 하나 */
 const FALLBACK_MODELS: ModelChoice[] = [
-  { value: 'default', name: t('기본 모델', 'Default model'), desc: '', efforts: BASIC_EFFORTS },
   { value: 'opus', name: 'Opus', desc: '', efforts: BASIC_EFFORTS },
   { value: 'sonnet', name: 'Sonnet', desc: '', efforts: BASIC_EFFORTS },
   { value: 'haiku', name: 'Haiku', desc: '', efforts: BASIC_EFFORTS },
@@ -140,7 +140,7 @@ export function AgentChoices({ agent, fixed, onPick }: { agent: string; fixed?: 
 }
 
 /** 에이전트를 바꿀 때 함께 바꾸는 것: 모델 · 생각 깊이는 기본으로, 계획 모드는 Claude만 되니 묻기로 */
-export const agentSwitch = (a: AgentKind, trust: Settings['trust']): Partial<Settings> => ({ agent: a, model: 'default', effort: 'medium', ...(a !== 'claude-code' && trust === 'plan' && { trust: 'ask' as const }) })
+export const agentSwitch = (a: AgentKind, trust: Settings['trust']): Partial<Settings> => ({ agent: a, model: a === 'claude-code' ? CLAUDE_START_MODEL : 'default', effort: 'medium', ...(a !== 'claude-code' && trust === 'plan' && { trust: 'ask' as const }) })
 
 const SETTINGS_KEY = 'rw-agent-settings'
 /**
@@ -148,7 +148,7 @@ const SETTINGS_KEY = 'rw-agent-settings'
  * 고른 에이전트가 이 컴퓨터에 없으면 깔리고 로그인한 첫째로 (11/8: 설치 파일로 깐 앱에는 Claude가 없고 Codex만 있을 수 있다)
  */
 export function useChatSettings(): [Settings, (s: Partial<Settings>) => void] {
-  const [settings, setSettings] = useState<Settings>(() => ({ trust: 'edit', model: 'default', effort: 'medium', agent: 'claude-code', ...store.get<Partial<Settings>>(SETTINGS_KEY, {}) }))
+  const [settings, setSettings] = useState<Settings>(() => { const v: Settings = { trust: 'edit', model: CLAUDE_START_MODEL, effort: 'medium', agent: 'claude-code', ...store.get<Partial<Settings>>(SETTINGS_KEY, {}) }; return v.model === 'default' && isClaude(v.agent) ? { ...v, model: CLAUDE_START_MODEL } : v })
   const per = useAgentPrefs()?.per
   const ready = readyAgent(settings.agent, useAgentKinds(), (a) => per?.[a]?.role === 'review')
   // 새 대화의 권한은 그 에이전트의 시작 권한으로 시작한다 (설정 › 에이전트, 11/9). 입력란에서 바꾼 것은 이 새 대화에만
@@ -157,7 +157,26 @@ export function useChatSettings(): [Settings, (s: Partial<Settings>) => void] {
   const perNow = useRef(per)
   perNow.current = per
   useEffect(() => { const p = ready && perNow.current?.[ready]; if (ready) setSettings((v) => ({ ...v, ...agentSwitch(ready, v.trust), ...(p && { trust: p.trust }) })) }, [ready])
+  // Codex · Gemini도 「기본 모델」 대신 그 에이전트가 지금 쓰는 모델로 시작한다 (11/20). 목록을 받으면 바꾼다
+  const models = useModels(settings.agent)
+  useEffect(() => {
+    const now = settings.model === 'default' && models.find((m) => m.value === 'default')?.resolved
+    if (now && models.some((m) => m.value === now)) setSettings((v) => (v.model === 'default' ? { ...v, model: now } : v))
+  }, [models, settings.model])
   const change = (s: Partial<Settings>) => { const v = { ...settings, ...s, ...(s.agent && s.agent !== settings.agent && per?.[agentOf(s.agent)] && { trust: per[agentOf(s.agent)]!.trust }) }; setSettings(v); store.set(SETTINGS_KEY, v) }
   const pref = per?.[agentOf(settings.agent)]
   return [{ ...settings, ...(pref?.auto && settings.trust === pref.trust && { auto: pref.auto }) }, change]
+}
+
+/**
+ * 새 대화의 계정 (11/20 "계정 변경도 할 수 있게"): 고르지 않으면 그 대화 종류의 계정(설정 › 에이전트)으로 보이고,
+ * 입력란 모델 메뉴의 계정에서 고른 것만 이 새 대화에 보낸다(picked). 나머지 설정은 change로
+ */
+export function useNewChatAccount(agent: string, app: boolean, change: (s: Partial<Settings>) => void) {
+  const book = useAgentAccounts(agent === 'codex' ? 'codex' : 'claude').data
+  const [acct, setAcct] = useState<{ agent: string; id: string }>()
+  const picked = acct?.agent === agent ? acct.id : undefined
+  const account = picked ?? (book ? book.roles[app ? 'app' : 'project'] ?? book.base : undefined)
+  const onSettings = (s: Partial<Settings>) => { const { account: a, ...rest } = s; if (a) setAcct({ agent, id: a }); if (Object.keys(rest).length) change(rest) }
+  return { picked, account, onSettings }
 }

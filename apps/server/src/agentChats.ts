@@ -14,7 +14,7 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import { APP_RID, CENTRAL_RID } from '@rw/core/contract/agentChats'
+import { APP_RID, CENTRAL_RID, startModel } from '@rw/core/contract/agentChats'
 import type { AppChecks, AppSubmitBody, AppSubmitted, AskAnswer, Attach, CentralOpenBody, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
 import type { AppWork, Snap } from './appWorktree.js'
 import { autoCustom, autoOf, type AgentSettings } from '@rw/core'
@@ -243,7 +243,7 @@ export class AgentChats {
       if (!f.endsWith('.json')) continue
       try {
         const c = JSON.parse(fs.readFileSync(path.join(deps.dir, f), 'utf8')) as Stored
-        c.mode ??= 'edit'; c.model ??= 'default'; c.effort ??= 'medium'; c.changed ??= []; c.todos ??= []
+        c.mode ??= 'edit'; c.model ??= 'default'; c.model = startModel(c.agent ?? 'claude-code', c.model); c.effort ??= 'medium'; c.changed ??= []; c.todos ??= []
         delete c.live
         delete c.tasks
         delete c.compacting
@@ -321,7 +321,7 @@ export class AgentChats {
       state: 'idle',
       // 계획 모드는 Claude만 (계획 카드 = ExitPlanMode). Codex · Gemini는 묻고 하기로
       mode: b.mode === 'plan' && b.agent && b.agent !== 'claude-code' ? 'ask' : b.mode ?? 'edit',
-      model: b.model ?? 'default',
+      model: startModel(b.agent ?? 'claude-code', b.model),
       effort: b.effort ?? 'medium',
       claims: [],
       changed: [],
@@ -405,7 +405,7 @@ export class AgentChats {
     if (s.auto) c.auto = s.auto
     else if (s.write || s.mode) delete c.auto
     if (c.auto && !autoCustom(c)) delete c.auto
-    if (s.model) c.model = s.model
+    if (s.model) c.model = startModel(c.agent, s.model)
     if (s.effort) c.effort = s.effort
     if (s.account) switchAccount(c, s.account, this.deps.accounts)
     this.touch(c)

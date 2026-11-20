@@ -19,6 +19,10 @@ export const CHAT_WRITE = ['read', 'notes'] as const
 export const CHAT_SCOPES = ['project', 'all', 'topic', 'note', 'app'] as const
 /** 앱 고치기 대화의 rid (연구 프로젝트 id와 겹치지 않는다) */
 export const APP_RID = '_app'
+/** Claude 대화가 처음 쓰는 모델 (11/20 사용자 "기본 모델을 두기보다 대화에서 설정하고 변경하게"). 「기본 모델」은 계정마다 달라 크레딧이 드는 모델로 풀린 적이 있다 */
+export const CLAUDE_START_MODEL = 'opus'
+/** 대화의 모델: Claude는 「기본 모델」 없이 정한 모델로 (옛 값도). Codex · Gemini는 그 에이전트의 기본을 받는다 */
+export const startModel = (agent: string, m?: string): string => (agent === 'claude-code' && (!m || m === 'default') ? CLAUDE_START_MODEL : m ?? 'default')
 /**
  * 중앙 대화의 rid (11/16 사용자 결정 "중앙 에이전트", 시안 https://claude.ai/artifact/9x2Bud4dVQyYkS6RhdnbAG): 맥에 하나.
  * 읽기만 하고, 일은 하위 대화(앱 고치기 · 프로젝트 작성 · 피드백)를 열어 맡긴다 (agentCentral.ts)

@@ -7,6 +7,8 @@ export type { AgentKind, CentralKid, RoomMember, RoomPerm, RoomRules, RoomState,
 
 /** 앱 고치기 대화의 rid (계약의 APP_RID와 같은 값. 값을 가져오면 화면 번들에 zod가 들어가서 여기 다시 적는다) */
 export const APP_RID = '_app'
+/** Claude 대화가 처음 쓰는 모델 (계약의 CLAUDE_START_MODEL과 같은 값, 11/20 「기본 모델」 없앰) */
+export const CLAUDE_START_MODEL = 'opus'
 /** 중앙 대화의 rid (계약의 CENTRAL_RID, 11/16 "중앙 에이전트") */
 export const CENTRAL_RID = '_central'
 
