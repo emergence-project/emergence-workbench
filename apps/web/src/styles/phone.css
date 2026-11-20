@@ -138,6 +138,9 @@
   .files-page .fv-side { width: auto; flex: none; max-height: 38%; border-right: 0; border-bottom: 1px solid var(--line); }
   .files-page .fv-side .fv-tree { flex: 0 1 auto; }
   .files-page .fv-main { flex: 1; min-height: 0; }
+  /* 주제 · 노트 카드: 정한 폭(184px)은 폰에서 한 줄에 하나만 들어가 오른쪽 절반이 빈다. 두 단으로 나눠 쓴다 */
+  .kc-grid, .landing .kc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
+  .kc-grid > .kc, .kc-grid > .kc-new, .kc-grid > .kc-new-split, .landing .kc-grid > .kc, .landing .kc-grid > .kc-new { width: 100%; }
 }
 
 /* ＋ 메모 (phone/PhoneMemo.tsx): 아래 탭 바 바로 위 오른쪽에 떠 있는 버튼(탭 바 안에 둔다), 누르면 시트 */
