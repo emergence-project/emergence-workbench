@@ -69,6 +69,9 @@ import { registerPhone } from './routes/phone.js'
 import { Google } from './google.js'
 import type { RepoIO } from './githubRepos.js'
 import { registerKeyGate } from './appKey.js'
+import { machineName } from './backup.js'
+import { deviceKeyOk } from './deviceServer.js'
+import { registerChatPlace, type ChatPlaceDeps } from './routes/chatPlace.js'
 import { GithubAccount, sampleGithubFetch } from './githubAccount.js'
 import { memorySecretStore, secretStore } from './secretStore.js'
 import { registerAccount } from './routes/account.js'
@@ -133,6 +136,8 @@ export interface AppOptions {
   backup?: { dir: string; remote: string | null; intervalMs?: number; settings?: string }
   /** 폰에서 보기 (기본: 이 맥의 Tailscale. 예제 모드는 가짜, 테스트에서 바꿈) */
   phone?: Phone
+  /** 대화를 서버로 넘길 때 쓰는 연결 (시험에서 바꾼다, routes/chatPlace.ts) */
+  chatPlace?: ChatPlaceDeps
   /** 이 서버가 받는 포트 (시작할 때 폰에서 보기 상태를 읽는 데 쓴다) */
   port?: number
   /** 설치 파일로 깐 앱의 서버 열쇠 (appKey.ts). 있으면 열쇠를 가진 요청만 받는다 */
@@ -177,7 +182,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   setCoreLang(currentLang)
   app.addHook('onRequest', (req, _reply, done) => withLang(asLang(req.headers['x-rw-lang']), done))
   // 설치 파일로 깐 앱: 창이 넘긴 열쇠가 없는 요청은 받지 않는다 (appKey.ts). 창은 /__open으로 한 번 들어와 쿠키를 받는다
-  if (opts.key) registerKeyGate(app, opts.key, opts.port ?? 0)
+  if (opts.key) registerKeyGate(app, opts.key, opts.port ?? 0, (h) => deviceKeyOk(h, [opts.backup?.dir, opts.personalDir], machineName()))
 
   // 에이전트 연결 확인 (계정 › 시작 준비): MCP 입구가 붙이는 머리
   app.addHook('onRequest', (req, _reply, done) => { const a = req.headers['x-rw-agent']; if (typeof a === 'string' && a) noteAgentCall(opts.configDir, a); done() })
@@ -353,6 +358,8 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   const account = opts.account ?? new GithubAccount(opts.configDir, opts.sandbox ? memorySecretStore() : secretStore(opts.configDir), opts.sandbox ? sampleGithubFetch() : fetch, () => broadcast({ type: 'account', research: null }))
   if (!opts.account && !opts.sandbox) void account.load().catch((e: unknown) => console.warn(`GitHub 로그인을 읽지 못했습니다: ${e instanceof Error ? e.message : String(e)}`))
   const ctx: RouteContext = { registry, opts, broadcast, clients, wbOf, ensureWatch, watchers, repoPath, recordsRoot, conceptIndex, libraryReads, account }
+  // 대화를 서버에서 (3단계): 대화 라우트보다 먼저 걸어, 서버로 정한 컴퓨터가 있으면 대화 요청을 그리로 넘긴다
+  registerChatPlace(app, ctx, opts.chatPlace)
   registerApiIndex(app, ctx) // 맨 앞: 뒤에 등록되는 경로를 모아 GET /api로 보여 준다
   registerResearches(app, ctx)
   registerSettings(app, ctx)

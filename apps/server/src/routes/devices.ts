@@ -5,7 +5,7 @@ import * as C from '@rw/core/contract/devices'
 import { parseBody, replies } from '../contract.js'
 import { machineName } from '../backup.js'
 import { logoutDevice, otherDevices, setDeviceAccounts, setDeviceLogout, thisDevice } from '../devices.js'
-import { BEAT_MS, DeviceHub, mergeDevices, readServerConfig, writeServerConfig, type ServerConfig } from '../deviceServer.js'
+import { BEAT_MS, DEVICE_KEY_HEADER, DeviceHub, mergeDevices, readServerConfig, writeServerConfig, type ServerConfig } from '../deviceServer.js'
 import { t } from '../i18n.js'
 import type { PhoneStatus } from '@rw/core/contract/phone'
 import type { Phone } from '../phone.js'
@@ -13,8 +13,6 @@ import { errorLog, repeat } from '../scheduler.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 
-/** 다른 컴퓨터가 서버에 보낼 때 붙이는 머리: 개인 저장소의 server.yaml에 적힌 열쇠 */
-export const DEVICE_KEY_HEADER = 'x-rw-device-key'
 
 export interface DeviceDeps {
   phone: Phone
