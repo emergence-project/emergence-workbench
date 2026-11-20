@@ -4,7 +4,7 @@
 // 나머지는 함께 고친다(scope.also). 그 밖의 일과 앱 버그는 대화가 중앙 대화에 넘긴다(central_help). 예전의 범위(이 프로젝트 · 전체)는 없앴다
 import { useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { agentChatsApi, api, APP_RID, type ChatRow } from './api'
+import { agentChatsApi, api, APP_RID, type ChatRow, type ChatScope } from './api'
 import { PopButton } from './ChatComposer'
 import { t } from './i18n'
 import { Icon } from './icons'
@@ -16,26 +16,32 @@ export function togglePicked(picked: string[], id: string): string[] {
   return picked.length > 1 ? picked.filter((r) => r !== id) : picked
 }
 
-export function ProjectPick({ picked, projects, appOk, onPick }: {
+export function ProjectPick({ picked, projects, appOk, apps = [], appTarget, onPick, onAppTarget }: {
   /** 고른 프로젝트 (맨 앞이 대화를 여는 프로젝트). 앱 고치기면 [APP_RID] */
   picked: string[]
   projects: { id: string; title: string }[]
   /** 앱 고치기 대화를 열 수 있는지 (에이전트 화면, 앱 저장소가 있는 맥) */
   appOk: boolean
+  /** 이 컴퓨터에서 고칠 수 있는 다른 앱 (11/20, 예: 퀀텀캐드) */
+  apps?: { id: string; name: string }[]
+  /** 앱 고치기면 고칠 다른 앱 id (없으면 이 앱) */
+  appTarget?: string
   onPick(picked: string[]): void
+  onAppTarget?(id: string): void
 }) {
   const app = picked[0] === APP_RID
-  const name = app ? t('앱 수정', 'Fix the app') : projects.find((p) => p.id === picked[0])?.title ?? ''
+  const other = app && appTarget ? apps.find((a) => a.id === appTarget) : undefined
+  const name = other ? t(`${other.name} 수정`, `Fix ${other.name}`) : app ? t('앱 수정', 'Fix the app') : projects.find((p) => p.id === picked[0])?.title ?? ''
   const more = app ? 0 : picked.length - 1
   const label = <><span className="ac-pop-ico" aria-hidden>{app ? Icon.spark : Icon.research}</span><span className="ac-pick-name">{name}{more ? t(` 외 ${more}`, ` +${more}`) : ''}</span> ▾</>
   return (
     <PopButton ui="대화 프로젝트 고르기" tip={t('고칠 프로젝트 (여럿)', 'Projects to change (several)')} wide pill label={label}>
-      {(close) => <PickMenu picked={picked} projects={projects} appOk={appOk} onPick={onPick} onApp={() => { close(); onPick([APP_RID]) }} />}
+      {(close) => <PickMenu picked={picked} projects={projects} appOk={appOk} apps={apps} appTarget={appTarget} onPick={onPick} onApp={(id) => { close(); onAppTarget?.(id ?? ''); onPick([APP_RID]) }} />}
     </PopButton>
   )
 }
 
-function PickMenu({ picked, projects, appOk, onPick, onApp }: Omit<Parameters<typeof ProjectPick>[0], 'onPick'> & { onPick(picked: string[]): void; onApp(): void }) {
+function PickMenu({ picked, projects, appOk, apps = [], appTarget, onPick, onApp }: Omit<Parameters<typeof ProjectPick>[0], 'onPick' | 'onAppTarget'> & { onPick(picked: string[]): void; onApp(id?: string): void }) {
   const [q, setQ] = useState('')
   const shown = projects.filter((p) => p.title.toLowerCase().includes(q.trim().toLowerCase()))
   const check = (on: boolean) => <span className="ac-pop-check" aria-hidden>{on ? Icon.check : null}</span>
@@ -49,9 +55,13 @@ function PickMenu({ picked, projects, appOk, onPick, onApp }: Omit<Parameters<ty
       return <button key={p.id} role="menuitemcheckbox" aria-checked={on} className={on ? 'on' : ''} onClick={() => toggle(p.id)}>{check(on)}{p.title}</button>
     })}
     {!shown.length && <div className="muted ac-pop-h">{t('맞는 프로젝트가 없습니다', 'No matching project')}</div>}
-    {appOk && !q && <button role="menuitemradio" aria-checked={app} className={app ? 'on' : ''} onClick={onApp}>{check(app)}{t('워크벤치 전체: 앱 수정', 'Whole workbench: fix the app')}</button>}
+    {appOk && !q && <button role="menuitemradio" aria-checked={app && !appTarget} className={app && !appTarget ? 'on' : ''} onClick={() => onApp()}>{check(app && !appTarget)}{t('워크벤치 전체: 앱 수정', 'Whole workbench: fix the app')}</button>}
+    {appOk && !q && apps.map((a) => {
+      const on = app && appTarget === a.id
+      return <button key={a.id} role="menuitemradio" aria-checked={on} className={on ? 'on' : ''} data-ui="다른 앱 수정" onClick={() => onApp(a.id)}>{check(on)}{t(`${a.name}: 앱 수정`, `${a.name}: fix the app`)}</button>
+    })}
     <div className="muted ac-pop-h ac-pick-sep ac-pick-hint" data-ui="고칠 프로젝트 안내">{app
-      ? t('앱 저장소만 고칩니다. 연구 프로젝트는 읽기만 합니다', 'Changes only the app repository; research projects are read-only')
+      ? t('고른 앱의 저장소만 고칩니다. 연구 프로젝트는 읽기만 합니다', 'Changes only the picked app\'s repository; research projects are read-only')
       : t('고른 프로젝트만 고칩니다. 다른 프로젝트 · 개념노트는 읽기만 하고, 그곳을 고칠 일이나 앱 버그는 중앙 대화에 넘깁니다', 'Changes only the picked projects. Other projects and concept notes are read-only; work there and app bugs go to the central conversation')}</div>
   </>
 }
@@ -72,4 +82,22 @@ export function RecentChats({ onAll, line }: { onAll(): void; line(c: ChatRow): 
       <button className="a ac-recent-all" data-ui="모든 대화" onClick={onAll}>{t('모든 대화', 'All conversations')} ›</button>
     </div>
   )
+}
+
+/** 다른 앱의 보일 이름 (서버 appWorktree.ts otherApps의 name과 같게, 11/20). 목록에 없는 앱은 id 그대로 */
+const OTHER_APP_NAMES: Record<string, string> = { qcad: 'QuantumCAD' }
+
+export function scopeName(s: ChatScope, topics?: { id: string; title: string }[]): string {
+  if (s.kind === 'project') return s.also?.length ? t(`프로젝트 ${s.also.length + 1}개`, `${s.also.length + 1} projects`) : t('프로젝트 전체', 'Whole project')
+  if (s.kind === 'all') return t('전체', 'Everything')
+  if (s.kind === 'app') return s.app ? t(`${OTHER_APP_NAMES[s.app] ?? s.app} 수정`, `Fix ${OTHER_APP_NAMES[s.app] ?? s.app}`) : t('앱 수정', 'Fix the app')
+  if (s.kind === 'topic') return `${t('주제', 'Topic')} · ${topics?.find((x) => x.id === s.target)?.title ?? s.target}`
+  return `${t('노트', 'Note')} · ${s.target?.split('/').slice(-2, -1)[0] ?? s.target}`
+}
+
+/** 「앱 수정」 새 대화의 안내. name = 고른 다른 앱 (없으면 이 앱) */
+export function AppFixHint({ name }: { name?: string }) {
+  return <span className="muted ac-hint">{name
+    ? t(`${name} 저장소의 따로 둔 폴더에서 고치고 시험합니다. 커밋 · PR은 앱이 하고, 그 앱의 CI가 한 번 더 봅니다. 연구 프로젝트는 읽기만 합니다`, `Edits and tests in a separate folder of the ${name} repository. The app commits and opens the PR, and that app's CI checks again. Research projects are read-only`)
+    : t('앱 저장소의 따로 둔 폴더에서 고치고 시험합니다. 커밋 · PR은 앱이 하고, GitHub CI가 한 번 더 봅니다. 연구 프로젝트는 읽기만 합니다', 'Edits and tests in a separate folder of the app repository. The app commits and opens the PR, and GitHub CI checks again. Research projects are read-only')}</span>
 }

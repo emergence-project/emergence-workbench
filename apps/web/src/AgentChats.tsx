@@ -24,7 +24,7 @@ import { AGENT_PANEL_OPEN, agentPanelKey } from './agentPanelOpen'
 import { ForeignBar } from './AgentForeign'
 import { InlineEdits } from './InlineEdits'
 import { PermTable } from './AgentPermTable'
-import { ProjectPick, RecentChats } from './AgentProjectPick'
+import { AppFixHint, ProjectPick, RecentChats, scopeName } from './AgentProjectPick'
 import { ChatHerePick, useChatHere } from './ChatHere'
 import { AgentChip, agentOf, effortsOf, familyName, familyOf, fitEffort, isClaude, useChatSettings, useModels, useNewChatAccount } from './AgentPick'
 import { isReviewCommand, ReviewButton, ReviewCard } from './AgentReview'
@@ -100,13 +100,6 @@ export const chatTitles = new Map<string, string>()
 const useChat = (id: string, enabled = true) => useQuery({ queryKey: qk.agentChat(id), queryFn: () => agentChatsApi.get(id).then((c) => { chatTitles.set(c.id, c.title); return c }), enabled })
 export const useProjects = () => useQuery({ queryKey: qk.researches, queryFn: () => api.researches() }).data?.researches
 
-function scopeName(s: ChatScope, topics?: { id: string; title: string }[]): string {
-  if (s.kind === 'project') return s.also?.length ? t(`프로젝트 ${s.also.length + 1}개`, `${s.also.length + 1} projects`) : t('프로젝트 전체', 'Whole project')
-  if (s.kind === 'all') return t('전체', 'Everything')
-  if (s.kind === 'app') return t('앱 수정', 'Fix the app')
-  if (s.kind === 'topic') return `${t('주제', 'Topic')} · ${topics?.find((x) => x.id === s.target)?.title ?? s.target}`
-  return `${t('노트', 'Note')} · ${s.target?.split('/').slice(-2, -1)[0] ?? s.target}`
-}
 
 /** 대화 목록 · 머리에 보일 프로젝트 이름 (앱 고치기 대화는 「앱」) */
 export const projectName = (rid: string, projects?: { id: string; title: string }[]) => (rid === APP_RID ? t('앱', 'App') : rid === CENTRAL_RID ? t('중앙', 'Central') : rid === DEBATE_RID ? t('토론', 'Debate') : rid === LIBRARY_RID ? t('지식', 'Knowledge') : projects?.find((p) => p.id === rid)?.title ?? rid)
@@ -676,10 +669,14 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
   }, [])
   const rid = fixed ?? (projects?.some((p) => p.id === pick) || (appOk && pick === APP_RID) ? pick : projects?.[0]?.id ?? '')
   const app = rid === APP_RID
+  // 앱 고치기면 고칠 앱 (11/20): 빈 값 = 이 앱, 아니면 이 컴퓨터에 받아 둔 다른 앱 (예: 퀀텀캐드)
+  const [appPick, setAppPick] = useState(() => store.get<string>('rw-agent-app', ''))
+  const apps = listed?.apps ?? []
+  const target = app && apps.some((a) => a.id === appPick) ? appPick : ''
   // 고른 프로젝트만 고치고 다른 프로젝트 · 개념노트는 읽기만 (11/19 사용자 결정, '전체' 범위는 없앰). 함께 고칠 프로젝트는 also
   const [also, setAlso] = useState(() => store.get<string[]>('rw-agent-also', []))
   const [settings, change] = useChatSettings(), here = useChatHere(), acc = useNewChatAccount(settings.agent, app, change)
-  const more = fixed || app ? [] : also.filter((r) => r !== rid && projects?.some((p) => p.id === r)), scope: ChatScope = app ? { kind: 'app' } : { kind: 'project', ...(more.length && { also: more }) }
+  const more = fixed || app ? [] : also.filter((r) => r !== rid && projects?.some((p) => p.id === r)), scope: ChatScope = app ? { kind: 'app', ...(target && { app: target }) } : { kind: 'project', ...(more.length && { also: more }) }
   const start = async (m: ChatMessageBody) => {
     if (!rid) return false
     askNotify()
@@ -693,12 +690,12 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
     <div className="ac-new" data-ui="새 대화"><p className="muted">{t('대화는 프로젝트 하나에서 엽니다. 등록한 프로젝트가 아직 없습니다: 레일의 ＋로 프로젝트를 등록하세요.', 'A conversation opens in one project, and no project is registered yet. Register one with ＋ on the rail.')}</p></div>
   )
   // 고칠 프로젝트는 입력란 아래 줄의 알약 버튼 하나 (11/8 14:16 제안, 시안 1-2절). 프로젝트가 정해진 좁은 패널은 그 프로젝트만
-  const lead = !fixed && <ProjectPick picked={rid ? [rid, ...more] : []} projects={projects ?? []} appOk={appOk} onPick={([r = '', ...rest]) => { setPick(r); store.set('rw-agent-project', r); setAlso(rest); store.set('rw-agent-also', rest) }} />
+  const lead = !fixed && <ProjectPick picked={rid ? [rid, ...more] : []} projects={projects ?? []} appOk={appOk} apps={apps} appTarget={target} onAppTarget={(id) => { setAppPick(id); store.set('rw-agent-app', id) }} onPick={([r = '', ...rest]) => { setPick(r); store.set('rw-agent-project', r); setAlso(rest); store.set('rw-agent-also', rest) }} />
   return (
     <div className="ac-new" data-ui="새 대화">
       {rid && <Composer key={rid} rid={rid} lead={lead} auto={note ? { kind: 'note', ref: note.file, label: note.title } : undefined} settings={{ ...settings, ...(acc.account && { account: acc.account }) }} onSettings={acc.onSettings} onSubmit={start}
         placeholder={app ? t('고칠 것을 쓰세요 · 그림 붙여넣기', 'What should change in the app? · paste images') : t('맡길 일을 쓰세요 · / 명령 · @ 노트 붙이기 · 그림 붙여넣기', 'What should the agent do? · / commands · @ attach · paste images')} />}
-      {rid && <ChatHerePick h={here} />}{app && <span className="muted ac-hint">{t('앱 저장소의 따로 둔 폴더에서 고치고 시험합니다. 커밋 · PR은 앱이 하고, GitHub CI가 한 번 더 봅니다. 연구 프로젝트는 읽기만 합니다', 'Edits and tests in a separate folder of the app repository. The app commits and opens the PR, and GitHub CI checks again. Research projects are read-only')}</span>}
+      {rid && <ChatHerePick h={here} />}{app && <AppFixHint name={target && (apps.find((a) => a.id === target)?.name ?? target)} />}
     </div>
   )
 }

@@ -18,8 +18,9 @@ import { t } from './i18n.js'
 export const REPORT_BRIEF = 'End every turn with a report for the central conversation: a last section headed exactly "## 보고", in Korean, with these lines: "- 바꾼 것:" what changed, on the screen or in behavior (or what you found); "- 위치:" pull request number, main files, feedback record; "- 판단:" the decision or answer in one line (없음 if none); "- 남은 일:" what is left and what the user must do (없음 if nothing). Keep it under 1500 characters; the app hands it to the central conversation as it is.'
 
 /** 앱 고치기 대화의 안내 */
-export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMode; rules?: string; feedback?: boolean; agent?: string; parent?: boolean }): string {
+export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMode; rules?: string; feedback?: boolean; agent?: string; parent?: boolean; other?: { name: string; brief?: string[] } }): string {
   const claude = !o.agent || o.agent === 'claude-code'
+  if (o.other) return otherAppBrief(o, o.other, claude)
   const lines = [
     `You are fixing the Emergence Workbench app itself, from inside the app. The current folder is a separate git worktree of the app repository on branch ${o.branch}, made from origin/main. The running app and the user's own checkout are elsewhere.`,
     // 규칙은 그 대화에 필요한 것만 (차례마다 다시 읽는 앞 내용을 줄이려고, 10/22): 개인 규칙 · 피드백 규칙은 피드백을 맡은 대화만
@@ -46,6 +47,29 @@ export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMo
     `Do not edit the feedback files. Record the handling with ${FEEDBACK_ANSWER}: state, a note whose first line is one of the fixed answer phrases, understood, cause, and clean (the corrected sentence); ask when the user must decide; miss and lesson when redoing a revision request; replies for unanswered comments. For a fix, call it after ${APP_CHECKS} shows CI green, with after = the screen picture name from scripts/shots/screens.mjs that shows the change, so the app saves the 전/후 pictures. When you made mockups for the user to choose from, pass their names as mockups (on the handling, or replies[].mockups on a reply) instead of only writing the path: the feedback screen shows them as pictures the user can page through and decide on.`,
   )
   // 중앙이 연 하위 대화 (11/18): 중앙이 끝남 · CI · 합쳐짐에 저절로 깨어 이어 받으므로, 「나중에 하겠다」로 끝내지 않는다
+  if (o.parent) lines.push(`The central conversation opened this one and is woken by the app when your turn ends. Do not end a turn promising to continue later: finish the work in this turn. Wait for CI with ${APP_CHECKS} wait. If you must wait for something outside this conversation, say what you wait for in one line and end the turn; the central conversation wakes you.`, REPORT_BRIEF)
+  if (claude && o.mode === 'plan' && o.write !== 'read') lines.push(`Plan first: read what you need, then call ${PLAN_TOOL} with a short numbered plan. Change nothing until the user approves it.`)
+  lines.push(`${claude ? 'Use TodoWrite' : 'Keep a plan'} for work with three or more steps. Write to the user in Korean, briefly: result first.`)
+  return lines.join('\n')
+}
+
+/**
+ * 다른 앱을 고치는 대화의 안내 (11/20, 퀀텀캐드): 올리기 · CI · 합치기 도구와 막는 명령은 같고,
+ * 그 앱의 규칙 파일 · 검사 명령을 따른다. 이 앱의 소개 · 디자인 문서 · 공개 저장소 규칙은 쓰지 않는다
+ */
+function otherAppBrief(o: { branch: string; write: ChatWrite; mode?: ChatMode; parent?: boolean }, app: { name: string; brief?: string[] }, claude: boolean): string {
+  const lines = [
+    `You are fixing the ${app.name} app, from inside the Emergence Workbench app. The current folder is a separate git worktree of the ${app.name} repository on branch ${o.branch}, made from origin/main. The running app and the user's own checkout are elsewhere.`,
+    ...(app.brief ?? []),
+    o.write === 'read'
+      ? 'This conversation is read-only: do not change files. Tell the user what you would change.'
+      : 'Edit files directly inside this folder (the user sees each change; files changed by commands show up from git diff at the end of your turn) and run commands here. Read large files in parts instead of whole.',
+    ...(claude ? [`To find something across many files or read several large files, hand it to the ${EXPLORE_AGENT} subagent (Agent tool, subagent_type "${EXPLORE_AGENT}", a small fast model): it returns only what it found, so this conversation stays short.`,
+      'This conversation stays open between turns: a long command can run in the background (run_in_background) and you continue when it finishes, even after your turn ends. Never sleep to wait.'] : []),
+    `Do not push, open or merge PRs with git or gh yourself and do not touch the running app: when the change is ready, call ${APP_SUBMIT} with a one-line Korean PR title and a body that follows the repository's PR template; the app runs quick checks, commits, pushes this conversation's own branch and opens or updates its pull request. Call ${APP_CHECKS} with wait (minutes) to wait for CI; if a check fails, read the log, fix and call ${APP_SUBMIT} again. If the app says the branch conflicts with main, run \`git fetch origin main && git merge origin/main\`, resolve, check again and submit.`,
+    `When every check is green, call ${APP_MERGE} to squash-merge your own pull request, unless the user asked to look at it before merging. The app refuses while CI is not green or the branch conflicts with main.`,
+    'Research projects are read-only here: do not change notes, records, tasks or problems of other repositories.',
+  ]
   if (o.parent) lines.push(`The central conversation opened this one and is woken by the app when your turn ends. Do not end a turn promising to continue later: finish the work in this turn. Wait for CI with ${APP_CHECKS} wait. If you must wait for something outside this conversation, say what you wait for in one line and end the turn; the central conversation wakes you.`, REPORT_BRIEF)
   if (claude && o.mode === 'plan' && o.write !== 'read') lines.push(`Plan first: read what you need, then call ${PLAN_TOOL} with a short numbered plan. Change nothing until the user approves it.`)
   lines.push(`${claude ? 'Use TodoWrite' : 'Keep a plan'} for work with three or more steps. Write to the user in Korean, briefly: result first.`)

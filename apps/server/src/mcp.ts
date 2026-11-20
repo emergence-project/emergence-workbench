@@ -474,8 +474,8 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
     })
     server.registerTool('app_checks', {
       title: 'PR checks',
-      description: 'The CI result of this conversation\'s pull request: each check and its state, done / ok, and the end of the failed log when a check failed. Pass wait (minutes, up to 10) to wait here until the checks finish instead of calling again; do not sleep in a shell to wait.',
-      inputSchema: { wait: z.number().min(0).max(10).optional().describe('Minutes to wait for the checks to finish (default 0 = answer now)') },
+      description: 'The CI result of this conversation\'s pull request: each check and its state, done / ok, and the end of the failed log when a check failed. Pass wait (minutes, up to 10, or up to 30 for an app whose brief says so) to wait here until the checks finish instead of calling again; do not sleep in a shell to wait.',
+      inputSchema: { wait: z.number().min(0).max(30).optional().describe('Minutes to wait for the checks to finish (default 0 = answer now)') },
       annotations: ro,
     }, async ({ wait }) => call(`/api/agent-chats/${chat}/app/checks${wait ? `?wait=${wait}` : ''}`))
     server.registerTool('feedback_answer', {
@@ -530,10 +530,10 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
     }
     server.registerTool('chat_list', {
       title: 'Sub-conversations',
-      description: 'Your sub-conversations: id, project (_app = the app itself), title, state, wait (plan / ask = the user must answer), pull request, report (with reported: true its own report section from the last turn, whole: what changed, where, decision, what is left; otherwise its last agent text, cut) and, for closed ones, the summary. Check it before opening a new one.',
+      description: 'Your sub-conversations, and apps = the other apps whose repositories are on this computer (open an app conversation for one with chat_open app). Each: id, project (_app = an app conversation, app = which other app if not this one), title, state, wait (plan / ask = the user must answer), pull request, report (with reported: true its own report section from the last turn, whole: what changed, where, decision, what is left; otherwise its last agent text, cut) and, for closed ones, the summary. Check it before opening a new one.',
       inputSchema: {},
       annotations: ro,
-    }, async () => call('/api/agent-central', (b: { kids: unknown[] }) => b.kids))
+    }, async () => call('/api/agent-central', (b: { kids: unknown[]; apps?: unknown[] }) => (b.apps?.length ? { kids: b.kids, apps: b.apps } : b.kids)))
     server.registerTool('feedback_turns', {
       title: 'Feedback for the agent',
       description: 'App feedback items that are the agent\'s turn now (new items, revise requests, unanswered comments): key, kind, screen part (target), text, reasons, taken (another computer or the cloud routine claimed it: skip), chat (a conversation here already handles it), group (items with the same group go to one conversation: fixes on the same screen, or questions · suggestions). Use it when the user asks to handle new feedback, then open one feedback sub-conversation per group with chat_open (feedbacks = the keys of that group).',
@@ -542,15 +542,15 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
     }, async () => call('/api/agent-central/feedback', (b: { items: unknown[] }) => b.items))
     server.registerTool('chat_open', {
       title: 'Open sub-conversation',
-      description: 'Hand work to a new sub-conversation. role app = fix or build in the app repository (own work folder and pull request; opened while memory is free, otherwise held and opened by the app when memory frees; urgent: true opens one at once for an app bug or a stuck app). role project = write or edit in one research project (pass project; edits go to the user\'s edit review). role feedback = handle app feedback (pass feedbacks = the keys of one group from feedback_turns, or feedback = one key; refused if another computer or the cloud routine claimed one). task = the user\'s words verbatim plus the context needed. It starts working right away.',
+      description: 'Hand work to a new sub-conversation. role app = fix or build in the app repository (own work folder and pull request; pass app = an id from chat_list apps, e.g. qcad, to fix that other app instead of this one; opened while memory is free, otherwise held and opened by the app when memory frees; urgent: true opens one at once for an app bug or a stuck app). role project = write or edit in one research project (pass project; edits go to the user\'s edit review). role feedback = handle app feedback (pass feedbacks = the keys of one group from feedback_turns, or feedback = one key; refused if another computer or the cloud routine claimed one). task = the user\'s words verbatim plus the context needed. It starts working right away.',
       inputSchema: {
         role: z.enum(['app', 'project', 'feedback']),
         title: z.string().max(60).describe('Short Korean title the user sees'),
         task: z.string().describe('What to do: the user\'s own words verbatim, then needed context'),
-        project: z.string().optional().describe('Project id for role project (from list_projects)'),
-        feedback: z.string().optional().describe('One feedback key for role feedback'),
+        project: z.string().optional().describe('Project id for role project (from list_projects)'), feedback: z.string().optional().describe('One feedback key for role feedback'),
         feedbacks: z.array(z.string()).max(5).optional().describe('Keys of one feedback group (same group in feedback_turns) for role feedback, handled together in one conversation'),
         urgent: z.boolean().optional().describe('role app only, and only when the app itself is broken or stuck (an app bug, the app not responding): opens at once whatever the memory and queue, one at a time'),
+        app: z.string().optional().describe('role app only: fix another app whose repository is on this computer (an id from chat_list apps, e.g. qcad). Leave out for this app'),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     }, async (a) => {

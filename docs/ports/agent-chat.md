@@ -7,6 +7,7 @@ code:
   - apps/server/src/agentRunner.ts
   - apps/server/src/agentPolicy.ts
   - apps/server/src/agentInbox.ts
+  - apps/server/src/agentRun.ts
   - apps/server/src/routes/agentChats.ts
   - apps/web/src/api/agentChats.ts
   - apps/web/src/AgentChats.tsx
@@ -30,6 +31,7 @@ code:
 | server | `apps/server/src/agentChats.ts` | 대화의 상태 기계: 차례 돌리기 · 항목 쌓기 · 저장 · 멈춤 · 다시 켰을 때 이어 가기 · 화면에 알리기 |
 | server | `apps/server/src/agentRunner.ts` | Claude Agent SDK의 `query()`를 띄우고 사건(글 조각 · 도구 · 결과)으로 바꾼다. 곁 질문 · 맥락 줄이기 |
 | server | `apps/server/src/agentPolicy.ts` | 허락 규칙(순수 함수): 도구 하나를 허락 · 묻기 · 막기로 판정, 파일 잡기 |
+| server | `apps/server/src/agentRun.ts` | 실행기의 입출력 타입(`RunInput` · `RunEvent` · `AgentRunner`). 실제 실행기와 시험용 가짜가 함께 따른다 |
 | server | `apps/server/src/agentInbox.ts` | 차례 사이에 말을 넘기는 줄(AsyncIterable). 닫으면 끝 |
 | server | `apps/server/src/routes/agentChats.ts` | HTTP 경로 `/api/agent-chats/*` |
 | web | `apps/web/src/api/agentChats.ts` | 위 경로의 클라이언트 |

@@ -6,7 +6,7 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { appBriefFor, fileEditOf, judge, partsOfPatch, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
 import { buildApp } from './app.js'
-import { aboutFragment, appBranch, appWorktrees, checkRowsOfError, localChecks, sampleAppWork, type AppWork } from './appWorktree.js'
+import { aboutFragment, appBranch, appWorktrees, checkRowsOfError, ciCovers, localChecks, otherApps, sampleAppWork, type AppWork } from './appWorktree.js'
 
 const repo = '/w/app-1'
 const W = 'mcp__workbench__'
@@ -161,6 +161,59 @@ describe('앱 고치기 대화 API', () => {
     expect((await other.inject({ method: 'GET', url: '/api/agent-chats' })).json().app).toBe(false)
     expect((await other.inject({ method: 'POST', url: '/api/agent-chats', payload: { rid: '_app', text: 'x' } })).statusCode).toBe(404)
     await other.close()
+  })
+})
+
+describe('다른 앱 고치기 (11/20)', () => {
+  it('앱 저장소 옆에 받아 둔 앱만 찾는다', () => {
+    const tmp = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rw-other-'))
+    const me = path.join(tmp, 'emergence-workbench')
+    fs.mkdirSync(me)
+    expect(otherApps(me)).toEqual([])
+    fs.mkdirSync(path.join(tmp, 'quantum_cad', '.git'), { recursive: true })
+    const q = otherApps(me)[0]!
+    expect(q).toMatchObject({ id: 'qcad', name: 'QuantumCAD', root: path.join(tmp, 'quantum_cad'), about: false })
+    expect(q.checks.map((c) => c.name)).toEqual(['agent-check', 'tool-slots'])
+    fs.rmSync(tmp, { recursive: true, force: true })
+  })
+  it('CI 경로: 뒤 줄이 이기고, 접두어 · 확장자 · 파일 이름으로 맞춘다', () => {
+    const wb = ['**', '!*.md', '!docs/', 'fixtures/']
+    expect(ciCovers('apps/server/src/a.ts', wb)).toBe(true)
+    expect(ciCovers('docs/ports/app-fix.md', wb)).toBe(false)
+    expect(ciCovers('fixtures/a/README.md', wb)).toBe(true)
+    const q = ['code-space/app/', '.github/workflows/qcad-verify.yml']
+    expect(ciCovers('workbench/tasks/a.md', q)).toBe(false)
+    expect(ciCovers('code-space/app/scripts/x.py', q)).toBe(true)
+    expect(ciCovers('.github/workflows/qcad-verify.yml', q)).toBe(true)
+  })
+  it('대화가 고른 앱의 작업 폴더 · 안내 · PR을 쓰고, 목록이 그 앱을 알린다', async () => {
+    const tmp = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rw-otherchat-'))
+    const seen: RunInput[] = []
+    const runner: AgentRunner = async function* (input): AsyncIterable<RunEvent> { seen.push(input); yield { type: 'session', id: 's1' }; yield { type: 'result', ok: true } }
+    const qcad: AppWork = { ...sampleAppWork(path.join(tmp, 'qcad')), profile: { id: 'qcad', name: 'QuantumCAD', checks: [], about: false, brief: ['Read AGENTS.md first.'] } }
+    const app = buildApp({ configDir: path.join(tmp, 'config'), agentRunner: runner, agentApp: sampleAppWork(path.join(tmp, 'wt')), agentApps: { qcad } })
+    expect((await app.inject({ method: 'GET', url: '/api/agent-chats' })).json().apps).toEqual([{ id: 'qcad', name: 'QuantumCAD' }])
+    const res = await app.inject({ method: 'POST', url: '/api/agent-chats', payload: { rid: '_app', text: '리본이 잘린다', scope: { kind: 'app', app: 'qcad' } } })
+    expect(res.statusCode, res.body).toBe(200)
+    const id = res.json().chat.id as string
+    await vi.waitFor(async () => expect((await app.inject({ method: 'GET', url: `/api/agent-chats/${id}` })).json().chat.state).toBe('idle'))
+    const input = seen.at(-1)!
+    expect(input.cwd).toBe(path.join(tmp, 'qcad', id))
+    expect(input.brief).toContain('QuantumCAD')
+    expect(input.brief).toContain('Read AGENTS.md first.')
+    expect(input.brief).not.toContain('pnpm type-check')
+    expect((await app.inject({ method: 'GET', url: `/api/agent-chats/${id}` })).json().chat.scope).toEqual({ kind: 'app', app: 'qcad' })
+    // 러너가 하나인 앱은 동시에 maxChats개까지
+    qcad.profile!.maxChats = 1
+    expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${id}/app/submit`, payload: { title: '리본', body: '' } })).statusCode).toBe(200)
+    const second = await app.inject({ method: 'POST', url: '/api/agent-chats', payload: { rid: '_app', text: '둘째', scope: { kind: 'app', app: 'qcad' } } })
+    expect(second.statusCode, second.body).toBe(409)
+    // 이 앱의 대화는 세지 않는다
+    expect((await app.inject({ method: 'POST', url: '/api/agent-chats', payload: { rid: '_app', text: '워크벤치' } })).statusCode).toBe(200)
+    // 모르는 앱은 열지 않는다
+    expect((await app.inject({ method: 'POST', url: '/api/agent-chats', payload: { rid: '_app', text: 'x', scope: { kind: 'app', app: 'nope' } } })).statusCode).toBe(404)
+    await app.close()
+    fs.rmSync(tmp, { recursive: true, force: true })
   })
 })
 
