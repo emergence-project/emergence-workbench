@@ -73,6 +73,12 @@ export function RoomStrip() {
   )
 }
 
+/** 여럿을 부를 때 답하는 방식 (11/20 사용자 제안 "모드 전환"): 독립 = 서로의 답을 가린 채 동시에, 토론 = 앞사람의 답을 보고 차례로 */
+function ModeSeg({ room, change }: { room: RoomState; change: ReturnType<typeof useRoomChange> }) {
+  return <Seg value={room.rules.mode} name={t('여럿이 답하는 방식', 'How several answer')} ui="방 답하는 방식" onPick={(mode) => void change(() => agentChatsApi.roomRules({ mode }))}
+    options={[{ v: 'independent' as const, label: t('독립', 'Independent'), tip: t('서로의 답을 보지 않고 동시에 답함 · 방장만 모아 정리', 'Answer at once without seeing each other · host sums up') }, { v: 'debate' as const, label: t('토론', 'Debate'), tip: t('앞사람의 답을 보고 차례로 이어 답함', 'Answer in turn, seeing earlier answers') }].map(({ tip, ...o }) => ({ ...o, label: <span data-tip={tip}>{o.label}</span> }))} />
+}
+
 function Seg<T extends string | number>({ value, options, name, onPick, ui, disabled }: { value: T; options: { v: T; label: ReactNode; off?: string }[]; name: string; onPick(v: T): void; ui: string; disabled?: string }) {
   return (
     <div className="segmented small" role="radiogroup" aria-label={name} data-ui={ui} title={disabled}>
@@ -108,6 +114,7 @@ export function RoomManage() {
       </div>
       <InviteMenu room={room} onError={setFail} />
       <div className="room-rules" data-ui="방 규칙">
+        <div className="room-rule"><span>{t('여럿이 답하는 방식', 'How several answer')}</span><ModeSeg room={room} change={change} /></div>
         <label className="room-rule"><span>{t('방장이 초대 (읽기만 · 발언까지)', 'Host may invite (read only, talk)')}</span><input type="checkbox" checked={room.rules.hostInvite} onChange={(e) => void change(() => agentChatsApi.roomRules({ hostInvite: e.target.checked }))} /></label>
         <div className="room-rule"><span>{t('새로 들어올 때 권한', 'Permission for newcomers')}</span><Seg value={room.rules.defaultPerm} name={t('새로 들어올 때 권한', 'Permission for newcomers')} ui="방 기본 권한" onPick={(p) => void change(() => agentChatsApi.roomRules({ defaultPerm: p }))} options={(['read', 'talk'] as const).map((p) => ({ v: p, label: PERM_NAME[p] }))} /></div>
         <div className="room-rule"><span>{t('방장이 한 번에 부르는 수', 'Host calls at once')}</span><Seg value={room.rules.callMax} name={t('방장이 한 번에 부르는 수', 'Host calls at once')} ui="방장 부르기 한도" onPick={(n) => void change(() => agentChatsApi.roomRules({ callMax: n }))} options={[1, 2, 3].map((n) => ({ v: n, label: String(n) }))} /></div>
@@ -167,16 +174,17 @@ export function hostWhoAt(items: { kind: string; item?: ChatItem }[], i: number)
 }
 
 /** 입력란: @ 메뉴 맨 위의 방 사람과 「모두」, 아래 「받는 이」 */
-export type ComposerRoom = { people: { label: string; meta: string }[]; hint(text: string): ReactNode }
+export type ComposerRoom = { people: { label: string; meta: string; aka?: string }[]; hint(text: string): ReactNode }
 export function useComposerRoom(on: boolean): ComposerRoom | undefined {
   const room = useRoom()
+  const change = useRoomChange()
   if (!on || !room) return undefined
   const others = room.members.filter((m) => m.agent !== room.host)
   return {
-    people: [...room.members.map((m) => ({ label: ROOM_NAME[m.agent], meta: `${m.agent === room.host ? `${t('방장', 'Host')} · ` : ''}${PERM_NAME[m.perm]}` })), ...(others.length ? [{ label: t('모두', 'all'), meta: t('방 전체 · 방장이 마지막에 정리', 'Everyone · host sums up last') }] : [])],
+    people: [...room.members.map((m) => ({ label: ROOM_NAME[m.agent], meta: `${m.agent === room.host ? `${t('방장', 'Host')} · ` : ''}${PERM_NAME[m.perm]}` })), ...(others.length ? [{ label: t('모두', 'all'), aka: t('all', '모두'), meta: t('방 전체 · 방장이 마지막에 정리 · @all도 같음', 'Everyone · host sums up last · same as @모두') }] : [])],
     hint: (text) => {
       const r = routeOf(text, room)
-      return <span className="room-to" data-ui="받는 이">{t('받는 이', 'To')}{r.others.map((a) => <Who key={a} agent={a} />)}{r.host && <Who agent={room.host} host />}</span>
+      return <span className="room-to" data-ui="받는 이">{t('받는 이', 'To')}{r.others.map((a) => <Who key={a} agent={a} />)}{r.host && <Who agent={room.host} host />}{r.others.length >= 2 && <ModeSeg room={room} change={change} />}</span>
     },
   }
 }

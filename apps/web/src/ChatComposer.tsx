@@ -285,8 +285,11 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
     }
     const has = (s: string) => s.toLowerCase().includes(q)
     const out: MenuPick[] = []
-    // 방 사람과 「모두」는 맨 위 (시안 §7-6): 고르면 @이름을 글에 넣는다
-    for (const p of room?.people ?? []) if (has(p.label)) out.push({ key: `p:${p.label}`, label: `@${p.label}`, meta: p.meta, run: () => replaceToken(`@${p.label} `) })
+    // 방 사람과 「모두」는 맨 위 (시안 §7-6): 고르면 @이름을 글에 넣는다. @al처럼 다른 이름(@all)으로 찾으면 그 이름을 넣는다
+    for (const p of room?.people ?? []) {
+      const name = has(p.label) ? p.label : p.aka && has(p.aka) ? p.aka : undefined
+      if (name) out.push({ key: `p:${p.label}`, label: `@${name}`, meta: p.meta, run: () => replaceToken(`@${name} `) })
+    }
     // 커넥터는 몇 개뿐이라 앞에 둔다 (노트가 많아도 묻히지 않게)
     for (const c of extras?.connectors ?? []) if (has(c.name)) out.push({ key: `c:${c.name}`, label: c.name, meta: ATTACH_NAME.connector, run: () => addAttach({ kind: 'connector', ref: c.name, label: c.name }) })
     for (const n of notes ?? []) if (has(n.title) || has(n.file)) out.push({ key: `n:${n.file}`, label: n.title, meta: ATTACH_NAME.note, run: () => addAttach({ kind: 'note', ref: n.file, label: n.title }) })
