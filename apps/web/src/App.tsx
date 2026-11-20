@@ -178,10 +178,8 @@ export function App() {
   }, [client, rid])
   // 파일 감시 알림은 몰려서 온다 (저장 한 번, 에이전트가 파일 여러 개를 한꺼번에 바꿀 때).
   // 화면 캐시는 알림이 바꾸는 자료만 잠깐(0.4초) 모아 한 번 다시 받는다. 옮기지 않은 화면은 version을 같은 식으로 모아 올린다
-  const invalidation = useMemo(() => batchInvalidation(client), [client])
-  useEffect(() => () => invalidation.cancel(), [invalidation])
-  const slowInvalidation = useMemo(() => batchInvalidation(client, 15_000), [client])
-  useEffect(() => () => slowInvalidation.cancel(), [slowInvalidation])
+  const [invalidation, slowInvalidation] = useMemo(() => [batchInvalidation(client), batchInvalidation(client, 15_000)] as const, [client]) // 느린 쪽: 앱 고치기 대화 알림의 큰 피드백 자료를 15초 모아 (slowInvalidationKeys)
+  useEffect(() => () => { invalidation.cancel(); slowInvalidation.cancel() }, [invalidation, slowInvalidation])
   const changeTimer = useRef<number | undefined>(undefined)
   const changedSoon = useCallback(() => {
     window.clearTimeout(changeTimer.current)
@@ -226,8 +224,7 @@ export function App() {
     if (appUpdateEvent(e)) return // 앱 업데이트 알림(화면을 바꿔 끼움 · 다시 시작 대기)은 AppUpdate.tsx가 다룬다
     figuresMaybeChanged()
     // 화면 캐시: 알림이 바꾸는 자료만 (어느 프로젝트의 것이든. 홈의 프로젝트별 자료도 이것으로 새로워진다)
-    invalidation.add(invalidationKeys(e))
-    slowInvalidation.add(slowInvalidationKeys(e))
+    invalidation.add(invalidationKeys(e)); slowInvalidation.add(slowInvalidationKeys(e))
     // 공용 라이브러리(개념노트·그림·논문)는 어느 프로젝트의 것도 아니다: 지금 화면을 잠깐 모았다가 다시 읽는다
     if (e.type === 'library') {
       // 개념노트 기록 파일(workbench/comments/concept-<id>.md)이 바뀌면 열린 기록 패널 · 본문 칠도 다시 읽는다

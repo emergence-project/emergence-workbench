@@ -571,18 +571,8 @@ export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, o
   const changed = chat?.updated
   useMarkSeen(id, changed)
   useEffect(() => { setOver({}); atEnd.current = true; setBehind(false) }, [id])
-  useEffect(() => {
-    const el = listRef.current
-    if (!el) return
-    if (atEnd.current) el.scrollTop = el.scrollHeight
-    else setBehind(true)
-  }, [changed, id])
-  const onScroll = () => {
-    const el = listRef.current
-    if (!el) return
-    atEnd.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48
-    if (atEnd.current) setBehind(false)
-  }
+  useEffect(() => { const el = listRef.current; if (!el) return; if (atEnd.current) el.scrollTop = el.scrollHeight; else setBehind(true) }, [changed, id])
+  const onScroll = () => { const el = listRef.current; if (!el) return; atEnd.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48; if (atEnd.current) setBehind(false) }
   const toEnd = () => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; atEnd.current = true; setBehind(false) }, room = useComposerRoom(chat?.rid === CENTRAL_RID)
   // 줄들은 대화 내용이 바뀔 때만 다시 그린다. 쓰는 중인 글(agent-draft)은 몇 번이고 오는데, 그때마다 긴 대화의 모든 줄(마크다운 · 수식)을 다시 그리면 화면이 무거워진다
   const act = useRef<{ rewind(point: string): void; changes?(): void }>({ rewind: () => undefined })
