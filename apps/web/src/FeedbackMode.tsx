@@ -59,8 +59,10 @@ export function FeedbackMode({ onClose, onSaved }: { onClose(): void; onSaved(me
     skip: '[data-feedback-ui]', bodyClass: 'feedback-on', hold: () => !!pendingRef.current,
     onPick: (p) => {
       setPending({ path: p.path, snippet: p.snippet, x: p.x, y: p.y })
-      draftId.current = newDraftId()
-      setText(''); setKind(null); setError(null)
+      // 이 화면의 같은 부위에 적던 글이 있으면 빈 창 대신 그 글로 연다 (같은 부위에 적던 글이 둘 생기지 않게)
+      const old = readFeedbackDrafts().find((d) => d.path === p.path && d.route === (location.hash || '#/'))
+      draftId.current = old?.id ?? newDraftId()
+      setText(old?.text ?? ''); setKind(old?.kind ?? null); setError(null)
     },
     onEscape: () => { if (pendingRef.current) setPending(null); else onClose() },
   })
