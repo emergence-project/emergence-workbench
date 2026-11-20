@@ -1,6 +1,8 @@
 import { parseBlock, updateBlockMeta, type LatexTemplate } from '@rw/core'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, type CompileResult, knowledgeApi, latexApi, topicKey, type KnowledgeTopic, type LibraryInfo, type LibraryKind } from './api'
+import { useQuery } from '@tanstack/react-query'
+import { qk } from './queries'
 import { ConceptNoteView, useKnowledge } from './ConceptNotes'
 import { KnowledgeHome } from './KnowledgeHome'
 import { Editor, type EditorHandle } from './Editor'
@@ -214,7 +216,9 @@ export function LibraryPage({ info, topic, rightOpen = true, onChanged, onSaved 
 
 /** info가 아직 없으면(읽는 중이거나 서버에 닿지 못함) 라이브러리가 없다고 말하지 않는다: 없는 것과 못 읽은 것은 다르다 */
 function NoLibrary({ loading }: { loading: boolean }) {
-  if (loading) return <main className="kn-page"><div className="empty center">{t('읽는 중…', 'Loading…')}</div></main>
+  // 같은 캐시 키라 요청은 늘지 않는다. 받지 못했으면 「읽는 중…」에 머물지 않고 이유를 보인다 (11/21)
+  const failed = useQuery({ queryKey: qk.library, queryFn: () => api.library() }).error
+  if (loading) return <main className="kn-page"><div className="empty center">{failed ? t(`라이브러리를 읽지 못했습니다: ${failed.message}`, `Could not read the library: ${failed.message}`) : t('읽는 중…', 'Loading…')}</div></main>
   return <main className="stage full"><section className="pane"><div className="page-body"><h2>{t('지식', 'Knowledge')}</h2><p className="muted">{t('공용 라이브러리 폴더가 아직 없습니다. 개념노트는 그 폴더에 둡니다. ', 'No shared library folder yet. Concept notes live in that folder. ')}<LibraryLink />{t('에서 폴더를 정해 주세요.', ' is where you set it.')}</p></div></section></main>
 }
 

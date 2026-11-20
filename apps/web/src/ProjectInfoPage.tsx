@@ -146,7 +146,10 @@ function Counts({ by }: { by: Partial<Record<BlockStatus, number>> }) {
  * 정본 위치는 저장소 쪽에, 규칙 절은 규칙 쪽에 둔다.
  */
 export function StatusPage({ rid, rapi }: { rid: string; rapi: ResearchApi }) {
-  const tasks = useTaskScan(rid).data?.tasks
+  const scan = useTaskScan(rid)
+  const tasks = scan.data?.tasks
+  // 받지 못했으면 「읽는 중…」에 머물지 않고 이유를 보인다 (11/21)
+  const reading = scan.error ? t(`맡긴 일을 읽지 못했습니다: ${scan.error.message}`, `Could not read delegated work: ${scan.error.message}`) : t('읽는 중…', 'Loading…')
   const overview = useTopicsOverview(rid).data
   const { entries, loaded } = useJournal(rapi)
   const text = useStatusText(rid, rapi)
@@ -171,7 +174,7 @@ export function StatusPage({ rid, rapi }: { rid: string; rapi: ResearchApi }) {
 
       <section className="info-sec" data-ui="내 차례">
         <h2>{t('내 차례', 'Your turn')} <span className="muted">{tasks ? turnRows.length : '…'}</span>{turnRows.length > 0 && toWork}</h2>
-        {!tasks ? <p className="muted">{t('읽는 중…', 'Loading…')}</p> : !turnRows.length ? <p className="muted">{t('판단을 기다리는 맡긴 일 · 흐름 · 에이전트의 질문이 없습니다', 'No delegated work, flow or agent question is waiting for you')}</p> : (
+        {!tasks ? <p className="muted">{reading}</p> : !turnRows.length ? <p className="muted">{t('판단을 기다리는 맡긴 일 · 흐름 · 에이전트의 질문이 없습니다', 'No delegated work, flow or agent question is waiting for you')}</p> : (
           <ul className="info-list">
             {turnRows.slice(0, TURN_ROWS).map((x) => (
               <li key={x.key}><button className="info-row" onClick={x.open}>
