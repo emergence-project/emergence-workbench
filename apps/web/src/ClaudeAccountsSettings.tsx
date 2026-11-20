@@ -1,20 +1,24 @@
 // 계정 › Claude 계정 (11/16 사용자 "pro 계정을 주로 답변용으로" · "로그인 정보를 담아두고 쉽게 로그인 · 전환"):
-// 계정마다 한 번 로그인해 두면(계정마다 따로 된 폴더), 대화 종류마다 어느 계정으로 돌지 고른다. 대화 하나만 바꾸려면 입력란 아래 계정 고르기
+// 계정마다 한 번 로그인해 두면(계정마다 따로 된 폴더) 다시 묻지 않는다. 대화 종류마다 어느 계정으로 돌지는 설정 › 에이전트에서 고르고(AgentAccountRoles),
+// 여기서는 계정마다 어디에 쓰이는지만 읽기로 보인다 (11/20 사용자 "그러면 그렇게하자": 로그인은 계정 페이지에서만, 다른 곳은 등록된 계정을 고르기만)
+// 「이 컴퓨터」 줄은 이 컴퓨터의 Claude Code · Codex 로그인 상태(깔렸는지 · 로그인했는지 · 다른 계정으로)도 보인다 (옛 설정 › 에이전트 › 계정)
 // Codex도 같은 모양 (11/20 시안 4절), 계정 줄마다 5시간 · 이번 주 한도 막대 (80%를 넘으면 주황, 못 읽으면 「아직 모름」)
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { claudeAccountsApi, codexAccountsApi, type AccountKind, type AccountRole, type ClaudeAccountRow, type ClaudeAccounts, type LimitWindow } from './api'
+import { api as settingsApi, claudeAccountsApi, codexAccountsApi, type AccountKind, type AccountRole, type ClaudeAccountRow, type ClaudeAccounts, type LimitWindow } from './api'
+import { useAgentKinds } from './AgentPick'
 import { askConfirm } from './askText'
 import { t } from './i18n'
 import { Icon } from './icons'
 import { qk } from './queries'
-import { Row } from './SetupChecklist'
+import { href } from './router'
+import { CopyButton, Row } from './SetupChecklist'
 
 /** 서버 계약(contract/claudeAccounts.ts)과 같은 값. 화면 번들에 zod를 넣지 않으려고 값은 여기 다시 적는다 */
 export const DEFAULT_ACCOUNT = 'default'
-const ACCOUNT_ROLES: readonly AccountRole[] = ['central', 'feedback', 'app', 'project']
+export const ACCOUNT_ROLES: readonly AccountRole[] = ['central', 'feedback', 'app', 'project']
 
-const ROLE: Record<AccountRole, () => [string, string]> = {
+export const ROLE: Record<AccountRole, () => [string, string]> = {
   central: () => [t('중앙', 'Central'), t('맨 위 「중앙」 대화: 묻는 말에 답하고 하위 대화를 엽니다', 'The Central conversation at the top: answers and opens sub-conversations')],
   feedback: () => [t('피드백 처리', 'Feedback'), t('피드백 하위 대화와 「에이전트에게 맡기기」', 'Feedback sub-conversations and Hand to agent')],
   app: () => [t('앱 고치기', 'App fixes'), t('앱을 고쳐 PR을 여는 대화', 'Conversations that fix the app and open a pull request')],
@@ -45,41 +49,21 @@ export function ClaudeAccountsSettings({ onSaved, kind = 'claude' }: { onSaved(m
   const s = q.data
   return (<>
     <h3 className="set-h3">{kind === 'codex' ? t('Codex 계정', 'Codex accounts') : t('Claude 계정', 'Claude accounts')}</h3>
-    <p className="set-desc">{t('계정마다 한 번 로그인해 두면 다시 묻지 않습니다. 아래에서 대화 종류마다 어느 계정으로 돌지 고르고, 대화 하나는 입력란 아래에서 바꿉니다. 한도는 그 계정으로 마지막에 돈 때의 값입니다.', 'Sign in once per account and it is remembered. Below, choose which account each kind of conversation uses; change one conversation under its input box. Limits are from the last time the account ran.')}</p>
+    <p className="set-desc">{t('계정마다 한 번 로그인해 두면 다시 묻지 않습니다. 대화 종류마다 어느 계정으로 돌지는 ', 'Sign in once per account and it is remembered. Which account each kind of conversation uses is chosen in ')}<a className="a" href={href({ page: 'settings', part: 'agents' })}>{t('설정 › 에이전트', 'Settings › Agents')}</a>{t('에서 고르고, 대화 하나는 입력란 아래에서 바꿉니다. 한도는 그 계정으로 마지막에 돈 때의 값입니다.', '; change one conversation under its input box. Limits are from the last time the account ran.')}</p>
     <div className="setup set-rows" data-ui={kind === 'codex' ? 'Codex 계정' : 'Claude 계정'}>
       {!s ? <p className="muted setup-row">{q.error?.message ?? t('읽는 중…', 'Reading…')}</p>
-        : s.accounts.map((a) => <AccountRow key={a.id} kind={kind} a={a} busy={run.isPending} onRun={(f) => run.mutate(f)} onSaved={onSaved} />)}
+        : s.accounts.map((a) => <AccountRow key={a.id} kind={kind} a={a} uses={s.accounts.length > 1 ? usesOf(s, a.id) : undefined} busy={run.isPending} onRun={(f) => run.mutate(f)} onSaved={onSaved} onError={setErr} />)}
       {s && <AddAccount kind={kind} cli={s.cli} busy={run.isPending} onAdd={(name) => run.mutate(() => api.add(name))} />}
       {err && <p className="error-text setup-row">{err}</p>}
     </div>
-    {s && s.accounts.length > 1 && <div className="set-rows" data-ui="계정 고르기">
-      <RolePick s={s} name={t('기본 계정', 'Default account')} desc={t('아래에서 고르지 않은 대화와 그 밖의 일(제목 짓기 · 묻기 등)', 'Conversations not chosen below and other work (titles, questions)')} on={s.base} ui="기본 계정" pick={(id) => run.mutate(() => api.setRole('base', id))} />
-      {ACCOUNT_ROLES.map((r) => {
-        const [name, desc] = ROLE[r]()
-        return <RolePick key={r} s={s} name={name} desc={desc} on={s.roles[r] ?? s.base} ui="대화 종류 계정" pick={(id) => run.mutate(() => api.setRole(r, id))} />
-      })}
-    </div>}
   </>)
 }
 
-/** 계정 고르기 한 줄: 3개까지 버튼, 넘으면 select (10/30 규칙) */
-function RolePick({ s, name, desc, on, ui, pick }: { s: ClaudeAccounts; name: string; desc: string; on: string; ui: string; pick(id: string): void }) {
-  return (
-    <div className="set-row" data-ui={ui}>
-      <div>
-        <div className="set-name">{name}</div>
-        <div className="set-desc">{desc}</div>
-      </div>
-      {s.accounts.length <= 3
-        ? <div className="segmented small" role="radiogroup" data-ui="고르기">
-          {s.accounts.map((a) => <button key={a.id} role="radio" aria-checked={on === a.id} className={on === a.id ? 'on' : ''} onClick={() => pick(a.id)}>{a.name}</button>)}
-        </div>
-        : <select className="rs-select set-select" value={on} aria-label={name} onChange={(e) => pick(e.target.value)}>
-          {s.accounts.map((a) => <option key={a.id} value={a.id}>{accountLabel(a)}</option>)}
-        </select>}
-    </div>
-  )
-}
+/** 그 계정이 쓰이는 곳 (읽기만): 기본 · 중앙 · … 고르기는 설정 › 에이전트 */
+const usesOf = (s: ClaudeAccounts, id: string) => [
+  ...(s.base === id ? [t('기본', 'Default')] : []),
+  ...ACCOUNT_ROLES.filter((r) => (s.roles[r] ?? s.base) === id).map((r) => ROLE[r]()[0]),
+]
 
 /** 한도 막대 하나: 쓴 % · 80%를 넘으면 주황 */
 function LimitBar({ name, w }: { name: string; w: LimitWindow }) {
@@ -107,7 +91,7 @@ function Limits({ l }: { l: ClaudeAccountRow['limits'] }) {
   )
 }
 
-function AccountRow({ kind, a, busy, onRun, onSaved }: { kind: AccountKind; a: ClaudeAccountRow; busy: boolean; onRun(f: () => Promise<ClaudeAccounts>): void; onSaved(m: string): void }) {
+function AccountRow({ kind, a, uses, busy, onRun, onSaved, onError }: { kind: AccountKind; a: ClaudeAccountRow; uses?: string[]; busy: boolean; onRun(f: () => Promise<ClaudeAccounts>): void; onSaved(m: string): void; onError(m: string): void }) {
   const [code, setCode] = useState('')
   const api = API[kind]
   const extra = a.id !== DEFAULT_ACCOUNT
@@ -118,14 +102,13 @@ function AccountRow({ kind, a, busy, onRun, onSaved }: { kind: AccountKind; a: C
   }
   return (
     <Row ok={a.login} optional={extra} name={a.name} sub={a.plan} ui={kind === 'codex' ? 'Codex 계정 줄' : 'Claude 계정 줄'}
-      action={extra && <span className="setup-acts">
+      action={extra ? <span className="setup-acts">
         {(!a.login || a.signing?.error) && !(a.signing && !a.signing.error) && <button className="btn" disabled={busy} onClick={() => onRun(() => api.login(a.id))}>{t('로그인', 'Sign in')}</button>}
         <button className="icon-btn" data-tip={t('계정 제거', 'Remove account')} aria-label={t('계정 제거', 'Remove account')} onClick={() => void remove()}>{Icon.trash}</button>
-      </span>}>
-      {a.email ?? (extra ? t('로그인하지 않았습니다.', 'Not signed in.') : kind === 'codex'
-        ? t('이 컴퓨터의 Codex에 로그인한 계정입니다. 설정 › 에이전트의 「ChatGPT로 연결」로 로그인하세요.', 'The account signed in to Codex on this computer. Sign in with Connect ChatGPT under Settings › Agents.')
-        : t('이 컴퓨터의 Claude Code에 로그인한 계정입니다. 터미널에서 claude를 열고 /login으로 로그인하세요.', 'The account signed in to Claude Code on this computer. Open claude in a terminal and sign in with /login.'))}
+      </span> : <ThisComputerAction kind={kind} onSaved={onSaved} onError={onError} />}>
+      {a.email ?? (extra ? t('로그인하지 않았습니다.', 'Not signed in.') : <ThisComputerHint kind={kind} />)}
       {!extra && a.email && <span className="muted">{kind === 'codex' ? t(' · 터미널의 codex와 같은 계정', ' · Same as codex in the terminal') : t(' · 터미널의 claude와 같은 계정', ' · Same as claude in the terminal')}</span>}
+      {uses && <span className="muted acct-uses" data-ui="계정 쓰임">{uses.length ? t(`쓰임: ${uses.join(' · ')}`, `Used for: ${uses.join(' · ')}`) : t('쓰임: 없음', 'Used for: nothing')}</span>}
       {a.login && <Limits l={a.limits} />}
       {a.signing && !a.signing.error && <span className="ac-acct-signing">
         {' '}{t('브라우저에서 로그인하는 중입니다.', 'Signing in in the browser.')}
@@ -138,6 +121,40 @@ function AccountRow({ kind, a, busy, onRun, onSaved }: { kind: AccountKind; a: C
       {a.signing?.error && <span className="error-text"> {a.signing.error}</span>}
     </Row>
   )
+}
+
+/** 「이 컴퓨터」 줄의 그 에이전트 (깔렸는지 · 로그인했는지). Claude는 claude-code */
+const useThisComputer = (kind: AccountKind) => useAgentKinds()?.find((k) => k.id === (kind === 'codex' ? 'codex' : 'claude-code'))
+
+/** 이 컴퓨터 계정이 비었을 때의 안내: 깔 명령 · 로그인 방법 */
+function ThisComputerHint({ kind }: { kind: AccountKind }) {
+  const k = useThisComputer(kind)
+  const cli = kind === 'codex' ? 'codex' : 'claude'
+  if (k && !k.installed && !k.bundled) return <>{t(`이 컴퓨터에 ${cli}가 없습니다. 깔고 터미널에서 한 번 열어 로그인하세요: `, `${cli} is not on this computer. Install it and open it once in a terminal to sign in: `)}<code className="setup-cmd">{k.install}</code></>
+  return kind === 'codex'
+    ? t('이 컴퓨터의 Codex에 로그인한 계정입니다. 설정 › 에이전트의 「ChatGPT로 연결」로 로그인하세요.', 'The account signed in to Codex on this computer. Sign in with Connect ChatGPT under Settings › Agents.')
+    : t('이 컴퓨터의 Claude Code에 로그인한 계정입니다. 터미널에서 claude를 열고 /login으로 로그인하세요.', 'The account signed in to Claude Code on this computer. Open claude in a terminal and sign in with /login.')
+}
+
+/** 이 컴퓨터 줄의 단추: 깔 명령 복사, 로그인했으면 Codex는 「다른 계정으로」, Claude는 /login 안내 */
+function ThisComputerAction({ kind, onSaved, onError }: { kind: AccountKind; onSaved(m: string): void; onError(m: string): void }) {
+  const client = useQueryClient()
+  const [switching, setSwitching] = useState(false)
+  const k = useThisComputer(kind)
+  if (!k) return null
+  if (!k.installed) return k.install ? <CopyButton text={k.install} onSaved={onSaved} /> : null
+  if (k.login === false) return null
+  const other = async () => {
+    setSwitching(true)
+    try {
+      await settingsApi.switchCodex()
+      await Promise.all([client.invalidateQueries({ queryKey: qk.agentKinds }), client.invalidateQueries({ queryKey: KEY.codex })])
+      onSaved(t('Codex에서 로그아웃했습니다. 열린 브라우저에서 다른 ChatGPT 계정으로 로그인하세요', 'Signed out of Codex. Sign in with another ChatGPT account in the browser that opened'))
+    } catch (e) { onError(e instanceof Error ? e.message : String(e)) } finally { setSwitching(false) }
+  }
+  return kind === 'codex'
+    ? <button className="btn" data-ui="다른 계정으로" disabled={switching} onClick={() => void other()}>{t('다른 계정으로', 'Switch account')}</button>
+    : <span className="muted ap-hint">{t('다른 계정: 터미널에서 claude → /login', 'Switch: run claude → /login in the terminal')}</span>
 }
 
 function AddAccount({ kind, cli, busy, onAdd }: { kind: AccountKind; cli: boolean; busy: boolean; onAdd(name: string): void }) {

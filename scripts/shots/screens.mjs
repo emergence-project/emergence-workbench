@@ -139,15 +139,16 @@ export const DEFAULT_SCREENS = [
   ['settings', '#/settings', '설정'],
   // 설정 › 계정 (10/21): 시작 준비 (꼭 할 것 · 선택)
   ['settings-accounts', '#/account', '시작 준비 요약'],
-  // 설정 › 서버 › 기기 (11/20): 이 앱을 쓰는 컴퓨터 목록 (예제는 지어낸 기기 셋)
-  ['server-devices', '#/settings/server', '기기 목록'],
+  // 설정 › 기기 관리 (11/20): 이 앱을 쓰는 컴퓨터 목록 (예제는 지어낸 기기 셋)
+  ['settings-devices', '#/settings/devices', '기기 목록'],
   // 앱 안 GitHub 로그인 (11/8): 「GitHub로 로그인」을 누르면 코드와 GitHub 쪽 링크가 보인다 (예제 모드는 가짜 GitHub)
   ['settings-github-login', '#/account', 'GitHub 로그인 코드', 'GitHub로 로그인'],
   ['latex', '#/settings/latex', '서식 카드'],
   // 설정 › 에이전트 (10/16): 지시를 맥의 Claude가 언제 하는지
   ['settings-agents', '#/settings/agents', '지시 처리'],
-  // Claude 계정 (11/16): 기본 · 더한 Pro 계정, 대화 종류마다 계정 (예제는 server.ts가 Pro 계정 하나를 넣는다)
-  ['settings-claude-accounts', '#/account', '계정 고르기'],
+  // Claude 계정 (11/16): 기본 · 더한 Pro 계정과 쓰임, 대화 종류마다 계정은 설정 › 에이전트 (11/20) (예제는 server.ts가 Pro 계정 하나를 넣는다)
+  ['settings-claude-accounts', '#/account', 'Claude 계정'],
+  ['settings-agent-account-roles', '#/settings/agents', '계정 고르기'],
   // 중앙 메모 (11/16): 사용자가 정한 오래 갈 사실, 중앙이 새 대화를 열 때 읽는다 (예제는 설정 폴더의 메모)
   ['settings-central-memo', '#/settings/agents', '중앙 메모'],
   // 설정 › 에이전트 › 에이전트 자세히 (11/9): Codex 줄을 눌러 들어간 모양 (계정 · 시작 권한 · 자동 허용 · 하는 일)
