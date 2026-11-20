@@ -14,7 +14,7 @@ const GUIDES: { name: string; ko: string; en: string }[] = [
 const link = (port: string) => <a className="a" href={portUrl(port)} target="_blank" rel="noreferrer">{`docs/ports/${port}.md`}</a>
 
 export const ko: AboutSection = {
-  title: '다른 앱에 옮기기', id: 'ports', prs: [483],
+  title: '다른 앱에 옮기기', id: 'ports', prs: [483, 536],
   items: [
     { text: <>이 앱의 기능을 다른 앱에도 만들 때 쓰는 이식 안내서가 저장소 {c('docs/ports/')}에 있습니다(11/19). 다른 앱의 에이전트에게 "이 안내서와 관련 코드를 읽고 이 앱에도 같게 만들어 줘"라고 맡기면 됩니다. 안내서마다 무엇 · 핵심 파일 · 저장 모양 · 단계 · 점검 목록이 있고, 맨 위에 그 기능을 설명하는 소개 절과 구현 파일 목록이 있습니다.</> },
     ...GUIDES.map((g) => ({ text: <>{g.ko}: {link(g.name)}</> })),
