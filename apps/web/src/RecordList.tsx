@@ -229,7 +229,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
         </div>
       })()}
       {editsOpen && chat && <InlineEdits rid={rid} files={chat.changed} />}
-      {showReply && onReply && <RecordReply busy={busy} asked={Boolean(c.by)} onReply={async (text) => { const ok = await onReply(text); if (ok) setReplying(false); return ok }}
+      {showReply && onReply && <RecordReply keep={`${rid}:${c.id}`} busy={busy} asked={Boolean(c.by)} onReply={async (text) => { const ok = await onReply(text); if (ok) setReplying(false); return ok }}
         onCancel={replying && !turn ? () => setReplying(false) : undefined} />}
       {todoTalk && (todoTalk.records.length > 0 || talkOpen) && <TodoTalk records={todoTalk.records} busy={busy} actions={todoTalk}
         onSend={async (k, text) => { const ok = await todoTalk.send(k, text); if (ok) setTalkOpen(false); return ok }} onCancel={todoTalk.records.length ? undefined : () => setTalkOpen(false)} />}
@@ -355,8 +355,11 @@ function AnswerBody({ answer }: { answer: CommentEntry['answers'][number] }) {
 }
 
 /** 질문 · 지시 아래 답하기 (10/15, 10/21 "이어 쓰기"에서 이름 바꿈). 에이전트가 물은 것이면 답이 되어 답함, 내가 쓴 것이면 다시 에이전트 차례 */
-function RecordReply({ busy, asked, onReply, onCancel }: { busy: boolean; asked: boolean; onReply(text: string): Promise<boolean>; onCancel?(): void }) {
-  const [text, setText] = useState('')
+const unsentReplies = new Map<string, string>()
+function RecordReply({ keep, busy, asked, onReply, onCancel }: { keep: string; busy: boolean; asked: boolean; onReply(text: string): Promise<boolean>; onCancel?(): void }) {
+  // 적던 답은 다른 화면을 보고 와도 남는다 (보내면 지움, 앱을 다시 열면 없음)
+  const [text, setText] = useState(() => unsentReplies.get(keep) ?? '')
+  useEffect(() => { if (text) unsentReplies.set(keep, text); else unsentReplies.delete(keep) }, [keep, text])
   const send = async () => { if (text.trim() && !busy && await onReply(text.trim())) setText('') }
   const sendKey = useCmdEnter(() => void send())
   const label = asked ? t('에이전트에게 답하기', 'Answer the agent') : t('이어서 묻거나 덧붙이기', 'Ask more or add to it')

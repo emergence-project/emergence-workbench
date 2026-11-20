@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api, type FeedbackItem } from './api'
 import { PictureGallery, type GalleryPicture } from './PictureGallery'
 import { FeedbackMockups } from './FeedbackMockups'
@@ -90,8 +90,11 @@ export function BeforeAfter({ pictures }: { pictures?: string[] }) {
  */
 type Opinion = '코멘트' | '반려' | '진행' | '중단' | '논의'
 const NEEDS_TEXT: Opinion[] = ['반려', '논의', '코멘트']
+const unsentAnswers = new Map<string, string>()
 export function Compose({ e, focus }: { e: FeedbackItem; focus?: boolean }) {
-  const [text, setText] = useState('')
+  // 적던 답은 다른 항목 · 다른 화면을 보고 와도 남는다 (보내면 지움, 앱을 다시 열면 없음)
+  const [text, setText] = useState(() => unsentAnswers.get(e.key) ?? '')
+  useEffect(() => { if (text) unsentAnswers.set(e.key, text); else unsentAnswers.delete(e.key) }, [e.key, text])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [picked, setPicked] = useState<Opinion | null>(null)
