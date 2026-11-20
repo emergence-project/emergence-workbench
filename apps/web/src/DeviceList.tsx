@@ -33,7 +33,7 @@ export function DeviceList() {
     {run.error && <p className="set-desc error-text">{withLink(run.error.message)}</p>}
     <div className="setup set-rows dev-list" data-ui="기기 목록">
       {!d ? <p className="muted setup-row">{q.error?.message ?? t('읽는 중…', 'Reading…')}</p>
-        : d.devices.map((x) => <DeviceRow key={x.name} d={x} onLogout={d.server && !x.this && !x.logout ? () => logout(x) : undefined} />)}
+        : d.devices.map((x) => <DeviceRow key={x.name} d={x} differs={versionDiffers(x, me)} onLogout={d.server && !x.this && !x.logout ? () => logout(x) : undefined} />)}
     </div>
     {d && !d.shared && <p className="muted set-desc">{t('개인 저장소와 맞추지 않아 이 컴퓨터만 보입니다. 계정에서 GitHub에 로그인하고 개인 저장소를 정하면 다른 컴퓨터도 보입니다.', 'Only this computer is shown because it does not sync with a personal repository. Sign in to GitHub and choose a personal repository under Account to see your other computers.')}</p>}
   </>)
@@ -75,7 +75,15 @@ function ServerRow({ server, me, busy, onMake }: { server: DeviceServer | null; 
 }
 
 
-function DeviceRow({ d, onLogout }: { d: Device; onLogout?: () => void }) {
+/** 앱 버전이 이 기기와 다른가 (둘 다 알 때만). 버전이 어긋나면 서버에서 도는 대화 화면이 맞지 않을 수 있다 (11/21 맥북의 빈 화면) */
+export const versionDiffers = (d: Pick<Device, 'version' | 'this'>, me: Pick<Device, 'version'> | undefined): boolean => !d.this && !!d.version && !!me?.version && d.version !== me.version
+/** 서버 컴퓨터의 앱 버전이 이 기기와 다르면 그 둘 */
+export function serverSkew(devices: Device[] | undefined): { name: string; server: string; here: string } | null {
+  const me = devices?.find((x) => x.this), sv = devices?.find((x) => x.server)
+  return me?.version && sv?.version && versionDiffers(sv, me) ? { name: sv.label ?? sv.name, server: sv.version, here: me.version } : null
+}
+
+function DeviceRow({ d, differs, onLogout }: { d: Device; differs?: boolean; onLogout?: () => void }) {
   const state = d.this ? t('켜짐 · 지금', 'On · now') : d.online ? t(`켜짐 · ${relativeTime(Date.parse(d.seen))}`, `On · ${relativeTime(Date.parse(d.seen))}`) : t(`꺼짐 · ${relativeTime(Date.parse(d.seen))}`, `Off · ${relativeTime(Date.parse(d.seen))}`)
   const name = d.online ? t('켜짐', 'On') : t('꺼짐', 'Off')
   return (
@@ -86,6 +94,7 @@ function DeviceRow({ d, onLogout }: { d: Device; onLogout?: () => void }) {
         <div className="setup-desc dev-meta">
           <span>{state}</span>
           {d.version && <span>{t(`앱 ${d.version}`, `App ${d.version}`)}</span>}
+          {differs && <span className="dev-differs" data-ui="기기 버전 다름" data-tip={t('이 기기와 앱 버전이 다릅니다. 그 컴퓨터에서 앱을 다시 시작해 새 버전으로 맞추세요', 'Its app version differs from this device. Restart the app there to bring it up to date')}>{t('버전 다름', 'Different version')}</span>}
           {d.os && <span>{d.os}</span>}
           {d.logout && <span>{t('로그아웃 대기: 다음 알림 때 합니다', 'Sign-out pending: on its next report')}</span>}
         </div>

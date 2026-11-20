@@ -4,6 +4,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { agentChatsApi, CENTRAL_RID, devicesApi } from './api'
+import { serverSkew } from './DeviceList'
 import { ChatLine, PanelChat, rank, useChatList } from './AgentChats'
 import { CENTRAL_PAGE, CentralLine } from './CentralChat'
 import { t } from './i18n'
@@ -63,7 +64,17 @@ function ChatPlaceNote() {
   const p = q.data
   if (!p?.remote) return null
   const name = p.server?.label ?? p.server?.machine ?? ''
-  return <p className={`ac-place${p.error ? ' error-text' : ''}`} data-ui="대화 서버">{p.error ? t(`서버(${name})에 닿지 않습니다`, `Cannot reach the server (${name})`) : t(`대화는 ${name}에서 돕니다`, `Chats run on ${name}`)}</p>
+  return <>
+    <p className={`ac-place${p.error ? ' error-text' : ''}`} data-ui="대화 서버">{p.error ? t(`서버(${name})에 닿지 않습니다`, `Cannot reach the server (${name})`) : t(`대화는 ${name}에서 돕니다`, `Chats run on ${name}`)}</p>
+    {!p.error && <ServerSkewNote />}
+  </>
+}
+
+/** 서버의 앱 버전이 이 컴퓨터와 다르면 한 줄 (11/21: 서버가 옛 버전이라 중앙 대화 화면이 죽었다). 서버는 일하는 대화가 있으면 다시 시작을 미룬다 */
+function ServerSkewNote() {
+  const skew = serverSkew(useQuery({ queryKey: qk.devices, queryFn: devicesApi.get, refetchInterval: 60_000 }).data?.devices)
+  if (!skew) return null
+  return <p className="ac-place ac-skew" data-ui="서버 버전 다름">{t(`${skew.name}의 앱 버전(${skew.server})이 이 컴퓨터(${skew.here})와 다릅니다. 대화 화면이 맞지 않으면 두 컴퓨터를 새 버전으로 다시 시작하세요`, `The app on ${skew.name} (${skew.server}) differs from this computer (${skew.here}). If chat screens look wrong, restart both on the new version`)}</p>
 }
 
 /** 맨 위 갈래 단추 (정보 | 에이전트 | 터미널). 터미널은 이 컴퓨터에서 연 화면만 */

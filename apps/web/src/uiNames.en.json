@@ -1176,6 +1176,8 @@
   "방 답하는 방식": "Answer mode",
   "기기 목록": "Device list",
   "기기 줄": "Device row",
+  "기기 버전 다름": "Different version",
+  "서버 버전 다름": "Server version differs",
   "기기 계정": "Device accounts",
   "서버 컴퓨터": "Server computer",
   "기기 로그아웃": "Device sign-out",
