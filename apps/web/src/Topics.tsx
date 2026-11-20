@@ -21,7 +21,7 @@ import { askConfirm, askText } from './askText'
 import { ExportLink } from './NoteExport'
 import { StatusDot } from './StatusDot'
 import { eulReul, locale, plural, t as tr } from './i18n'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNoteTrash, useTopicsOverview } from './projectQueries'
 import { qk } from './queries'
 import { StarIcon } from './marks'
@@ -114,6 +114,8 @@ export function TopicPage({ rid, rapi, tid, notes, manuscripts, project, pc, ver
   const overview = useTopicsOverview(rid)
   const data = overview.data ?? null
   const failed = overview.isError
+  // 노트 목록은 App이 받아 내려 준다. 같은 캐시 키로 읽지 못한 것만 알아낸다: 받지 못했는데 「노트 0」이라 하면 노트가 없어진 것처럼 읽힌다 (11/21)
+  const notesError = useQuery({ queryKey: qk.notes(rid), queryFn: () => api.list() }).error
   const [sort, setSortState] = useState<NoteSort>(() => store.get<NoteSort>('rw-topic-sort', 'recent'))
   const setSort = (s: NoteSort) => { setSortState(s); store.set('rw-topic-sort', s) }
   const [foldOpen, setFoldOpen] = useState(true)
@@ -183,7 +185,7 @@ export function TopicPage({ rid, rapi, tid, notes, manuscripts, project, pc, ver
 
 
     <div className="ts-bar">
-      <span className="ts-sum"><span>{tr('노트', 'Notes')} {mine.length}</span>{statusCounts(STATUS_ORDER)}</span>
+      <span className="ts-sum">{notesError && !notes.length ? <span className="error-text">{tr(`노트 목록을 읽지 못했습니다: ${notesError.message}`, `Could not read the notes: ${notesError.message}`)}</span> : <span>{tr('노트', 'Notes')} {mine.length}</span>}{statusCounts(STATUS_ORDER)}</span>
       <span className="sp" />
       <div className="ts-sort">
         <span className="ts-sort-l">{tr('정렬', 'Sort')}</span>
