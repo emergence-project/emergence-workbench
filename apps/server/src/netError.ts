@@ -10,8 +10,8 @@ export function isUnreachable(err: unknown): err is TypeError {
 
 /** "arxiv.org에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요" (어디인지 모르면 이름 없이) */
 export function unreachableMessage(err: unknown): string {
-  const cause = (err as { cause?: { hostname?: unknown; code?: unknown } } | null)?.cause
-  const host = typeof cause?.hostname === 'string' ? cause.hostname : ''
+  const cause: unknown = err instanceof Error ? err.cause : undefined
+  const host = typeof cause === 'object' && cause !== null && 'hostname' in cause && typeof cause.hostname === 'string' ? cause.hostname : ''
   return host
     ? t(`${host}에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요`, `Could not reach ${host}. Check the internet connection`)
     : t('바깥 서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요', 'Could not reach the outside server. Check the internet connection')
