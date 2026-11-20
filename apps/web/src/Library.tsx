@@ -195,7 +195,7 @@ export function LibraryPage({ info, topic, rightOpen = true, onChanged, onSaved 
   // 주소의 topic은 주제 key, 또는 개념노트 id (사이드바는 색인에서 id로 연다)
   const sel = topic ? topics.find((t) => t.key === topic) ?? topics.find((t) => t.concept?.id === topic) : undefined
 
-  if (!info?.path) return <NoLibrary />
+  if (!info?.path) return <NoLibrary loading={!info} />
   if (!topic) return <KnowledgeHome info={info} rightOpen={rightOpen} onChanged={onChanged} onSaved={onSaved} />
   return (
     <main className="kn-page" data-ui="지식">
@@ -212,14 +212,16 @@ export function LibraryPage({ info, topic, rightOpen = true, onChanged, onSaved 
   )
 }
 
-function NoLibrary() {
+/** info가 아직 없으면(읽는 중이거나 서버에 닿지 못함) 라이브러리가 없다고 말하지 않는다: 없는 것과 못 읽은 것은 다르다 */
+function NoLibrary({ loading }: { loading: boolean }) {
+  if (loading) return <main className="kn-page"><div className="empty center">{t('읽는 중…', 'Loading…')}</div></main>
   return <main className="stage full"><section className="pane"><div className="page-body"><h2>{t('지식', 'Knowledge')}</h2><p className="muted">{t('공용 라이브러리 폴더가 아직 없습니다. 개념노트는 그 폴더에 둡니다. ', 'No shared library folder yet. Concept notes live in that folder. ')}<LibraryLink />{t('에서 폴더를 정해 주세요.', ' is where you set it.')}</p></div></section></main>
 }
 
 /** 지식 지도 (왼쪽 띠의 "지도", 10/6에 지식 화면의 보기에서 자리만 옮김. 지도 자체는 그대로) */
 export function KnowledgeMapPage({ info, topic }: { info: LibraryInfo | null; topic?: string }) {
   const { data, error } = useKnowledge(info)
-  if (!info?.path) return <NoLibrary />
+  if (!info?.path) return <NoLibrary loading={!info} />
   return (
     <main className="kn-page" data-ui="지식 지도">
       {error && <div className="banner danger">{t('개념노트 목록을 읽지 못했습니다', 'Could not read the concept note list')}: {error}</div>}
