@@ -1,3 +1,5 @@
+import { store } from './store'
+
 /** Reuse the app's notification and undo action from nested document views. */
 export type FlashAction = { label: string; run(): void }
 export const FLASH_EVENT = 'rw:flash'
@@ -9,4 +11,12 @@ export interface FlashMessage { message: string; action?: FlashAction; error?: b
 
 export function flash(message: string, action?: FlashAction, opts?: { error?: boolean }): void {
   window.dispatchEvent(new CustomEvent<FlashMessage>(FLASH_EVENT, { detail: { message, action, ...(opts?.error && { error: true }) } }))
+}
+
+export const NOTICE_ERRORS = 'rw-notice-errors'
+/** 실패 알림을 상단바 알림 종에도 남긴다 (App의 flash가 부른다). 이 브라우저에 최근 30개, 바뀌면 NOTICE_ERRORS 이벤트 */
+export function noteError(message: string): void {
+  const list = store.get<{ at: string; text: string }[]>(NOTICE_ERRORS, [])
+  store.set(NOTICE_ERRORS, [...list, { at: new Date().toISOString(), text: message.slice(0, 300) }].slice(-30))
+  window.dispatchEvent(new Event(NOTICE_ERRORS))
 }

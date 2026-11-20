@@ -2,7 +2,7 @@
 // 에이전트의 생각 · 도구 묶음은 대화 본문에서 빼서 오른쪽 세부 패널의 「작업 로그」에 시간순으로 쌓는다.
 // 대화에는 그 자리에 작은 「과정 n」 한 줄만 남고, 누르면 로그의 그 줄로 간다(세부 패널이 없는 좁은 자리에서는 그 자리에서 펼친다).
 // 로그 줄의 번호를 누르면 대화의 그 자리로 돌아간다
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import type { Chat, ChatItem } from './api'
 import { t } from './i18n'
 import { MemoText } from './memo'
@@ -107,95 +107,25 @@ export function LogLine({ e, open, onToggle, hit, onBack }: { e: LogEntry; open:
   )
 }
 
-// ---------- 대화 ↔ 로그 오가기 ----------
-
-const FOCUS = 'rw-work-log-focus'
-type Focus = { chat: string; from: number; to: number }
-/** 로그가 아직 없을 때(세부 패널을 막 여는 중) 받은 요청. 로그가 열리면 가져간다 */
-let pending: Focus | null = null
-
-/** 대화의 「과정 n」에서: 로그의 그 줄들을 펼치고 보이게 */
-export function focusLog(f: Focus): void {
-  pending = f
-  window.dispatchEvent(new Event(FOCUS))
-}
-
-/** 로그의 번호에서: 대화의 「과정」 줄로 스크롤하고 잠깐 표시 */
-function focusChat(n: number): void {
-  const hit = [...document.querySelectorAll<HTMLElement>('.ac-items .ac-proc')].find((el) => Number(el.dataset.from) <= n && n <= Number(el.dataset.to))
-  if (!hit) return
-  hit.scrollIntoView({ block: 'center', behavior: 'smooth' })
-  hit.classList.remove('hit')
-  void hit.offsetWidth
-  hit.classList.add('hit')
-}
-
-const wide = () => typeof window.matchMedia !== 'function' || window.matchMedia('(min-width: 901px)').matches
+// ---------- 대화 안의 과정 줄 ----------
 
 /**
- * 대화 본문의 「과정 n–m · 요약 ›」 한 줄. 세부 패널을 둘 수 있는 넓은 화면이면 패널을 열고 로그의 그 줄로,
- * 아니면(사이드바 · 탭 · 좁은 창) 그 자리에서 로그 줄을 펼친다. 도는 중인 마지막 과정은 지금 쓰는 도구를 옅게 붙인다
+ * 대화 본문의 「과정 n–m · 요약 ›」 한 줄. 누르면 그 자리에서 로그 줄을 펼친다 (11/20 16:05 진행: 세부 패널의 작업 로그를 없애고
+ * 보통 에이전트처럼 대화 안에 접어 둔다). 도는 중인 마지막 과정은 지금 쓰는 도구를 옅게 붙인다
  */
-export function ProcLine({ chat, from, to, log, live, pane, onPane }: { chat: string; from: number; to: number; log: LogEntry[]; live?: boolean; pane?: boolean; onPane?(): void }) {
+export function ProcLine({ from, to, log, live }: { from: number; to: number; log: LogEntry[]; live?: boolean }) {
   const [inline, setInline] = useState(false)
   const [open, setOpen] = useState<ReadonlySet<number>>(new Set())
   const entries = log.slice(from - 1, to)
   const last = entries[entries.length - 1]
   const now = live && last?.kind === 'steps' ? last.items[last.items.length - 1] : undefined
-  const click = () => {
-    if (onPane && wide()) {
-      if (!pane) onPane()
-      focusLog({ chat, from, to })
-      return
-    }
-    setInline(!inline)
-  }
   return (
     <li className="ac-proc" data-from={from} data-to={to}>
-      <button className="a ac-proc-toggle" data-ui="과정 표시" aria-expanded={inline} onClick={click} data-tip={t('작업 로그에서 보기', 'Show in the work log')}>
+      <button className="a ac-proc-toggle" data-ui="과정 표시" aria-expanded={inline} onClick={() => setInline(!inline)}>
         {procName(from, to)} · {procSummary(entries)} {inline ? '▾' : '›'}
       </button>
       {now && !inline && <span className="ac-proc-now"><span className="ac-tool mono">{isAgentStep(now) ? t('하위 에이전트', 'Subagent') : now.tool}</span><span className="ac-sum" title={now.summary}>{now.summary}</span></span>}
       {inline && <ol className="ac-log-list inline">{entries.map((e) => <LogLine key={e.n} e={e} open={open.has(e.n)} onToggle={() => setOpen((o) => { const s = new Set(o); if (s.has(e.n)) s.delete(e.n); else s.add(e.n); return s })} />)}</ol>}
     </li>
-  )
-}
-
-/** 세부 패널의 작업 로그:새 줄이 오면 맨 아래를 따라간다(위로 올려 읽는 중이면 그대로) */
-export function WorkLog({ chat }: { chat: Chat }) {
-  const { log } = chatLog(chat.items)
-  const [open, setOpen] = useState<ReadonlySet<number>>(new Set())
-  const [hit, setHit] = useState<{ from: number; to: number } | null>(null)
-  const box = useRef<HTMLOListElement>(null)
-  const follow = useRef(true)
-  const size = log.reduce((s, e) => s + (e.kind === 'steps' ? e.items.length : 1), 0)
-  useEffect(() => {
-    const el = box.current
-    if (el && follow.current) el.scrollTop = el.scrollHeight
-  }, [size, chat.id])
-  useEffect(() => {
-    const take = (f: Focus) => {
-      if (f.chat !== chat.id) return
-      pending = null
-      follow.current = false
-      setOpen((o) => { const s = new Set(o); for (let n = f.from; n <= f.to; n++) s.add(n); return s })
-      setHit({ from: f.from, to: f.to })
-      requestAnimationFrame(() => box.current?.querySelector(`[data-log-n="${f.from}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }))
-    }
-    if (pending) take(pending)
-    const on = () => { if (pending) take(pending) }
-    window.addEventListener(FOCUS, on)
-    return () => window.removeEventListener(FOCUS, on)
-  }, [chat.id])
-  const toggle = (n: number) => setOpen((o) => { const s = new Set(o); if (s.has(n)) s.delete(n); else s.add(n); return s })
-  return (
-    <section className="ac-log" data-ui="작업 로그">
-      <div className="side-sec-h"><h3>{t('작업 로그', 'Work log')}</h3>{!!log.length && <span className="muted">{log.length}</span>}</div>
-      {log.length
-        ? <ol ref={box} className="ac-log-list" onScroll={(e) => { const el = e.currentTarget; follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24 }}>
-          {log.map((e) => <LogLine key={e.n} e={e} open={open.has(e.n)} onToggle={() => toggle(e.n)} hit={!!hit && hit.from <= e.n && e.n <= hit.to} onBack={() => focusChat(e.n)} />)}
-        </ol>
-        : <span className="muted ac-hint">{t('에이전트가 생각하거나 도구를 쓰면 여기에 쌓입니다', 'Thinking and tool use appear here as the agent works')}</span>}
-    </section>
   )
 }

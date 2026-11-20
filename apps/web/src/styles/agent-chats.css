@@ -209,8 +209,8 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-target:hover, .ac-target[aria-expanded='true'] { background: var(--bg-hover); }
 .ac-target .label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ac-target-ic { display: inline-flex; color: var(--text-3); }
-.ac-target-ic svg { width: 16px; height: 16px; }
-.ac-target-cv { color: var(--text-3); }
+.ac-target-ic svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.ac-target .n { color: var(--text-3); font-size: var(--fs-xs); }
 .ac-target-menu { left: 0; right: 0; top: calc(100% + 2px); max-height: 60vh; overflow-y: auto; }
 .ac-target-menu .label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ac-target-menu .n { color: var(--text-3); font-size: var(--fs-xs); }
@@ -335,7 +335,6 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-perm .ac-hint { margin-top: var(--sp-1); }
 
 /* 여러 개 고르기 (10/28 시안 4절): 줄 앞 네모, 위 툴바 */
-.ac-pick-start { align-self: flex-end; margin: var(--sp-1) var(--sp-2) 0; font-size: var(--fs-xs); }
 .ac-pickbar { display: flex; align-items: center; gap: var(--sp-1); margin: var(--sp-1) var(--sp-1) 0; padding: var(--sp-1) var(--sp-2); border-radius: var(--r-md); background: var(--bg-hover); font-size: var(--fs-xs); }
 .ac-pickbar .sp { flex: 1; }
 .ac-pick { flex: none; width: 13px; height: 13px; border: 1.4px solid var(--line-strong); border-radius: 3px; box-sizing: border-box; }
