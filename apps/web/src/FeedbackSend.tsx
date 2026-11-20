@@ -6,7 +6,7 @@ import { Dialog } from './dialogs'
 import { feedbackSummary, feedbackWhen, issuesDraftUrl } from './feedbackFormat'
 import { feedbackKindName as kindName } from './feedbackTags'
 import { go } from './router'
-import { t } from './i18n'
+import { HERE, t } from './i18n'
 import { qk } from './queries'
 import { uiShown } from './uiNames'
 import { agentChatsApi } from './api/agentChats'
@@ -130,7 +130,7 @@ export function InstantToggle() {
       .finally(() => setBusy(false))
   }
   const place = settings.data.place
-  const where = place ? t(`서버(${place.server})의 Claude가`, `Claude on the server (${place.server})`) : t('이 맥의 Claude가', 'Claude on this Mac')
+  const where = place ? t(`서버(${place.server})의 Claude가`, `Claude on the server (${place.server})`) : t(`${HERE.ko}의 Claude가`, `Claude on ${HERE.en}`)
   const shown = error ?? place?.error ?? null
   const tip = shown ?? (cloudOn ? t(`${where} 바로 처리 (클라우드가 맡은 것은 빼고)`, `${where} handles it right away (except what the cloud claimed)`) : t(`${where} 바로 처리`, `${where} handles it right away`))
   return (
