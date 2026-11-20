@@ -1,0 +1,15 @@
+/* 상단바 알림 종 (11/20 시안 4절 안 B): 읽지 않은 수는 사용자 차례 주황 알약(.rail-count)을 종 오른쪽 위에 */
+.tb-bell { position: relative; display: inline-flex; }
+.tb-bell > .icon-btn { position: relative; }
+.tb-bell-n { position: absolute; top: 0; right: -2px; min-width: 14px; height: 14px; line-height: 14px; padding: 0 3px; pointer-events: none; }
+.tb-bell-menu { right: 0; top: calc(100% + 4px); width: 340px; max-width: calc(100vw - 2 * var(--sp-3)); max-height: 70vh; overflow-y: auto; }
+.tb-bell-head, .tb-bell-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: 6px 10px; font-size: var(--fs-sm); }
+.tb-bell-head { border-bottom: 1px solid var(--line); margin-bottom: var(--sp-1); }
+.tb-bell-title { font-weight: var(--fw-strong); }
+.tb-bell-head .a, .tb-bell-foot .a { width: auto; padding: 0; }
+.tb-bell-foot { border-top: 1px solid var(--line); margin-top: var(--sp-1); }
+.menu .tb-bell-item { flex-direction: column; align-items: stretch; gap: 2px; }
+.tb-bell-kind { color: var(--text-3); font-size: var(--fs-xs); }
+.tb-bell-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
+.tb-bell-item.unread .tb-bell-text { color: var(--text); font-weight: var(--fw-strong); }
+.tb-bell-none { padding: 6px 10px; font-size: var(--fs-sm); }

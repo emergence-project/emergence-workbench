@@ -38,11 +38,14 @@ function Link({ p, tips, children }: { p: Exclude<AppLinkPart, { kind: 'text' }>
   return <a className="a" data-ui={p.kind === 'agent' ? '대화 링크' : '피드백 링크'} href={to} title={tip}>{children}</a>
 }
 
+/** 대화 id는 그 대화의 지금 제목으로 보인다 (11/20 12:45 "대화 번호 말고 대화 제목으로"). 모르는(지운) 대화면 id 그대로 */
+const shownAs = (p: Exclude<AppLinkPart, { kind: 'text' }>, tips: Map<string, string>) => (p.kind === 'agent' ? tips.get(p.id) : undefined)
+
 /** 보통 글: 감싼 곳 밖이면 그대로 */
 export function AppLinkText({ text }: { text: string }) {
   const ctx = useContext(AppLinkContext)
   if (!ctx) return <>{text}</>
-  return <>{appLinks(text, ctx.ix).map((p, i) => (p.kind === 'text' ? p.text : <Link key={i} p={p} tips={ctx.tips}>{p.text}</Link>))}</>
+  return <>{appLinks(text, ctx.ix).map((p, i) => (p.kind === 'text' ? p.text : <Link key={i} p={p} tips={ctx.tips}>{shownAs(p, ctx.tips) ?? p.text}</Link>))}</>
 }
 
 /** `코드` 글 전체가 대화 id · 피드백 키면 그 링크, 아니면 보통 코드 (저장소 경로 링크 포함) */
@@ -51,5 +54,6 @@ export function AppLinkCode({ text }: { text: string }) {
   const parts = ctx ? appLinks(text, ctx.ix) : []
   const only = parts.length === 1 ? parts[0]! : null
   if (!ctx || !only || only.kind === 'text') return <CodeText text={text} />
-  return <Link p={only} tips={ctx.tips}><code className="memo-code">{text}</code></Link>
+  const title = shownAs(only, ctx.tips)
+  return <Link p={only} tips={ctx.tips}>{title ?? <code className="memo-code">{text}</code>}</Link>
 }

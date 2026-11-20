@@ -33,7 +33,7 @@ code:
 | server | `apps/server/src/routes/agentChats.ts` | HTTP 경로 `/api/agent-chats/*` |
 | web | `apps/web/src/api/agentChats.ts` | 위 경로의 클라이언트 |
 | web | `apps/web/src/AgentChats.tsx` | 대화 화면: 목록 · 항목 그리기 · 허락 카드 · 고친 파일 |
-| web | `apps/web/src/WorkLog.tsx` | 작업 로그: 대화 줄을 본문과 로그로 나누는 순수 함수 `chatLog`(생각 · 이어진 도구 묶음 = 로그 한 줄, 이어진 과정 = 대화의 「과정 n–m」 한 줄), 세부 패널의 로그와 대화 ↔ 로그 오가기 |
+| web | `apps/web/src/WorkLog.tsx` | 작업 로그: 대화 줄을 본문과 로그로 나누는 순수 함수 `chatLog`(생각 · 이어진 도구 묶음 = 로그 한 줄, 이어진 과정 = 대화의 「과정 n–m」 한 줄), 대화 안에서 그 자리에 펼치는 「과정」 줄 `ProcLine`(11/20 시안 2절: 세부 패널의 작업 로그는 없앰) |
 | web | `apps/web/src/WorkAside.tsx` | 대화 오른쪽 칸: 세부 패널과 터미널 중 하나(`useSideColumn`, 머리의 목록 · `>_` 아이콘). 터미널은 옮길 앱에 셸이 있을 때만 |
 | web | `apps/web/src/ChatComposer.tsx` | 입력란: 붙이기 · `/` 명령 · `@` 파일 · 권한 · 모델 · 생각 깊이 |
 | web | `apps/web/src/ChatQuote.tsx` | 대화 줄에서 고른 글을 「답글」로 입력란 칩(`selection`)에 더하는 메뉴. 보낼 때 서버가 인용으로 넣는다 |
@@ -68,7 +68,7 @@ code:
 - 중앙 오른쪽 칸의 작업 현황(`centralBoard.ts` · `CentralChat.tsx`): 하위 대화 · 자리 기다림 · 피드백을 묶음과 정체 시간으로 한 줄씩. 세부 칸의 절 모양은 `SideSection.tsx`
 - 앱 MCP 도구(노트 · 기록 · 맡긴 일). 다른 앱은 자기 MCP를 `mcpFor` 자리에 붙인다
 - Codex · Gemini 대화(`agentAcp.ts`)와 Codex 검토
-- 다른 컴퓨터의 대화(`agentShare.ts`, 11/20): 맞추기가 대화를 개인 저장소 `_chats/<컴퓨터>/<id>.json`으로 올리고(내 지시 · 에이전트 글 · 고친 파일 이름 · 오류만), 다른 컴퓨터는 그것을 `machine`을 단 읽기 전용 줄로 보관함에 보인다. 「이 컴퓨터에서 이어 하기」는 새 대화를 열고 SDK 세션 대신 앞 대화를 첫 지시에 붙인다(`carry`, `promptFor`가 한 번 붙이고 지운다). 컴퓨터를 여럿 쓰지 않는 앱은 건너뛴다
+- 다른 컴퓨터의 대화(`agentShare.ts`, 11/20): 맞추기가 대화를 개인 저장소 `_chats/<컴퓨터>/<id>.json`으로 올리고(내 지시 · 에이전트 글 · 고친 파일 이름 · 오류만), 다른 컴퓨터는 그것을 `machine`을 단 읽기 전용 줄로 보관함에 보인다. 「이 컴퓨터에서 이어 하기」는 새 대화를 열고 SDK 세션 대신 앞 대화를 첫 지시에 붙인다(`carry`, `promptFor`가 한 번 붙이고 지운다). 중앙 대화도 올린다. 서버로 정한 컴퓨터가 따로 있으면(`routes/chatPlace.ts`) 대화 요청을 서버로 넘기되, 이 컴퓨터에만 있는 대화 id는 여기서 처리하고 목록에 `local`(화면의 「이 맥」 태그)로 섞는다(`mergeLists`). 새 대화는 `here: true`면 이 컴퓨터에서 연다. 컴퓨터를 여럿 쓰지 않는 앱은 건너뛴다
 - 중앙 방(`agentRoom.ts` · `CentralRoom.tsx`, 11/20): 방장(수정) 하나와 읽기만 · 발언 사람, 받는 이(그냥 = 방장, @이름 = 그 사람만, @모두 · @all = 모두 · 방장 마지막, `@rw/core` `routeOf`. @ 메뉴는 `aka`로 다른 이름에도 맞는다). 여럿을 부를 때는 방 규칙 `mode`를 따른다: 독립(기본)은 같은 시점의 대화를 떼어 두고(`seen`) 동시에 물어 서로의 답을 가리고 방장만 모두의 답을 보며, 토론은 차례로 물어 앞 답을 보게 한다. 방 사람은 세션 없이 부를 때마다 최근 방 대화를 한 번 읽고 답하고(`ChatItem` `member`), 방이 바뀌면 `room` 줄이 남는다. 방장은 MCP `room_ask` · `room_invite` · `room_remove`(`mcpRoom.ts`). 다른 앱은 한 번 묻기(`review` · `side`) 자리만 있으면 옮길 수 있다
 - 오래된 대화 정리와 중앙 메모(`agentTidy.ts`): 끝나고 7일 손대지 않은 대화를 보관 · 요약 · 압축하고, 중앙이 읽는 오래 갈 규칙을 한 파일에 둔다. 옮길 때는 보관 · 압축만 가져가도 된다
 

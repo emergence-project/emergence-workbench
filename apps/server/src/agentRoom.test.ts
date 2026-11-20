@@ -162,7 +162,7 @@ describe('중앙 방', () => {
     const c = chats.talk('시작')
     await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
     expect(() => chats.invite('gemini', 'host', 'talk')).toThrow(/까닭/)
-    expect(() => chats.invite('gemini', 'host', 'edit', '검토')).toThrow(/읽기만/)
+    expect(() => chats.invite('gemini', 'host', 'edit', '검토')).toThrow(/읽기 · 답변까지/)
     chats.invite('gemini', 'host', 'read', '그림 검토에 강함')
     expect(chats.roomState().members.find((m) => m.agent === 'gemini')).toMatchObject({ perm: 'read', by: 'host', reason: '그림 검토에 강함' })
     expect(chats.get(c.id).items.at(-1)).toMatchObject({ kind: 'room', act: 'invite', agent: 'gemini', by: 'host' })

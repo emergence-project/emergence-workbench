@@ -2,8 +2,8 @@
 // 프로젝트 밖 화면(홈 · 피드백 · 소개 · 설정 …)의 오른쪽 사이드바: 맨 위에 「중앙」, 그 아래 모든 프로젝트의 최근 대화, 아래 입력란은 중앙에게 말한다.
 // 대화를 누르면 이 사이드바 안에서 연다(페이지를 옮기지 않음). 프로젝트 화면은 원래의 오른쪽 사이드바 에이전트 탭을 쓰고, 그 목록 맨 위에도 「중앙」이 있다
 import { useEffect, useState, type ReactNode } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import { agentChatsApi, CENTRAL_RID } from './api'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { agentChatsApi, CENTRAL_RID, devicesApi } from './api'
 import { ChatLine, PanelChat, rank, useChatList } from './AgentChats'
 import { CENTRAL_PAGE, CentralLine } from './CentralChat'
 import { t } from './i18n'
@@ -25,7 +25,7 @@ export function GlobalAgentPanel({ onSaved }: { onSaved(m: string): void }) {
   const [open, setOpenState] = useState<string | null>(() => store.get<string | null>(KEY, null))
   const setOpen = (v: string | null) => { setOpenState(v); store.set(KEY, v) }
   const list = useChatList().data?.chats
-  const central = list?.find((c) => c.rid === CENTRAL_RID && !c.archived)
+  const central = list?.find((c) => c.rid === CENTRAL_RID && !c.archived && !c.local)
   const current = open && (!list || list.some((c) => c.id === open)) ? open : null
   const wide = (id: string) => (
     <button className="icon-btn sm" data-ui="넓게 보기" data-tip={t('에이전트 화면에서 넓게 보기', 'Open wide in the agent page')} aria-label={t('넓게 보기', 'Open wide')} onClick={() => go({ page: 'agent', id })}>{Icon.openNote}</button>
@@ -46,6 +46,7 @@ export function GlobalAgentPanel({ onSaved }: { onSaved(m: string): void }) {
       </div>
       <div className="rs-scroll ac-panel-list">
         <div className="set-side">
+          <ChatPlaceNote />
           <CentralLine row={central} on={false} onOpen={setOpen} />
           {!!recent.length && <div className="ac-sub-h">{t('최근 대화', 'Recent conversations')}</div>}
           {recent.map((c) => <ChatLine key={c.id} c={c} on={false} onOpen={() => setOpen(c.id)} />)}
@@ -54,6 +55,15 @@ export function GlobalAgentPanel({ onSaved }: { onSaved(m: string): void }) {
       <div className="ac-compose ac-new-dock"><TalkToCentral onOpened={setOpen} /></div>
     </div>
   )
+}
+
+/** 대화가 서버에서 돌면 한 줄로 (3단계). 닿지 못하면 그 까닭 */
+function ChatPlaceNote() {
+  const q = useQuery({ queryKey: qk.chatPlace, queryFn: devicesApi.chatPlace, refetchInterval: 60_000 })
+  const p = q.data
+  if (!p?.remote) return null
+  const name = p.server?.label ?? p.server?.machine ?? ''
+  return <p className={`ac-place${p.error ? ' error-text' : ''}`} data-ui="대화 서버">{p.error ? t(`서버(${name})에 닿지 않습니다`, `Cannot reach the server (${name})`) : t(`대화는 ${name}에서 돕니다`, `Chats run on ${name}`)}</p>
 }
 
 /** 맨 위 갈래 단추 (정보 | 에이전트 | 터미널). 터미널은 이 컴퓨터에서 연 화면만 */

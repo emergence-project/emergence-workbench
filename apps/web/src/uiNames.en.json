@@ -1172,5 +1172,11 @@
   "기기 줄": "Device row",
   "기기 계정": "Device accounts",
   "서버 컴퓨터": "Server computer",
-  "기기 로그아웃": "Device sign-out"
+  "기기 로그아웃": "Device sign-out",
+  "대화 서버": "Chat server",
+  "이 맥 태그": "This Mac tag",
+  "대화 도는 곳 고르기": "Where the chat runs",
+  "중앙 계정": "Central account",
+  "알림 종": "Notification bell",
+  "알림 목록": "Notification list"
 }

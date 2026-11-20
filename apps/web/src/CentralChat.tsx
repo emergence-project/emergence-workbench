@@ -2,7 +2,11 @@
 // 대화 목록 맨 위에 고정한 「중앙」 줄, 처음 말하는 화면, 중앙 오른쪽 칸의 작업 현황. 하위 대화는 보통 대화와 같은 화면으로 연다
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { agentChatsApi, type ChatRow } from './api'
+import { agentChatsApi, type ChatEffort, type ChatRow } from './api'
+import { effortsOf, familyName, familyOf, fitEffort, modelFamilies, pickFamily, useModels } from './AgentPick'
+import { EFFORT_NAME, PopButton } from './ChatComposer'
+import { accountLabel, useAgentAccounts } from './ClaudeAccountsSettings'
+import { Icon } from './icons'
 import { ChatStateMark, stateName } from './AgentChats'
 import { boardCounts, boardRows, STALL_MIN, type BoardGroup, type BoardRow } from './centralBoard'
 import { t } from './i18n'
@@ -38,12 +42,13 @@ export function CentralStart() {
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [fail, setFail] = useState<string | null>(null)
+  const [start, setStart] = useState<{ model: string; effort: ChatEffort; account?: string }>({ model: 'opus', effort: 'medium' })
   const submit = async () => {
     if (!text.trim() || busy) return
     setBusy(true)
     setFail(null)
     try {
-      const c = await agentChatsApi.talk(text.trim(), screenLine())
+      const c = await agentChatsApi.talk(text.trim(), screenLine(), start)
       client.setQueryData(qk.agentChat(c.id), c)
       void client.invalidateQueries({ queryKey: qk.agentChatLists })
       go({ page: 'agent', id: c.id })
@@ -60,11 +65,39 @@ export function CentralStart() {
         aria-label={t('중앙에게 말하기', 'Talk to Central')} onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); void submit() } }} />
       <div className="ac-central-send">
+        <span className="ac-central-picks"><StartPicks start={start} onChange={(s) => setStart((o) => ({ ...o, ...s }))} /></span>
         {fail && <span className="error-text">{fail}</span>}
         <button className="btn primary" disabled={!text.trim() || busy} onClick={() => void submit()}>{t('보내기', 'Send')}</button>
       </div>
     </div></div>
   )
+}
+
+/**
+ * 중앙을 처음 열 때 고르는 모델 · 생각 깊이 · 계정 (11/20 시안 5절 "모델 변경/크레딧을 사용하는 계정도 변경할 수 있게").
+ * 중앙은 Claude가 맡으므로 에이전트는 고르지 않는다. 연 뒤에는 중앙 입력란의 같은 메뉴로 바꾼다
+ */
+function StartPicks({ start, onChange }: { start: { model: string; effort: ChatEffort; account?: string }; onChange(s: Partial<{ model: string; effort: ChatEffort; account: string }>): void }) {
+  const models = useModels('claude-code')
+  const accounts = (useAgentAccounts('claude').data?.accounts ?? []).filter((a) => a.login)
+  const fam = familyOf(start.model, models)
+  const efforts = effortsOf(start.model, models)
+  const check = (on: boolean) => <span className="ac-pop-check" aria-hidden>{on ? Icon.check : null}</span>
+  const account = accounts.find((a) => a.id === start.account)
+  return <>
+    <PopButton ui="모델 고르기" tip={t('모델', 'Model')} down label={<>{familyName(start.model, models)} ▾</>}>
+      {(close) => modelFamilies(models).filter((f) => f.base !== 'default').map((f) => {
+        const on = (fam.family?.base ?? '') === f.base, value = pickFamily(f, fam.suffix)
+        return <button key={f.base} role="menuitemradio" aria-checked={on} className={on ? 'on' : ''} onClick={() => { close(); onChange({ model: value, ...fitEffort(start.effort, effortsOf(value, models)) }) }}>{check(on)}{f.name}</button>
+      })}
+    </PopButton>
+    {efforts.length > 0 && <PopButton ui="생각 고르기" tip={t('생각 깊이', 'Thinking')} down label={<>{EFFORT_NAME[start.effort]} ▾</>}>
+      {(close) => efforts.map((m) => <button key={m} role="menuitemradio" aria-checked={start.effort === m} className={start.effort === m ? 'on' : ''} onClick={() => { close(); onChange({ effort: m }) }}>{check(start.effort === m)}{EFFORT_NAME[m]}</button>)}
+    </PopButton>}
+    {accounts.length > 1 && <PopButton ui="중앙 계정" tip={t('크레딧을 쓰는 계정', 'Account whose credits are used')} down label={<>{account ? accountLabel(account) : t('기본 계정', 'Default account')} ▾</>}>
+      {(close) => accounts.map((a) => <button key={a.id} role="menuitemradio" aria-checked={start.account === a.id} className={start.account === a.id ? 'on' : ''} onClick={() => { close(); onChange({ account: a.id }) }}>{check(start.account === a.id)}{accountLabel(a)}</button>)}
+    </PopButton>}
+  </>
 }
 
 /** 작업 현황의 시각 · 정체를 1분마다 다시 센다 */

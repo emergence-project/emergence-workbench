@@ -14,7 +14,7 @@ import { go, href } from './router'
 import { StatusDot } from './StatusDot'
 import { store } from './store'
 import { useSideColumn, WorkAside } from './WorkAside'
-import { chatLog, isAgentStep, ProcLine, secondsName, WorkLog, type Step } from './WorkLog'
+import { chatLog, isAgentStep, ProcLine, secondsName, type Step } from './WorkLog'
 import { isUnseen, myTurn, useMarkSeen, useSeen } from './agentSeen'
 import { useDismiss } from './useDismiss'
 import { flash } from './flash'
@@ -25,7 +25,8 @@ import { ForeignBar } from './AgentForeign'
 import { InlineEdits } from './InlineEdits'
 import { PermTable } from './AgentPermTable'
 import { ProjectPick, RecentChats } from './AgentProjectPick'
-import { AgentChip, agentOf, effortsOf, familyName, familyOf, fitEffort, isClaude, useChatSettings, useModels } from './AgentPick'
+import { ChatHerePick, useChatHere } from './ChatHere'
+import { AgentChip, agentOf, effortsOf, familyName, familyOf, fitEffort, isClaude, useChatSettings, useModels, useNewChatAccount } from './AgentPick'
 import { isReviewCommand, ReviewButton, ReviewCard } from './AgentReview'
 import { CENTRAL_PAGE, CentralBoard, CentralBoardButton, CentralLine, CentralStart } from './CentralChat'
 import { HostWho, hostWhoAt, MemberItem, RoomItem, RoomManage, RoomStrip, useComposerRoom, VerdictLog } from './CentralRoom'
@@ -136,7 +137,7 @@ export function ChatLine({ c, on, onOpen, actions = false, pick, where }: { c: C
       <span className="ac-line-top">{pick && <span className={`ac-pick${pick.on ? ' on' : ''}`} aria-hidden />}<span className="ac-line-dot">{isUnseen(c) ? <span className="turn-dot" role="img" aria-label={t('확인하지 않음', 'Not checked')} title={t('끝났는데 아직 열어 보지 않은 대화', 'Finished and not opened yet')} /> : <ChatStateMark state={c.state} name={stateName(c)} />}</span>
         <span className={`label${editing ? ' hide' : ''}`}>{c.title}</span></span>
       <span className="ac-line-meta">
-        {!isClaude(c.agent) && <><AgentChip agent={c.agent} /> · </>}{c.machine ?? stateName(c)}{where && ` · ${where}`}
+        {c.local && <><span className="tag ac-here" data-ui="이 맥 태그" title={t('서버가 아닌 이 컴퓨터에서 도는 대화', 'Runs on this computer, not on the server')}>{t('이 맥', 'This Mac')}</span> </>}{!isClaude(c.agent) && <><AgentChip agent={c.agent} /> · </>}{c.machine ?? stateName(c)}{where && ` · ${where}`}
         {(c.added > 0 || c.removed > 0) && <> · <Delta added={c.added} removed={c.removed} /></>}
         {` · ${relativeTime(Date.parse(c.updated))}`}
       </span>{c.archived && c.summary && <span className="ac-line-sum" data-ui="결과 요약">{c.summary.split('\n')[0]}</span>}
@@ -179,7 +180,7 @@ function useChatActions(id: string) {
   return { rename, remove }
 }
 
-/** 고른 대화 여러 개를 보관 · 꺼내기 · 지우기 (지우기는 보관한 것만, 한 번 묻고) */
+/** 고른 대화 여러 개를 보관 · 복원 · 지우기 (지우기는 보관한 것만, 한 번 묻고) */
 export function useBulkChats() {
   const client = useQueryClient()
   const [busy, setBusy] = useState(false)
@@ -197,7 +198,7 @@ export function useBulkChats() {
 }
 
 // ---------- 대화 줄들 ----------
-// 생각 · 도구 묶음은 오른쪽 세부 패널의 작업 로그로 (WorkLog.tsx). 대화에는 「과정 n」 한 줄만
+// 생각 · 도구 묶음은 대화에 「과정 n」 한 줄로 접어 두고, 누르면 그 자리에서 펼친다 (WorkLog.tsx, 11/20)
 
 // ---------- 계획 · 허락: 번호 붙은 세 답 ----------
 
@@ -512,7 +513,7 @@ function HeadMore({ live, archived, onRename, onArchive, onRemove, onRecord }: {
         <div className="menu ac-head-menu" role="menu" data-ui="대화 더 보기 항목">
           <button role="menuitem" data-ui="대화 제목 바꾸기" onClick={() => { setOpen(false); onRename() }}>{t('제목 바꾸기', 'Rename')}</button>
           {onRecord && <button role="menuitem" data-ui="기록으로 남기기" onClick={() => { setOpen(false); onRecord() }}>{t('기록으로 남기기', 'Keep as a record')}</button>}
-          <button role="menuitem" disabled={live && !archived} title={live ? t('도는 대화는 멈춘 뒤 보관합니다', 'Stop it before archiving') : undefined} onClick={() => { setOpen(false); onArchive(!archived) }}>{archived ? t('보관함에서 꺼내기', 'Unarchive') : t('보관함에 넣기', 'Archive')}</button>
+          <button role="menuitem" disabled={live && !archived} title={live ? t('도는 대화는 멈춘 뒤 보관합니다', 'Stop it before archiving') : undefined} onClick={() => { setOpen(false); onArchive(!archived) }}>{archived ? t('보관함에서 복원', 'Restore') : t('보관함에 넣기', 'Archive')}</button>
           <button role="menuitem" className="danger" data-ui="대화 지우기" disabled={live || !archived} title={!archived ? t('보관함에 넣은 대화만 지웁니다', 'Only archived conversations can be deleted') : undefined} onClick={() => { setOpen(false); onRemove() }}>{t('삭제', 'Delete')}</button>
         </div>
       )}
@@ -641,7 +642,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, o
       {chat.record && <RecordBanner rid={chat.rid} record={chat.record} />}
       <ol ref={listRef} className="ac-items" data-ui="대화 줄들" role="log" onScroll={onScroll}>
         {!!chat.trimmed && <li className="ac-note muted">{t(`오래된 앞 줄 ${chat.trimmed}개는 지웠습니다 (대화는 마지막 400줄만 둡니다)`, `${chat.trimmed} older lines were removed (a conversation keeps its last 400)`)}</li>}
-        {blocks.map((b, i) => b.kind === 'proc' ? <ProcLine key={i} chat={chat.id} from={b.from} to={b.to} log={log} live={live && i === blocks.length - 1} pane={pane} onPane={onPane} /> : <ItemView key={i} chat={chat} it={b.item} who={chat.rid === CENTRAL_RID && hostWhoAt(blocks, i)} onError={setFail} onChanges={openChanges} onRewind={(p) => void rewind(p)} onPass={(text) => setFill({ text, n: Date.now() })} />)}
+        {blocks.map((b, i) => b.kind === 'proc' ? <ProcLine key={i} from={b.from} to={b.to} log={log} live={live && i === blocks.length - 1} /> : <ItemView key={i} chat={chat} it={b.item} who={chat.rid === CENTRAL_RID && hostWhoAt(blocks, i)} onError={setFail} onChanges={openChanges} onRewind={(p) => void rewind(p)} onPass={(text) => setFill({ text, n: Date.now() })} />)}
         {!!chat.draft && <li className="ac-text ac-draft" data-ui="쓰는 중인 글"><MemoText text={chat.draft} /></li>}
         {chat.state === 'running' && <li className="ac-note muted ac-working" aria-live="polite"><StatusDot s="in-progress" name={chat.compacting ? t('앞 내용을 요약하는 중', 'Summarizing earlier messages') : t('작업 중', 'Working')} label /></li>}
         {!!chat.tasks && chat.state !== 'running' && <li className="ac-note muted ac-working" data-ui="뒤에서 도는 명령" aria-live="polite"><StatusDot s="in-progress" name={t(`뒤에서 명령 ${chat.tasks}개가 도는 중 · 끝나면 이어서 합니다`, `${chat.tasks} background command${chat.tasks > 1 ? 's' : ''} running · continues when done`)} label /></li>}
@@ -678,12 +679,12 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
   const app = rid === APP_RID
   // 고른 프로젝트만 고치고 다른 프로젝트 · 개념노트는 읽기만 (11/19 사용자 결정, '전체' 범위는 없앰). 함께 고칠 프로젝트는 also
   const [also, setAlso] = useState(() => store.get<string[]>('rw-agent-also', []))
-  const [settings, change] = useChatSettings()
+  const [settings, change] = useChatSettings(), here = useChatHere(), acc = useNewChatAccount(settings.agent, app, change)
   const more = fixed || app ? [] : also.filter((r) => r !== rid && projects?.some((p) => p.id === r)), scope: ChatScope = app ? { kind: 'app' } : { kind: 'project', ...(more.length && { also: more }) }
   const start = async (m: ChatMessageBody) => {
     if (!rid) return false
     askNotify()
-    const c = await agentChatsApi.create({ rid, ...m, scope, ...settingsOf(settings.trust), model: settings.model, effort: settings.effort, ...(settings.auto && { auto: settings.auto }), ...(!isClaude(settings.agent) && { agent: agentOf(settings.agent) }) })
+    const c = await agentChatsApi.create({ rid, ...m, ...(here.here && { here: true }), scope, ...settingsOf(settings.trust), model: settings.model, effort: settings.effort, ...(settings.auto && { auto: settings.auto }), ...(acc.picked && { account: acc.picked }), ...(!isClaude(settings.agent) && { agent: agentOf(settings.agent) }) })
     void client.invalidateQueries({ queryKey: qk.agentChats })
     onCreated(c)
     return true
@@ -696,9 +697,9 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
   const lead = !fixed && <ProjectPick picked={rid ? [rid, ...more] : []} projects={projects ?? []} appOk={appOk} onPick={([r = '', ...rest]) => { setPick(r); store.set('rw-agent-project', r); setAlso(rest); store.set('rw-agent-also', rest) }} />
   return (
     <div className="ac-new" data-ui="새 대화">
-      {rid && <Composer key={rid} rid={rid} lead={lead} auto={note ? { kind: 'note', ref: note.file, label: note.title } : undefined} settings={settings} onSettings={change} onSubmit={start}
+      {rid && <Composer key={rid} rid={rid} lead={lead} auto={note ? { kind: 'note', ref: note.file, label: note.title } : undefined} settings={{ ...settings, ...(acc.account && { account: acc.account }) }} onSettings={acc.onSettings} onSubmit={start}
         placeholder={app ? t('고칠 것을 쓰세요 · 그림 붙여넣기', 'What should change in the app? · paste images') : t('맡길 일을 쓰세요 · / 명령 · @ 노트 붙이기 · 그림 붙여넣기', 'What should the agent do? · / commands · @ attach · paste images')} />}
-      {app && <span className="muted ac-hint">{t('앱 저장소의 따로 둔 폴더에서 고치고 시험합니다. 커밋 · PR은 앱이 하고, GitHub CI가 한 번 더 봅니다. 연구 프로젝트는 읽기만 합니다', 'Edits and tests in a separate folder of the app repository. The app commits and opens the PR, and GitHub CI checks again. Research projects are read-only')}</span>}
+      {rid && <ChatHerePick h={here} />}{app && <span className="muted ac-hint">{t('앱 저장소의 따로 둔 폴더에서 고치고 시험합니다. 커밋 · PR은 앱이 하고, GitHub CI가 한 번 더 봅니다. 연구 프로젝트는 읽기만 합니다', 'Edits and tests in a separate folder of the app repository. The app commits and opens the PR, and GitHub CI checks again. Research projects are read-only')}</span>}
     </div>
   )
 }
@@ -828,13 +829,12 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
   // 중앙은 파일을 고치지 않으므로 이 칸을 작업 현황에 쓰고, 「이 대화」는 그 아래 접어 둔다
   if (chat.rid === CENTRAL_RID) return (
     <WorkAside>
-      <WorkLog chat={chat} /><CentralBoard /><VerdictLog /><RoomManage />
+      <CentralBoard /><VerdictLog /><RoomManage />
       <details className="ac-info-fold" data-ui="이 대화 접기"><summary>{t('이 대화', 'This conversation')} <span className="muted">{t('모델 · 토큰 · 권한 ›', 'model · tokens · permissions ›')}</span></summary><ChatInfo chat={chat} /></details>
     </WorkAside>
   )
   return (
     <WorkAside>
-      <WorkLog chat={chat} />
       <ChatInfo chat={chat} />
       {hasEdits && !chat.machine && <><h3>{t('변경사항', 'Changes')}</h3><Changes chat={chat} onSaved={onSaved} /></>}
       <section data-ui="잡은 파일">
@@ -898,26 +898,6 @@ export function newChatIn(rid: string): void {
   store.set('rw-agent-project', rid)
   window.dispatchEvent(new CustomEvent(PICK_EVENT, { detail: rid }))
   go({ page: 'agent' })
-}
-
-const SHIPPED_SEEN = 'rw-feedback-shipped-seen'
-/**
- * 상단바 "#n 반영됨" (2단계 다, 10/21): 피드백을 맡은 대화의 PR을 앱이 합쳤고, 그 커밋이 지금 도는 앱에 들어왔을 때.
- * 누르면 피드백 화면으로, ×로 닫으면 이 브라우저에서 다시 보이지 않는다.
- */
-export function ShippedNotice() {
-  const list = useChatList().data?.chats
-  const [seen, setSeen] = useState<string[]>(() => store.get<string[]>(SHIPPED_SEEN, []))
-  const fresh = (list ?? []).filter((c) => c.shipped && c.pr && !seen.includes(c.id))
-  if (!fresh.length) return null
-  const names = fresh.map((c) => `#${c.pr!.number}`).join(' · ')
-  const close = () => { const next = [...seen, ...fresh.map((c) => c.id)].slice(-200); store.set(SHIPPED_SEEN, next); setSeen(next) }
-  return (
-    <span className="tb-shipped" data-ui="반영됨 알림">
-      <button type="button" className="a" title={t('피드백 화면에서 보기', 'See it on the Feedback screen')} onClick={() => go({ page: 'feedback', ...(fresh.length === 1 && fresh[0]!.feedback && { key: fresh[0]!.feedback }) })}>{t(`${names} 반영됨`, `${names} shipped`)}</button>
-      <button type="button" className="icon-btn sm" data-tip={t('닫기', 'Close')} aria-label={t('닫기', 'Close')} onClick={close}>{Icon.x}</button>
-    </span>
-  )
 }
 
 /** 레일 배지: 답을 기다리는 대화 수 (사용자 차례) */
@@ -1002,7 +982,7 @@ export function AgentPanel({ rid, note, onSaved, place = 'right', onPlace, onBes
     window.addEventListener(AGENT_PANEL_OPEN, take)
     return () => window.removeEventListener(AGENT_PANEL_OPEN, take)
   }, [rid])
-  const list = useChatList(rid).data?.chats, centralRow = useChatList().data?.chats.find((c) => c.rid === CENTRAL_RID && !c.archived)
+  const list = useChatList(rid).data?.chats, centralRow = useChatList().data?.chats.find((c) => c.rid === CENTRAL_RID && !c.archived && !c.local)
   const known = open && (list?.some((c) => c.id === open) || open === centralRow?.id)
   const current = open && (known || !list) ? open : null
   const auto: Attach | undefined = note ? { kind: 'note', ref: note.file, label: note.title } : undefined

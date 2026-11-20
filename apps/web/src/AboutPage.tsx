@@ -241,7 +241,7 @@ function Intro() {
         <div className="about-legend">
           <span><span className="about-unsure">{t('확인 전', 'Not reviewed')}</span> {t('아직 확인하지 않은 업데이트가 있는 절(왼쪽 목록에는 "확인 N"). 누르면 오른쪽 「이력」이 열려 그 줄로 가고, 그 줄의 ✓(맞아요)를 누르면 확인함이 됩니다', 'A section with an update you have not reviewed (the list on the left shows "Review N"). Click it to open "History" on the right at that row; ✓ (That is right) on the row marks it reviewed')}</span>
           <span><span className="about-pending">{t('반영 대기', 'Waiting to apply')}</span> {t('「수정」 탭으로 고쳐 보낸 절. 반영한 업데이트가 들어오면 사라지고 다시 확인할 차례가 됩니다', 'A section you edited and sent from the "Edit" tab. It goes away when the update that applies it arrives, and the section is yours to review again')}</span>
-          <span><b>{Icon.history}</b> {t('툴바 오른쪽 시계로 오른쪽 사이드바(이력 · 수정)를 엽니다. 이력 표의 줄을 누르면 그 절로 가서 그 업데이트가 바꾼 문장에 하이라이트가 붙습니다', 'The clock at the right of the toolbar opens the right sidebar (History · Edit). Clicking a row of the history table goes to that section and highlights the sentences that update changed')}</span>
+          <span><b>{Icon.history}</b> {t('툴바 오른쪽 시계로 본문 옆에 이력 · 수정 패널을 엽니다. 이력 카드를 누르면 그 절로 가서 그 업데이트가 바꾼 문장에 하이라이트가 붙습니다', 'The clock at the right of the toolbar splits the screen and opens a History · Edit panel beside the text. Clicking a history card goes to that section and highlights the sentences that update changed')}</span>
         </div>
       </Section>
 

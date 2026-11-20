@@ -62,7 +62,7 @@ export function AgentSide({ id }: { id?: string }) {
   useDismiss(menu, box, () => setMenu(false))
   const newChat = () => { if (at === ALL || at === LIBRARY_RID || (at === APP_RID && !listed?.app)) go({ page: 'agent' }); else newChatIn(at) }
 
-  // 여러 개 고르기 (10/28 시안 4절): 목록에서는 보관만, 보관함에서는 꺼내기 · 지우기
+  // 여러 개 고르기 (10/28 시안 4절): 목록에서는 보관만, 보관함에서는 복원 · 지우기
   const [picking, setPicking] = useState(false)
   const [picked, setPicked] = useState<string[]>([])
   const bulk = useBulkChats()
@@ -101,11 +101,11 @@ export function AgentSide({ id }: { id?: string }) {
 
   return (
     <div className="set-side ac-list" data-ui="대화 목록">
-      {(listed?.app || listed?.chats.some((c) => c.rid === CENTRAL_RID)) && <CentralLine row={listed?.chats.find((c) => c.rid === CENTRAL_RID && !c.archived)} on={id === CENTRAL_PAGE || listed?.chats.some((c) => c.id === id && c.rid === CENTRAL_RID) === true} />}
+      {(listed?.app || listed?.chats.some((c) => c.rid === CENTRAL_RID)) && <CentralLine row={listed?.chats.find((c) => c.rid === CENTRAL_RID && !c.archived && !c.local)} on={id === CENTRAL_PAGE || listed?.chats.some((c) => c.id === id && c.rid === CENTRAL_RID) === true} />}
       <div className="ac-target-line">
         <div className="ac-target-box" ref={box}>
           <button className="ac-target" data-ui="대화 대상" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((v) => !v)}>
-            <span className="ac-target-ic" aria-hidden>{Icon.list}</span><b className="label">{targetName(at, projects)}</b><span className="ac-target-cv" aria-hidden>⌄</span>
+            <span className="ac-target-ic" aria-hidden>{Icon.menu}</span><b className="label">{targetName(at, projects)}</b><span className="n">{(at === ALL ? live : live.filter((c) => c.rid === at)).length}</span>
           </button>
           {menu && <div className="menu ac-target-menu" role="menu" data-ui="대상 메뉴">
             {targets.map((r, i) => <div key={r}>{(i === 1 || r === LIBRARY_RID || (i > 1 && targets[i - 1] === APP_RID)) && <hr className="ac-target-sep" />}
@@ -114,22 +114,22 @@ export function AgentSide({ id }: { id?: string }) {
               </button></div>)}
           </div>}
         </div>
+        {!!shown.length && !picking && <button className="icon-btn" data-ui="대화 여러 개 고르기" data-tip={archive ? t('여러 개 복원 · 삭제', 'Restore or delete several') : t('여러 개 보관', 'Archive several')} aria-label={archive ? t('여러 개 복원 · 삭제', 'Restore or delete several') : t('여러 개 보관', 'Archive several')} onClick={() => setPicking(true)}>{Icon.pick}</button>}
         <button className="icon-btn tip-end" data-ui="새 대화 아이콘" data-tip={t('새 대화', 'New conversation')} aria-label={at === ALL ? t('새 대화', 'New conversation') : t(`${targetName(at, projects)}에서 새 대화`, `New conversation in ${targetName(at, projects)}`)} aria-current={!id ? 'page' : undefined} onClick={newChat}>{Icon.compose}</button>
       </div>
       {archive && <div className="ac-archive-h" data-ui="보관함 머리">{t('보관함', 'Archive')} {archived}</div>}
-      {!!shown.length && (picking
-        ? <div className="ac-pickbar" data-ui="대화 고르기 툴바">
+      {!!shown.length && picking && (
+        <div className="ac-pickbar" data-ui="대화 고르기 툴바">
           <b>{t(`${picked.length}개 고름`, `${picked.length} picked`)}</b>
           <span className="sp" />
           {archive
             ? <>
-              <button className="btn sm" disabled={!picked.length || bulk.busy} onClick={() => void bulk.archive(picked, false).then(stopPicking)}>{t('꺼내기', 'Unarchive')}</button>
+              <button className="btn sm" disabled={!picked.length || bulk.busy} onClick={() => void bulk.archive(picked, false).then(stopPicking)}>{t('복원', 'Restore')}</button>
               <button className="btn sm danger" data-ui="대화 지우기" disabled={!picked.length || bulk.busy} onClick={() => void bulk.remove(picked).then((ok) => { if (ok) { if (id && picked.includes(id)) go({ page: 'agent' }); stopPicking() } })}>{t('삭제', 'Delete')}</button>
             </>
             : <button className="btn sm" disabled={!picked.length || bulk.busy} onClick={() => void bulk.archive(picked, true).then(stopPicking)}>{t('보관', 'Archive')}</button>}
           <button className="btn sm" onClick={stopPicking}>{t('취소', 'Cancel')}</button>
-        </div>
-        : <button className="a ac-pick-start" data-ui="대화 여러 개 고르기" onClick={() => setPicking(true)}>{archive ? t('골라서 꺼내기 · 삭제', 'Pick to unarchive or delete') : t('선택 보관', 'Pick to archive')}</button>)}
+        </div>)}
       {archive
         ? (archiveGroups.length ? archiveGroups.map(([k, name, cs]) => group(k, name, cs, '보관함 묶음')) : <div className="empty">{t('보관한 대화가 없습니다', 'Nothing archived')}</div>)
         : STATES.map((s) => group(s, STATE_GROUP[s], byState(s), '상태 묶음', STATE_EMPTY[s]))}

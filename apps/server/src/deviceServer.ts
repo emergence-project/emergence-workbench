@@ -1,6 +1,6 @@
 // 서버 › 기기 2단계 (11/20 사용자 "맥스튜디오를 서버로"): 한 컴퓨터를 서버로 정하면 다른 컴퓨터가 Tailscale 주소로 1분마다 기기 정보를 알리고,
 // 서버는 그것으로 기기 목록을 실시간으로 보이며 로그아웃을 걸어 둔다. 서버가 어느 컴퓨터인지는 개인 저장소의 _settings/server.yaml (옮길 수 있게 설정 값)
-import { randomBytes } from 'node:crypto'
+import { randomBytes, timingSafeEqual } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
@@ -63,4 +63,13 @@ export function mergeDevices(me: Device, seen: Device[], repo: Device[], server:
     .map((d) => ({ ...d, ...(d.name === server && { server: true }), ...(pending(d.name) && { logout: true }) }))
     .sort((a, b) => Number(b.online) - Number(a.online) || Date.parse(b.seen) - Date.parse(a.seen))
   return [{ ...me, ...(me.name === server && { server: true }) }, ...rest]
+}
+
+export const DEVICE_KEY_HEADER = 'x-rw-device-key'
+/** 다른 컴퓨터가 서버로 정한 이 컴퓨터에 열쇠를 붙여 보냈는가 (이 컴퓨터가 서버일 때만) */
+export function deviceKeyOk(headers: Record<string, string | string[] | undefined>, dirs: (string | undefined)[], me: string): boolean {
+  const k = headers[DEVICE_KEY_HEADER]
+  if (typeof k !== 'string' || !k) return false
+  const cfg = readServerConfig(dirs)
+  return !!cfg && cfg.machine === me && k.length === cfg.secret.length && timingSafeEqual(Buffer.from(k), Buffer.from(cfg.secret))
 }

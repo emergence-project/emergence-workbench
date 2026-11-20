@@ -62,3 +62,17 @@ export type DeviceRecord = z.infer<typeof DeviceRecord>
 export type DeviceServer = z.infer<typeof DeviceServer>
 export type DeviceBeatReply = z.infer<typeof DeviceBeatReply>
 export type DeviceOk = z.infer<typeof DeviceOk>
+
+/** 대화를 서버에서 (3단계, 11/20 사용자 「A 서버에서 돌리기」 · 「그렇게하자」): 서버가 다른 컴퓨터면 대화 · 중앙은 서버에서 돌고,
+ * 이 컴퓨터에서 돈 대화는 같은 목록에 「이 맥」으로 함께 보인다 (새 대화에서 「이 맥」을 고르면 이 컴퓨터에서) */
+export const ChatPlace = z.object({
+  /** 서버로 정한 컴퓨터 (없으면 null: 대화는 늘 이 컴퓨터에서) */
+  server: z.object({ machine: z.string(), label: z.string().optional(), this: z.boolean() }).strict().nullable(),
+  /** 새 대화 · 중앙을 서버에서 돌리는가 (서버가 다른 컴퓨터일 때) */
+  remote: z.boolean(),
+  /** 서버의 실시간 알림을 받고 있는가 */
+  live: z.boolean(),
+  /** 서버에 닿지 못한 까닭 */
+  error: z.string().optional(),
+}).strict()
+export type ChatPlace = z.infer<typeof ChatPlace>

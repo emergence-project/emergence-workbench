@@ -8,6 +8,7 @@
 | --- | --- | --- | --- |
 | 피드백 | [feedback.md](feedback.md) | `packages/core/src/feedback-buckets.ts`, `apps/server/src/feedback.ts`, `apps/web/src/FeedbackMode.tsx` | 소개 › 피드백 › 남기기 · 모아 보기 · 유형과 답 · 처리와 반영 |
 | 에이전트 대화 | [agent-chat.md](agent-chat.md) | `apps/server/src/agentChats.ts`, `agentRunner.ts`, `agentPolicy.ts` | 소개 › 에이전트와 안전 › 앱에서 맡기는 대화 |
+| 에이전트가 앱 고치기 | [app-fix.md](app-fix.md) | `apps/server/src/appWorktree.ts`, `agentFeedbackTick.ts`, `feedbackClaims.ts` | 소개 › 에이전트와 안전 › 에이전트가 앱을 고치는 길 |
 | PDF 읽기와 코멘트 | [pdf-comments.md](pdf-comments.md) | `apps/server/src/comments.ts`, `apps/web/src/PdfView.tsx`, `apps/web/src/Comments.tsx` | 소개 › 읽기 › 읽으며 묻기 |
 
 앱의 소개 › 단축키와 파일 위치 › 「다른 앱에 옮기기」가 같은 목록이다.

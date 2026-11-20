@@ -4,7 +4,7 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { ChatScope } from '@rw/core/contract/agentChats'
 import { AgentChats, briefFor, describeStep, editOf, inScope, judge, promptFor, promptOf, scopeDir, sidePrompt, todosOf, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput, type Turn } from './agentChats.js'
-import { choicesOf, eventsOf } from './agentRunner.js'
+import { choicesOf, eventsOf, withoutDefault } from './agentRunner.js'
 import { buildApp } from './app.js'
 import { fixture } from './testkit.js'
 
@@ -191,6 +191,12 @@ describe('SDK 메시지', () => {
       { value: 'default', name: 'Default (recommended)', desc: 'Opus 5.5 · Best', resolved: 'claude-opus-5-5', efforts: ['low', 'max'] },
       { value: 'haiku', name: 'Haiku 4.5', desc: 'Fastest' },
     ])
+  })
+  it('Claude 모델 목록에는 「기본 모델」이 없다 (계정마다 다른 모델로 풀려서)', () => {
+    expect(withoutDefault([
+      { value: 'default', name: 'Default (recommended)', desc: 'Fable 5.2', resolved: 'claude-fable-5-2' },
+      { value: 'opus', name: 'Opus', desc: 'Opus 5.5', resolved: 'claude-opus-5-5' },
+    ]).map((m) => m.value)).toEqual(['opus'])
   })
 })
 
@@ -421,7 +427,7 @@ describe('대화 API', () => {
     const file = 'workbench/topics/gauge/fix/note.md'
     const c = await create({ text: `plan ${file}`, mode: 'plan' })
     await settle(c.id, 'waiting')
-    expect(seen.at(-1)).toMatchObject({ mode: 'plan', model: 'default', effort: 'medium' })
+    expect(seen.at(-1)).toMatchObject({ mode: 'plan', model: 'opus', effort: 'medium' })
     const chat = await get(c.id)
     expect(chat.items.filter((i: { kind: string }) => i.kind === 'todos')).toHaveLength(1)
     expect(chat.todos).toEqual([{ text: '읽기', state: 'completed' }, { text: '고치기', state: 'in_progress' }])

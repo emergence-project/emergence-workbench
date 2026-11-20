@@ -65,6 +65,8 @@ export const qk = {
   /** 이 화면에서 터미널을 쓸 수 있는지 (이 컴퓨터에서 연 화면만) */
   terminal: ['terminal'] as const,
   /** 에이전트 대화 (앱 설정 폴더, 연구 저장소 밖). 지금 작업 상태(agentWork)는 모든 프로젝트 것 */
+  /** 대화 서버 상태 (새 대화의 서버 | 이 맥 고르기) */
+  chatPlace: ['chat-place'] as const,
   agentChats: ['agent-chats'] as const,
   /** 대화 목록 (rid가 없으면 모든 프로젝트) · 대화 하나 */
   agentChatLists: ['agent-chats', 'list'] as const,

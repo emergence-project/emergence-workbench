@@ -7,13 +7,14 @@ import type { AboutSection } from '../types'
 const GUIDES: { name: string; ko: string; en: string }[] = [
   { name: 'feedback', ko: '피드백 (남기기 · 처리 기록 · 답 · 모아 보기)', en: 'Feedback (leaving · handling record · answers · overview)' },
   { name: 'agent-chat', ko: '에이전트 대화 (차례 · 허락 · 기록 · 이어 하기)', en: 'Agent conversations (turns · permissions · record · resume)' },
+  { name: 'app-fix', ko: '에이전트가 앱 고치기 (작업 폴더 · 앱이 올리고 합치기 · 피드백 맡기)', en: 'Agents fixing the app (work folder · the app pushes and merges · feedback claims)' },
   { name: 'pdf-comments', ko: 'PDF 읽기와 코멘트 (고른 자리 · 기록 파일 · 다시 찾기)', en: 'PDF reading and comments (selected spot · record file · re-finding)' },
 ]
 
 const link = (port: string) => <a className="a" href={portUrl(port)} target="_blank" rel="noreferrer">{`docs/ports/${port}.md`}</a>
 
 export const ko: AboutSection = {
-  title: '다른 앱에 옮기기', id: 'ports', prs: [483],
+  title: '다른 앱에 옮기기', id: 'ports', prs: [483, 536],
   items: [
     { text: <>이 앱의 기능을 다른 앱에도 만들 때 쓰는 이식 안내서가 저장소 {c('docs/ports/')}에 있습니다(11/19). 다른 앱의 에이전트에게 "이 안내서와 관련 코드를 읽고 이 앱에도 같게 만들어 줘"라고 맡기면 됩니다. 안내서마다 무엇 · 핵심 파일 · 저장 모양 · 단계 · 점검 목록이 있고, 맨 위에 그 기능을 설명하는 소개 절과 구현 파일 목록이 있습니다.</> },
     ...GUIDES.map((g) => ({ text: <>{g.ko}: {link(g.name)}</> })),

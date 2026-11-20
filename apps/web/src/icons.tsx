@@ -125,5 +125,10 @@ export const Icon = {
   /** 보관함 (에이전트 대화 목록 맨 아래): 뚜껑 덮인 상자 */
   /** 새 대화 (11/20 시안 1절, Claude 앱의 새 채팅처럼 네모 위 연필) */
   compose: <svg viewBox="0 0 24 24"><path d="M11 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5" /><path d="M17.6 3.6a1.9 1.9 0 0 1 2.8 2.8L12.5 14.3l-3.5 1 1-3.5z" /></svg>,
+  /** 메뉴 (대화 목록의 대상 메뉴, 11/20 19:20 "앞에 햄버거 아이콘"): 가로줄 셋 */
+  bell: <svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" /><path d="M10 20.5a2 2 0 0 0 4 0" /></svg>,
+  menu: <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" /></svg>,
+  /** 여러 개 고르기 (대화 목록, 11/20 시안 1절): 체크 든 네모 */
+  pick: <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M8.5 12l2.5 2.5 4.5-5" /></svg>,
   archive: <svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="4" rx="1" /><path d="M5 8.5v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-10M10 12.5h4" /></svg>,
 }

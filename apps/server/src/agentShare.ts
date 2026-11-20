@@ -3,7 +3,7 @@
  *
  * 대화 기록은 컴퓨터마다 앱 설정 폴더(agent-chats/)에 있어, 맥미니에서 돌린 대화가 맥북 보관함에 보이지 않았다.
  * - 올리기: 맞추기(routes/backup.ts)가 이 컴퓨터의 대화를 개인 저장소 _chats/<컴퓨터>/<id>.json으로 올린다. 줄은 내 지시 · 에이전트 글 ·
- *   고친 파일(+n −n) · 오류만 담는다(도구 줄 · 생각 · 허락 카드 · 고친 내용은 빼서 작게). 중앙 대화는 컴퓨터마다라 올리지 않는다.
+ *   고친 파일(+n −n) · 오류만 담는다(도구 줄 · 생각 · 허락 카드 · 고친 내용은 빼서 작게). 중앙 대화도 올린다(11/20: 서버로 중앙을 하나로 모으면서 맥마다 돌던 예전 중앙도 다른 맥에서 읽기만 보이게).
  * - 보기: 다른 컴퓨터의 대화는 목록에 그 컴퓨터 이름(machine)을 달고 보관함에 읽기 전용으로 보인다(꺼내기 · 지우기 · 보내기 없음).
  * - 이어 하기: 「이 맥에서 이어 하기」를 누르면 같은 프로젝트 · 범위 · 설정으로 이 컴퓨터의 새 대화를 만들고 앞 줄을 그대로 옮긴다.
  *   Claude 세션 파일은 옮기지 않는다(컴퓨터마다 경로가 다르고 크다): 첫 지시에 앞 대화의 요약(carryText)을 붙여 넘긴다.
@@ -13,7 +13,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import zlib from 'node:zlib'
-import { CENTRAL_RID, ChatItem, ChatRow, type Chat } from '@rw/core/contract/agentChats'
+import { ChatItem, ChatRow, type Chat } from '@rw/core/contract/agentChats'
 import { AgentChats, LIVE, rowOf, type Stored } from './agentChats.js'
 import { packFile } from './agentTidy.js'
 import { machineName } from './backup.js'
@@ -78,7 +78,7 @@ function readForeign(file: string, machine: string): ForeignChat | null {
   if (!raw || typeof raw !== 'object' || !('row' in raw) || !('items' in raw)) return null
   // 다른 판의 앱이 올린 칸은 버리고 아는 칸만 읽는다
   const row = ChatRow.strip().safeParse(raw.row)
-  if (!row.success || row.data.rid === CENTRAL_RID) return null
+  if (!row.success) return null
   const items = Array.isArray(raw.items) ? raw.items.flatMap((x) => { const r = ChatItem.safeParse(x); return r.success ? [r.data] : [] }) : []
   // 이 컴퓨터에서는 돌지 않는다: 보관함에서 읽기만 (상태는 끝남으로, 잡은 파일 · 차례 표시 · 수정 검토로 가는 고친 파일 목록은 뺀다)
   const { live: _l, tasks: _t, compacting: _c, draft: _d, queue: _q, since: _s, wait: _w, ...rest } = row.data
@@ -109,11 +109,10 @@ export class SharedChats extends AgentChats {
   /** 다른 컴퓨터의 대화를 읽을 개인 저장소 사본 (routes/agentChats.ts가 정한다. 없으면 이 컴퓨터 것만) */
   shareDir?: string
 
-  /** 개인 저장소에 올릴 파일: 대화 id → 내용 (중앙 대화와 다른 컴퓨터에서 이어 온 앞 줄도 함께, 이 컴퓨터 것으로) */
+  /** 개인 저장소에 올릴 파일: 대화 id → 내용 (예전 중앙과 다른 컴퓨터에서 이어 온 앞 줄도 함께, 이 컴퓨터 것으로) */
   sharedFiles(): Record<string, string> {
     const out: Record<string, string> = {}
     for (const c of this.chats.values()) {
-      if (c.rid === CENTRAL_RID) continue
       const row = rowOf(c)
       out[c.id] = JSON.stringify({ row: { ...row, state: LIVE.has(row.state) ? 'idle' : row.state }, items: shareItems(itemsOf(this.deps.dir, c)) })
     }

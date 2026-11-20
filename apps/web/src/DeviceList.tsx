@@ -30,13 +30,21 @@ export function DeviceList() {
       ? t('서버로 정한 컴퓨터에 다른 컴퓨터가 1분마다 알립니다. 로그인 열쇠 · 이메일은 보내지 않고 이름 · 시각 · 앱 버전 · 계정 이름만 보냅니다.', 'Every computer reports to the server once a minute. Only names, times, the app version and account names are sent, never sign-in keys or emails.')
       : t('다른 컴퓨터는 개인 저장소에 올린 마지막 값이라 1시간쯤 늦을 수 있습니다. 로그인 열쇠 · 이메일은 올리지 않고 이름 · 시각 · 앱 버전 · 계정 이름만 올립니다.', 'Other computers show what they last uploaded to your personal repository, so it can be up to an hour old. Only names, times, the app version and account names are uploaded, never sign-in keys or emails.')}</p>
     {d && <ServerRow server={d.server} me={me} busy={run.isPending} onMake={() => run.mutate(devicesApi.makeServer)} />}
-    {run.error && <p className="set-desc error-text">{run.error.message}</p>}
+    {run.error && <p className="set-desc error-text">{withLink(run.error.message)}</p>}
     <div className="setup set-rows dev-list" data-ui="기기 목록">
       {!d ? <p className="muted setup-row">{q.error?.message ?? t('읽는 중…', 'Reading…')}</p>
         : d.devices.map((x) => <DeviceRow key={x.name} d={x} onLogout={d.server && !x.this && !x.logout ? () => logout(x) : undefined} />)}
     </div>
     {d && !d.shared && <p className="muted set-desc">{t('개인 저장소와 맞추지 않아 이 컴퓨터만 보입니다. 계정에서 GitHub에 로그인하고 개인 저장소를 정하면 다른 컴퓨터도 보입니다.', 'Only this computer is shown because it does not sync with a personal repository. Sign in to GitHub and choose a personal repository under Account to see your other computers.')}</p>}
   </>)
+}
+
+/** 오류 글 끝의 Tailscale 허락 주소(https://login.tailscale.com/…)는 눌러 열 수 있게 링크로 */
+function withLink(msg: string) {
+  const m = msg.match(/https:\/\/login\.tailscale\.com\/\S+/)
+  if (!m) return msg
+  const [before, after] = [msg.slice(0, m.index), msg.slice((m.index ?? 0) + m[0].length)]
+  return <>{before}<a className="a" href={m[0]} target="_blank" rel="noreferrer">{t('허락하러 가기', 'Open Tailscale')}</a>{after}</>
 }
 
 const KIND: Record<DeviceAccount['kind'], string> = { github: 'GitHub', claude: 'Claude', codex: 'Codex', google: t('구글', 'Google') }
@@ -60,11 +68,12 @@ function ServerRow({ server, me, busy, onMake }: { server: DeviceServer | null; 
             {reach}
           </div>
         </div>
-        {!server?.this && me && <button className="btn" disabled={busy} onClick={onMake}>{t('이 기기를 서버로', 'Make this device the server')}</button>}
+        {!server?.this && me && <button className="btn" disabled={busy} onClick={onMake}>{busy ? t('켜는 중…', 'Turning on…') : t('이 기기를 서버로', 'Make this device the server')}</button>}
       </div>
     </div>
   )
 }
+
 
 function DeviceRow({ d, onLogout }: { d: Device; onLogout?: () => void }) {
   const state = d.this ? t('켜짐 · 지금', 'On · now') : d.online ? t(`켜짐 · ${relativeTime(Date.parse(d.seen))}`, `On · ${relativeTime(Date.parse(d.seen))}`) : t(`꺼짐 · ${relativeTime(Date.parse(d.seen))}`, `Off · ${relativeTime(Date.parse(d.seen))}`)

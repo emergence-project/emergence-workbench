@@ -19,6 +19,10 @@ export const CHAT_WRITE = ['read', 'notes'] as const
 export const CHAT_SCOPES = ['project', 'all', 'topic', 'note', 'app'] as const
 /** 앱 고치기 대화의 rid (연구 프로젝트 id와 겹치지 않는다) */
 export const APP_RID = '_app'
+/** Claude 대화가 처음 쓰는 모델 (11/20 사용자 "기본 모델을 두기보다 대화에서 설정하고 변경하게"). 「기본 모델」은 계정마다 달라 크레딧이 드는 모델로 풀린 적이 있다 */
+export const CLAUDE_START_MODEL = 'opus'
+/** 대화의 모델: Claude는 「기본 모델」 없이 정한 모델로 (옛 값도). Codex · Gemini는 그 에이전트의 기본을 받는다 */
+export const startModel = (agent: string, m?: string): string => (agent === 'claude-code' && (!m || m === 'default') ? CLAUDE_START_MODEL : m ?? 'default')
 /**
  * 중앙 대화의 rid (11/16 사용자 결정 "중앙 에이전트", 시안 https://claude.ai/artifact/9x2Bud4dVQyYkS6RhdnbAG): 맥에 하나.
  * 읽기만 하고, 일은 하위 대화(앱 고치기 · 프로젝트 작성 · 피드백)를 열어 맡긴다 (agentCentral.ts)
@@ -193,6 +197,8 @@ export const ChatRow = z.object({
   queue: z.number().int().positive().optional(),
   /** 다른 컴퓨터에서 돌린 대화면 그 컴퓨터 이름 (개인 저장소로 받아 읽기만, 「이 맥에서 이어 하기」로 이 컴퓨터의 새 대화가 된다, 11/20) */
   machine: z.string().optional(),
+  /** 서버(설정 › 기기 관리)가 있는 컴퓨터에서, 서버가 아니라 이 컴퓨터에서 도는 대화 (목록의 「이 맥」 태그, 11/20) */
+  local: z.boolean().optional(),
   created: z.string(),
   updated: z.string(),
 }).strict()
@@ -255,6 +261,8 @@ export const NewChatBody = z.object({
   ...message,
   title: z.string().trim().max(120).optional(),
   scope: ChatScope.optional(),
+  /** 서버가 있어도 이 컴퓨터에서 돌린다 (새 대화의 「이 맥」, 11/20) */
+  here: z.boolean().optional(),
   ...ChatSettings.shape,
 }).strict()
 /** 이어서 지시. 일하는 중이면 다음 차례에 읽는다 */
@@ -435,7 +443,11 @@ export const CentralState = z.object({
   room: RoomState.optional(),
 }).strict()
 /** POST /agent-central/messages: 중앙에게 말하기 (중앙이 없으면 연다) */
-export const CentralMessageBody = z.object({ text: message.text, attach: message.attach, view: message.view }).strict()
+export const CentralMessageBody = z.object({
+  text: message.text, attach: message.attach, view: message.view,
+  /** 중앙을 처음 열 때만: 모델 · 생각 깊이 · 계정 (11/20 시안 5절). 열린 뒤에는 입력란 메뉴로 바꾼다 */
+  start: z.object({ model: ChatModel, effort: z.enum(CHAT_EFFORTS), account: z.string().min(1).max(40) }).partial().strict().optional(),
+}).strict()
 /** POST /agent-central/open: 중앙이 하위 대화를 연다. project = 프로젝트 작성, feedback = 피드백 키, task = 맡길 일 (사용자 원문을 그대로 붙인다) */
 export const CentralOpenBody = z.object({
   role: z.enum(CENTRAL_ROLES), title: z.string().trim().min(1).max(60), task: z.string().trim().min(1).max(20000),
@@ -466,6 +478,7 @@ export type CentralFeedback = z.infer<typeof CentralFeedback>
 export type CentralKid = z.infer<typeof CentralKid>
 export type CentralState = z.infer<typeof CentralState>
 export type CentralOpenBody = z.infer<typeof CentralOpenBody>
+export type CentralMessageBody = z.infer<typeof CentralMessageBody>
 export type CentralKidOne = z.infer<typeof CentralKidOne>
 export type CentralHelped = z.infer<typeof CentralHelped>
 export type CentralOpened = z.infer<typeof CentralOpened>

@@ -5,7 +5,7 @@ import * as C from '@rw/core/contract/devices'
 import { parseBody, replies } from '../contract.js'
 import { machineName } from '../backup.js'
 import { logoutDevice, otherDevices, setDeviceAccounts, setDeviceLogout, thisDevice } from '../devices.js'
-import { BEAT_MS, DeviceHub, mergeDevices, readServerConfig, writeServerConfig, type ServerConfig } from '../deviceServer.js'
+import { BEAT_MS, DEVICE_KEY_HEADER, DeviceHub, mergeDevices, readServerConfig, writeServerConfig, type ServerConfig } from '../deviceServer.js'
 import { t } from '../i18n.js'
 import type { PhoneStatus } from '@rw/core/contract/phone'
 import type { Phone } from '../phone.js'
@@ -13,8 +13,6 @@ import { errorLog, repeat } from '../scheduler.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 
-/** 다른 컴퓨터가 서버에 보낼 때 붙이는 머리: 개인 저장소의 server.yaml에 적힌 열쇠 */
-export const DEVICE_KEY_HEADER = 'x-rw-device-key'
 
 export interface DeviceDeps {
   phone: Phone
@@ -78,7 +76,12 @@ export function registerDevices(app: FastifyInstance, ctx: RouteContext, deps: D
     if (!opts.backup) throw new WorkbenchError(400, t('개인 저장소와 맞추기를 먼저 켜 주세요 (설정 › 동기화)', 'Turn on sync with your personal repository first (Settings › Sync)'))
     const st = await deps.phone.on(portOf(req))
     deps.seePhone(st)
-    if (!st.url) throw new WorkbenchError(409, t('Tailscale을 켜고 로그인한 뒤 다시 눌러 주세요', 'Start Tailscale and sign in, then try again'))
+    if (!st.url) throw new WorkbenchError(409, !st.running
+      ? t('Tailscale을 켜고 로그인한 뒤 다시 눌러 주세요', 'Start Tailscale and sign in, then try again')
+      : st.enableUrl
+        // 처음 한 번은 tailnet 관리 화면에서 HTTPS를 허락해야 serve가 켜진다. 그 주소를 화면에 넘겨 링크로 보인다
+        ? t(`Tailscale에서 HTTPS를 처음 한 번 허락해야 합니다. 허락한 뒤 다시 눌러 주세요: ${st.enableUrl}`, `Allow HTTPS in Tailscale once, then try again: ${st.enableUrl}`)
+        : t(`Tailscale 주소를 켜지 못했습니다${st.error ? `: ${st.error}` : ''}`, `Could not turn on the Tailscale address${st.error ? `: ${st.error}` : ''}`))
     const me = thisDevice(machineName(), undefined)
     writeServerConfig(opts.backup.dir, { machine: me.name, ...(me.label && { label: me.label }), url: st.url })
     hub.beat({ ...deviceForBackup(ctx) })
