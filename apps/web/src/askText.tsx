@@ -18,6 +18,8 @@ export type AskText = {
   ok?: string
   /** 여러 줄 */
   multiline?: boolean
+  /** 적은 글을 보고 칸 아래에 덧붙일 알림 (예: 같은 이름이 이미 있음). 막지는 않는다 */
+  note?: (value: string) => string | undefined
 }
 
 /** 예·아니오 확인 (지우기·버리기). 브라우저 confirm 대신: 에이전트가 화면 창으로 다룰 수 있게 */
@@ -88,6 +90,7 @@ function AskTextDialog({ p, done }: { p: AskText; done(v: string | null): void }
           : <input ref={input} value={value} placeholder={p.placeholder} onChange={(e) => setValue(e.target.value)} onKeyDown={onKey} />}
       </label>
       {p.hint && <p className="muted ask-hint">{p.hint}</p>}
+      {p.note?.(value) && <p className="muted ask-hint" role="status">{p.note(value)}</p>}
     </Dialog>
   )
 }
