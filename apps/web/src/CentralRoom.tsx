@@ -37,7 +37,9 @@ export function tallyText(votes: RoomVerdict[]): { text: string; split: boolean 
 }
 const NEXT_STEP = t('수정 넘기기는 다음 단계입니다. 지금은 방장(Claude)만 수정합니다', 'Handing over edit comes next. For now only the host (Claude) edits')
 
-export const useRoom = (): RoomState | undefined => useQuery({ queryKey: qk.agentCentral, queryFn: () => agentChatsApi.central() }).data?.room
+/** 서버 맥의 앱이 옛 판이면 방에 log가 없다(대화를 서버에서): 없는 칸을 채워 화면이 죽지 않게 (11/21 맥북의 빈 화면) */
+export const roomOf = (room: RoomState | undefined): RoomState | undefined => room && { ...room, log: room.log ?? { total: 0, flipped: 0, recent: [] } }
+export const useRoom = (): RoomState | undefined => roomOf(useQuery({ queryKey: qk.agentCentral, queryFn: () => agentChatsApi.central() }).data?.room)
 
 /** 왕관 (방장 = 수정을 가진 사람, 무채색) */
 export const Crown = () => <svg className="room-crown" viewBox="0 0 16 12" role="img" aria-label={t('방장', 'Host')}><path d="M1 3l3.5 3L8 1l3.5 5L15 3l-1.5 8h-11z" /></svg>
