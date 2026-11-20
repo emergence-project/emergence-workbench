@@ -84,3 +84,8 @@
 .fg-thumb.on { outline: 2px solid var(--text); outline-offset: 2px; }
 .fg-thumb:focus-visible { outline: 2px solid var(--focus-line); outline-offset: 1px; }
 .fg-thumb .fg-pv { height: 100%; padding: var(--sp-1); margin: 0; border: 0; }
+/* 폰: 그림을 위에, 정보 창을 아래에 쌓는다 (papers.css와 같은 배치) */
+@media (max-width: 600px) {
+  .stage.fg.with-side { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .stage.fg.with-side > .fg-rs { border-left: 0; border-top: 1px solid var(--line); max-height: 40vh; }
+}

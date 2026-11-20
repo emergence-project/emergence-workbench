@@ -146,3 +146,8 @@
 .pr-abstract { line-height: 1.7; font-size: var(--fs-sm); }
 .pr-hint { font-size: var(--fs-xs); }
 .pr-none { display: grid; place-items: center; padding: var(--sp-6); }
+/* 폰: 정보 · 기록 창을 옆에 두면 본문(PDF · 목록)이 몇 px만 남는다. 본문을 위에, 창을 아래에 쌓는다 */
+@media (max-width: 600px) {
+  .stage.pl.with-side, .stage.pl.pl-open { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .stage.pl.with-side > .pl-rs { border-left: 0; border-top: 1px solid var(--line); max-height: 40vh; }
+}
