@@ -426,7 +426,7 @@ export class Registry {
    */
   setProfile(id: string, patch: { kind?: unknown; fields?: unknown; state?: unknown; rail?: unknown; color?: unknown }, at = new Date().toISOString()): ResearchListItem {
     const entry = this.config.researches.find((r) => r.id === id)
-    if (!entry) throw new WorkbenchError(404, tl(`등록되지 않은 연구: ${id}`, `Project not registered: ${id}`))
+    if (!entry) throw new WorkbenchError(404, tl(`등록되지 않은 프로젝트: ${id}`, `Project not registered: ${id}`))
     const next = { ...profileOf(entry) }
     if (patch.kind !== undefined) {
       if (!PROJECT_KINDS.includes(patch.kind as ProjectKind)) throw new WorkbenchError(400, tl('성격은 research(연구) · work(업무) 중 하나', 'kind must be research or work'))
@@ -476,7 +476,7 @@ export class Registry {
 
   get(id: string): Workbench {
     const entry = this.config.researches.find((r) => r.id === id)
-    if (!entry) throw new WorkbenchError(404, tl(`등록되지 않은 연구: ${id}`, `Project not registered: ${id}`))
+    if (!entry) throw new WorkbenchError(404, tl(`등록되지 않은 프로젝트: ${id}`, `Project not registered: ${id}`))
     let wb = this.workbenches.get(id)
     if (!wb) {
       const root = path.join(entry.path, 'workbench')
@@ -557,7 +557,7 @@ export class Registry {
   /** 목록에서만 뺀다. 저장소의 파일은 지우지 않는다. 뺀 줄은 앱을 닫을 때까지 기억해 restore로 그 자리에 되돌린다 */
   unregister(id: string): void {
     const at = this.config.researches.findIndex((r) => r.id === id)
-    if (at < 0) throw new WorkbenchError(404, tl(`등록되지 않은 연구: ${id}`, `Project not registered: ${id}`))
+    if (at < 0) throw new WorkbenchError(404, tl(`등록되지 않은 프로젝트: ${id}`, `Project not registered: ${id}`))
     this.removed.set(id, { entry: this.config.researches[at]!, at })
     this.config.researches = this.config.researches.filter((r) => r.id !== id)
     this.workbenches.delete(id)
