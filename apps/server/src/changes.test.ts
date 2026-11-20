@@ -38,7 +38,12 @@ describe('변경사항', () => {
     expect(classify('workbench/blocks/b.tex', 'workbench')).toEqual({ kind: 'file', id: 'workbench/blocks/b.tex' })
     expect(classify('workbench/problems/q/problem.yaml', 'workbench')).toEqual({ kind: 'problem', id: 'q' })
     expect(classify('workbench/problems/q/a1.yaml', 'workbench')).toEqual({ kind: 'problem', id: 'q' })
+    // 지운 노트는 그 노트의 줄로
+    expect(classify('workbench/.trash/n1-20261120T202527/note.md', 'workbench')).toEqual({ kind: 'note', id: 'n1' })
+    expect(classify('workbench/.trash/concept-memos/a.md', 'workbench')).toEqual({ kind: 'file', id: 'workbench/.trash/concept-memos/a.md' })
     expect(classify('workbench/problems/.trash/q/problem.yaml', 'workbench')).toEqual({ kind: 'file', id: 'workbench/problems/.trash/q/problem.yaml' })
+    // 예외 기록 폴더는 흐름이 아니다
+    expect(classify('workbench/problems/_exceptions/20261021-1132-a1b2c3.yaml', 'workbench')).toEqual({ kind: 'file', id: 'workbench/problems/_exceptions/20261021-1132-a1b2c3.yaml' })
     // 옛 점 파일(11/11 없앰)은 그냥 파일이다
     expect(classify('workbench/flow/q.yaml', 'workbench')).toEqual({ kind: 'file', id: 'workbench/flow/q.yaml' })
     expect(classify('workbench/tasks/x.md', 'workbench')).toEqual({ kind: 'task', id: 'x' })
@@ -89,5 +94,15 @@ describe('변경사항', () => {
     expect((await app.inject({ method: 'GET', url: `${R}/changes` })).json().agents.codex).toBe(body.agents.codex)
     // 에이전트 이름이 없으면 받지 않는다
     expect((await app.inject({ method: 'POST', url: `${R}/changes/read`, payload: {} })).statusCode).toBe(400)
+  })
+
+  it('지운 노트는 휴지통 파일 여러 줄이 아니라 "노트 · 지움" 한 줄로, 이름은 지우기 전 이름으로', async () => {
+    await app.inject({ method: 'POST', url: `${R}/notes`, payload: { kind: 'note', name: 'Wheel partition' } })
+    const made = ((await app.inject({ method: 'GET', url: `${R}/manuscripts` })).json() as { key: string; name: string; main: string }[]).find((m) => m.name === 'Wheel partition')!
+    const id = path.basename(path.dirname(made.main))
+    expect((await app.inject({ method: 'DELETE', url: `${R}/notes?ms=${encodeURIComponent(made.key)}` })).statusCode).toBe(200)
+    const items = (await app.inject({ method: 'GET', url: `${R}/changes?since=${encodeURIComponent(at(DAY))}` })).json().items as { kind: string; id: string; name: string; action: string }[]
+    expect(items.filter((i) => i.id.includes('.trash'))).toEqual([])
+    expect(items.find((i) => i.kind === 'note' && i.id === id)).toMatchObject({ name: 'Wheel partition', action: 'deleted' })
   })
 })

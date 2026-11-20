@@ -5,6 +5,7 @@ import { frontMatter } from '@rw/core'
 import type { ChangeItem, ChangeKind, ChangeAction } from '@rw/core/contract/changes'
 import { machineName } from './backup.js'
 import { git, GIT_TIMEOUT } from './git.js'
+import { t } from './i18n.js'
 import type { Workbench } from './workbench.js'
 
 /**
@@ -98,16 +99,21 @@ async function uncommitted(repo: string, since: string, me: string, prefix: stri
   return touches
 }
 
+const TRASHED = /^(.+)-\d{8}T\d{6}$/
+
 /** 파일 하나가 화면의 무엇인지. wbRel = 저장소 안 workbench 폴더 (보통 workbench) */
 export function classify(file: string, wbRel: string): { kind: ChangeKind; id: string } {
   const prefix = wbRel ? `${wbRel}/` : ''
   if (prefix && !file.startsWith(prefix)) return { kind: 'file', id: file }
   const p = file.slice(prefix.length).split('/')
   const [top, a, b] = p
+  // 지운 노트(.trash/<노트 폴더>-<시각>/)는 그 노트의 줄로 모은다 (11/21: trash.yaml · note.md가 "파일 · 새로 만듦" 세 줄로 보였다)
+  const trashed = top === '.trash' && a ? TRASHED.exec(a) : null
+  if (trashed) return { kind: 'note', id: trashed[1]! }
   if (top === 'topics' && a && b && p.length >= 4) return { kind: 'note', id: b }
   if ((top === 'notes' || top === 'calc') && a && p.length >= 3) return { kind: 'note', id: a }
   // 흐름 폴더의 흐름 파일과 시도 파일은 그 흐름 하나로 모은다 (휴지통은 다른 파일로)
-  if (top === 'problems' && a && b && p.length === 3 && !a.startsWith('.') && /\.ya?ml$/.test(b)) return { kind: 'problem', id: a }
+  if (top === 'problems' && a && b && p.length === 3 && !/^[._]/.test(a) && /\.ya?ml$/.test(b)) return { kind: 'problem', id: a }
   if (top === 'tasks' && a && p.length === 2 && a.endsWith('.md')) return { kind: 'task', id: a.slice(0, -3) }
   if (top === 'comments' && a) return { kind: 'record', id: p.slice(1).join('/').replace(/\.(md|ya?ml)$/, '') }
   return { kind: 'file', id: file }
@@ -123,8 +129,16 @@ function namer(wb: Workbench): { name: (kind: ChangeKind, id: string) => string;
     return notes
   }
   const read = (rel: string) => { try { return fs.readFileSync(path.join(wb.root, rel), 'utf8') } catch { return null } }
+  /** 지운 노트의 이름: .trash/<id>-<시각>/trash.yaml의 name (가장 최근 것) */
+  const trashedName = (id: string): string | undefined => {
+    try {
+      const dir = fs.readdirSync(path.join(wb.root, '.trash')).filter((d) => TRASHED.exec(d)?.[1] === id).sort().at(-1)
+      const y: unknown = dir ? YAML.parse(read(`.trash/${dir}/trash.yaml`) ?? '') : null
+      return y && typeof y === 'object' && 'name' in y && typeof y.name === 'string' ? y.name : undefined
+    } catch { return undefined }
+  }
   const name = (kind: ChangeKind, id: string): string => {
-    if (kind === 'note') return noteNames().get(id)?.name ?? id
+    if (kind === 'note') return noteNames().get(id)?.name ?? trashedName(id) ?? id
     if (kind === 'problem') {
       const text = read(`problems/${id}/problem.yaml`)
       try { const y = text ? YAML.parse(text) as { question?: unknown } : null; if (typeof y?.question === 'string') return y.question } catch { /* id */ }
@@ -135,6 +149,8 @@ function namer(wb: Workbench): { name: (kind: ChangeKind, id: string) => string;
       try { const y = fm ? YAML.parse(fm.yaml) as { title?: unknown } : null; if (typeof y?.title === 'string') return y.title } catch { /* id */ }
       return id
     }
+    // 기록 파일 이름(project · note-<노트>)을 화면의 말로: 프로젝트 · 노트 이름 (11/21: "project · 기록"으로 보였다)
+    if (kind === 'record') return id === 'project' ? t('프로젝트', 'Project') : (id.startsWith('note-') && noteNames().get(id.slice(5))?.name) || id
     return id
   }
   return { name, main: (id) => noteNames().get(id)?.main }
@@ -171,7 +187,7 @@ export async function changesSince(wb: Workbench, since: string, me = machineNam
     const times = ts.map((x) => x.at).sort()
     const authors = [...new Set([...ts].sort((a, b) => b.at.localeCompare(a.at)).map((x) => x.author))]
     return {
-      kind, id, name: name(kind, id), action: actionOf(ts),
+      kind, id, name: name(kind, id), action: kind === 'note' && !file && ts.some((x) => x.file.includes('/.trash/') || x.file.startsWith('.trash/')) ? 'deleted' : actionOf(ts),
       authors, first: times[0]!, last: times.at(-1)!,
       uncommitted: ts.some((x) => x.uncommitted),
       files: [...new Set(ts.map((x) => x.file))].slice(0, 20),
