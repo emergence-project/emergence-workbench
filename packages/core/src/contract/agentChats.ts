@@ -451,6 +451,12 @@ export const CentralOpenBody = z.object({
 }).strict()
 export const CentralSendBody = z.object({ id: z.string(), text: z.string().trim().min(1).max(20000) }).strict()
 export const CentralCloseBody = z.object({ id: z.string(), summary: z.string().trim().min(1).max(2000) }).strict()
+/**
+ * POST /agent-central/archive: 중앙이 하위 대화가 아닌 대화도 보관함에 넣는다 (chat_archive, 11/20 사용자 "대화를 여는 권한도 있으니 닫을 권한도").
+ * 일하는 중이 아닌 것만, 보관만 (지우기는 사용자). 다른 컴퓨터의 대화는 보관 요청을 개인 저장소로 넘기고 그 컴퓨터가 다음 맞추기 때 보관한다 (machine)
+ */
+export const CentralArchiveBody = z.object({ id: z.string(), reason: z.string().trim().min(1).max(300) }).strict()
+export const CentralArchived = z.object({ id: z.string(), title: z.string(), machine: z.string().optional() }).strict()
 /** POST /agent-central/answer: 중앙이 하위 대화의 허락 · 계획 카드에 답한다 (크리티컬한 것은 409, 사용자에게 남긴다) */
 export const CentralAnswerBody = z.object({ id: z.string(), ask: z.string(), answer: z.enum(['allow', 'deny']), note: z.string().trim().max(2000).optional() }).strict()
 export const CentralKidOne = z.object({ kid: CentralKid }).strict()
@@ -473,6 +479,7 @@ export type CentralOpenBody = z.infer<typeof CentralOpenBody>
 export type CentralMessageBody = z.infer<typeof CentralMessageBody>
 export type CentralKidOne = z.infer<typeof CentralKidOne>
 export type CentralHelped = z.infer<typeof CentralHelped>
+export type CentralArchived = z.infer<typeof CentralArchived>
 export type CentralOpened = z.infer<typeof CentralOpened>
 export type CentralAnswerBody = z.infer<typeof CentralAnswerBody>
 

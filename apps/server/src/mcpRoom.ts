@@ -3,7 +3,7 @@
 // 앱 서버 API만 부르고 파일을 직접 읽거나 쓰지 않는다
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import { AGENT_KINDS, RoomAnswer } from '@rw/core/contract/agentChats'
+import { AGENT_KINDS, CentralArchived, RoomAnswer } from '@rw/core/contract/agentChats'
 import type { Text } from './mcp.js'
 
 type Reply = { ok: true; body: unknown } | { ok: false; error: Text }
@@ -33,4 +33,19 @@ export function registerRoomTools(server: McpServer, post: (url: string, payload
     inputSchema: { agent },
     annotations: write,
   }, async (a) => { const r = await post('/api/agent-room/host/remove', a); return r.ok ? text('Removed') : r.error })
+}
+
+/** 중앙이 하위 대화가 아닌 대화를 보관한다 (chat_archive, 11/20 사용자 "대화를 여는 권한도 있으니 닫을 권한도"). 지우기는 사용자 몫 */
+export function registerArchiveTool(server: McpServer, post: (url: string, payload: unknown) => Promise<Reply>): void {
+  server.registerTool('chat_archive', {
+    title: 'Archive a conversation',
+    description: 'Archive a conversation that is not your sub-conversation (for sub-conversations use chat_close), only when its work was confirmed finished elsewhere: its feedback is 반영 or 답변, or another conversation already did the work, and it is left on an error or idle. Refused while it is working. It only archives (the user can take it back from the archive; deleting stays with the user), and a line in your conversation shows it. A conversation on another computer is archived at that computer\'s next sync, unless it was continued there meanwhile.',
+    inputSchema: { id: z.string().describe('Conversation id (chat_list or the conversation list)'), reason: z.string().max(300).describe('One line in Korean: where its work was finished') },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  }, async (a) => {
+    const r = await post('/api/agent-central/archive', a)
+    if (!r.ok) return r.error
+    const b = CentralArchived.parse(r.body)
+    return text(b.machine ? `Asked ${b.machine} to archive "${b.title}" at its next sync` : `Archived "${b.title}"`)
+  })
 }

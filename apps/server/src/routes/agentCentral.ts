@@ -30,6 +30,12 @@ export function registerAgentCentral(app: FastifyInstance, chats: CentralChats):
     return { kid: chats.closeKid(b.id, b.summary) }
   })
 
+  /** 하위 대화가 아닌 대화를 보관한다 (chat_archive, 11/20): 다른 컴퓨터의 대화는 그 컴퓨터의 다음 맞추기 때 */
+  app.post('/api/agent-central/archive', replies(C.CentralArchived), async (req): Promise<C.CentralArchived> => {
+    const b = parseBody(C.CentralArchiveBody, req.body)
+    return chats.archiveOrAsk(b.id, b.reason)
+  })
+
   /** 다른 대화가 중앙에게 중재를 청한다 (central_help): 중앙을 깨운다 */
   app.post('/api/agent-central/help', replies(C.CentralHelped), async (req): Promise<C.CentralHelped> => {
     const b = parseBody(C.CentralHelpBody, req.body)
