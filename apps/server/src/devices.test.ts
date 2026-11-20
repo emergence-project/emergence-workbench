@@ -107,6 +107,20 @@ describe('서버 (2단계)', () => {
     await app.close()
   })
 
+  it('API: Tailscale에서 HTTPS를 아직 허락하지 않았으면 허락 주소를 오류 글에 담아 돌려준다', async () => {
+    const dir = mk()
+    const backup = path.join(dir, 'backup')
+    fs.mkdirSync(backup)
+    const st = { installed: true, running: true, on: false, host: 'studio.tail0000.ts.net', login: 'me@example.com', url: null }
+    const phone = { status: async () => st, on: async () => ({ ...st, enableUrl: 'https://login.tailscale.com/f/serve?node=abc', error: 'Serve is not enabled on your tailnet.' }), off: async () => st }
+    const app = buildApp({ configDir: path.join(dir, 'config'), backup: { dir: backup, remote: null }, phone })
+    const r = await app.inject({ method: 'POST', url: '/api/devices/server' })
+    expect(r.statusCode).toBe(409)
+    expect(r.json().error).toContain('https://login.tailscale.com/f/serve?node=abc')
+    expect(readServerConfig([backup])).toBeNull()
+    await app.close()
+  })
+
   it('예제 모드: 맥 스튜디오가 서버이고, 로그아웃을 눌러 볼 수 있다', async () => {
     const sb = buildApp({ configDir: path.join(mk(), 'config'), sandbox: true })
     const s = (await sb.inject({ method: 'GET', url: '/api/devices' })).json()
