@@ -74,14 +74,26 @@ const GIT_WRITE: Record<string, Rule> = {
   fetch: (a) => !a.some((x) => /^--upload-pack/.test(x)),
   branch: flagsOnly(/^(-a|-r|-v|-vv|--all|--remotes|--list|-l|--show-current|--verbose|-d|--delete|-m|--move|-c|--copy|-t|--track|--no-track|-u|--set-upstream-to(=.*)?|--unset-upstream)$/),
   tag: flagsOnly(/^(-l|--list|-a|--annotate|-m|--message(=.*)?|-s|--sign)$/),
-  // + 강제 refspec · :지우기 refspec도 막는다
-  push: (a) => flagsOnly(/^(-u|--set-upstream|--tags|--follow-tags|--no-verify|--dry-run|-n|-v|--verbose|-q|--quiet)$/)(a) && !positional(a).some((x) => x.startsWith('+') || x.startsWith(':')),
+  // + 강제 refspec · :지우기 refspec도 막는다.
+  // main에 바로 올리는 것은 묻는다 (11/20 사용자 결정 "추천대로"): 받는 가지를 적은 푸시만 ok이고,
+  // 가지를 적지 않았거나 HEAD만 적은 푸시는 지금 가지가 main일 수 있어 묻는다
+  push: (a) => {
+    if (!flagsOnly(/^(-u|--set-upstream|--tags|--follow-tags|--no-verify|--dry-run|-n|-v|--verbose|-q|--quiet)$/)(a)) return false
+    const refs = positional(a).slice(1)
+    if (a.some((x) => x === '--dry-run' || x === '-n')) return !refs.some((x) => x.startsWith('+') || x.startsWith(':'))
+    return refs.length > 0 && refs.every((x) => {
+      if (x.startsWith('+') || x.startsWith(':') || /[*$]/.test(x)) return false
+      const to = (x.includes(':') ? x.slice(x.indexOf(':') + 1) : x).replace(/^refs\/(heads|tags)\//, '')
+      return !!to && !/^(HEAD|@|main|master)$/.test(to)
+    })
+  },
 }
 const GH_WRITE: Record<string, Rule> = {
   ...GH,
   pr: sub({
     view: any, list: any, diff: any, checks: any, status: any,
-    create: any, edit: any, comment: any, ready: any,
+    // comment는 뺐다: 공개 PR에 사용자 이름으로 남는 글이라 허락 카드로 묻는다 (11/20 사용자 결정 "추천대로")
+    create: any, edit: any, ready: any,
     // squash로만. --admin은 검사를 건너뛰고, -d는 이 폴더의 브랜치를 바꾼다
     merge: (a) => a.some((x) => x === '--squash' || x === '-s') && flagsOnly(/^(--squash|-s|--auto|--subject(=.*)?|-t|--body(=.*)?|-b|--match-head-commit(=.*)?)$/)(a),
   }),
@@ -174,7 +186,7 @@ function bare(cmd: string): string {
 
 const WRITE_PROGRAMS: Record<string, Rule> = { ...PROGRAMS, git: gitRule(GIT_WRITE), gh: ghRule(GH_WRITE) }
 
-/** gitWrites: 중앙용. 상태 보기에 더해 git · gh로 커밋 · 푸시 · PR 만들기 · squash 합치기까지 ok */
+/** gitWrites: 중앙용. 상태 보기에 더해 git · gh로 커밋 · 가지 푸시(main 아님) · PR 만들기 · squash 합치기까지 ok */
 export function stateOnlyCommand(cmd: string, o: { gitWrites?: boolean } = {}, depth = 0): StateOnly {
   if (depth > 2) return 'no'
   const programs = o.gitWrites ? WRITE_PROGRAMS : PROGRAMS
