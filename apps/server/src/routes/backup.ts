@@ -11,6 +11,7 @@ import { adoptOtherMe } from '../meSync.js'
 import { setAppIdentity } from '../git.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
+import { deviceForBackup } from './devices.js'
 import { t } from '../i18n.js'
 
 /** 맞추기를 한 번 돌리는 함수를 돌려준다 (계정으로 맞추기가 부른다). 백업을 쓰지 않으면 null */
@@ -27,7 +28,7 @@ export function registerBackup(app: FastifyInstance, ctx: RouteContext): (() => 
     if (running) return running
     const list = registry.list()
     running = Promise.all(list.map(async (r) => ({ id: r.id, title: r.title, remote: await remoteOf(r.path), folder: path.basename(r.path), tags: r.tags, state: r.state, ...registry.sharedProfile(r.id) })))
-      .then((projects) => backupWorkbenches({ dir: cfg.dir, remote, targets: list.map((r) => ({ id: r.id, path: r.path })), settings: cfg.settings, projects }))
+      .then((projects) => backupWorkbenches({ dir: cfg.dir, remote, targets: list.map((r) => ({ id: r.id, path: r.path })), settings: cfg.settings, projects, device: deviceForBackup(ctx) }))
       .then(async (r) => {
         if (r.settingsPulled) registry.reload()
         // 다른 컴퓨터에서 더 늦게 고친 진행 상태 · 띠 · 색 등을 따른다 (10/22 09:44). 다음 맞추기에서 이 컴퓨터 목록에도 올라간다

@@ -1135,5 +1135,10 @@
   "Codex 계정": "Codex accounts",
   "Codex 계정 줄": "Codex account row",
   "한도": "Limits",
-  "한도 막대": "Limit bar"
+  "한도 막대": "Limit bar",
+  "서버": "Server",
+  "기기": "Devices",
+  "기기 목록": "Device list",
+  "기기 줄": "Device row",
+  "기기 계정": "Device accounts"
 }

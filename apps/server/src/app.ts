@@ -40,6 +40,7 @@ import { registerFiles } from './routes/files.js'
 import { registerHistory } from './routes/history.js'
 import { registerJournal } from './routes/journal.js'
 import { registerComments } from './routes/comments.js'
+import { registerDevices } from './routes/devices.js'
 import { registerGoogle } from './routes/google.js'
 import { registerTopics } from './routes/topics.js'
 import { registerBackup } from './routes/backup.js'
@@ -399,6 +400,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerAgentHooks(app, ctx)
   registerTerminal(app, ctx)
   registerGoogle(app, ctx, opts.google ?? new Google(opts.configDir))
+  registerDevices(app, ctx)
 
   return app
 }

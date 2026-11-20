@@ -86,6 +86,7 @@ import './styles/note-suggestions.css'
 import './styles/central.css'
 import '@xterm/xterm/css/xterm.css'
 import './styles/terminal.css'
+import './styles/server.css'
 
 applyUi(cachedUi())
 phoneStart()
