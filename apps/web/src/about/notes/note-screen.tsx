@@ -8,7 +8,7 @@ export const ko: AboutSection = {
   title: '노트 화면', prs: [104, 113, 122, 123, 143, 187, 194, 197, 306, 308, 365, 370, 419, 427, 438, 442],
   figure: <NoteToolbarFigure />,
   items: [
-    { text: <>모든 노트는 같은 화면입니다. 위에서부터 상단바 › 탭 바 › <b>노트 툴바</b> › 본문입니다. 읽을 때 본문 머리에는 제목, 맨 아래에는 인용한 논문이 있습니다. 상태는 툴바 왼쪽에 둡니다.</> },
+    { text: <>모든 노트는 같은 화면입니다. 위에서부터 상단바 › 탭 바 › <b>노트 툴바</b> › 본문입니다. 읽을 때 본문 머리에는 제목, 맨 아래에는 인용한 논문이 있습니다. 상태는 툴바 왼쪽에 둡니다. 노트 이름에 {c('$…$')}를 쓰면 제목 · 카드 · 사이드바에서 수식으로 보입니다(11/21).</> },
     { text: <>읽는 중 툴바는 <b>왼쪽 상태</b>, <b>오른쪽 저장 상태 · 시계 · 코멘트 · 연필 · ▶ · ⋯</b>입니다. 코멘트(말풍선)는 오른쪽 사이드바를 기록으로 열고, ▶는 컴파일한 PDF를 옆 패널에 엽니다. ⋯에는 PDF 보기 · 파일 다시 읽기 · Finder에서 보기가 있고, 폴더 노트에서는 서식 고르기 · 내보내기 · 지우기도 합니다.</> },
     { text: <>연필을 누르면 제목 입력란이 툴바로 올라옵니다. 고치는 중에는 <b>왼쪽 제목 입력란과 상태</b>, <b>가운데 원문 · 원문 | 미리보기 · 바로 보기</b>, <b>오른쪽 저장 상태와 읽을 때와 같은 행동</b>(코멘트 · 눈 · ▶ · ⋯)입니다. 읽을 때의 연필 자리에 눈이 오고, 다른 버튼은 자리를 지킵니다. Markdown 본문은 편집기로 바뀌고 자동으로 저장됩니다. 눈(보기로, Esc)을 누르면 마칩니다. LaTeX 본문은 늘 편집기이고, 연필로는 이름을 고칩니다.</> },
     { text: <>Markdown 편집기에서 수식은 옅은 회색 바탕으로 보이고, 여는 · 닫는 기호는 종류마다 색이 다릅니다: {c('$')} 파랑, {c('\\(')} {c('\\)')} 보라, {c('$$')} 주황, {c('\\[')} {c('\\]')} 분홍. 닫히지 않은 {c('$$')} · {c('\\[')} · {c('\\(')}는 빨강 물결 밑줄입니다. 바로 보기에서는 커서가 들어간 수식에서 보입니다. 바로 보기에서 {c('>')} 인용은 읽기 화면처럼 왼쪽 선으로 보이고, 커서가 있는 줄에서만 {c('>')}가 보입니다.</> },
@@ -28,7 +28,7 @@ export const en: AboutSection = {
   title: 'Note screen',
   figure: <NoteToolbarFigure />,
   items: [
-    { text: <>Every note uses the same screen. From the top: top bar › tab bar › <b>note toolbar</b> › body. While reading, the body starts with the title and ends with the cited papers. Status sits at the left of the toolbar.</> },
+    { text: <>Every note uses the same screen. From the top: top bar › tab bar › <b>note toolbar</b> › body. While reading, the body starts with the title and ends with the cited papers. Status sits at the left of the toolbar. A {c('$…$')} in a note's name is drawn as math in the title, on cards and in the sidebar (11/21).</> },
     { text: <>While reading, the toolbar has <b>status on the left</b> and <b>save status · clock · Comment · pencil · ▶ · ⋯ on the right</b>. Comment (speech bubble) opens the right sidebar on Records, and ▶ opens the compiled PDF in the side pane. ⋯ has View PDF · Reload file · Show in Finder, and for folder notes also choose template · Export · Delete.</> },
     { text: <>Pressing the pencil brings a title input up into the toolbar. While editing, the toolbar has <b>the title input and status on the left</b>, <b>Source · Source | Preview · Live preview in the middle</b>, and <b>save status and the same actions as when reading on the right</b> (comment · eye · ▶ · ⋯). The eye takes the pencil's place and the other buttons stay put. The Markdown body turns into an editor and saves on its own. Press the eye (View, Esc) to finish. A LaTeX body is always an editor, and the pencil edits the name.</> },
     { text: <>In the Markdown editor, math has a light grey background and each kind of delimiter has its own colour: {c('$')} blue, {c('\\(')} {c('\\)')} purple, {c('$$')} orange, {c('\\[')} {c('\\]')} pink. An unclosed {c('$$')}, {c('\\[')} or {c('\\(')} gets a red wavy underline. In live view it shows on the math that holds the cursor. In live view a {c('>')} quote shows with a line on the left, as when reading; {c('>')} shows only on the line with the cursor.</> },

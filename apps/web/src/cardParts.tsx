@@ -73,6 +73,11 @@ export function MathText({ text, macros, dropBad = false }: { text: string; macr
   })}</>
 }
 
+/** 노트 이름: $…$가 있으면 수식으로 그린다(없으면 글자 그대로라 화면이 바뀌지 않는다). 여러 줄로 줄이는 칸에서도 한 덩어리로 흐르게 감싼다 */
+export function TitleText({ text }: { text: string }) {
+  return /\$[^$]+\$/.test(text) ? <span><MathText text={text} /></span> : <>{text}</>
+}
+
 /**
  * 태그 한 줄: 들어가는 만큼만 보이고, 마지막 보이는 태그는 …로 줄고, 안 보이는 태그는 "+n"(가리키면 나머지 이름).
  * 처음에 모두 그려 너비를 잰 뒤 보일 수를 정한다 (카드 폭이 고정이라 한 번 재면 된다)
