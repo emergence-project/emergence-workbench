@@ -15,7 +15,7 @@
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { EXPLORE_AGENT, FILE_WRITE_TOOLS, MCP_NAME, type AgentRunner, type RunEvent, type RunInput, type Turn } from './agentChats.js'
-import { CHAT_EFFORTS, type ChatEffort, type ModelChoice } from '@rw/core/contract/agentChats'
+import { CHAT_EFFORTS, CLAUDE_START_MODEL, type ChatEffort, type ModelChoice } from '@rw/core/contract/agentChats'
 import { claudeEnv, claudeExecutable } from './ask.js'
 import { skillsPluginDir, userConnectors } from './agentExtras.js'
 import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
@@ -97,6 +97,9 @@ export function choicesOf(list: { value: string; displayName: string; descriptio
   })
 }
 
+/** 「기본 모델」은 고르지 않는다 (11/20): 계정마다 다른 모델로 풀려 화면과 실제가 달랐다. 대화는 정한 모델로 시작해 대화 안에서 바꾼다 */
+export const withoutDefault = (list: ModelChoice[]): ModelChoice[] => list.filter((m) => m.value !== 'default')
+
 /** 고를 수 있는 모델: 지시 없이 Claude Code를 띄워 묻고 닫는다(토큰을 쓰지 않음). 30분 동안 기억한다 */
 function modelLister(): () => Promise<ModelChoice[]> {
   let got: { at: number; list: Promise<ModelChoice[]> } | undefined
@@ -108,7 +111,7 @@ function modelLister(): () => Promise<ModelChoice[]> {
       const finished = new Promise<void>((r) => { done = r })
       async function* prompt() { await finished }
       const q = query({ prompt: prompt(), options: { settingSources: [], env: claudeEnv(), ...executable() } })
-      try { return choicesOf(await q.supportedModels()) } finally { done(); q.close() }
+      try { return withoutDefault(choicesOf(await q.supportedModels())) } finally { done(); q.close() }
     })()
     got = { at: Date.now(), list }
     // 실패하면 다음에 다시 묻는다
@@ -189,7 +192,8 @@ export function claudeAgentRunner(mcpFor: (appChat?: string, central?: boolean, 
         systemPrompt: { type: 'preset', preset: 'claude_code', append: input.brief },
         // 계획 먼저: SDK의 계획 모드로 시작하고, ExitPlanMode(계획 카드)를 허락하면 SDK가 보통 모드로 돌아온다. 고치기 허락은 늘 앱이 정한다
         permissionMode: input.mode === 'plan' && input.write !== 'read' ? 'plan' : 'default',
-        ...(input.model !== 'default' && { model: input.model }),
+        // 옛 「기본 모델」 값도 Opus로 넘긴다: 넘기지 않으면 계정마다 기본값이 달라 크레딧이 드는 모델로 풀린 적이 있다 (11/20)
+        model: input.model === 'default' ? CLAUDE_START_MODEL : input.model,
         effort: input.effort,
         includePartialMessages: true,
         canUseTool: async (tool, toolInput) => {

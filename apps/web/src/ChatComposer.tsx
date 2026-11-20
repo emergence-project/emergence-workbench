@@ -432,7 +432,8 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
           {(close) => <>
             <AgentChoices agent={settings.agent} fixed={agentFixed} onPick={(a) => { close(); if (a !== settings.agent) onSettings(agentSwitch(a, settings.trust)) }} />
             <div className="ac-pop-h">{t('모델', 'Model')}</div>
-            {modelFamilies(models).map((f) => {
+            {/* 「기본 모델」은 고르지 않는다 (11/20): 정한 모델로 시작해 여기서 바꾼다 */}
+            {modelFamilies(models).filter((f) => f.base !== 'default').map((f) => {
               const on = (fam.family?.base ?? '') === f.base
               const value = pickFamily(f, fam.suffix)
               return <button key={f.base} role="menuitemradio" aria-checked={on} className={on ? 'on' : ''} onClick={() => { close(); onSettings({ model: value, ...fitEffort(settings.effort, effortsOf(value, models)) }) }}><span className="ac-pop-check" aria-hidden>{on ? Icon.check : null}</span>{f.base === 'default' ? modelName('default', models).replace(/ \(.*\)$/, '') : f.name}</button>
