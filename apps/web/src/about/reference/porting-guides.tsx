@@ -7,6 +7,7 @@ import type { AboutSection } from '../types'
 const GUIDES: { name: string; ko: string; en: string }[] = [
   { name: 'feedback', ko: '피드백 (남기기 · 처리 기록 · 답 · 모아 보기)', en: 'Feedback (leaving · handling record · answers · overview)' },
   { name: 'agent-chat', ko: '에이전트 대화 (차례 · 허락 · 기록 · 이어 하기)', en: 'Agent conversations (turns · permissions · record · resume)' },
+  { name: 'app-fix', ko: '에이전트가 앱 고치기 (작업 폴더 · 앱이 올리고 합치기 · 피드백 맡기)', en: 'Agents fixing the app (work folder · the app pushes and merges · feedback claims)' },
   { name: 'pdf-comments', ko: 'PDF 읽기와 코멘트 (고른 자리 · 기록 파일 · 다시 찾기)', en: 'PDF reading and comments (selected spot · record file · re-finding)' },
 ]
 
