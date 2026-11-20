@@ -79,7 +79,7 @@ export class FeedbackChats extends SharedChats {
         const m = await app.merge(c.worktree, c.branch)
         c.merged = m.sha || 'merged'
         // 보관하며 압축한 대화면 먼저 푼다 (must): 빈 줄 목록에 적으면 다음에 풀 때 이 줄이 덮여 사라진다
-        this.must(c.id).items.push({ kind: 'text', at: now(), text: t(`PR #${m.number}을 합쳤습니다. 앱이 새 버전을 받아 쓰지 않는 틈에 다시 시작합니다.`, `Merged PR #${m.number}. The app picks up the new version and restarts when idle.`) })
+        this.must(c.id).items.push({ kind: 'text', at: now(), text: t(`PR을 합쳤습니다(#${m.number}). 앱이 새 버전을 받아 쓰지 않는 틈에 다시 시작합니다.`, `Merged PR #${m.number}. The app picks up the new version and restarts when idle.`) })
         this.touch(c)
       } catch { /* gh · git 오류는 다음 차례에 다시 본다 */ }
     }

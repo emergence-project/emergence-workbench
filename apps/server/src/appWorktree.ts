@@ -244,7 +244,7 @@ export function appWorktrees(root: string, base: string, rules?: string, profile
         fs.mkdirSync(path.dirname(at), { recursive: true })
         fs.writeFileSync(at, frag.text)
         await git(dir, ['add', frag.file])
-        await git(dir, ['commit', '-m', `소개 이력: #${pr.number}이 고친 절`])
+        await git(dir, ['commit', '-m', `소개 이력: #${pr.number}에서 고친 절`])
         await git(dir, ['push', '-u', 'origin', `HEAD:refs/heads/${branch}`])
       }
       return { ...pr, created: !had }
