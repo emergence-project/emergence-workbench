@@ -7,7 +7,8 @@ export type Box = { top: number; bottom: number; left: number; right: number }
 
 /** 보이는 칸: 창과, 넘친 것을 자르는 조상(패널 등)이 겹치는 곳 */
 export function visibleBox(el: Element): Box {
-  const b: Box = { top: 0, left: 0, bottom: window.innerHeight, right: window.innerWidth }
+  // 폰에서는 넘친 메뉴 자체가 innerWidth를 넓힌다(화면이 축소된다). 넘쳐도 그대로인 문서 폭으로 잰다
+  const b: Box = { top: 0, left: 0, bottom: window.innerHeight, right: Math.min(window.innerWidth, document.documentElement.clientWidth || window.innerWidth) }
   for (let p = el.parentElement; p; p = p.parentElement) {
     const s = getComputedStyle(p)
     if (s.overflowX === 'visible' && s.overflowY === 'visible') continue
