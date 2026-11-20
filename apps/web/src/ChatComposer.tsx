@@ -337,7 +337,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
     if (menu && e.key === 'Escape') { e.preventDefault(); setClosed(menu.start); return }
     // 목록 줄에서 Enter는 다음 항목, Tab · Shift+Tab은 들여쓰기 · 내어쓰기 (목록 줄이 아니면 Shift+Tab은 허락 단계)
     if (onListKey(e, setText)) { setCaret(e.currentTarget.selectionStart); return }
-    if (e.key === 'Tab' && e.shiftKey && !noTrust) { e.preventDefault(); onSettings({ trust: nextTrust(settings.trust, isClaude(settings.agent)) }); return }
+    if (e.key === 'Tab' && e.shiftKey && !noTrust && !room?.plain) { e.preventDefault(); onSettings({ trust: nextTrust(settings.trust, isClaude(settings.agent)) }); return }
     if (e.key === 'Escape' && onStop && !text) { e.preventDefault(); onStop(); return }
     sendKey.onKeyDown(e)
   }

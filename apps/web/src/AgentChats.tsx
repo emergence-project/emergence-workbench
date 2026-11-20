@@ -646,7 +646,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, o
         <QueuedBar chat={chat} onEdit={(f) => setFill({ ...f, n: Date.now() })} onError={setFail} />
         <Composer rid={chat.rid} auto={auto} settings={settings} agentFixed onSettings={(s) => void change(s)} onSubmit={send} onStop={live ? () => void stop() : undefined}
           placeholder={placeholder} fail={fail} fill={fill} room={debateComposer(chat) ?? room} />
-        <div className="muted ac-keys">{t('⇧⇥ 권한 · ⌘↵ 보내기', '⇧⇥ permissions · ⌘↵ send')}{live && t(' · Esc 멈추기', ' · Esc stop')}</div>
+        <div className="muted ac-keys">{/* 토론 입력란에는 권한 단추가 없다 */!chat.debate && t('⇧⇥ 권한 · ', '⇧⇥ permissions · ')}{t('⌘↵ 보내기', '⌘↵ send')}{live && t(' · Esc 멈추기', ' · Esc stop')}</div>
       </div>}
     </div></AppLinkProvider>
   )
