@@ -57,6 +57,6 @@
 @media (max-width: 900px) {
   .rp-split { flex-direction: column; gap: var(--sp-2); }
   .rp-list { display: none; }
-  .rp-select { display: block; max-width: 100%; height: var(--input-h); }
+  .rp-select { display: block; width: 100%; height: var(--input-h); padding: 0 var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--bg); font-size: var(--fs-sm); }
   .rp-main { width: 100%; }
 }
