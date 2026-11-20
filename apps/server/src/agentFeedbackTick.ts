@@ -6,7 +6,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { agentTurnReasons, agentTurns, localDate, localTime } from '@rw/core'
 import { APP_RID, type Chat, type FeedbackAnswerBody, type FeedbackAnswered } from '@rw/core/contract/agentChats'
-import { AgentChats, LIVE, handedAt, lastTouched, type Stored } from './agentChats.js'
+import { LIVE, handedAt, lastTouched, type Stored } from './agentChats.js'
+import { SharedChats } from './agentShare.js'
 import { feedbackAgainPrompt } from './agentPrompts.js'
 import { answerMockups, listAllFeedback, setFeedbackReview, writeFeedbackAnswer, type FeedbackListItem } from './feedback.js'
 import { readFeedbackCloud } from './feedbackCloud.js'
@@ -19,7 +20,7 @@ const now = () => new Date().toISOString()
 
 const mark = (e: FeedbackListItem): string => `${lastTouched(e)}|${e.comments?.length ?? 0}|${e.review?.at ?? ''}`
 
-export class FeedbackChats extends AgentChats {
+export class FeedbackChats extends SharedChats {
   /**
    * 피드백 대화 돌보기 (1분마다, 설정 › 에이전트 "앱 피드백"):
    * 1. 맡은 대화의 PR이 CI 빨강이면 실패 기록을 그 대화에 다시 보내 고치게 한다 (두 번까지).

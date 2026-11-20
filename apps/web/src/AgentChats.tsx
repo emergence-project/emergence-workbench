@@ -20,6 +20,7 @@ import { flash } from './flash'
 import { openRecordComposer } from './RecordContext'
 import { useRecords } from './projectQueries'
 import { AGENT_PANEL_OPEN, agentPanelKey } from './agentPanelOpen'
+import { ForeignBar } from './AgentForeign'
 import { InlineEdits } from './InlineEdits'
 import { PermTable } from './AgentPermTable'
 import { ProjectPick, RecentChats } from './AgentProjectPick'
@@ -133,7 +134,7 @@ export function ChatLine({ c, on, onOpen, actions = false, pick, where }: { c: C
       <span className="ac-line-top">{pick && <span className={`ac-pick${pick.on ? ' on' : ''}`} aria-hidden />}<span className="ac-line-dot">{isUnseen(c) ? <span className="turn-dot" role="img" aria-label={t('확인하지 않음', 'Not checked')} title={t('끝났는데 아직 열어 보지 않은 대화', 'Finished and not opened yet')} /> : <ChatStateMark state={c.state} name={stateName(c)} />}</span>
         <span className={`label${editing ? ' hide' : ''}`}>{c.title}</span></span>
       <span className="ac-line-meta">
-        {!isClaude(c.agent) && <><AgentChip agent={c.agent} /> · </>}{stateName(c)}{where && ` · ${where}`}
+        {!isClaude(c.agent) && <><AgentChip agent={c.agent} /> · </>}{c.machine ?? stateName(c)}{where && ` · ${where}`}
         {(c.added > 0 || c.removed > 0) && <> · <Delta added={c.added} removed={c.removed} /></>}
         {` · ${relativeTime(Date.parse(c.updated))}`}
       </span>{c.archived && c.summary && <span className="ac-line-sum" data-ui="결과 요약">{c.summary.split('\n')[0]}</span>}
@@ -544,14 +545,14 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
         {compact ? <div className="ac-meta compact" data-ui="대화 묶음 줄">
           <span>{chat.rid === APP_RID ? project : chatGroupName(chat)}</span><span>·</span><span>{stateName({ state: chat.state, wait: chat.items.some((i) => i.kind === 'ask' && !i.answer && i.plan !== undefined) ? 'plan' : 'ask' })}</span>
           <span>·</span><span>{relativeTime(Date.parse(chat.updated))}</span>
-          {chat.archived && <span className="tag">{t('보관함', 'Archived')}</span>}
+          {chat.archived && <span className="tag">{chat.machine ?? t('보관함', 'Archived')}</span>}
         </div> : <div className="ac-meta">
           {chat.parent && <><button className="a" data-ui="중앙 작업 현황으로" data-tip={t('중앙의 작업 현황에서 다른 맡긴 일과 함께 보기', 'See it with the other handed-off work in Central')} onClick={() => go({ page: 'agent', id: chat.parent })}>{t('‹ 중앙 · 작업 현황', '‹ Central · work status')}</button><span>·</span></>}
           {chat.rid === APP_RID || chat.rid === LIBRARY_RID ? <span>{project}</span> : <button className="a" data-ui="대화 프로젝트" onClick={() => go({ page: 'overview', rid: chat.rid })}>{project}</button>}
           <span>·</span><span>{scopeName(chat.scope, topics)}</span>
           {chat.pr && <><span>·</span><a className="a" data-ui="대화 PR" href={chat.pr.url} target="_blank" rel="noreferrer">PR #{chat.pr.number}</a></>}
           {context && <><span>·</span><span data-ui="대화 맥락" title={[isClaude(chat.agent) ? t('지금 에이전트가 들고 있는 앞 내용의 크기. 12만이 넘으면 앞 내용을 요약해 줄입니다', 'How much earlier conversation the agent holds. Over 120k it is summarized') : t('지금 에이전트가 들고 있는 앞 내용의 크기 (에이전트가 알려 준 값)', 'How much earlier conversation the agent holds (as the agent reports it)'), cost > 0 ? costName(cost) : ''].filter(Boolean).join('\n')}>{t('컨텍스트', 'Context')} {tokensName(context.used)}</span></>}
-          {chat.archived && <span className="tag">{t('보관함', 'Archived')}</span>}
+          {chat.archived && <span className="tag">{chat.machine ?? t('보관함', 'Archived')}</span>}
         </div>}
       </div>
       <ChatStateMark state={chat.state} label={!compact} name={sname} />
@@ -562,8 +563,8 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
         </button>
       )}
       {chat.rid === CENTRAL_RID && !compact && <CentralBoardButton narrowOnly={!!pane} />}
-      <ReviewButton chat={chat} onError={onError} />{tools}
-      <HeadMore live={live} archived={!!chat.archived} onRename={() => setRenaming(true)} onArchive={(v) => void archive(v)} onRemove={() => void remove()} onRecord={onRecord} />
+      {!chat.machine && <ReviewButton chat={chat} onError={onError} />}{tools}
+      {!chat.machine && <HeadMore live={live} archived={!!chat.archived} onRename={() => setRenaming(true)} onArchive={(v) => void archive(v)} onRemove={() => void remove()} onRecord={onRecord} />}
     </div>
   )
 }
@@ -714,14 +715,14 @@ export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, o
         {!!chat.tasks && chat.state !== 'running' && <li className="ac-note muted ac-working" data-ui="뒤에서 도는 명령" aria-live="polite"><StatusDot s="in-progress" name={t(`뒤에서 명령 ${chat.tasks}개가 도는 중 · 끝나면 이어서 합니다`, `${chat.tasks} background command${chat.tasks > 1 ? 's' : ''} running · continues when done`)} label /></li>}
         {canResume && <li className="ac-note"><button className="btn sm" data-ui="이어 하기" onClick={() => void resume()}>{t('이어 하기', 'Continue')}</button><span className="muted ac-hint">{t('같은 대화에서 멈춘 곳부터', 'From where it stopped, in the same conversation')}</span></li>}
       </ol><ChatQuoteMenu list={listRef} onQuote={(a) => setFill({ attach: [a], n: Date.now() })} />
-      <div className="ac-compose">
+      {chat.machine ? <ForeignBar chat={chat} /> : <div className="ac-compose">
         {behind && <button className="btn sm ac-latest" data-ui="최신으로" onClick={toEnd}>{Icon.down}{t('최신으로', 'Latest')}</button>}
         {showTodos && <TodoBar todos={chat.todos} />}
         <QueuedBar chat={chat} onEdit={(f) => setFill({ ...f, n: Date.now() })} onError={setFail} />
         <Composer rid={chat.rid} auto={auto} settings={settings} agentFixed onSettings={(s) => void change(s)} onSubmit={send} onStop={live ? () => void stop() : undefined}
           placeholder={placeholder} fail={fail} fill={fill} />
         <div className="muted ac-keys">{t('⇧⇥ 권한 · ⌘↵ 보내기', '⇧⇥ permissions · ⌘↵ send')}{live && t(' · Esc 멈추기', ' · Esc stop')}</div>
-      </div>
+      </div>}
     </div></AppLinkProvider>
   )
 }
@@ -902,7 +903,7 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
   return (
     <WorkAside>
       <ChatInfo chat={chat} />
-      {hasEdits && <><h3>{t('변경사항', 'Changes')}</h3><Changes chat={chat} onSaved={onSaved} /></>}
+      {hasEdits && !chat.machine && <><h3>{t('변경사항', 'Changes')}</h3><Changes chat={chat} onSaved={onSaved} /></>}
       <section data-ui="잡은 파일">
         <h3>{t('사용 중인 파일', 'Claimed files')}</h3>
         {chat.claims.map((f) => <div key={f} className="ac-work-row"><span className="mono ac-file" title={f}>{f}</span><span className="tag">{t('이 대화', 'This')}</span></div>)}

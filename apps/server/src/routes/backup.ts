@@ -8,6 +8,7 @@ import { backupWorkbenches, type BackupResult } from '../backup.js'
 import { remoteOf, sameRepo } from './google.js'
 import { adoptOtherProfiles } from '../profileSync.js'
 import { adoptOtherMe } from '../meSync.js'
+import { SharedChats } from '../agentShare.js'
 import { setAppIdentity } from '../git.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
@@ -27,7 +28,9 @@ export function registerBackup(app: FastifyInstance, ctx: RouteContext): (() => 
     if (running) return running
     const list = registry.list()
     running = Promise.all(list.map(async (r) => ({ id: r.id, title: r.title, remote: await remoteOf(r.path), folder: path.basename(r.path), tags: r.tags, state: r.state, ...registry.sharedProfile(r.id) })))
-      .then((projects) => backupWorkbenches({ dir: cfg.dir, remote, targets: list.map((r) => ({ id: r.id, path: r.path })), settings: cfg.settings, projects }))
+      .then((projects) => backupWorkbenches({ dir: cfg.dir, remote, targets: list.map((r) => ({ id: r.id, path: r.path })), settings: cfg.settings, projects,
+        // 에이전트 대화도 올려 다른 컴퓨터 보관함에 보이게 한다 (agentShare.ts, 11/20)
+        ...(ctx.agentChats instanceof SharedChats && { chats: ctx.agentChats.sharedFiles() }) }))
       .then(async (r) => {
         if (r.settingsPulled) registry.reload()
         // 다른 컴퓨터에서 더 늦게 고친 진행 상태 · 띠 · 색 등을 따른다 (10/22 09:44). 다음 맞추기에서 이 컴퓨터 목록에도 올라간다

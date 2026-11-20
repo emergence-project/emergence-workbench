@@ -51,6 +51,8 @@ export const agentChatsApi = {
   rewind: (id: string, point: string) => req(`${base}/${enc(id)}/rewind`, send('POST', { point })).then((r) => json<Rewound>(r)),
   /** 오류 · 멈춤 · 앱 재시작 뒤 이어 하기 */
   resume: (id: string) => req(`${base}/${enc(id)}/resume`, send('POST', {})).then(one),
+  /** 다른 컴퓨터의 대화를 이 컴퓨터에서 이어 하기 (새 대화, 이미 이어 왔으면 그 대화) */
+  continueHere: (id: string) => req(`${base}/${enc(id)}/continue-here`, send('POST', {})).then(one),
   rename: (id: string, title: string) => req(`${base}/${enc(id)}/title`, send('POST', { title })).then(one),
   /** 기록으로 남기기: 대화에서 기록 초안 (10/28) */
   recordDraft: (id: string, place: string) => req(`${base}/${enc(id)}/record-draft`, send('POST', { place })).then((r) => json<RecordDraft>(r)),

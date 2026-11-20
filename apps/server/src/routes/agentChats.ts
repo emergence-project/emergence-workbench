@@ -108,6 +108,8 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     },
   }, centralMemo())
   ctx.agentChats = chats
+  // 다른 컴퓨터의 대화 (agentShare.ts): 맞추기가 받아 둔 개인 저장소 사본에서 읽는다
+  chats.shareDir = ctx.opts.backup?.dir
   // 오래된 대화 정리 (11/16 시안 §6): 끝나고 7일 지난 대화를 보관하고 요약 · 압축한다. 1시간마다 (예제 · 시험은 돌리지 않는다)
   if (!runner) repeat(app, { first: 5 * 60_000, every: 60 * 60_000, run: () => chats.tidy() })
   // 피드백 대화 돌보기 (CI 빨강 다시 보내기 · 합치기 · 반영됨 · 저절로 맡기기): 1분마다
@@ -126,7 +128,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   resumeTimer.unref()
   app.addHook('onClose', async () => clearTimeout(resumeTimer))
 
-  app.get<{ Querystring: { rid?: string } }>('/api/agent-chats', replies(C.ChatList), async (req): Promise<C.ChatList> => ({ chats: chats.list(req.query.rid || undefined), limit: chats.limit, app: chats.app, handOff: chats.handOffOk }))
+  app.get<{ Querystring: { rid?: string } }>('/api/agent-chats', replies(C.ChatList), async (req): Promise<C.ChatList> => ({ chats: chats.listAll(req.query.rid || undefined), limit: chats.limit, app: chats.app, handOff: chats.handOffOk }))
 
   /** 고를 수 있는 모델 (맥의 Claude Code에게 물어 30분 기억, 못 띄우면 빈 목록) */
   app.get('/api/agent-chats/extras', replies(C.ChatExtras), async (): Promise<C.ChatExtras> => chatExtras(MCP_NAME))
@@ -142,7 +144,9 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
 
   app.post('/api/agent-chats', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.create(parseBody(C.NewChatBody, req.body)) }))
 
-  app.get<{ Params: { id: string } }>('/api/agent-chats/:id', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.get(req.params.id) }))
+  app.get<{ Params: { id: string } }>('/api/agent-chats/:id', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.getAny(req.params.id) }))
+  /** 다른 컴퓨터의 대화를 이 컴퓨터에서 이어 하기 (agentShare.ts) */
+  app.post<{ Params: { id: string } }>('/api/agent-chats/:id/continue-here', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.continueHere(req.params.id) }))
 
   /** 곁 질문: 하던 일을 멈추지 않고 작은 모델이 이 대화의 요약만 보고 답한다 */
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/side', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.side(req.params.id, parseBody(C.SideBody, req.body).text) }))

@@ -1,0 +1,4 @@
+/* 다른 컴퓨터에서 돌린 대화: 입력란 자리의 안내와 「이 컴퓨터에서 이어 하기」 (AgentForeign.tsx) */
+.ac-foreign { gap: var(--sp-2); border-top: 1px solid var(--line); }
+.ac-foreign-text { display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-sm); min-width: 0; }
+.ac-foreign-act { display: flex; }
