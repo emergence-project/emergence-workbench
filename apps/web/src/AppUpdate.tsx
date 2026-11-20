@@ -32,6 +32,8 @@ export const RELEASES = 'https://github.com/emergence-project/emergence-workbenc
  */
 const POLL_MS = 5 * 60_000
 const FOCUS_MIN_MS = 60_000
+/** 앱을 연 뒤 첫 GitHub 확인까지 */
+const FIRST_FETCH_MS = 8_000
 /** 받기·설치·빌드가 이보다 오래 걸리면 기다리기를 그만두고 이유를 보여 준다 (서버의 설치·빌드 제한은 각 10분) */
 const UPDATE_WAIT_MS = 22 * 60_000
 /** 자동 업데이트 (10/9 "쉴 때 · 버튼"): 입력 없이 이만큼 지나고 저장할 것이 없으면, 빌드해 둔 새 버전으로 다시 시작한다 */
@@ -170,7 +172,14 @@ const canUpdate = (s: AppStatus | null) => !!s && !s.blocked && !s.fetchError &&
 export function AppUpdateRail() {
   const s = useAppUpdateState()
   useEffect(() => {
-    if (lastCheck === 0) void checkAppUpdate()
+    // 처음에는 상태만 빨리 읽고, GitHub 확인(git fetch, 1초 가까이)은 화면이 다 열린 뒤에: 열 때 한꺼번에 나가는 요청 사이에서
+    // 연결 자리(호스트당 6개)를 오래 잡아 대화 · 노트 열기가 그 뒤에 줄 서지 않게
+    let first: number | undefined
+    if (lastCheck === 0) {
+      lastCheck = Date.now()
+      void req('/api/app/status').then((r) => r.json()).then(applyStatus, () => undefined)
+      first = window.setTimeout(() => { first = undefined; void checkAppUpdate() }, FIRST_FETCH_MS)
+    }
     const timer = setInterval(() => void checkAppUpdate(), POLL_MS)
     const onFocus = () => { if (document.visibilityState === 'visible' && Date.now() - lastCheck > FOCUS_MIN_MS) void checkAppUpdate() }
     window.addEventListener('focus', onFocus)
@@ -186,6 +195,7 @@ export function AppUpdateRail() {
     }, IDLE_CHECK_MS)
     return () => {
       clearInterval(timer); clearInterval(idle)
+      if (first !== undefined) { clearTimeout(first); lastCheck = 0 }
       window.removeEventListener('focus', onFocus); document.removeEventListener('visibilitychange', onFocus)
       for (const e of inputs) window.removeEventListener(e, onInput, { capture: true })
     }

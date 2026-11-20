@@ -569,6 +569,14 @@ describe('대화 API', () => {
     expect(seen.at(-1)!.prompt).toContain('이어서')
   })
 
+  it('그림 파일 이름을 보내면 지시에 이름이 남는다 (「그림 1」이 이름처럼 읽히지 않게)', async () => {
+    const c = await create({ text: 'wait' })
+    await settle(c.id, 'running')
+    const q = await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/messages`, payload: { text: '이름', images: [{ type: 'image/png', data: 'aGk=', name: '스크린샷.png' }] } })
+    expect(q.statusCode, q.body).toBe(200)
+    expect(q.json().chat.items.at(-1)).toMatchObject({ kind: 'user', images: 1, imageNames: ['스크린샷.png'] })
+  })
+
   it('일하는 중에 보낸 지시는 다음 차례에 읽고, 모드 · 모델은 다음 차례부터 바뀐다. 그림 · 붙인 것은 에이전트에게 간다', async () => {
     const c = await create({ text: 'wait' })
     await settle(c.id, 'running')
@@ -578,6 +586,7 @@ describe('대화 API', () => {
     // 열려 있는 에이전트에 바로 넘긴다 (줄 서지 않음). 읽지 않고 끝나는 에이전트면 다음 실행이 읽는다
     expect(q.json().chat.items.at(-1)).toMatchObject({ kind: 'user', images: 1, attach: [{ kind: 'note' }] })
     expect(q.json().chat.items.at(-1).queued).toBeUndefined()
+    expect(q.json().chat.items.at(-1).imageNames).toBeUndefined()
     const s = await app.inject({ method: 'POST', url: `/api/agent-chats/${c.id}/settings`, payload: { mode: 'ask', model: 'sonnet', effort: 'high' } })
     expect(s.json().chat).toMatchObject({ mode: 'ask', model: 'sonnet', effort: 'high' })
     const before = seen.length

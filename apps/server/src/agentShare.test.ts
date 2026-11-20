@@ -3,7 +3,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AgentRunner, RunInput } from './agentChats.js'
-import { SharedChats, carryText, otherMachineChats, shareItems, SHARE_ROOT } from './agentShare.js'
+import { CENTRAL_RID } from '@rw/core/contract/agentChats'
+import { ARCHIVE_ASKS, SharedChats, carryText, otherMachineChats, shareItems, SHARE_ROOT } from './agentShare.js'
 
 // 11/20: 맥미니에서 돌린 대화가 맥북 보관함에 보이지 않았다. 대화를 개인 저장소로 올리고, 다른 컴퓨터에서 읽기만 하거나 이어 간다
 const tmps: string[] = []
@@ -89,9 +90,85 @@ describe('다른 컴퓨터의 대화', () => {
   it('앞 대화가 길면 뒤쪽만 넘긴다', () => {
     const at = ''
     const items = Array.from({ length: 40 }, (_, i) => ({ kind: 'text' as const, at, text: `글 ${i} ${'x'.repeat(600)}` }))
-    const s = carryText({ machine: 'M', row: { id: 'a', rid: 'p', title: 't', agent: 'claude-code', scope: { kind: 'project' }, write: 'notes', state: 'idle', mode: 'edit', model: 'default', effort: 'medium', claims: [], changed: [], added: 0, removed: 0, archived: true, created: at, updated: at }, items })
+    const s = carryText({ machine: 'M', row: { id: 'a', rid: 'p', title: 't', agent: 'claude-code', scope: { kind: 'project' }, write: 'notes', state: 'idle', mode: 'edit', model: 'default', effort: 'medium', claims: [], changed: [], added: 0, removed: 0, archived: true, created: at, updated: at }, items, archived: false })
     expect(s).toContain('글 39')
     expect(s).not.toContain('글 0 ')
     expect(s.length).toBeLessThan(13_000)
+  })
+
+  // 11/20 사용자 "대화를 여는 권한도 있으니 닫을 권한도": 중앙의 chat_archive
+  it('중앙이 이 컴퓨터의 대화를 보관하고 중앙에 한 줄 남긴다. 일하는 중 · 중앙 자신 · 이미 보관은 거절', async () => {
+    const book = make(tmp(), ['p', CENTRAL_RID])
+    const central = book.create({ rid: CENTRAL_RID, text: '중앙' })
+    const c = book.create({ rid: 'p', text: '오류로 끝난 일' })
+    await vi.waitFor(() => expect(book.get(c.id).state).toBe('idle'))
+    await vi.waitFor(() => expect(book.get(central.id).state).toBe('idle'))
+    expect(() => book.archiveOrAsk(central.id, '왜')).toThrow('중앙 대화')
+    expect(book.archiveOrAsk(c.id, '피드백 반영됨')).toEqual({ id: c.id, title: '오류로 끝난 일' })
+    expect(book.get(c.id).archived).toBe(true)
+    expect(book.get(central.id).items.at(-1)).toMatchObject({ kind: 'text', text: '자동: 보관 · 오류로 끝난 일 · 피드백 반영됨' })
+    expect(() => book.archiveOrAsk(c.id, '또')).toThrow('이미')
+    const live = book.create({ rid: 'p', text: '도는 중' })
+    expect(() => book.archiveOrAsk(live.id, 'x')).toThrow('일하는 중')
+    expect(() => book.archiveOrAsk('nope', 'x')).toThrow('그런 대화가 없습니다')
+    // 11/20 "종료된 대화를 복구하는 것도": chat_unarchive. 보관함에 없으면 거절
+    expect(book.archiveOrAsk(c.id, '다시 이어 할 일', true)).toEqual({ id: c.id, title: '오류로 끝난 일' })
+    expect(book.get(c.id).archived).toBe(false)
+    expect(book.get(central.id).items.at(-1)).toMatchObject({ kind: 'text', text: '자동: 복구 · 오류로 끝난 일 · 다시 이어 할 일' })
+    expect(() => book.archiveOrAsk(c.id, '또', true)).toThrow('보관함에 없습니다')
+    book.stopAll()
+  })
+
+  it('다른 컴퓨터의 대화는 보관 요청을 올리고, 그 컴퓨터가 맞추기 뒤 보관한다 (그사이 다시 썼으면 두고)', async () => {
+    const mini = make(tmp())
+    const a = mini.create({ rid: 'p', text: '맥미니 일 하나' })
+    const b = mini.create({ rid: 'p', text: '맥미니 일 둘' })
+    await vi.waitFor(() => expect([mini.get(a.id).state, mini.get(b.id).state]).toEqual(['idle', 'idle']))
+    const personal = tmp()
+    const put = (m: string, files: Record<string, string>) => {
+      fs.rmSync(path.join(personal, SHARE_ROOT, m), { recursive: true, force: true })
+      fs.mkdirSync(path.join(personal, SHARE_ROOT, m), { recursive: true })
+      for (const [k, v] of Object.entries(files)) fs.writeFileSync(path.join(personal, SHARE_ROOT, m, `${k}.json`), v)
+    }
+    put('Macmini', mini.sharedFiles())
+    const bookDir = tmp()
+    const book = make(bookDir)
+    book.shareDir = personal
+    expect(book.archiveOrAsk(a.id, '다른 대화가 고침')).toEqual({ id: a.id, title: '맥미니 일 하나', machine: 'Macmini' })
+    expect(book.archiveOrAsk(b.id, '답변됨').machine).toBe('Macmini')
+    expect(() => book.archiveOrAsk(a.id, '또')).toThrow('이미')
+    // 대화 폴더에 .json으로 두지 않아 다시 켜도 대화로 읽히지 않는다
+    expect(make(bookDir).list()).toEqual([])
+    const up = book.sharedFiles()
+    expect(JSON.parse(up[ARCHIVE_ASKS]!)).toHaveLength(2)
+    put('MacBook', up)
+    expect(otherMachineChats(personal, 'Macmini')).toEqual([]) // 요청 파일은 대화로 읽지 않는다
+
+    // 맥미니에서 b를 다시 이어 했다 → b는 두고 a만 보관
+    await new Promise((r) => setTimeout(r, 5))
+    mini.send(b.id, { text: '다시 이어서' })
+    await vi.waitFor(() => expect(mini.get(b.id).state).toBe('idle'))
+    mini.shareDir = personal
+    expect(mini.applyArchiveAsks('Macmini')).toEqual([a.id])
+    expect(mini.get(a.id).archived).toBe(true)
+    expect(mini.get(a.id).items.at(-1)).toMatchObject({ kind: 'text', text: '자동: MacBook의 중앙이 보관함에 넣었습니다 · 다른 대화가 고침' })
+    expect(mini.get(b.id).archived).toBe(false)
+    expect(mini.applyArchiveAsks('Macmini')).toEqual([])
+
+    // 맥미니가 다시 올리면 맥북은 끝난 요청(보관됨 · 다시 쓰임)을 버린다
+    put('Macmini', mini.sharedFiles())
+    expect(book.sharedFiles()[ARCHIVE_ASKS]).toBeUndefined()
+
+    // 보관한 a를 맥북의 중앙이 다시 꺼내 달라고 청하면, 맥미니가 맞추기 뒤 꺼낸다
+    await new Promise((r) => setTimeout(r, 5))
+    expect(book.archiveOrAsk(a.id, '다시 필요함', true).machine).toBe('Macmini')
+    expect(() => book.archiveOrAsk(a.id, '또', true)).toThrow('이미')
+    put('MacBook', book.sharedFiles())
+    expect(mini.applyArchiveAsks('Macmini')).toEqual([a.id])
+    expect(mini.get(a.id).archived).toBe(false)
+    expect(mini.get(a.id).items.at(-1)).toMatchObject({ kind: 'text', text: '자동: MacBook의 중앙이 보관함에서 꺼냈습니다 · 다시 필요함' })
+    put('Macmini', mini.sharedFiles())
+    expect(book.sharedFiles()[ARCHIVE_ASKS]).toBeUndefined()
+    mini.stopAll(); book.stopAll()
   })
 })

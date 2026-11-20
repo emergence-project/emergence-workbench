@@ -18,6 +18,11 @@ const sub = (allowed: Record<string, Rule>, bad: string[] = []): Rule => (args) 
   return !!rule && !args.some((a) => bad.includes(a) || bad.some((b) => b.startsWith('--') && a.startsWith(`${b}=`))) && rule(args.slice(args.indexOf(s) + 1))
 }
 const versionOnly: Rule = (args) => args.length === 1 && /^(-v|-V|--version)$/.test(args[0]!)
+/** 긴 옵션의 줄임꼴도 같은 옵션으로 본다 (git · getopt_long은 --outp=x 를 --output=x 로 읽는다) */
+const longOpt = (...names: string[]) => (x: string) => {
+  const k = x.split('=')[0]!
+  return k.length >= 3 && k.startsWith('--') && names.some((n) => n.startsWith(k))
+}
 
 const GIT: Record<string, Rule> = {
   log: any, status: any, diff: any, show: any, blame: any, 'ls-files': any, 'rev-parse': any, describe: any, shortlog: any, 'ls-tree': any,
@@ -25,11 +30,11 @@ const GIT: Record<string, Rule> = {
   'show-branch': any, 'count-objects': any, cherry: any, 'range-diff': any, 'check-ignore': any, 'check-attr': any, 'verify-commit': any,
   'verify-tag': any, version: any,
   // --upload-pack · -u 는 지정한 프로그램을 돌린다
-  'ls-remote': (a) => !a.some((x) => /^(--upload-pack|-u)/.test(x)),
+  'ls-remote': (a) => !a.some((x) => /^-u/.test(x) || longOpt('--upload-pack')(x)),
   worktree: (a) => a[0] === 'list',
   submodule: (a) => a.length === 0 || a[0] === 'status',
   // -O · --open-files-in-pager는 지정한 프로그램을 돌린다
-  grep: (a) => !a.some((x) => /^(-O|--open-files-in-pager)/.test(x)),
+  grep: (a) => !a.some((x) => /^-O/.test(x) || longOpt('--open-files-in-pager')(x)),
   branch: (a) => a.every((x) => /^(-a|-r|-v|-vv|--all|--remotes|--list|-l|--show-current|--verbose)$/.test(x)),
   remote: (a) => a.length === 0 || a.every((x) => x === '-v') || /^(show|get-url)$/.test(a[0] ?? ''),
   reflog: (a) => a.length === 0 || a[0] === 'show' || a[0]!.startsWith('-'),
@@ -71,7 +76,7 @@ const GIT_WRITE: Record<string, Rule> = {
   add: any,
   commit: any,
   // --upload-pack은 지정한 프로그램을 돌린다
-  fetch: (a) => !a.some((x) => /^--upload-pack/.test(x)),
+  fetch: (a) => !a.some(longOpt('--upload-pack')),
   branch: flagsOnly(/^(-a|-r|-v|-vv|--all|--remotes|--list|-l|--show-current|--verbose|-d|--delete|-m|--move|-c|--copy|-t|--track|--no-track|-u|--set-upstream-to(=.*)?|--unset-upstream)$/),
   tag: flagsOnly(/^(-l|--list|-a|--annotate|-m|--message(=.*)?|-s|--sign)$/),
   // + 강제 refspec · :지우기 refspec도 막는다.
@@ -110,7 +115,7 @@ function gitRule(table: Record<string, Rule>): Rule {
     }
     const rule = table[a[i] ?? '']
     const rest = a.slice(i + 1)
-    return !!rule && !rest.some((x) => /^(--output|--ext-diff)/.test(x)) && rule(rest)
+    return !!rule && !rest.some(longOpt('--output', '--ext-diff')) && rule(rest)
   }
 }
 function ghRule(table: Record<string, Rule>): Rule {
@@ -123,6 +128,98 @@ function ghRule(table: Record<string, Rule>): Rule {
 }
 const PKG: Record<string, Rule> = { ls: any, list: any, view: any, info: any, why: any, outdated: any, root: any }
 
+/**
+ * find: 지우거나 파일을 쓰는 동작은 막고, -exec · -execdir 는 안의 명령이 이 목록의 읽기 명령일 때만 (11/20 "중앙 읽기 명령은 묻지 않고").
+ * -ok는 묻는 입력을 기다려 막는다
+ */
+const findRule: Rule = (a) => {
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i]!
+    if (/^-(ok|okdir|delete|fprint|fprint0|fprintf|fls)$/.test(x)) return false
+    if (x !== '-exec' && x !== '-execdir') continue
+    const end = a.findIndex((y, j) => j > i && (y === ';' || y === '+'))
+    if (end < 0) return false
+    const [prog, ...args] = a.slice(i + 1, end)
+    if (!prog || prog === 'find' || (prog.includes('/') && !/^\/(usr\/)?bin\/[^/]+$/.test(prog))) return false
+    const rule = PROGRAMS[prog.split('/').pop()!]
+    if (!rule || !rule(args)) return false
+    i = end
+  }
+  return true
+}
+
+/**
+ * python -c 로 JSON · 기록을 읽어 보이기 (11/20 "중앙 읽기 명령은 묻지 않고"): -I(현재 폴더의 같은 이름 모듈을 읽지 않음)를 붙이고,
+ * 허용한 모듈만 가져오고, 파일은 읽기로만 열고, 쉘 변수($)나 이름을 숨기는 문법(__ · \x 이스케이프 · getattr · eval)이 없을 때만.
+ * 파일 이름은 코드 안에 넣지 않고 sys.argv로 넘긴다. python -m json.tool <파일> 도 (두 번째 이름은 쓸 파일이라 막는다)
+ */
+const PY_MODULES = new Set([
+  'json', 'sys', 'os', 'os.path', 're', 'collections', 'itertools', 'functools', 'math', 'statistics', 'glob', 'fnmatch', 'datetime', 'time',
+  'textwrap', 'pprint', 'csv', 'heapq', 'bisect', 'unicodedata', 'tomllib', 'pathlib', 'difflib', 'hashlib',
+])
+/** os. 뒤에 올 수 있는 것: 보기만 하는 것 (os.environ은 열쇠가 들어 있어 뺀다) */
+const PY_OS = /^(path|listdir|scandir|walk|stat|lstat|getcwd|sep|linesep|curdir|pardir|name|devnull|cpu_count|getpid|uname|readlink|access|fspath|get_terminal_size|statvfs|R_OK|F_OK|X_OK|W_OK)$/
+const PY_SYS = /^(argv|stdin|stdout|stderr|version|version_info|platform|exit|maxsize|getsizeof|executable|getdefaultencoding)$/
+const PY_BAD = /\b(exec|eval|getattr|setattr|delattr|globals|locals|vars|breakpoint|help|input|write_text|write_bytes|touch|mkdir|unlink|rmdir|rename|symlink_to|hardlink_to|link_to|chmod|lchmod|chown)\b/
+function pythonCode(code: string): boolean {
+  if (/[$]|SUBST|__|\\[xuUN0-7]/.test(code)) return false
+  if (PY_BAD.test(code)) return false
+  // 다른 모듈에 딸린 모듈(glob.os · json.codecs · collections._sys)로 os 검사를 비켜 가지 못하게
+  if (/\.\s*(os|sys|io|subprocess|shutil|codecs|builtins|posix|nt|importlib|posixpath|ntpath|genericpath|tempfile|socket|ctypes|pickle|marshal|signal|fcntl|mmap|pty|runpy|threading|_\w*)\b/.test(code)) return false
+  // 가져오기: 허용한 모듈만, * 와 다른 이름 붙이기(as)는 막는다 (import os as o 로 아래 os. 검사를 비켜 가지 못하게)
+  for (const m of code.matchAll(/\b(?:from\s+([\w.]+)\s+)?import\s+([^;\n]+)/g)) {
+    if (/\bas\b/.test(m[2]!)) return false
+    if (m[1]) {
+      if (!PY_MODULES.has(m[1]) || m[2]!.includes('*')) return false
+      if (m[1] === 'os' && !m[2]!.split(',').every((n) => PY_OS.test(n.trim().split(/\s+/)[0]!))) return false
+      if (m[1] === 'sys' && !m[2]!.split(',').every((n) => PY_SYS.test(n.trim().split(/\s+/)[0]!))) return false
+    } else if (!m[2]!.split(',').every((n) => PY_MODULES.has(n.trim().split(/\s+/)[0]!))) return false
+  }
+  // os · sys는 늘 os.<보기> · sys.<보기> 꼴로만 (다른 이름에 담아 os.replace 를 숨기지 못하게)
+  for (const m of code.matchAll(/\b(os|sys)\b(\s*\.\s*(\w+))?/g)) {
+    const before = code.slice(0, m.index)
+    if (/(import|from)\s+([\w.]+\s*,\s*)*$/.test(before) || /\bfrom\s+$/.test(before)) continue
+    if (/\.\s*$/.test(before)) continue
+    if (!m[3] || !(m[1] === 'os' ? PY_OS : PY_SYS).test(m[3])) return false
+  }
+  // pathlib을 쓰면 Path.replace도 파일을 옮기므로 .replace 를 막는다
+  if (/\b(pathlib|Path)\b/.test(code) && /\.\s*(replace|copy|move)\w*\b/.test(code)) return false
+  // open: 이름으로만 부르고(다른 이름에 담지 않고), 둘째 값은 읽기 모드 글자만
+  for (const m of code.matchAll(/\bopen\b/g)) {
+    const after = code.slice(m.index! + 4)
+    if (!/^\s*\(/.test(after)) return false
+    const args = after.slice(after.indexOf('(') + 1)
+    let depth = 0
+    let end = 0
+    for (; end < args.length; end++) {
+      const ch = args[end]!
+      if ('([{'.includes(ch)) depth++
+      else if (')]}'.includes(ch)) { if (depth === 0) break; depth-- }
+    }
+    const inside = args.slice(0, end)
+    if (/\b(mode|opener)\s*=/.test(inside) && !/\bmode\s*=\s*['"][rbt]*['"]/.test(inside)) return false
+    if (/\bopener\s*=/.test(inside)) return false
+    let d = 0
+    const top = [...inside].map((ch) => { if ('([{'.includes(ch)) d++; else if (')]}'.includes(ch)) d--; return d === 0 ? ch : ' ' }).join('')
+    const parts = top.split(',')
+    if (parts.length > 1 && !/^\s*$/.test(parts[1]!) && !/^\s*(mode\s*=\s*)?['"][rbt]*['"]\s*$/.test(parts[1]!) && !/^\s*\w+\s*=/.test(parts[1]!)) return false
+  }
+  return true
+}
+const pythonRule: Rule = (a) => {
+  if (versionOnly(a)) return true
+  let i = 0
+  let isolated = false
+  while (i < a.length && /^-[IsSEBu]+$/.test(a[i]!)) { if (a[i]!.includes('I')) isolated = true; i++ }
+  if (!isolated) return false
+  if (a[i] === '-m' && a[i + 1] === 'json.tool') {
+    const rest = a.slice(i + 2)
+    return rest.every((x) => !x.startsWith('-') || /^--(sort-keys|compact|json-lines|no-ensure-ascii|tab|no-indent)$/.test(x)) && positional(rest).length <= 1
+  }
+  if (!isolated) return false
+  return a[i] === '-c' && typeof a[i + 1] === 'string' && pythonCode(a[i + 1]!)
+}
+
 const PROGRAMS: Record<string, Rule> = {
   ...Object.fromEntries([
     'ls', 'cat', 'head', 'tail', 'wc', 'grep', 'egrep', 'fgrep', 'which', 'type', 'stat', 'du', 'df', 'pwd', 'whoami', 'id', 'uname',
@@ -130,16 +227,16 @@ const PROGRAMS: Record<string, Rule> = {
     'realpath', 'readlink', 'true', 'false', 'test', '[', 'system_profiler',
   ].map((p) => [p, any])),
   // 파일을 쓰거나 다른 프로그램을 돌리는 옵션은 뺀다. 짧은 옵션은 붙여 쓴 꼴(-ofile · -uo)도 막는다
-  sort: (a) => !a.some((x) => /^--output(=|$)/.test(x) || /^-[a-zA-Z]*o/.test(x)),
+  sort: (a) => !a.some((x) => longOpt('--output', '--compress-program')(x) || /^-[a-zA-Z]*o/.test(x)),
   // -R은 폴더마다 -o 00Tree.html을 쓴다
   tree: (a) => !a.some((x) => /^-(o|R)/.test(x)),
   rg: without('--pre', '--hostname-bin'),
   // -C는 magic 파일을 컴파일해 쓴다
-  file: (a) => !a.some((x) => /^-[a-zA-Z]*C/.test(x) || x === '--compile'),
+  file: (a) => !a.some((x) => /^-[a-zA-Z]*C/.test(x) || longOpt('--compile')(x)),
   uniq: (a) => positional(a).length <= 1,
   date: (a) => positional(a).every((x) => x.startsWith('+')) && !a.includes('-s'),
   hostname: (a) => positional(a).length === 0,
-  find: without('-exec', '-execdir', '-ok', '-okdir', '-delete', '-fprint', '-fprint0', '-fprintf', '-fls'),
+  find: findRule,
   sysctl: (a) => !a.some((x) => x.includes('=') || /^-\w*w/.test(x)),
   // ps e · -E는 다른 프로세스의 환경 변수(열쇠)를 보인다
   ps: (a) => !a.some((x) => x === '-E' || (!x.startsWith('-') && /e/.test(x))),
@@ -156,7 +253,9 @@ const PROGRAMS: Record<string, Rule> = {
   pnpm: (a) => versionOnly(a) || sub(PKG)(a),
   yarn: (a) => versionOnly(a) || sub({ list: any, info: any, why: any })(a),
   brew: (a) => versionOnly(a) || sub({ list: any, info: any, config: any, ls: any })(a),
-  ...Object.fromEntries(['node', 'python', 'python3', 'claude', 'codex', 'gemini', 'uv', 'tex', 'latexmk'].map((p) => [p, versionOnly])),
+  python: pythonRule,
+  python3: pythonRule,
+  ...Object.fromEntries(['node', 'claude', 'codex', 'gemini', 'uv', 'tex', 'latexmk'].map((p) => [p, versionOnly])),
 }
 
 /** 비밀이 든 곳 (열쇠 · 토큰 · 환경 파일): 읽기라도 한 번 묻는다 */
@@ -208,7 +307,16 @@ export function stateOnlyCommand(cmd: string, o: { gitWrites?: boolean } = {}, d
   // 홀로 선 & (백그라운드)
   if (/(^|[^&])&([^&]|$)/.test(noRedirect.replace(/&&/g, '  '))) return 'no'
   for (const seg of segments(flat)) {
-    const w = words(seg.replace(HARMLESS_REDIRECT, ' ').replace(/<\s*/g, ' '))
+    let w = words(seg.replace(HARMLESS_REDIRECT, ' ').replace(/<\s*/g, ' '))
+    // for 반복문 (11/20): for 이름 in 낱말…; do 명령; done. 낱말은 글자 그대로 적은 것만(-로 시작하거나 $ · $( ) 가 들면
+    // 반복 변수가 옵션이 될 수 있어 막는다). do 뒤 명령은 같은 목록으로 본다
+    if (w[0] === 'for') {
+      if (!/^[A-Za-z_]\w*$/.test(w[1] ?? '') || w[2] !== 'in' || w.slice(3).some((x) => x.startsWith('-') || /\$|SUBST/.test(x))) return 'no'
+      if (w.some((x) => SECRET.test(x))) worst = 'sensitive'
+      continue
+    }
+    if (w[0] === 'done' && w.length === 1) continue
+    if (w[0] === 'do') w = w.slice(1)
     if (!w.length) continue
     const prog = w[0]!
     // 환경 변수 앞말(PAGER=… git log)이나 변수 · 저장소 안 스크립트(./ls)를 프로그램으로 돌리지 않는다
@@ -216,6 +324,9 @@ export function stateOnlyCommand(cmd: string, o: { gitWrites?: boolean } = {}, d
     if (prog.includes('/') && !/^\/(usr\/)?s?bin\/[^/]+$/.test(prog)) return 'no'
     const rule = programs[prog.split('/').pop()!]
     if (!rule || !rule(w.slice(1))) return 'no'
+    // $( … )의 출력이 옵션이 되지 않게: 옵션을 가리는 프로그램에서는 $( … )로 시작하거나 옵션 안에 든 낱말을 막는다
+    // (git log $(git merge-base …)..HEAD 처럼 안쪽이 모두 git이면 둔다)
+    if (rule !== any && w.slice(1).some((x) => (x.startsWith('-') && x.includes('SUBST')) || (x.startsWith('SUBST') && !(prog === 'git' && inners.every((p) => /^\s*git\s/.test(p)))))) return 'no'
     if (w.some((x) => SECRET.test(x))) worst = 'sensitive'
   }
   return worst

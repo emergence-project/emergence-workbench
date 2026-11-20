@@ -136,6 +136,7 @@ function AgentNotify() {
 /**
  * 앱 피드백 (2단계 다, 10/21 "앱 안 대화 + CI가 시험"): 피드백을 이 맥의 앱 고치기 대화가 언제 맡고, 그 PR을 언제 합치나, 한 차례 한도.
  * 앱 저장소가 있는 맥에서만 보인다. 다시 시작하는 때는 설정 › 동기화의 앱 업데이트가 정한다.
+ * 서버로 정한 컴퓨터가 따로 있으면 (11/20) 맡기기 · 합치기 · 한도는 그 서버의 값(s.place)이고, 서버에 닿지 않으면 바꿀 수 없다.
  */
 function AppFeedback({ s, save }: { s: Settings; save(patch: Partial<Settings>): void }) {
   const list = useQuery({ queryKey: qk.agentChatList(), queryFn: () => agentChatsApi.list() })
@@ -144,16 +145,18 @@ function AppFeedback({ s, save }: { s: Settings; save(patch: Partial<Settings>):
   const setCloud = useMutation({ mutationFn: (on: boolean) => api.setFeedbackCloud(on), onSuccess: (r) => queryClient.setQueryData(qk.feedbackCloud, r) })
   if (!list.data?.app) return null
   const cloudOn = cloud.data?.enabled === true
+  const away = !!s.place?.error
   return (<>
     <h3 className="set-h3">{t('앱 피드백', 'App feedback')}</h3>
+    {s.place && <p className={s.place.error ? 'error-text' : 'set-desc'} data-ui="피드백 처리 서버">{s.place.error ?? t(`맡기기 · 합치기 · 한 차례 한도는 서버(${s.place.server})의 값입니다. 여기서 바꾸면 서버가 바뀌고, 피드백은 서버에서 맡습니다.`, `Hand off, Merge and the time limit are the server's (${s.place.server}) values. Changing them here changes the server, and feedback is handled there.`)}</p>}
     <div className="set-rows" data-ui="앱 피드백">
       <div className="set-row" data-ui="피드백 맡기기">
         <div>
           <div className="set-name">{t('맡기기', 'Hand off')}</div>
-          <div className="set-desc">{t('에이전트 차례인 피드백을 이 맥의 Claude가 언제 맡을지 고릅니다. 누를 때면 피드백 화면의 「에이전트에게 맡기기」로만, 자동이면 새 차례가 생길 때 · 코멘트를 저장할 때 앱이 맡깁니다(남은 메모리만큼 동시에, 앞서 맡은 대화가 있으면 그 대화에 이어). 피드백 화면 툴바의 「자동 처리」 스위치도 이 값을 바꿉니다. 질문 · 제안은 답만 하고 코드는 고치지 않습니다.', 'Choose when Claude on this Mac takes feedback that is the agent\'s turn. "When I press" uses Hand to agent on the Feedback screen; "Automatic" lets the app hand items off as they come and as comments are saved (as many at once as free memory allows, continuing the earlier conversation if there is one). The Auto handling switch on the Feedback screen toolbar changes this value too. Questions and suggestions are only answered, without code changes.')}</div>
+          <div className="set-desc">{t('에이전트 차례인 피드백을 Claude가 언제 맡을지 고릅니다(서버로 정한 컴퓨터가 있으면 서버에서, 없으면 이 맥에서). 누를 때면 피드백 화면의 「에이전트에게 맡기기」로만, 자동이면 새 차례가 생길 때 · 코멘트를 저장할 때 앱이 맡깁니다(남은 메모리만큼 동시에, 앞서 맡은 대화가 있으면 그 대화에 이어). 피드백 화면 툴바의 「자동 처리」 스위치도 이 값을 바꿉니다. 질문 · 제안은 답만 하고 코드는 고치지 않습니다.', 'Choose when Claude takes feedback that is the agent\'s turn (on the server computer if one is set, otherwise on this Mac). "When I press" uses Hand to agent on the Feedback screen; "Automatic" lets the app hand items off as they come and as comments are saved (as many at once as free memory allows, continuing the earlier conversation if there is one). The Auto handling switch on the Feedback screen toolbar changes this value too. Questions and suggestions are only answered, without code changes.')}</div>
         </div>
         <div className="segmented small" role="radiogroup" data-ui="고르기">
-          {FEEDBACK_PICKS.map((m) => <button key={m} role="radio" aria-checked={s.feedback === m} className={s.feedback === m ? 'on' : ''} onClick={() => save({ feedback: m })}>{PICK[m]()}</button>)}
+          {FEEDBACK_PICKS.map((m) => <button key={m} role="radio" aria-checked={s.feedback === m} className={s.feedback === m ? 'on' : ''} disabled={away} onClick={() => save({ feedback: m })}>{PICK[m]()}</button>)}
         </div>
       </div>
       <div className="set-row" data-ui="클라우드 피드백 처리">
@@ -171,7 +174,7 @@ function AppFeedback({ s, save }: { s: Settings; save(patch: Partial<Settings>):
           <div className="set-desc">{t('맡은 대화의 PR을 언제 합칠지 고릅니다. CI가 빨가면 실패 기록을 그 대화에 다시 보내 고치게 하고(두 번까지), 그래도 안 되면 멈춥니다. 잘못 고쳤으면 피드백 화면의 「수정」이 다음 차례가 됩니다.', 'Choose when the conversation\'s PR is merged. If CI fails, the failed log goes back to that conversation to fix (up to twice), then it stops. If the fix is wrong, Revise on the Feedback screen makes it the next turn.')}</div>
         </div>
         <div className="segmented small" role="radiogroup" data-ui="고르기">
-          {FEEDBACK_MERGES.map((m) => <button key={m} role="radio" aria-checked={s.merge === m} className={s.merge === m ? 'on' : ''} onClick={() => save({ merge: m })}>{MERGE[m]()}</button>)}
+          {FEEDBACK_MERGES.map((m) => <button key={m} role="radio" aria-checked={s.merge === m} className={s.merge === m ? 'on' : ''} disabled={away} onClick={() => save({ merge: m })}>{MERGE[m]()}</button>)}
         </div>
       </div>
       <div className="set-row" data-ui="피드백 한도">
@@ -179,7 +182,7 @@ function AppFeedback({ s, save }: { s: Settings; save(patch: Partial<Settings>):
           <div className="set-name">{t('한 차례 한도', 'Time limit per turn')}</div>
           <div className="set-desc">{t('넘으면 그 대화를 멈춥니다. 합친 새 버전으로 다시 시작하는 때는 ', 'The conversation stops past this. When the app restarts with a merged version is set in ')}<a className="a" href={href({ page: 'settings', part: 'sync' })}>{t('설정 › 동기화', 'Settings › Sync')}</a>{t('의 앱 업데이트가 정합니다.', ' under App updates.')}</div>
         </div>
-        <select className="rs-select set-select" value={s.minutes} aria-label={t('한 차례 한도', 'Time limit per turn')} onChange={(e) => save({ minutes: Number(e.target.value) })}>
+        <select className="rs-select set-select" value={s.minutes} aria-label={t('한 차례 한도', 'Time limit per turn')} disabled={away} onChange={(e) => save({ minutes: Number(e.target.value) })}>
           {FEEDBACK_MINUTES.map((m) => <option key={m} value={m}>{t(`${m}분`, `${m} min`)}</option>)}
         </select>
       </div>

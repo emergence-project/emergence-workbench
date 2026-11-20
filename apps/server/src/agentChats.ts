@@ -83,12 +83,12 @@ export type Turn = { prompt: string; images?: ImageIn[] }
 
 export { Inbox } from './agentInbox.js'
 import { Inbox } from './agentInbox.js'
-
 /**
  * 실행기. models = 고를 수 있는 모델 (맥의 Claude Code에게 묻는다, 모르면 없음),
  * side = 곁 질문 하나에 작은 모델이 도구 없이 답한다 (prompt에 대화 요약과 질문이 다 들어 있다)
  */
-export type AgentRunner = ((input: RunInput) => AsyncIterable<RunEvent>) & { models?: () => Promise<ModelChoice[]>; side?: (o: { prompt: string; cwd: string }) => Promise<string>; review?: (o: { prompt: string; cwd: string }) => Promise<string> }
+export type AgentRunner = ((input: RunInput) => AsyncIterable<RunEvent>) & { models?: () => Promise<ModelChoice[]>; side?: (o: OneShot) => Promise<string>; review?: (o: OneShot) => Promise<string> }
+/** 한 번 묻기: model · effort = 토론 자리의 모델 · 생각 수준 (없으면 실행기의 기본) */ export type OneShot = { prompt: string; cwd: string; model?: string; effort?: ChatEffort }
 
 export * from './agentPolicy.js'
 import { clip, describeStep, FILE_WRITE_TOOLS, judge, MCP, pathOf, PLAN_TOOL, posix, str, withAlso, type PolicyCtx } from './agentPolicy.js'
@@ -211,9 +211,9 @@ export interface AgentChatsDeps {
   app?: AppWork
   /**
    * 앱 피드백 폴더 (맡기기 · 처리 기록). written = 처리 기록을 적은 뒤 (저절로 올리기).
-   * claims = 저절로 맡기기를 한 컴퓨터만 (feedbackClaims.ts): taken은 다른 컴퓨터가 이번 차례에 맡았는지, claim은 이 컴퓨터가 맡기 (since = 그 항목을 마지막으로 손댄 때)
+   * claims = 저절로 맡기기를 한 컴퓨터만 (feedbackClaims.ts): taken은 다른 컴퓨터가 이번 차례에 맡았는지, claim은 이 컴퓨터가 맡기 (since = 그 항목을 마지막으로 손댄 때). elsewhere = 저절로 맡는 것은 서버(다른 컴퓨터)라 이 컴퓨터는 맡지 않음 (serverRelay.ts)
    */
-  feedback?: { dir: string; written?: () => void; claims?: { taken(key: string, since: number): boolean; claim(key: string, since: number): Promise<boolean> } }
+  feedback?: { dir: string; written?: () => void; claims?: { taken(key: string, since: number): boolean; claim(key: string, since: number): Promise<boolean> }; elsewhere?: () => boolean }
   /** 설정 › 에이전트 (피드백을 언제 맡기고 언제 합치나 · 한 차례 한도) */
   settings?: () => AgentSettings
   /** 합친 커밋이 지금 도는 앱에 들어 있는가 (모르면 undefined) */
@@ -221,7 +221,7 @@ export interface AgentChatsDeps {
   /** 기록 대화의 차례가 잘 끝나면 마지막 답 글과 이번 차례에 고친 곳을 그 기록에 적는다 (routes/comments.ts) */
   recordAnswer?: (rid: string, record: { target: string; id: string }, text: string, edits: { file: string; added: number; removed: number }[]) => void
   /** 다른 에이전트의 검토 (11/9): 읽기만 하는 Codex에게 묻는다 (codexCli.ts의 codexAsk). 없으면 검토를 쓸 수 없다 */
-  review?: (o: { prompt: string; cwd: string }) => Promise<string>
+  review?: (o: OneShot) => Promise<string>
   /** Claude · Codex 계정 여럿 (claudeAccounts.ts): 대화 종류마다 · 대화마다 계정 폴더 */ accounts?: AccountBook
 }
 
@@ -1090,7 +1090,7 @@ export function appEnv(id: string): Record<string, string> {
 const userItem = (m: ChatMessageBody, queued?: boolean, point?: string): ChatItem => ({
   kind: 'user', at: now(), text: m.text, ...(point && { point }),
   ...(m.attach?.length && { attach: m.attach.map((a) => ({ ...a, ...(a.text && { text: clip(a.text, 600) }) })) }),
-  ...(m.images?.length && { images: m.images.length }),
+  ...(m.images?.length && { images: m.images.length, ...(m.images.some((i) => i.name) && { imageNames: m.images.map((i) => i.name ?? '') }) }),
   ...(queued && { queued: true }),
 })
 export const rowOf = (c: Stored): ChatRow => {
@@ -1106,7 +1106,7 @@ export const rowOf = (c: Stored): ChatRow => {
   return {
     id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state,
     mode: c.mode, model: c.model, effort: c.effort, ...(c.account && { account: c.account }), ...(c.auto && { auto: { ...c.auto } }), claims: [...c.claims], changed: [...c.changed], added, removed,
-    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.handed && { handed: c.handed }), ...(c.bundle && { bundle: [...c.bundle] }), ...(c.record && { record: { ...c.record } }), ...(c.parent && { parent: c.parent }), ...(c.summary && { summary: c.summary }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), created: c.created, updated: c.updated,
+    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.handed && { handed: c.handed }), ...(c.bundle && { bundle: [...c.bundle] }), ...(c.record && { record: { ...c.record } }), ...(c.parent && { parent: c.parent }), ...(c.summary && { summary: c.summary }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), ...(c.debate && { debate: structuredClone(c.debate) }), created: c.created, updated: c.updated,
   }
 }
 const wireOf = (c: Stored): Chat => ({ ...rowOf(c), items: c.items.map((i) => ({ ...i })), always: (c.alwaysKeys ?? []).map((a) => a.label), todos: c.todos.map((x) => ({ ...x })), ...(c.trimmed && { trimmed: c.trimmed }) })

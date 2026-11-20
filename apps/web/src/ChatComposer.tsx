@@ -47,6 +47,9 @@ const TRUST_HINT: Record<Trust, string> = {
   plan: t('먼저 계획을 보이고, 승인할 때 이어 갈 방법을 고릅니다', 'Shows a plan first; you choose how to continue when you approve it'),
   edit: t('범위 안 노트를 바로 고칩니다. 명령 · 웹 · 범위 밖은 묻거나 막습니다', 'Edits notes in scope right away. Commands, web and out-of-scope work ask or are blocked'),
 }
+/** 중앙 대화 (11/20): 명령은 맡기는 정도와 상관없이 같은 판정 — 읽기 명령은 묻지 않고, 바꾸는 일은 하위 대화에 맡긴다 */
+const CENTRAL_COMMANDS = t('읽기 명령은 묻지 않고 돌립니다. 바꾸는 일은 하위 대화에 맡깁니다', 'Read commands run without asking. Changes go to a sub-conversation')
+const CENTRAL_HINT: Record<Trust, string> = { read: CENTRAL_COMMANDS, ask: CENTRAL_COMMANDS, plan: TRUST_HINT.plan, edit: CENTRAL_COMMANDS }
 export const trustOf = (c: { write: string; mode: ChatMode }): Trust => (c.write === 'read' ? 'read' : c.mode)
 export const settingsOf = (v: Trust): ChatSettings => (v === 'read' ? { write: 'read' } : { write: 'notes', mode: v })
 /** ⇧⇥: 다음 맡기는 정도 */
@@ -127,10 +130,14 @@ export function menuAt(text: string, caret: number): Menu | null {
 }
 
 const MAX_IMAGE = 5 * 1024 * 1024
+// Finder에서 끌어 온 파일은 종류(type)가 비어 올 때가 있어 확장자로도 본다
+const EXT_TYPE: Record<string, ImageIn['type']> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' }
+const imageType = (f: { type: string; name: string }): ImageIn['type'] | undefined =>
+  /^image\/(png|jpeg|gif|webp)$/.test(f.type) ? f.type as ImageIn['type'] : f.type ? undefined : EXT_TYPE[f.name.split('.').pop()?.toLowerCase() ?? '']
 function readImage(f: File): Promise<ImageIn & { name: string }> {
   return new Promise((resolve, reject) => {
     const r = new FileReader()
-    r.onload = () => resolve({ type: f.type as ImageIn['type'], data: String(r.result).split(',')[1] ?? '', name: f.name || t('붙여 넣은 그림', 'Pasted image') })
+    r.onload = () => resolve({ type: imageType(f)!, data: String(r.result).split(',')[1] ?? '', name: f.name || t('붙여 넣은 그림', 'Pasted image') })
     r.onerror = () => reject(r.error)
     r.readAsDataURL(f)
   })
@@ -234,7 +241,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
     if (fill.text !== undefined) { setText(fill.text); setCaret(fill.text.length) }
     // 기다리던 지시를 고칠 때 붙인 것 · 그림도 함께 돌아온다
     if (fill.attach?.length) setAttach((a) => [...a, ...fill.attach!.filter((x) => !a.some((y) => y.kind === x.kind && y.ref === x.ref && y.text === x.text))])
-    if (fill.images?.length) setImages((xs) => [...xs, ...fill.images!.map((im, i) => ({ ...im, name: t(`그림 ${i + 1}`, `Image ${i + 1}`) }))].slice(0, 4))
+    if (fill.images?.length) setImages((xs) => [...xs, ...fill.images!.map((im, i) => ({ ...im, name: im.name || t(`그림 ${i + 1}`, `Image ${i + 1}`) }))].slice(0, 4))
     box.current?.focus()
   }, [fill?.n]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -278,7 +285,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
     if (menu.kind === '/') {
       // 고르면 메뉴를 닫는다 (/compact처럼 글이 명령 그대로면 메뉴가 다시 맞아 열려 있었다)
       const fill = (v: string) => { setText(v); setCaret(v.length); setClosed(menu.start); requestAnimationFrame(() => box.current?.focus()) }
-      const cmds = COMMANDS.filter((c) => c.cmd.slice(1).toLowerCase().startsWith(q) || c.label.toLowerCase().includes(q))
+      const cmds = [...(room?.commands ?? []), ...COMMANDS].filter((c) => c.cmd.slice(1).toLowerCase().startsWith(q) || c.label.toLowerCase().includes(q))
         .map((c) => ({ key: c.cmd, label: c.cmd, meta: c.label, run: () => { fill(c.text); if (c.send) void submit(c.text) } }))
       // 스킬: 고르면 그 스킬을 쓰라는 글로 시작한다 (에이전트가 Skill 도구로 읽는다)
       const skills = (extras?.skills ?? []).filter((s) => s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q))
@@ -302,7 +309,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
   useEffect(() => setHi(0), [menu?.kind, menu?.query])
 
   const addImages = async (files: File[]) => {
-    const ok = files.filter((f) => /^image\/(png|jpeg|gif|webp)$/.test(f.type))
+    const ok = files.filter((f) => imageType(f))
     if (!ok.length) return false
     if (ok.some((f) => f.size > MAX_IMAGE)) { setFail(t('그림은 한 장에 5MB까지입니다', 'Images can be up to 5 MB each')); return true }
     const read = await Promise.all(ok.map(readImage))
@@ -327,7 +334,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
     if (!v || busy) return
     setBusy(true); setFail(null)
     try {
-      const ok = await onSubmit({ text: v, view: screenLine(), ...(all.length && { attach: all }), ...(images.length && { images: images.map(({ type, data }) => ({ type, data })) }) })
+      const ok = await onSubmit({ text: v, view: screenLine(), ...(all.length && { attach: all }), ...(images.length && { images: images.map(({ type, data, name }) => ({ type, data, name: name.slice(0, 200) })) }) })
       if (ok) { setText(''); setCaret(0); setAttach([]); setImages([]) }
     } catch (e) { setFail((e as Error).message) } finally { setBusy(false) }
   }
@@ -418,18 +425,19 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
         </PopButton>
         {lead}
         <input ref={file} type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden onChange={(e) => { void addImages([...(e.target.files ?? [])]); e.target.value = '' }} />
+        {!room?.plain && <>
         {!noTrust && <>
         <PopButton ui="맡기는 정도" tip={t('권한 (⇧⇥)', 'Permissions (⇧⇥)')} wide label={<>{settings.custom ? CUSTOM_NAME : TRUST_NAME[settings.trust]} ▾</>}>
           {(close) => TRUSTS.filter((v) => v !== 'plan' || isClaude(settings.agent)).map((v) => (
             <button key={v} role="menuitemradio" aria-checked={settings.trust === v} className={`ac-pop-item${settings.trust === v ? ' on' : ''}`} onClick={() => { close(); onSettings({ trust: v }) }}>
               <span className="ac-pop-check" aria-hidden>{settings.trust === v ? Icon.check : null}</span>
-              <span className="ac-pop-what"><span>{TRUST_NAME[v]}</span><span className="muted">{(rid === APP_RID ? APP_HINT : TRUST_HINT)[v]}</span></span>
+              <span className="ac-pop-what"><span>{TRUST_NAME[v]}</span><span className="muted">{(rid === APP_RID ? APP_HINT : rid === CENTRAL_RID ? CENTRAL_HINT : TRUST_HINT)[v]}</span></span>
             </button>
           ))}
         </PopButton>
         {/* 권한 설명은 늘 보이는 줄 대신 ? 툴팁 (10/31 시안 6절). 누르면 소개의 그 절 */}
         <a className="icon-btn sm ac-help" href={href({ page: 'about', part: 'agents', anchor: 'conversations' })} data-ui="권한 설명" aria-label={t('권한 설명', 'About permissions')}
-          data-tip={settings.custom ? t('직접 정한 권한입니다. 세부 패널 「이 대화의 권한」에서 봅니다', 'Custom permissions; see "Permissions here" in the detail pane') : (rid === APP_RID ? APP_HINT : TRUST_HINT)[settings.trust]}>{Icon.help}</a>
+          data-tip={settings.custom ? t('직접 정한 권한입니다. 세부 패널 「이 대화의 권한」에서 봅니다', 'Custom permissions; see "Permissions here" in the detail pane') : (rid === APP_RID ? APP_HINT : rid === CENTRAL_RID ? CENTRAL_HINT : TRUST_HINT)[settings.trust]}>{Icon.help}</a>
         </>}
         {/* 모델과 생각 깊이는 따로 (11/9 11:07): 왼쪽에서 모델을 고르고, 그 모델이 받는 깊이를 오른쪽에서 */}
         <PopButton ui="모델 고르기" tip={t('에이전트 · 모델', 'Agent · model')} label={<>{!isClaude(settings.agent) && <><AgentChip agent={settings.agent} /> </>}{familyName(settings.model, models)} ▾</>}>
@@ -454,6 +462,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
             {(close) => thinking.map((o) => <button key={o.key} role="menuitemradio" aria-checked={o.on} className={o.on ? 'on' : ''} onClick={() => { close(); onSettings(o.pick) }}><span className="ac-pop-check" aria-hidden>{o.on ? Icon.check : null}</span>{o.name}</button>)}
           </PopButton>
         )}
+        </>}
         <span className="sp" />
         {stopping
           ? <button className="ac-send stop" data-ui="대화 멈추기" data-tip={t('멈추기 (Esc)', 'Stop (Esc)')} aria-label={t('멈추기', 'Stop')} onClick={onStop}><span className="ac-stop-sq" aria-hidden /></button>

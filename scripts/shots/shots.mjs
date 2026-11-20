@@ -76,6 +76,7 @@ try {
   let done = ''
   let appchat = ''
   let central = ''
+  let debate = ''
   for (const [name, hash, ui, click] of SCREENS) {
     current = name
     if (name === 'dark-topic') {
@@ -157,7 +158,7 @@ try {
       }
       if (appchat) await fetch(`${base}api/agent-chats/${appchat}/app/submit`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ title: options.lang === 'en' ? 'Keep the note export menu inside the screen' : '노트 툴바 내보내기 메뉴가 화면 오른쪽에서 잘리지 않게', body: '## Before' }) })
     }
-    if (hash.includes('{central}') && !central) {
+    if ((hash.includes('{central}') || hash.includes('{debate}')) && !central) {
       // 중앙 대화 (11/16): 중앙에게 말하고, 중앙 에이전트가 앱 MCP로 하듯 하위 대화 둘(앱 고치기 · 프로젝트 작성)을 연다
       const json = { 'content-type': 'application/json', 'x-rw-lang': options.lang }
       const en = options.lang === 'en'
@@ -174,7 +175,16 @@ try {
       // 중앙 방 (11/20): @Codex로 검토를 부르고, 방장이 MCP로 하듯 Gemini를 까닭과 함께 읽기만으로 초대한다
       await fetch(`${base}api/agent-chats/${central}/messages`, { method: 'POST', headers: json, body: JSON.stringify({ text: en ? '@Codex review the picture fix in feedback' : '@Codex 피드백 그림 고친 것 검토해 줘' }) })
       for (let i = 0; i < 50; i++) { const c = (await (await fetch(`${base}api/agent-chats/${central}`)).json()).chat; if (c.items.some((x) => x.kind === 'member' && x.text)) break; await new Promise((r) => setTimeout(r, 100)) }
-      await fetch(`${base}api/agent-room/host/invite`, { method: 'POST', headers: json, body: JSON.stringify({ agent: 'gemini', perm: 'read', reason: en ? 'A second look at the derivation in section 2' : '2절 유도를 Claude와 따로 한 번 더 확인' }) })
+      await fetch(`${base}api/agent-room/host/invite`, { method: 'POST', headers: json, body: JSON.stringify({ agent: 'gemini', perm: 'talk', reason: en ? 'A second look at the derivation in section 2' : '2절 유도를 Claude와 따로 한 번 더 확인' }) })
+      // 2단계 (11/20): @모두로 판정을 물으면 판정 칩 · 방장 정리의 판정 모음 · 오른쪽 판정 기록
+      await fetch(`${base}api/agent-chats/${central}/messages`, { method: 'POST', headers: json, body: JSON.stringify({ text: en ? '@all Is equation (3) in section 2 of the Kempe note right? Give a verdict' : '@모두 켐페 노트 2절의 식 (3)이 맞는지 판정해 줘' }) })
+      for (let i = 0; i < 80; i++) { const c = (await (await fetch(`${base}api/agent-chats/${central}`)).json()).chat; if (c.state === 'idle' && c.items.filter((x) => x.kind === 'member' && x.verdict).length >= 2) break; await new Promise((r) => setTimeout(r, 100)) }
+      // 토론 (11/20 「토론 + 정해진 4단계」): /토론으로 따로 연 대화에서 각자 답 → 서로 비판 → 고친 답 → 정리. 중앙에는 한 줄
+      await fetch(`${base}api/agent-chats/${central}/messages`, { method: 'POST', headers: json, body: JSON.stringify({ text: en ? '/debate Is equation (3) in section 2 of the Kempe note right? @Codex @Gemini' : '/토론 켐페 노트 2절의 식 (3)이 맞는지 판정해 줘 @Codex @Gemini' }) })
+      const line = (await (await fetch(`${base}api/agent-chats/${central}`)).json()).chat.items.find((x) => x.kind === 'debate')
+      debate = line?.chat ?? ''
+      if (!debate) problems.push(`${name}: 토론을 열지 못함`)
+      for (let i = 0; debate && i < 80; i++) { const c = (await (await fetch(`${base}api/agent-chats/${debate}`)).json()).chat; if (c.state === 'idle') break; await new Promise((r) => setTimeout(r, 100)) }
     }
     if (name === 'feedback-agent') {
       // 피드백 맡기기 (2단계 나): 수정 요청이 온 항목을 앱 고치기 대화에 맡기고, 앱 MCP가 하듯 PR 올리기와 처리 기록(feedback_answer)을 부른다
@@ -215,7 +225,7 @@ try {
     if (name === 'agent-unseen') { await page.goto(base); await page.evaluate(() => localStorage.removeItem('rw-agent-seen')); await page.goto('about:blank') }
     if (name === 'agent-recent') { await page.goto(base); await page.evaluate(() => localStorage.setItem('rw-side-agent', 'false')); await page.goto('about:blank') }
     if (name === 'agent-archive' && done) { await fetch(`${base}api/agent-chats/${done}/archive`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ archived: true }) }); await page.goto(base); await page.evaluate(() => localStorage.setItem('rw-agent-filter', '"archived"')); await page.goto('about:blank') }
-    await page.goto(base + hash.replace('{rid}', encodeURIComponent(rid)).replace('{chat}', encodeURIComponent(chat)).replace('{done}', encodeURIComponent(done)).replace('{appchat}', encodeURIComponent(appchat)).replace('{central}', encodeURIComponent(central)))
+    await page.goto(base + hash.replace('{rid}', encodeURIComponent(rid)).replace('{chat}', encodeURIComponent(chat)).replace('{done}', encodeURIComponent(done)).replace('{appchat}', encodeURIComponent(appchat)).replace('{central}', encodeURIComponent(central)).replace('{debate}', encodeURIComponent(debate)))
     await page.addStyleTag({ content: '*,*::before,*::after{transition:none!important;animation:none!important}' })
     await page.waitForLoadState('networkidle')
     if (name === 'paper-open' || name === 'paper-open-paint') {

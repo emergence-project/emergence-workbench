@@ -38,6 +38,8 @@ export function registerBackup(app: FastifyInstance, ctx: RouteContext): (() => 
         await adoptOtherProfiles(registry, cfg.dir, { remoteOf, sameRepo }).catch(() => [])
         // 내 정보(저자 · 소속 · 커밋 이름)도 더 늦게 고친 컴퓨터를 따른다 (meSync.ts, 11/20)
         try { if (adoptOtherMe(registry, cfg.dir).includes('gitIdentity') && registry.gitIdentity) setAppIdentity(registry.gitIdentity) } catch { /* 다음 맞추기에서 */ }
+        // 다른 컴퓨터의 중앙이 이 컴퓨터 대화에 청한 보관을 적용한다 (chat_archive, 11/20)
+        if (ctx.agentChats instanceof SharedChats) try { ctx.agentChats.applyArchiveAsks() } catch { /* 다음 맞추기에서 */ }
         last = r
         return r
       })

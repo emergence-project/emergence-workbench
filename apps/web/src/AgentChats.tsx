@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { autoCustom, LIBRARY_RID } from '@rw/core'
-import { agentChatsApi, api, APP_RID, CENTRAL_RID, type AskAnswer, type Attach, type Chat, type ChatItem, type ChatMessageBody, type ChatMode, type ChatRow, type ChatScope, type ChatState, type Todo } from './api'
+import { agentChatsApi, api, APP_RID, CENTRAL_RID, DEBATE_RID, type AskAnswer, type Attach, type Chat, type ChatItem, type ChatMessageBody, type ChatMode, type ChatRow, type ChatScope, type ChatState, type Todo } from './api'
 import { askConfirm } from './askText'
 import { isSendKey } from './cmdEnter'
 import { relativeTime } from './format'
@@ -29,7 +29,7 @@ import { ChatHerePick, useChatHere } from './ChatHere'
 import { AgentChip, agentOf, effortsOf, familyName, familyOf, fitEffort, isClaude, useChatSettings, useModels, useNewChatAccount } from './AgentPick'
 import { isReviewCommand, ReviewButton, ReviewCard } from './AgentReview'
 import { CENTRAL_PAGE, CentralBoard, CentralBoardButton, CentralLine, CentralStart } from './CentralChat'
-import { HostWho, hostWhoAt, MemberItem, RoomItem, RoomManage, RoomStrip, useComposerRoom } from './CentralRoom'
+import { HostWho, hostWhoAt, MemberItem, RoomItem, RoomManage, RoomStrip, useComposerRoom, VerdictLog } from './CentralRoom'; import { DebateEnd, DebateLine, DebateMember, DebatePanel, DebateStrip, debateComposer } from './Debate'
 import { APP_HINT, ATTACH_NAME, ChatQuoteMenu, Composer, CUSTOM_NAME, EFFORT_NAME, effortLabel, PopButton, settingsOf, sideQuestion, TRUST_NAME, trustOf, type Fill, type Settings } from './ChatComposer'
 
 /**
@@ -109,7 +109,7 @@ function scopeName(s: ChatScope, topics?: { id: string; title: string }[]): stri
 }
 
 /** 대화 목록 · 머리에 보일 프로젝트 이름 (앱 고치기 대화는 「앱」) */
-export const projectName = (rid: string, projects?: { id: string; title: string }[]) => (rid === APP_RID ? t('앱', 'App') : rid === CENTRAL_RID ? t('중앙', 'Central') : rid === LIBRARY_RID ? t('지식', 'Knowledge') : projects?.find((p) => p.id === rid)?.title ?? rid)
+export const projectName = (rid: string, projects?: { id: string; title: string }[]) => (rid === APP_RID ? t('앱', 'App') : rid === CENTRAL_RID ? t('중앙', 'Central') : rid === DEBATE_RID ? t('토론', 'Debate') : rid === LIBRARY_RID ? t('지식', 'Knowledge') : projects?.find((p) => p.id === rid)?.title ?? rid)
 
 /** 대화의 묶음 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ 2절): 기록의 질문 · 지시가 연 대화와 직접 연 대화를 섞지 않는다 */
 export const chatGroupName = (c: Pick<ChatRow, 'record'>) => c.record ? t('기록의 질문 · 지시', 'Record questions and instructions') : t('직접 연 대화', 'Conversations you opened')
@@ -377,30 +377,30 @@ function EditLine({ chat, it, onChanges }: { chat: Chat; it: Extract<ChatItem, {
   )
 }
 
-function AttachChips({ attach, images }: { attach?: Attach[]; images?: number }) {
+function AttachChips({ attach, images, names }: { attach?: Attach[]; images?: number; names?: string[] }) { // 그림은 파일 이름으로 (11/20: 「그림 1」이 이름처럼 읽혔다), 이름 없던 지시는 장수로
   if (!attach?.length && !images) return null
   return (
     <div className="ac-chips">
       {attach?.map((a, i) => <span key={i} className="tag" title={a.text ?? a.ref}>{ATTACH_NAME[a.kind]} · {a.label}</span>)}
-      {!!images && <span className="tag">{t(`그림 ${images}`, `${images} image${images > 1 ? 's' : ''}`)}</span>}
+      {names?.length ? names.map((n, i) => <span key={`i${i}`} className="tag" title={n}>{t('그림', 'Image')} · {n || i + 1}</span>) : !!images && <span className="tag">{t(`그림 ${images}장`, `${images} image${images > 1 ? 's' : ''}`)}</span>}
     </div>
   )
 }
 
-function ItemView({ chat, it, who, onError, onChanges, onRewind, onPass }: { chat: Chat; it: Exclude<ChatItem, { kind: 'step' | 'think' }>; who?: boolean; onError(m: string): void; onChanges?(): void; onRewind?(point: string): void; onPass?(text: string): void }) {
+function ItemView({ chat, it, who, onError, onChanges, onRewind, onPass }: { chat: Chat; it: Exclude<ChatItem, { kind: 'step' | 'think' }>; who?: ReturnType<typeof hostWhoAt>; onError(m: string): void; onChanges?(): void; onRewind?(point: string): void; onPass?(text: string): void }) {
   const when = new Date(it.at).toLocaleString()
   switch (it.kind) {
     // 중앙을 저절로 깨운 알림은 옅은 한 줄 (11/19: 진행은 작업 현황에서 보고, 대화에는 짧게)
     case 'user': return it.auto ? <li className="ac-note muted ac-auto" data-ui="자동 알림" title={`${when}\n${it.text}`}><span className="ac-auto-text">{it.text}</span></li> : (
       <li className="ac-me" data-ui="내 지시" title={when}>
         <MemoText text={it.text} />
-        <AttachChips attach={it.attach} images={it.images} /><Mockups text={it.text} chat={chat.id} /><CopyButton text={it.text} />
+        <AttachChips attach={it.attach} images={it.images} names={it.imageNames} /><Mockups text={it.text} chat={chat.id} /><CopyButton text={it.text} />
         {it.point && onRewind && !isLive(chat.state) && (
           <button className="icon-btn sm ac-rewind" data-ui="여기로 되돌리기" data-tip={t('여기로 되돌리기', 'Rewind to here')} aria-label={t('여기로 되돌리기', 'Rewind to here')} onClick={() => onRewind(it.point!)}>{Icon.revert}</button>
         )}
       </li>
     )
-    case 'text': return <li className={`ac-text${it.sub ? ' sub' : ''}`} data-ui="에이전트 글" title={when}>{who && <HostWho />}{it.sub && <span className="muted ac-hint">{t('하위 에이전트', 'Subagent')}</span>}<MemoText text={it.text} /><Mockups text={it.text} chat={chat.id} /><CopyButton text={it.text} /></li>
+    case 'text': return <li className={`ac-text${it.sub ? ' sub' : ''}`} data-ui="에이전트 글" title={when}>{who && <HostWho votes={who} />}{it.sub && <span className="muted ac-hint">{t('하위 에이전트', 'Subagent')}</span>}<MemoText text={it.text} /><Mockups text={it.text} chat={chat.id} /><CopyButton text={it.text} /></li>
     case 'ask': return it.plan !== undefined ? <PlanCard chat={chat} it={it} onError={onError} /> : <AskCard chat={chat} it={it} onError={onError} />
     case 'todos': return null
     case 'edit': return <EditLine chat={chat} it={it} onChanges={onChanges} />
@@ -419,7 +419,7 @@ function ItemView({ chat, it, who, onError, onChanges, onRewind, onPass }: { cha
       </li>
     )
     case 'review': return <ReviewCard chat={chat} it={it} onPass={onPass} onError={onError} />
-    case 'member': return <MemberItem it={it} />; case 'room': return <RoomItem it={it} />
+    case 'member': return it.stage ? <DebateMember it={it} /> : <MemberItem it={it} />; case 'room': return <RoomItem it={it} />; case 'debate': return <DebateLine it={it} />
     case 'compact': return (
       <li className="ac-note muted" data-ui="앞 내용 요약" title={when}>
         {it.auto ? t('앞 내용을 요약해 이어 갑니다', 'Summarized earlier messages to keep going') : t('앞 내용을 요약했습니다', 'Summarized earlier messages')}
@@ -495,7 +495,7 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
           <Delta added={added} removed={removed} />{t('변경사항', 'Changes')}
         </button>
       )}
-      {chat.rid === CENTRAL_RID && !compact && <CentralBoardButton narrowOnly={!!pane} />}
+      {chat.rid === CENTRAL_RID && !compact && <CentralBoardButton narrowOnly={!!pane} />}{!compact && !chat.machine && <DebateEnd chat={chat} onError={onError} />}
       {!chat.machine && <ReviewButton chat={chat} onError={onError} />}{tools}
       {!chat.machine && <HeadMore live={live} archived={!!chat.archived} onRename={() => setRenaming(true)} onArchive={(v) => void archive(v)} onRemove={() => void remove()} onRecord={onRecord} />}
     </div>
@@ -571,21 +571,19 @@ export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, o
   const changed = chat?.updated
   useMarkSeen(id, changed)
   useEffect(() => { setOver({}); atEnd.current = true; setBehind(false) }, [id])
-  useEffect(() => {
-    const el = listRef.current
-    if (!el) return
-    if (atEnd.current) el.scrollTop = el.scrollHeight
-    else setBehind(true)
-  }, [changed, id])
-  const onScroll = () => {
-    const el = listRef.current
-    if (!el) return
-    atEnd.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48
-    if (atEnd.current) setBehind(false)
-  }
+  useEffect(() => { const el = listRef.current; if (!el) return; if (atEnd.current) el.scrollTop = el.scrollHeight; else setBehind(true) }, [changed, id])
+  const onScroll = () => { const el = listRef.current; if (!el) return; atEnd.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48; if (atEnd.current) setBehind(false) }
   const toEnd = () => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; atEnd.current = true; setBehind(false) }, room = useComposerRoom(chat?.rid === CENTRAL_RID)
+  // 줄들은 대화 내용이 바뀔 때만 다시 그린다. 쓰는 중인 글(agent-draft)은 몇 번이고 오는데, 그때마다 긴 대화의 모든 줄(마크다운 · 수식)을 다시 그리면 화면이 무거워진다
+  const act = useRef<{ rewind(point: string): void; changes?(): void }>({ rewind: () => undefined })
+  const lines = useMemo(() => {
+    if (!chat) return null
+    const { blocks, log } = chatLog(chat.items), running = isLive(chat.state)
+    const onChanges = onPane ? () => act.current.changes?.() : undefined
+    return blocks.map((b, i) => b.kind === 'proc' ? <ProcLine key={i} from={b.from} to={b.to} log={log} live={running && i === blocks.length - 1} /> : <ItemView key={i} chat={chat} it={b.item} who={chat.rid === CENTRAL_RID && hostWhoAt(blocks, i)} onError={setFail} onChanges={onChanges} onRewind={(p) => act.current.rewind(p)} onPass={(text) => setFill({ text, n: Date.now() })} />)
+  }, [id, chat?.items, chat?.state, chat?.updated, chat?.rid, chat?.machine, !!onPane]) // eslint-disable-line react-hooks/exhaustive-deps -- 쓰는 중인 글(draft)만 바뀐 chat은 줄을 다시 그리지 않는다
   if (!chat) return <div className="empty center">{error ? (error as Error).message : t('불러오는 중…', 'Loading…')}</div>
-  const live = isLive(chat.state), { blocks, log } = chatLog(chat.items)
+  const live = isLive(chat.state)
   const settings: Settings = { trust: trustOf(chat), model: chat.model, effort: chat.effort, agent: chat.agent, account: chat.account ?? 'default', ...(chat.rid !== APP_RID && autoCustom(chat) && !over.trust && { custom: true }), ...over }
   const change = (s: Partial<Settings>) => {
     setOver((o) => ({ ...o, ...s }))
@@ -636,13 +634,14 @@ export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, o
         : chat.rid === APP_RID ? t('이어서 쓰기 · 그림 붙여넣기', 'Continue · paste images') : t('이어서 쓰기 · / 명령 · @ 붙이기', 'Continue · / commands · @ attach')
   const showTodos = chat.todos.length > 0 && (live || chat.todos.some((x) => x.state !== 'completed'))
   const openChanges = onPane ? () => { if (!pane) onPane() } : undefined
+  act.current = { rewind: (p) => void rewind(p), changes: openChanges }
   return (
     <AppLinkProvider feedback={chat.rid === CENTRAL_RID || chat.rid === APP_RID}><div className="ac-chat" data-ui="에이전트 대화">
-      {head && <ChatHead chat={chat} pane={pane} onPane={onPane} tools={tools} onBack={onBack} onDeleted={onDeleted} onSaved={onSaved} onError={setFail} />}{head && chat.rid === CENTRAL_RID && <RoomStrip />}
+      {head && <ChatHead chat={chat} pane={pane} onPane={onPane} tools={tools} onBack={onBack} onDeleted={onDeleted} onSaved={onSaved} onError={setFail} />}{head && chat.rid === CENTRAL_RID && <RoomStrip />}{head && <DebateStrip chat={chat} />}
       {chat.record && <RecordBanner rid={chat.rid} record={chat.record} />}
       <ol ref={listRef} className="ac-items" data-ui="대화 줄들" role="log" onScroll={onScroll}>
         {!!chat.trimmed && <li className="ac-note muted">{t(`오래된 앞 줄 ${chat.trimmed}개는 지웠습니다 (대화는 마지막 400줄만 둡니다)`, `${chat.trimmed} older lines were removed (a conversation keeps its last 400)`)}</li>}
-        {blocks.map((b, i) => b.kind === 'proc' ? <ProcLine key={i} from={b.from} to={b.to} log={log} live={live && i === blocks.length - 1} /> : <ItemView key={i} chat={chat} it={b.item} who={chat.rid === CENTRAL_RID && hostWhoAt(blocks, i)} onError={setFail} onChanges={openChanges} onRewind={(p) => void rewind(p)} onPass={(text) => setFill({ text, n: Date.now() })} />)}
+        {lines}
         {!!chat.draft && <li className="ac-text ac-draft" data-ui="쓰는 중인 글"><MemoText text={chat.draft} /></li>}
         {chat.state === 'running' && <li className="ac-note muted ac-working" aria-live="polite"><StatusDot s="in-progress" name={chat.compacting ? t('앞 내용을 요약하는 중', 'Summarizing earlier messages') : t('작업 중', 'Working')} label /></li>}
         {!!chat.tasks && chat.state !== 'running' && <li className="ac-note muted ac-working" data-ui="뒤에서 도는 명령" aria-live="polite"><StatusDot s="in-progress" name={t(`뒤에서 명령 ${chat.tasks}개가 도는 중 · 끝나면 이어서 합니다`, `${chat.tasks} background command${chat.tasks > 1 ? 's' : ''} running · continues when done`)} label /></li>}
@@ -653,7 +652,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, o
         {showTodos && <TodoBar todos={chat.todos} />}
         <QueuedBar chat={chat} onEdit={(f) => setFill({ ...f, n: Date.now() })} onError={setFail} />
         <Composer rid={chat.rid} auto={auto} settings={settings} agentFixed onSettings={(s) => void change(s)} onSubmit={send} onStop={live ? () => void stop() : undefined}
-          placeholder={placeholder} fail={fail} fill={fill} room={room} />
+          placeholder={placeholder} fail={fail} fill={fill} room={debateComposer(chat) ?? room} />
         <div className="muted ac-keys">{t('⇧⇥ 권한 · ⌘↵ 보내기', '⇧⇥ permissions · ⌘↵ send')}{live && t(' · Esc 멈추기', ' · Esc stop')}</div>
       </div>}
     </div></AppLinkProvider>
@@ -825,11 +824,11 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
   const agents = chat.items.filter((i): i is Step => i.kind === 'step' && isAgentStep(i))
   const forget = async (label: string) => client.setQueryData(qk.agentChat(id), await agentChatsApi.forget(id, label))
   const trust = trustOf(chat)
-  const hasEdits = chat.items.some((i) => i.kind === 'edit')
+  const hasEdits = chat.items.some((i) => i.kind === 'edit'); if (chat.debate) return <WorkAside><DebatePanel chat={chat} /><VerdictLog /><details className="ac-info-fold" data-ui="이 대화 접기"><summary>{t('이 대화', 'This conversation')} <span className="muted">{t('토큰 · 시각 ›', 'tokens · time ›')}</span></summary><ChatInfo chat={chat} /></details></WorkAside>
   // 중앙은 파일을 고치지 않으므로 이 칸을 작업 현황에 쓰고, 「이 대화」는 그 아래 접어 둔다
   if (chat.rid === CENTRAL_RID) return (
     <WorkAside>
-      <CentralBoard /><RoomManage />
+      <CentralBoard /><VerdictLog /><RoomManage />
       <details className="ac-info-fold" data-ui="이 대화 접기"><summary>{t('이 대화', 'This conversation')} <span className="muted">{t('모델 · 토큰 · 권한 ›', 'model · tokens · permissions ›')}</span></summary><ChatInfo chat={chat} /></details>
     </WorkAside>
   )

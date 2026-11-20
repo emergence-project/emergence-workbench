@@ -14,7 +14,7 @@
  * - 맥락이 AUTO_COMPACT_WINDOW에 가까워지면 Claude Code가 앞 내용을 요약해 이어 간다(자동 맥락 줄이기). /compact · /context 같은 명령도 그대로 넘긴다.
  */
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { EXPLORE_AGENT, FILE_WRITE_TOOLS, MCP_NAME, type AgentRunner, type RunEvent, type RunInput, type Turn } from './agentChats.js'
+import { EXPLORE_AGENT, FILE_WRITE_TOOLS, MCP_NAME, type AgentRunner, type OneShot, type RunEvent, type RunInput, type Turn } from './agentChats.js'
 import { CHAT_EFFORTS, CLAUDE_START_MODEL, type ChatEffort, type ModelChoice } from '@rw/core/contract/agentChats'
 import { claudeEnv, claudeExecutable } from './ask.js'
 import { skillsPluginDir, userConnectors } from './agentExtras.js'
@@ -124,9 +124,10 @@ function modelLister(): () => Promise<ModelChoice[]> {
 export const SIDE_MODEL = 'haiku'
 
 /** 곁 질문: 도구 · 저장소 설정 없이 한 번 묻고 답을 받는다 (세션을 남기지 않는다) */
-async function sideAnswer(o: { prompt: string; cwd: string }): Promise<string> {
+/** 곁 질문 · 토론 정리: model · effort가 오면(토론 자리) 그 모델로, 아니면 작은 모델로 */
+async function sideAnswer(o: OneShot): Promise<string> {
   const { query } = await import('@anthropic-ai/claude-agent-sdk')
-  const q = query({ prompt: o.prompt, options: { cwd: o.cwd, settingSources: [], strictMcpConfig: true, tools: [], maxTurns: 1, model: SIDE_MODEL, persistSession: false, env: claudeEnv(), ...executable() } })
+  const q = query({ prompt: o.prompt, options: { cwd: o.cwd, settingSources: [], strictMcpConfig: true, tools: [], maxTurns: 1, model: o.model ?? SIDE_MODEL, ...(o.effort && { effort: o.effort }), persistSession: false, env: claudeEnv(), ...executable() } })
   let answer = ''
   try {
     for await (const m of q) {

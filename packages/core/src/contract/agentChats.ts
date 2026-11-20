@@ -83,9 +83,15 @@ export const Todo = z.object({ text: z.string(), state: z.enum(TODO_STATES) }).s
 export const EditPart = z.object({ old: z.string(), new: z.string() }).strict()
 
 /** 대화의 한 줄 */
+/** 방 사람의 판정 (11/20 2단계): yes 맞음 · no 틀림 · unsure 모름. prev = 토론에서 앞 차례의 판정 (바뀌었을 때만) */
+export const ROOM_VERDICTS = ['yes', 'no', 'unsure'] as const
+export type RoomVerdict = (typeof ROOM_VERDICTS)[number]
+/** 토론 단계 (11/20 「토론 + 정해진 4단계」): answer 각자 답(서로 못 봄) · critique 서로 비판(이름 가림) · revise 고친 답 · sum 정리(투표 안 함) */
+export const DEBATE_STAGES = ['answer', 'critique', 'revise', 'sum'] as const
+export type DebateStage = (typeof DEBATE_STAGES)[number]
 export const ChatItem = z.discriminatedUnion('kind', [
   /** queued = 일하는 중에 보내 다음 차례에 읽을 지시, auto = 사용자가 아니라 앱이 중앙 대화를 깨운 알림 (하위 대화가 끝남 · CI 실패 · PR 합쳐짐, 11/18) */
-  z.object({ kind: z.literal('user'), at: z.string(), text: z.string(), attach: z.array(Attach).optional(), images: z.number().optional(), queued: z.boolean().optional(), point: z.string().optional(), auto: z.boolean().optional() }).strict(),
+  z.object({ kind: z.literal('user'), at: z.string(), text: z.string(), attach: z.array(Attach).optional(), images: z.number().optional(), imageNames: z.array(z.string()).optional(), queued: z.boolean().optional(), point: z.string().optional(), auto: z.boolean().optional() }).strict(),
   z.object({ kind: z.literal('text'), at: z.string(), text: z.string(), sub: z.boolean().optional() }).strict(),
   /** 에이전트가 쓴 도구 한 번. outside = 범위 밖을 읽음, sub = 서브에이전트가 씀 */
   z.object({ kind: z.literal('step'), at: z.string(), tool: z.string(), summary: z.string(), outside: z.boolean().optional(), sub: z.boolean().optional() }).strict(),
@@ -132,11 +138,26 @@ export const ChatItem = z.discriminatedUnion('kind', [
    * 중앙 방 사람의 답 (11/20 사용자 결정 "중앙 = 여럿이 말하는 방"): 사용자가 @이름 · @모두로 부르거나 방장이 room_ask로 물었을 때.
    * q = 방장이 물은 말 (from host), fold = 읽기만 사람의 접힌 요약. text가 없고 error도 없으면 답하는 중
    */
-  z.object({ kind: z.literal('member'), at: z.string(), by: z.enum(AGENT_KINDS), q: z.string().optional(), from: z.literal('host').optional(), fold: z.boolean().optional(), text: z.string().optional(), error: z.string().optional(), seconds: z.number().optional() }).strict(),
+  z.object({ kind: z.literal('member'), at: z.string(), by: z.enum(AGENT_KINDS), q: z.string().optional(), from: z.literal('host').optional(), fold: z.boolean().optional(), text: z.string().optional(), error: z.string().optional(), seconds: z.number().optional(), verdict: z.enum(ROOM_VERDICTS).optional(), prev: z.enum(ROOM_VERDICTS).optional(),
+    /** 토론 대화에서만 (11/20 「토론 · Debate」): stage = 단계, label = 이름을 가린 이름(A · B …), bare = 새 근거 없이 판정을 바꿈, votes · changed = 정리 줄의 마지막 판정들과 입장을 바꾼 수 */
+    stage: z.enum(DEBATE_STAGES).optional(), round: z.number().int().optional(), label: z.string().optional(), bare: z.boolean().optional(), votes: z.array(z.enum(ROOM_VERDICTS)).optional(), changed: z.number().int().optional() }).strict(),
   /** 방이 바뀜: 초대 · 내보내기 · 권한 · 방 규칙. by = 사용자 · 방장, reason = 방장이 초대한 까닭 한 줄 */
+  /** 중앙에 남는 토론 한 줄 (/토론 · 방장의 debate_open): chat = 토론 대화 id, state = 도는 중 · 정리 끝(끝내기 대기) · 끝남(보관함), line = 정리의 첫 줄 */
+  z.object({ kind: z.literal('debate'), at: z.string(), chat: z.string(), q: z.string(), by: z.enum(['user', 'host']), state: z.enum(['running', 'done', 'ended']), votes: z.array(z.enum(ROOM_VERDICTS)).optional(), changed: z.number().int().optional(), line: z.string().optional() }).strict(),
   z.object({ kind: z.literal('room'), at: z.string(), act: z.enum(['invite', 'remove', 'perm', 'rules']), agent: z.enum(AGENT_KINDS).optional(), perm: z.enum(['read', 'talk', 'edit']).optional(), prev: z.enum(['read', 'talk', 'edit']).optional(), by: z.enum(['user', 'host']), reason: z.string().optional() }).strict(),
 ])
 
+/** 토론 자리 하나: 에이전트와 그 모델 · 생각 수준 (없으면 그 에이전트의 기본) */
+export const DebateSeat = z.object({ agent: z.enum(AGENT_KINDS), model: ChatModel.optional(), effort: z.enum(CHAT_EFFORTS).optional() }).strict()
+/**
+ * 토론 대화 (11/20 사용자 결정 「토론 + 정해진 4단계」, 시안 https://claude.ai/artifact/R88teWLKuf7DgokaYQA61n):
+ * q = 물음, seats = 참가자, judge = 정리(투표 안 함), rounds = 비판 차례 수(0 · 1 · 2), skip = 모두 일치하면 비판 건너뛰기,
+ * step = 지금 단계(done = 정리 끝, 끝내기나 더 묻기를 기다림), round = 지금 비판 차례, central = 연 중앙 대화, by = 연 쪽, ended = 끝낸 때
+ */
+export const Debate = z.object({
+  q: z.string(), seats: z.array(DebateSeat), judge: DebateSeat, rounds: z.number().int().min(0).max(2), skip: z.boolean(),
+  step: z.enum([...DEBATE_STAGES, 'done']), round: z.number().int(), central: z.string().optional(), by: z.enum(['user', 'host']), ended: z.string().optional(),
+}).strict()
 export const ChatRow = z.object({
   id: z.string(),
   rid: z.string(),
@@ -196,6 +217,8 @@ export const ChatRow = z.object({
   machine: z.string().optional(),
   /** 서버(설정 › 기기 관리)가 있는 컴퓨터에서, 서버가 아니라 이 컴퓨터에서 도는 대화 (목록의 「이 맥」 태그, 11/20) */
   local: z.boolean().optional(),
+  /** 토론 대화면 그 진행 (11/20) */
+  debate: Debate.optional(),
   created: z.string(),
   updated: z.string(),
 }).strict()
@@ -241,8 +264,8 @@ export const WorkState = z.object({
 
 // ---------- 요청 ----------
 
-/** 붙여 넣은 그림 (base64, 한 장 5MB까지) */
-export const ImageIn = z.object({ type: z.enum(IMAGE_TYPES), data: z.string().max(7_000_000) }).strict()
+/** 붙여 넣은 그림 (base64, 한 장 5MB까지). name은 파일 이름으로 보낸 지시의 칩에 보인다 */
+export const ImageIn = z.object({ type: z.enum(IMAGE_TYPES), data: z.string().max(7_000_000), name: z.string().max(200).optional() }).strict()
 const message = {
   text: z.string().trim().min(1).max(20000),
   attach: z.array(Attach).max(20).optional(),
@@ -402,12 +425,31 @@ export const CentralKid = z.object({
 /** 방의 권한: read 읽기만(부르면 접힌 요약) · talk 발언(부르면 답함) · edit 수정(하위 대화 · 파일 · PR, 한 명 = 방장) */
 export const ROOM_PERMS = ['read', 'talk', 'edit'] as const
 export const RoomMember = z.object({ agent: z.enum(AGENT_KINDS), perm: z.enum(ROOM_PERMS), by: z.enum(['user', 'host']), reason: z.string().optional(), at: z.string() }).strict()
-/** 방 규칙: hostInvite = 방장이 초대해도 됨(읽기만 · 발언까지), defaultPerm = 새로 들어올 때 권한, callMax = 방장이 한 번에 부르는 수,
- *  mode = 여럿을 부를 때 답하는 방식(11/20 사용자 제안 "모드 전환"): independent 서로의 답을 가린 채 동시에 · debate 앞사람의 답을 보고 차례로 */
+/** 방 규칙: hostInvite = 방장이 초대해도 됨(읽기만 · 발언까지), defaultPerm = 새로 들어올 때 권한, callMax = 방장이 한 번에 부르는 수.
+ *  @모두는 늘 서로의 답을 가린 채 동시에 답한다(독립). 서로 비판하는 일은 토론 대화가 맡는다 (11/20 「토론 + 정해진 4단계」가 「독립 | 토론」 고르기를 바꿈) */
+export const RoomRules = z.object({ hostInvite: z.boolean(), defaultPerm: z.enum(['read', 'talk']), callMax: z.number().int().min(1).max(3) }).strict()
+/** 토론 대화의 기록에 남는 방식: independent = 중앙의 @모두(비판 없음), debate = 토론 대화 */
 export const ROOM_MODES = ['independent', 'debate'] as const
-export const RoomRules = z.object({ hostInvite: z.boolean(), defaultPerm: z.enum(['read', 'talk']), callMax: z.number().int().min(1).max(3), mode: z.enum(ROOM_MODES).default('independent') }).strict()
-/** 방: host = 방장(수정을 가진 사람), members = 방장 포함 (사용자 말고 4명까지), asking = 지금 답하는 사람 */
-export const RoomState = z.object({ host: z.enum(AGENT_KINDS), members: z.array(RoomMember), rules: RoomRules, asking: z.array(z.enum(AGENT_KINDS)) }).strict()
+/**
+ * 토론 기록 한 줄 (11/20): @모두 · 여럿을 부른 차례와 끝낸 토론마다. flipped = 나중에 틀린 것으로 드러남 (사용자가 표시).
+ * 토론이면 chat = 토론 대화 id, rounds = 비판 차례 수(건너뛰었으면 0), changed = 입장을 바꾼 수, line = 정리의 고른 안
+ */
+export const VerdictEntry = z.object({ at: z.string(), q: z.string(), mode: z.enum(ROOM_MODES), votes: z.array(z.object({ agent: z.enum(AGENT_KINDS), v: z.enum(ROOM_VERDICTS) }).strict()), flipped: z.boolean(),
+  chat: z.string().optional(), rounds: z.number().int().optional(), changed: z.number().int().optional(), line: z.string().optional() }).strict()
+/** 토론을 열 때의 기본값: 에이전트마다 마지막에 고른 모델 · 생각, 정리 모델, 비판 차례, 건너뛰기 (토론에서 바꾸면 여기도 바뀐다) */
+export const DebateDefaults = z.object({ seats: z.array(DebateSeat), judge: DebateSeat, rounds: z.number().int().min(0).max(2), skip: z.boolean() }).strict()
+export const DEBATE_DEFAULT: DebateDefaults = { seats: [], judge: { agent: 'claude-code', model: 'opus', effort: 'medium' }, rounds: 1, skip: true }
+/** 방: host = 방장(수정을 가진 사람), members = 방장 포함 (사용자 말고 4명까지), asking = 지금 답하는 사람, log = 토론 기록(최근 것부터, total · flipped는 전체 수), debate = 토론 기본값 */
+export const RoomState = z.object({ host: z.enum(AGENT_KINDS), members: z.array(RoomMember), rules: RoomRules, asking: z.array(z.enum(AGENT_KINDS)),
+  log: z.object({ total: z.number(), flipped: z.number(), recent: z.array(VerdictEntry) }).strict(), debate: DebateDefaults.default(DEBATE_DEFAULT) }).strict()
+export const VerdictFlipBody = z.object({ at: z.string(), flipped: z.boolean() }).strict()
+/** 토론 대화의 rid (중앙 대화와 따로, 11/20 「중앙에 붙이지 않고 따로 연다」) */
+export const DEBATE_RID = '_debate'
+/** POST /agent-debate (사용자) · /agent-debate/host (방장 debate_open): 토론 열기. agents가 없으면 방장 말고 방 사람 모두 */
+export const DebateOpenBody = z.object({ q: z.string().trim().min(1).max(8000), agents: z.array(z.enum(AGENT_KINDS)).max(4).optional() }).strict()
+export const DebateOpened = z.object({ id: z.string() }).strict()
+/** POST /agent-debate/:id/settings: 비판 차례 · 건너뛰기 · 참가자(모델 · 생각) · 정리 모델. 고른 값은 다음 토론의 기본이 된다 */
+export const DebateSettingsBody = z.object({ rounds: z.number().int().min(0).max(2).optional(), skip: z.boolean().optional(), seats: z.array(DebateSeat).min(2).max(4).optional(), judge: DebateSeat.optional() }).strict()
 export const RoomInviteBody = z.object({ agent: z.enum(AGENT_KINDS), perm: z.enum(ROOM_PERMS).optional(), reason: z.string().trim().max(200).optional() }).strict()
 export const RoomPermBody = z.object({ agent: z.enum(AGENT_KINDS), perm: z.enum(ROOM_PERMS) }).strict()
 export const RoomAgentBody = z.object({ agent: z.enum(AGENT_KINDS) }).strict()
@@ -419,6 +461,13 @@ export type RoomPerm = (typeof ROOM_PERMS)[number]
 export type RoomMember = z.infer<typeof RoomMember>
 export type RoomRules = z.infer<typeof RoomRules>
 export type RoomState = z.infer<typeof RoomState>
+export type VerdictEntry = z.infer<typeof VerdictEntry>
+export type DebateSeat = z.infer<typeof DebateSeat>
+export type Debate = z.infer<typeof Debate>
+export type DebateDefaults = z.infer<typeof DebateDefaults>
+export type DebateSettingsBody = z.infer<typeof DebateSettingsBody>
+export type DebateOpened = z.infer<typeof DebateOpened>
+export type DebateOpenBody = z.infer<typeof DebateOpenBody>
 export type RoomAnswer = z.infer<typeof RoomAnswer>
 
 /**
@@ -451,6 +500,17 @@ export const CentralOpenBody = z.object({
 }).strict()
 export const CentralSendBody = z.object({ id: z.string(), text: z.string().trim().min(1).max(20000) }).strict()
 export const CentralCloseBody = z.object({ id: z.string(), summary: z.string().trim().min(1).max(2000) }).strict()
+/**
+ * POST /agent-central/archive: 중앙이 하위 대화가 아닌 대화도 보관함에 넣는다 (chat_archive, 11/20 사용자 "대화를 여는 권한도 있으니 닫을 권한도").
+ * 일하는 중이 아닌 것만, 보관만 (지우기는 사용자만, 11/20 "지우는 것은 너가 하는 권한이 있으면 안되"). 다른 컴퓨터의 대화는 보관 요청을 개인 저장소로 넘기고 그 컴퓨터가 다음 맞추기 때 보관한다 (machine).
+ * POST /agent-central/unarchive: 같은 몸으로 보관함에서 꺼낸다 (chat_unarchive, 끝난 대화 복구)
+ */
+export const CentralArchiveBody = z.object({ id: z.string(), reason: z.string().trim().min(1).max(300) }).strict()
+export const CentralArchived = z.object({ id: z.string(), title: z.string(), machine: z.string().optional() }).strict()
+/** POST /agent-central/priority: 자리를 기다리는 앱 고치기(held)의 여는 순서를 바꾼다 (chat_priority, 11/20). title = 기다리는 일의 제목(정확히, 아니면 한 개만 맞는 일부), to = 새 순서 (1 = 맨 앞) */
+export const CentralPriorityBody = z.object({ title: z.string().trim().min(1).max(60), to: z.number().int().min(1).default(1), reason: z.string().trim().min(1).max(300) }).strict()
+/** 바꾼 뒤의 기다리는 순서 (제목, 맨 앞이 다음에 열린다) */
+export const CentralHeldOrder = z.object({ held: z.array(z.string()) }).strict()
 /** POST /agent-central/answer: 중앙이 하위 대화의 허락 · 계획 카드에 답한다 (크리티컬한 것은 409, 사용자에게 남긴다) */
 export const CentralAnswerBody = z.object({ id: z.string(), ask: z.string(), answer: z.enum(['allow', 'deny']), note: z.string().trim().max(2000).optional() }).strict()
 export const CentralKidOne = z.object({ kid: CentralKid }).strict()
@@ -473,6 +533,9 @@ export type CentralOpenBody = z.infer<typeof CentralOpenBody>
 export type CentralMessageBody = z.infer<typeof CentralMessageBody>
 export type CentralKidOne = z.infer<typeof CentralKidOne>
 export type CentralHelped = z.infer<typeof CentralHelped>
+export type CentralArchived = z.infer<typeof CentralArchived>
+export type CentralPriorityBody = z.infer<typeof CentralPriorityBody>
+export type CentralHeldOrder = z.infer<typeof CentralHeldOrder>
 export type CentralOpened = z.infer<typeof CentralOpened>
 export type CentralAnswerBody = z.infer<typeof CentralAnswerBody>
 

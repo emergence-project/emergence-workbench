@@ -79,3 +79,34 @@ describe('판정을 빠져나가던 문법 (11/20 보안 검토)', () => {
     for (const c of ['sort -n -k2 x', 'sort -u x | head', 'tree -L 2', 'file a.png', 'git config --get user.name', 'git config get user.name', 'git config --list', 'git ls-remote origin']) expect(stateOnlyCommand(c, w), c).toBe('ok')
   })
 })
+
+describe('반복문 · python 읽기 · find -exec (11/20 "중앙 읽기 명령은 묻지 않고")', () => {
+  const w = { gitWrites: true }
+  it('상태만 보는 반복문 · python -I -c 읽기 · find -exec 읽기는 묻지 않는다', () => {
+    for (const c of [
+      'cd ~/x; for d in *; do echo "== $d"; ls "$d" | grep jsonl | wc -l; done; ls -la ~/y 2>/dev/null | head',
+      'for d in ./*; do echo "== $d"; ls -- "$d" | grep -c jsonl; done',
+      'for f in a.json b.json\ndo\n  wc -c "$f"\ndone',
+      'for f in *.json; do echo "== $f $(wc -c <$f)"; python3 -I -c "import json,sys;d=json.load(open(sys.argv[1]));print(len(d))" "$f" | cut -c1-600; done',
+      'find ~/x -name "*.jsonl" -exec ls -la {} \\;', 'find . -name "*.ts" -exec grep -l judge {} +',
+      `python3 -I -c "import json, os.path; print(os.path.getsize('a'))"`, `python3 -I -c "from pathlib import Path; print(Path('a').read_text()[:100])"`,
+      `python3 -I -c "with open('a', 'r', encoding='utf-8') as f: print(f.read().replace('x', 'y'))"`, 'python3 -I -m json.tool a.json', `python3 -I -c "import re,glob; print([f for f in glob.glob('*') if re.compile('a').search(f)])"`, 'python3 --version',
+      'git log --oneline $(git merge-base origin/main HEAD)..HEAD', 'git diff --stat',
+    ]) expect(stateOnlyCommand(c, w), c).toBe('ok')
+  })
+  it('반복 변수가 옵션이 되거나 python이 쓰고 돌릴 수 있으면 막는다', () => {
+    for (const c of [
+      'for x in -delete; do find . $x; done', 'for x in $(echo -delete); do find . $x; done', 'for x in a; do rm $x; done', 'for x in a; do ls; done > f',
+      'find . -exec rm {} \\;', 'find . -exec sh -c ls \\;', 'find . -execdir ./x {} \\;', 'find . -exec ls {}', 'find . $(echo -delete)', 'find . -ok ls {} \\;',
+      'git diff $(echo --output=x)', 'git diff --outp=x', 'git diff --ext', 'sort --out=x a', 'git ls-remote --upload=sh x', 'file --comp',
+      `python3 -c "print(1)"`, `python3 -I -c "import subprocess; subprocess.run('ls')"`, `python3 -I -c "import os; os.system('ls')"`,
+      `python3 -I -c "import os; os.remove('a')"`, `python3 -I -c "import os as o; o.replace('a','b')"`, `python3 -I -c "import os; p=os; p.replace('a','b')"`,
+      `python3 -I -c "open('a','w').write('x')"`, `python3 -I -c "open('a', mode='a')"`, `python3 -I -c "o=open; o('a','w')"`, `python3 -I -c "m='w'; open('a', m)"`,
+      `python3 -I -c "from pathlib import Path; Path('a').write_text('x')"`, `python3 -I -c "from pathlib import Path; Path('a').replace('b')"`,
+      `python3 -I -c "print(().__class__)"`, `python3 -I -c "eval('1')"`, `python3 -I -c "import os; print(os.environ)"`, `python3 -I -c "print(open('$f').read())"`,
+      `python3 -I -c "from os import *"`, `python3 -I -c "from os import remove"`, `python3 -I -c "import sys; sys.modules['os']"`, 'python3 -I -m json.tool a b', 'python3 -m json.tool a',
+      'python3 x.py', `python3 -I -c "import os; os.path.os.remove('a')"`, `python3 -I -c "import glob; glob.os.remove('a')"`,
+      `python3 -I -c "import collections; collections._sys.modules"`, `python3 -I -c "import operator"`, `python3 -I -c "from pathlib import Path; Path('a').copy('b')"`, 'python3 -I -c "print(\'\\x5f\')"',
+    ]) expect(stateOnlyCommand(c, w), c).toBe('no')
+  })
+})
