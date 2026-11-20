@@ -114,7 +114,7 @@ export function AgentSide({ id }: { id?: string }) {
               </button></div>)}
           </div>}
         </div>
-        {!!shown.length && !picking && <button className="icon-btn" data-ui="대화 여러 개 고르기" data-tip={archive ? t('골라서 복원 · 삭제', 'Pick to restore or delete') : t('여러 개 골라 보관', 'Pick to archive')} aria-label={archive ? t('골라서 복원 · 삭제', 'Pick to restore or delete') : t('여러 개 골라 보관', 'Pick to archive')} onClick={() => setPicking(true)}>{Icon.pick}</button>}
+        {!!shown.length && !picking && <button className="icon-btn" data-ui="대화 여러 개 고르기" data-tip={archive ? t('여러 개 복원 · 삭제', 'Restore or delete several') : t('여러 개 보관', 'Archive several')} aria-label={archive ? t('여러 개 복원 · 삭제', 'Restore or delete several') : t('여러 개 보관', 'Archive several')} onClick={() => setPicking(true)}>{Icon.pick}</button>}
         <button className="icon-btn tip-end" data-ui="새 대화 아이콘" data-tip={t('새 대화', 'New conversation')} aria-label={at === ALL ? t('새 대화', 'New conversation') : t(`${targetName(at, projects)}에서 새 대화`, `New conversation in ${targetName(at, projects)}`)} aria-current={!id ? 'page' : undefined} onClick={newChat}>{Icon.compose}</button>
       </div>
       {archive && <div className="ac-archive-h" data-ui="보관함 머리">{t('보관함', 'Archive')} {archived}</div>}
