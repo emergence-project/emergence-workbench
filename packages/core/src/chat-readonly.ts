@@ -151,6 +151,8 @@ const findRule: Rule = (a) => {
     if (!prog || prog === 'find' || (prog.includes('/') && !/^\/(usr\/)?bin\/[^/]+$/.test(prog))) return false
     const rule = PROGRAMS[prog.split('/').pop()!]
     if (!rule || !rule(args)) return false
+    // + 는 찾은 파일을 한 번에 여럿 붙인다: 둘째 이름이 쓸 파일인 프로그램(uniq · json.tool)은 ; 로만
+    if (a[end] === '+' && /^(uniq|python3?)$/.test(prog.split('/').pop()!)) return false
     i = end
   }
   return true
@@ -168,7 +170,8 @@ const PY_MODULES = new Set([
 /** os. 뒤에 올 수 있는 것: 보기만 하는 것 (os.environ은 열쇠가 들어 있어 뺀다) */
 const PY_OS = /^(path|listdir|scandir|walk|stat|lstat|getcwd|sep|linesep|curdir|pardir|name|devnull|cpu_count|getpid|uname|readlink|access|fspath|get_terminal_size|statvfs|R_OK|F_OK|X_OK|W_OK)$/
 const PY_SYS = /^(argv|stdin|stdout|stderr|version|version_info|platform|exit|maxsize|getsizeof|executable|getdefaultencoding)$/
-const PY_BAD = /\b(exec|eval|getattr|setattr|delattr|globals|locals|vars|breakpoint|help|input|write_text|write_bytes|touch|mkdir|unlink|rmdir|rename|symlink_to|hardlink_to|link_to|chmod|lchmod|chown)\b/
+// attrgetter · methodcaller(pathlib · glob에 딸려 온다)는 getattr와 같고, 프레임(gi_frame.f_builtins)에서는 exec를 꺼낼 수 있다 (11/21 보안 검토)
+const PY_BAD = /\b(exec|eval|getattr|setattr|delattr|globals|locals|vars|breakpoint|help|input|attrgetter|methodcaller|operator|[a-z]{2}_frame|f_builtins|f_globals|f_locals|f_back|write_text|write_bytes|touch|mkdir|unlink|rmdir|rename|symlink_to|hardlink_to|link_to|chmod|lchmod|chown)\b/
 /** 문자열 안을 _ 로 가린 같은 길이의 글 (괄호 · 쉼표를 셀 때). 닫히지 않으면 null */
 function maskStrings(code: string): string | null {
   let out = ''
@@ -336,6 +339,8 @@ const SIMPLE_WORD = /^[^\s\-*?[\]{}~$=][^\s*?[\]{}$=]*$/
 function expansionsOk(prog: string, args: string[], loopVars: Set<string>): boolean {
   for (const x of args) {
     if (BRACES.test(x) && (prog !== 'rg' || /^[-{]/.test(x))) return false
+    // 옵션 이름에 든 별표 · 물음표는 그 이름의 파일이 있으면 다른 옵션으로 펼쳐진다 (값 쪽 --glob=*.ts 는 둔다)
+    if (x.startsWith('-') && GLOB(x.split('=')[0]!)) return false
     if (!EXPANDS.test(x)) continue
     if (x.startsWith('-')) return false
     for (const m of x.matchAll(VAR)) {
@@ -346,11 +351,30 @@ function expansionsOk(prog: string, args: string[], loopVars: Set<string>): bool
   return true
 }
 
+/**
+ * 줄 잇기(\\ + 줄바꿈)를 셸처럼 지운다: 그대로 두면 `-del\\⏎ete`가 한 낱말 -delete 로 읽히지 않는다 (11/21 보안 검토).
+ * 작은따옴표 안에서는 글자 그대로다
+ */
+function joinLines(cmd: string): string {
+  if (!cmd.includes('\\\n')) return cmd
+  let out = ''
+  let q: string | null = null
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i]!
+    if (q === "'") { if (ch === q) q = null; out += ch; continue }
+    if (ch === '\\' && i + 1 < cmd.length) { if (cmd[i + 1] !== '\n') out += ch + cmd[i + 1]; i++; continue }
+    if (q) { if (ch === q) q = null } else if (ch === '"' || ch === "'") q = ch
+    out += ch
+  }
+  return out
+}
+
 const WRITE_PROGRAMS: Record<string, Rule> = { ...PROGRAMS, git: gitRule(GIT_WRITE), gh: ghRule(GH_WRITE) }
 
 /** gitWrites: 중앙용. 상태 보기에 더해 git · gh로 커밋 · 가지 푸시(main 아님) · PR 만들기 · squash 합치기까지 ok */
-export function stateOnlyCommand(cmd: string, o: { gitWrites?: boolean } = {}, depth = 0): StateOnly {
+export function stateOnlyCommand(raw: string, o: { gitWrites?: boolean } = {}, depth = 0): StateOnly {
   if (depth > 2) return 'no'
+  const cmd = joinLines(raw)
   const programs = o.gitWrites ? WRITE_PROGRAMS : PROGRAMS
   let worst: StateOnly = 'ok'
   // $'…' · $"…" (따옴표 안의 \\' 를 다르게 읽는 문법)은 해석하지 않고 막는다

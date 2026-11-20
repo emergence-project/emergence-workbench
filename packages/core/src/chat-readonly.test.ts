@@ -149,4 +149,13 @@ describe('셸이 낱말을 펼쳐 판정을 비켜 가는 길 (11/21 보안 검�
       `from pathlib import Path; import sys; print(Path(sys.argv[1]).open().read()[:80])`, `from pathlib import Path; print(Path('a(b').open('r').read())`,
     ]) ok(py(code))
   })
+  it('줄 잇기 · find -exec … + · 옵션 이름의 별표 · python의 다른 이름 꺼내기도 묻는다', () => {
+    for (const c of [
+      'find . -del\\\nete', 'find . -name "*.txt" -exec uniq {} +', 'find . -name "*.json" -exec python3 -I -m json.tool {} +', 'find . -delet?',
+      `python3 -I -c "g=(x for x in [1]); g.gi_frame.f_builtins['ex'+'ec']('1')"`, `python3 -I -c "import pathlib; pathlib.attrgetter('o'+'s.remove')(pathlib)('x')"`,
+      `python3 -I -c "import glob; glob.operator.attrgetter('o'+'s.remove')(glob)('x')"`,
+    ]) no(c)
+    for (const c of ['git log \\\n --oneline -3', 'rg --glob=*.ts foo', 'find . -name "*.txt" -exec uniq {} \\;', 'find . -name "*.md" -exec wc -l {} +', "echo 'a\\\nb'"]) ok(c)
+  })
+
 })
