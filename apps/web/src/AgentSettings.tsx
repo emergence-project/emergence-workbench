@@ -157,7 +157,7 @@ function AppFeedback({ s, save }: { s: Settings; save(patch: Partial<Settings>):
       <div className="set-row" data-ui="클라우드 피드백 처리">
         <div>
           <div className="set-name">{t('클라우드에서 처리', 'Handle in the cloud')}</div>
-          <div className="set-desc">{t('켜면 claude.ai의 정기 작업이 한 시간마다 에이전트 차례인 피드백을 답하고 고쳐 PR을 합칩니다(맥이 꺼져 있어도). 켜 둔 동안 이 맥의 자동 처리는 쉽니다. 두 맥이 같은 값을 씁니다.', 'When on, a scheduled task on claude.ai answers and fixes feedback that is the agent\'s turn every hour and merges the PR, even with the Macs off. While it is on, automatic handling on this Mac pauses. Both Macs share this value.')}</div>
+          <div className="set-desc">{t('켜면 claude.ai의 정기 작업이 한 시간마다 에이전트 차례인 피드백을 답하고 고쳐 PR을 합칩니다(맥이 꺼져 있어도). 켜 두어도 이 맥의 자동 처리는 돌고, 클라우드가 먼저 맡은 항목만 건너뜁니다(같은 항목을 두 곳에서 맡지 않음). 두 맥이 같은 값을 씁니다.', 'When on, a scheduled task on claude.ai answers and fixes feedback that is the agent\'s turn every hour and merges the PR, even with the Macs off. Automatic handling on this Mac keeps running and skips only items the cloud claimed first (never both on one item). Both Macs share this value.')}</div>
         </div>
         <div className="segmented small" role="radiogroup" data-ui="고르기">
           {[false, true].map((on) => <button key={String(on)} role="radio" aria-checked={cloudOn === on} className={cloudOn === on ? 'on' : ''} disabled={!cloud.data || setCloud.isPending} onClick={() => setCloud.mutate(on)}>{on ? t('켜기', 'On') : t('끄기', 'Off')}</button>)}

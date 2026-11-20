@@ -10,7 +10,6 @@ import { LIVE, handedAt, lastTouched, type Stored } from './agentChats.js'
 import { SharedChats } from './agentShare.js'
 import { feedbackAgainPrompt } from './agentPrompts.js'
 import { answerMockups, listAllFeedback, setFeedbackReview, writeFeedbackAnswer, type FeedbackListItem } from './feedback.js'
-import { readFeedbackCloud } from './feedbackCloud.js'
 import { bundlesOf, handOffPlan, keysOf } from './feedbackGroups.js'
 import { feedbackVerdictError } from './feedbackVerdict.js'
 import { HERE, t } from './i18n.js'
@@ -98,7 +97,8 @@ export class FeedbackChats extends SharedChats {
     const fb = this.deps.feedback
     const s = this.deps.settings?.()
     if (!this.deps.app || !fb || !s) return
-    if (s.feedback !== 'instant' || readFeedbackCloud(fb.dir).enabled || this.running() + this.queue.length >= this.deps.limit) return // 클라우드가 맡는 동안(cloud.yaml)은 쉰다 (11/4)
+    // 클라우드에서 처리가 켜져 있어도 쉬지 않는다: 클라우드 루틴이 맡은(handoff.yaml) 항목만 건너뛴다 (11/20 사용자 "클라우드가 잡은 것 외에는 로컬이")
+    if (s.feedback !== 'instant' || this.running() + this.queue.length >= this.deps.limit) return
     const chats = [...this.chats.values()]
     const waiting = listAllFeedback(fb.dir)
       // 글 시각은 분 단위라 맡은 분과 같은 분에 남긴 코멘트도 새 것으로 본다 (같은 글로 두 번 맡지 않게 picked)

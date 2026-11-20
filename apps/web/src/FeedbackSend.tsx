@@ -108,7 +108,7 @@ export function FeedbackFileButtons() {
 /**
  * 「자동 처리」 스위치 (11/20 시안 4절, 11/19 22:32 제안 "On/off 디자인이 조금 더 깔끔하면" · 10:55 코멘트 "자동 처리 모드"):
  * 설정 › 에이전트 › 앱 피드백 「맡기기」와 같은 값. 켬 = 자동(instant), 끔 = 누를 때(설정에서 끔이면 꺼진 채로 보이고, 끄기를 눌러도 끔을 그대로 둔다).
- * 앱 저장소가 있는 맥에서만 보인다. 클라우드에서 처리하는 동안은 자동 처리가 쉬므로 스위치를 흐리게 두고 툴팁에 까닭을 띄운다.
+ * 앱 저장소가 있는 맥에서만 보인다. 클라우드에서 처리가 켜져 있어도 끄고 켤 수 있다: 클라우드 루틴이 맡은 항목만 건너뛴다 (11/20).
  * 예전(11/19)에는 「바로 맡기기 끄기 · 켜기」 두 칸 고르기였다. data-ui 이름은 피드백 기록과 맞추려고 그대로 둔다.
  */
 export function InstantToggle() {
@@ -128,11 +128,11 @@ export function InstantToggle() {
       .catch((e: Error) => setError(e.message))
       .finally(() => setBusy(false))
   }
-  const tip = error ?? (cloudOn ? t('클라우드 처리 중', 'Handled in the cloud') : t('이 맥의 Claude가 바로 처리', 'Claude on this Mac handles it right away'))
+  const tip = error ?? (cloudOn ? t('이 맥의 Claude가 바로 처리 (클라우드가 맡은 것은 빼고)', 'Claude on this Mac handles it right away (except what the cloud claimed)') : t('이 맥의 Claude가 바로 처리', 'Claude on this Mac handles it right away'))
   return (
     <span className="fbp-pick fbp-auto tip-end" data-ui="바로 맡기기" data-tip={tip}>
       <span id="fbp-auto-label">{t('자동 처리', 'Auto handling')}</span>
-      <button type="button" role="switch" className="switch" aria-labelledby="fbp-auto-label" aria-checked={on && !cloudOn} disabled={busy || cloudOn} onClick={() => set(!on)} />
+      <button type="button" role="switch" className="switch" aria-labelledby="fbp-auto-label" aria-checked={on} disabled={busy} onClick={() => set(!on)} />
       {error && <span className="error-text">{error}</span>}
     </span>
   )
