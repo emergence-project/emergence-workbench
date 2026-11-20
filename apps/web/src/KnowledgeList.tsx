@@ -13,7 +13,7 @@ import { findSubject, subjectBelow, subjectTree, type SubjNode } from './knowled
 import { go } from './router'
 import { store } from './store'
 import { tableHiddenColumns } from './tableColumns'
-import { t, locale } from './i18n'
+import { josa, t, locale } from './i18n'
 
 const PAGE = 50
 const COLUMNS: { id: ConceptSort; label: string; width: string; num?: boolean }[] = [
@@ -154,7 +154,7 @@ export function KnowledgeList({ info, filters, rightOpen, onChanged, onSaved }: 
               <div className="pl-tr pl-th" role="row" data-ui="지식 표 머리">
                 {cols.map((c) => <div className={`pl-cell${c.num ? ' num' : ''}${c.id === 'mtime' ? ' kl-date' : ''}`} role="columnheader" key={c.id}
                   style={{ width: `var(${c.width})`, flexGrow: c.id === 'title' ? 1 : 0 }} aria-sort={sort.col === c.id ? sort.dir === 'asc' ? 'ascending' : 'descending' : 'none'}>
-                  <button className="pl-sort" title={t(`${c.label}로 정렬 (한 번 더 누르면 거꾸로)`, `Sort by ${c.label} (click again to reverse)`)} onClick={() => changeSort(c.id)}>
+                  <button className="pl-sort" title={t(`${c.label}${josa(c.label, '로')} 정렬 (한 번 더 누르면 거꾸로)`, `Sort by ${c.label} (click again to reverse)`)} onClick={() => changeSort(c.id)}>
                     <span className="pl-label">{c.label}</span>{sort.col === c.id && <span className="pl-dir" aria-hidden>{sort.dir === 'asc' ? '▲' : '▼'}</span>}
                   </button>
                 </div>)}

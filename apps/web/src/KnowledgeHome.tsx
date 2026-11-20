@@ -11,7 +11,7 @@ import { KnowledgeFind } from './KnowledgeFind'
 import { LibraryStorage, StoreLine } from './LibraryStorage'
 import { go } from './router'
 import { showKnowledgeList } from './knowledgeListState'
-import { t, HERE } from './i18n'
+import { t, HERE, josa } from './i18n'
 
 /**
  * 지식 첫 화면 (라이브러리 L1, 설계 결정 2026-10-06 "라이브러리 첫 화면" · "지식 점검 기준").
@@ -165,7 +165,7 @@ export function MakeConcept({ onChanged, onSaved, onDrafted }: { onChanged(): vo
       // 초안은 몇 분 걸린다: 기다리는 동안 화면을 떠나도 된다
       learnApi.draft(item.id).then((r) => {
         onChanged(); onDrafted()
-        onSaved(r.existed ? t(`"${item.term}"은 이미 있는 개념노트에 이었습니다`, `"${item.term}" was linked to an existing concept note`) : t(`"${item.term}" 초안을 썼습니다 — 점검 › 초안 검토`, `Drafted "${item.term}": Check › Drafts to review`))
+        onSaved(r.existed ? t(`"${item.term}"${josa(item.term, '은')} 이미 있는 개념노트에 이었습니다`, `"${item.term}" was linked to an existing concept note`) : t(`"${item.term}" 초안을 썼습니다 — 점검 › 초안 검토`, `Drafted "${item.term}": Check › Drafts to review`))
       }).catch((e: Error) => onSaved(t(`초안을 쓰지 못했습니다: ${e.message}`, `Couldn't write the draft: ${e.message}`)))
     } catch (e) { onSaved((e as Error).message) } finally { setBusy(false) }
   }

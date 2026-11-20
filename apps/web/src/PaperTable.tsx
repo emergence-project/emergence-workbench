@@ -3,7 +3,7 @@ import { PaperTitle, titleText } from './PaperTitle'
 import { localDate } from '@rw/core'
 import type { PaperRow } from './api'
 import { matchesSubject } from './api/subjects'
-import { t, HERE } from './i18n'
+import { t, HERE, josa } from './i18n'
 import { go } from './router'
 
 /**
@@ -126,7 +126,7 @@ export function PaperTable({ rows, cols, widths, onWidths, sort, onSort, leads, 
         {cols.map((c) => (
           <div key={c.id} role="columnheader" className={`pl-cell${c.num ? ' num' : ''}`} style={cellStyle(c)}
             aria-sort={sort.col === c.id ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}>
-            <button className="pl-sort" title={c.id === 'subjects' ? t('누를 때마다 맨 앞에 올 분류를 바꿉니다', 'Each click brings the next subject to the top') : t(`${c.label}로 정렬 (한 번 더 누르면 거꾸로)`, `Sort by ${c.label} (click again to reverse)`)} onClick={() => onSort(next(c))}>
+            <button className="pl-sort" title={c.id === 'subjects' ? t('누를 때마다 맨 앞에 올 분류를 바꿉니다', 'Each click brings the next subject to the top') : t(`${c.label}${josa(c.label, '로')} 정렬 (한 번 더 누르면 거꾸로)`, `Sort by ${c.label} (click again to reverse)`)} onClick={() => onSort(next(c))}>
               <span className="pl-label">{label(c)}</span>{sort.col === c.id && c.id !== 'subjects' && <span className="pl-dir" aria-hidden>{sort.dir === 1 ? '↑' : '↓'}</span>}
             </button>
             <span className="pl-resize" role="separator" aria-label={t(`${c.label} 폭`, `${c.label} width`)} onPointerDown={(e) => startResize(c, e)} onClick={(e) => e.stopPropagation()} />

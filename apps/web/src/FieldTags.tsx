@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { conceptsApi } from './api'
 import { fieldOptions, matchFields, type FieldOption } from './fields'
-import { eulReul, t } from './i18n'
+import { eulReul, josa, t } from './i18n'
 
 /** 개념노트 분류에서 만든 분야 목록 (사람의 주 연구 분야 · 프로젝트 분야는 여기서만 고른다) */
 export function useFields(): FieldOption[] | null {
@@ -65,7 +65,7 @@ export function FieldTags({ tags, used, tagClassName = 'tag', onChange }: { tags
                   {f.path !== f.name && <span className="muted net-pick-path">{f.path.slice(0, -f.name.length - 3)}</span>}
                 </button>
               ))}
-              {q && !matches.length && <div className="net-pick-h muted">{t(`"${q}"가 든 분야가 없습니다. 분야는 개념노트 분류에서 만듭니다.`, `No field contains "${q}". Fields come from concept note subjects.`)}</div>}
+              {q && !matches.length && <div className="net-pick-h muted">{t(`"${q}"${josa(q, '이')} 든 분야가 없습니다. 분야는 개념노트 분류에서 만듭니다.`, `No field contains "${q}". Fields come from concept note subjects.`)}</div>}
             </div>
           )}
         </div>

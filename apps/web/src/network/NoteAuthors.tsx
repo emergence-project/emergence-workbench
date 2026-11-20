@@ -1,7 +1,7 @@
 import { personId, type Author } from '@rw/core'
 import { latexApi, type PersonView } from '../api'
 import { askText } from '../askText'
-import { eulReul, t } from '../i18n'
+import { eulReul, josa, t } from '../i18n'
 import { qk, queryClient } from '../queries'
 import { PersonCard } from './PersonCard'
 import { announce, useLatexSetup } from './people'
@@ -23,7 +23,7 @@ export function NoteAuthors({ person, people, onSaved }: { person: PersonView; p
   const add = async () => {
     const name = (await askText({ title: t('노트 저자 추가', 'Add note author'), label: t('이름', 'Name'), hint: t('네트워킹에 있는 사람이면 그 이름을 그대로 적습니다. 소속·이메일은 그 사람 페이지에서 적습니다.', 'For someone in Networking, type their name exactly. Add affiliation and email on their person page.'), ok: t('추가', 'Add') }))?.replace(/\s+/g, ' ').trim()
     if (!name || !authors) return
-    if (authors.some((a) => personId(a.name) === personId(name))) { onSaved(t(`"${name}"은 이미 노트 저자입니다`, `"${name}" is already a note author`)); return }
+    if (authors.some((a) => personId(a.name) === personId(name))) { onSaved(t(`"${name}"${josa(name, '은')} 이미 노트 저자입니다`, `"${name}" is already a note author`)); return }
     const known = byId.get(personId(name))
     await saveAuthors([...authors, { name: known?.name ?? name, ...(known?.email && { email: known.email }), affiliations: known?.affiliations ?? [] }], t(`"${name}"${eulReul(name)} 노트 저자에 더했습니다`, `Added "${name}" to note authors`))
   }

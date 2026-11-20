@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 're
 import { createPortal } from 'react-dom'
 import type { PaintColor } from './api/papers'
 import { isDialogHostDisplayed } from './dialogVisibility'
-import { t } from './i18n'
+import { josa, t } from './i18n'
 import { useDismiss } from './useDismiss'
 
 const PAINTS: { color: PaintColor; label: string; en: string }[] = [
@@ -11,7 +11,7 @@ const PAINTS: { color: PaintColor; label: string; en: string }[] = [
 ]
 
 const paintTip = (paint: { label: string; en: string }, action: '하이라이트' | '바꾸기') =>
-  t(`${paint.label}으로 ${action}`, action === '하이라이트' ? `Highlight ${paint.en}` : `Change to ${paint.en}`)
+  t(`${paint.label}${josa(paint.label, '로')} ${action}`, action === '하이라이트' ? `Highlight ${paint.en}` : `Change to ${paint.en}`)
 
 export function PaintDots({ color, onChange, disabled, action = '하이라이트' }: {
   color: PaintColor; onChange(color: PaintColor): void; disabled?: boolean; action?: '하이라이트' | '바꾸기'

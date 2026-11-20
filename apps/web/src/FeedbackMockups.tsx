@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { api, type FeedbackItem } from './api'
 import { PictureGallery, type GalleryPicture } from './PictureGallery'
 import { REPLY } from './feedbackTags'
-import { t } from './i18n'
+import { josa, t } from './i18n'
 
 /**
  * 피드백 처리 · 답에 붙은 시안 (11/19 "고르지 않은 결정은 피드백에서 시안을 제대로 볼 수 없어서"):
@@ -61,7 +61,7 @@ function Decide({ e, name }: { e: FeedbackItem; name: string }) {
   const send = (v: '진행' | '논의') => {
     if (v === '논의' && !text.trim()) return
     setBusy(true)
-    api.reviewFeedback(e.key, v, v === '진행' ? t(`시안 ${name}으로 진행`, `Go ahead with mockup ${name}`) : `${t('시안', 'Mockup')} ${name}: ${text.trim()}`)
+    api.reviewFeedback(e.key, v, v === '진행' ? t(`시안 ${name}${josa(name, '로')} 진행`, `Go ahead with mockup ${name}`) : `${t('시안', 'Mockup')} ${name}: ${text.trim()}`)
       .then(() => { setSent(v); setError(null) }, (err: Error) => setError(err.message)).finally(() => setBusy(false))
   }
   if (sent) return <div className="fbp-mockup-decide muted" role="status">{t(`시안 ${name}에 「${REPLY[sent]}」을 보냈습니다`, `Sent "${REPLY[sent]}" on mockup ${name}`)}</div>
