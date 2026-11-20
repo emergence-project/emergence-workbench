@@ -6,7 +6,7 @@ import { CardImageField, CardImagePicker } from './CardImagePicker'
 import { onListKey } from './listInput'
 import { noteKindLabel } from './noteKinds'
 import { TopicCardView } from './TopicCardView'
-import { t } from './i18n'
+import { eulReul, t } from './i18n'
 
 /** 바탕색 이름 (고르기 단추의 이름표) */
 const COLOR_LABEL: Record<TopicColor, string> = { violet: t('보라', 'Violet'), blue: t('파랑', 'Blue'), teal: t('청록', 'Teal'), orange: t('주황', 'Orange'), gray: t('회색', 'Gray') }
@@ -61,7 +61,7 @@ export function TopicEditDialog({ rid, topic, hash, pc, project, onClose, onSave
     }
     try {
       await api.patchTopic(topic.id, patch, hash)
-      onSaved(t(`주제 "${title.trim()}"를 고쳤습니다`, `Edited topic "${title.trim()}"`))
+      onSaved(t(`주제 "${title.trim()}"${eulReul(title.trim())} 고쳤습니다`, `Edited topic "${title.trim()}"`))
     } catch (e) {
       saving.current = false
       setBusy(false)

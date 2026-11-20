@@ -44,7 +44,7 @@ describe('노트 지우기와 되돌리기', () => {
     finish(trashed)
     await pending
     expect(onChanged).toHaveBeenCalledOnce()
-    expect(onSaved).toHaveBeenCalledExactlyOnceWith('"예제 노트"을 지웠습니다', { label: '되돌리기', run: expect.any(Function) })
+    expect(onSaved).toHaveBeenCalledExactlyOnceWith('"예제 노트"를 지웠습니다', { label: '되돌리기', run: expect.any(Function) })
     expect(onChanged.mock.invocationCallOrder[0]).toBeLessThan(onSaved.mock.invocationCallOrder[0]!)
   })
 

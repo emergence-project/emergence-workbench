@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { networkApi, type PersonSuggestion, type PersonView } from '../api'
 import { Icon } from '../icons'
-import { plural, t } from '../i18n'
+import { eulReul, plural, t } from '../i18n'
 import { qk } from '../queries'
 import { addedOf, announce, Avatar, FRESH } from './people'
 
@@ -65,7 +65,7 @@ export function Suggestions({ people, onSaved }: { people: PersonView[]; onSaved
     try {
       await networkApi.savePeople([...addedOf(people), { name: s.name, ...(s.aliases?.length && { aliases: s.aliases }) }])
       announce()
-      onSaved(t(`"${s.name}"을 더했습니다. 소속·이메일은 사람 페이지에서 적습니다`, `Added "${s.name}". Add affiliation and email on the person page`))
+      onSaved(t(`"${s.name}"${eulReul(s.name)} 더했습니다. 소속·이메일은 사람 페이지에서 적습니다`, `Added "${s.name}". Add affiliation and email on the person page`))
     } catch (e) { onSaved((e as Error).message) }
   }
   return (

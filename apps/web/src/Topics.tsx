@@ -20,7 +20,7 @@ import { go } from './router'
 import { askConfirm, askText } from './askText'
 import { ExportLink } from './NoteExport'
 import { StatusDot } from './StatusDot'
-import { locale, plural, t as tr } from './i18n'
+import { eulReul, locale, plural, t as tr } from './i18n'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNoteTrash, useTopicsOverview } from './projectQueries'
 import { qk } from './queries'
@@ -49,7 +49,7 @@ export const TRASH_DAYS = 15
 export function trashNoteWithUndo(rapi: ResearchApi, ms: ManuscriptInfo, onChanged: () => void, onSaved: (m: string, action?: FlashAction) => void) {
   return rapi.trashNote(ms.key).then((trashed) => {
     onChanged()
-    onSaved(tr(`"${ms.name}"을 지웠습니다`, `Deleted "${ms.name}"`), {
+    onSaved(tr(`"${ms.name}"${eulReul(ms.name)} 지웠습니다`, `Deleted "${ms.name}"`), {
       label: tr('되돌리기', 'Undo'),
       run: () => rapi.restoreNote(trashed.id)
         .then(() => { onChanged(); onSaved(tr('되살렸습니다', 'Restored')) })
@@ -148,13 +148,13 @@ export function TopicPage({ rid, rapi, tid, notes, manuscripts, project, pc, ver
   </span>
 
   const starTopic = () => t && data && api.patchTopic(t.id, { star: !t.star }, data.hash)
-    .then(() => { done(); onSaved(t.star ? tr(`"${t.title}"를 즐겨찾기에서 뺐습니다`, `Removed "${t.title}" from favorites`) : tr(`"${t.title}"를 즐겨찾기에 넣었습니다`, `Added "${t.title}" to favorites`)) }).catch(fail)
+    .then(() => { done(); onSaved(t.star ? tr(`"${t.title}"${eulReul(t.title)} 즐겨찾기에서 뺐습니다`, `Removed "${t.title}" from favorites`) : tr(`"${t.title}"${eulReul(t.title)} 즐겨찾기에 넣었습니다`, `Added "${t.title}" to favorites`)) }).catch(fail)
   const starNote = (n: NoteRow) => api.setHead(n.file, { star: !n.star }, n.hash)
-    .then(() => { onChanged(); onSaved(n.star ? tr(`"${n.title}"를 즐겨찾기에서 뺐습니다`, `Removed "${n.title}" from favorites`) : tr(`"${n.title}"를 즐겨찾기에 넣었습니다`, `Added "${n.title}" to favorites`)) }).catch(fail)
+    .then(() => { onChanged(); onSaved(n.star ? tr(`"${n.title}"${eulReul(n.title)} 즐겨찾기에서 뺐습니다`, `Removed "${n.title}" from favorites`) : tr(`"${n.title}"${eulReul(n.title)} 즐겨찾기에 넣었습니다`, `Added "${n.title}" to favorites`)) }).catch(fail)
   const removeTopic = async () => {
     if (!t) return
-    if (!await askConfirm({ title: tr(`주제 "${t.title}"를 지울까요?`, `Delete topic "${t.title}"?`), hint: tr(`노트 ${mine.length}개는 그대로 남고, 다른 주제가 없는 노트는 "${LOOSE_NOTES_LABEL}"로 갑니다. 원고의 장과 파일은 그대로입니다.`, `The ${plural(mine.length, 'note')} stay. Notes with no other topic go to "${LOOSE_NOTES_LABEL}". Manuscript chapters and files stay.`), ok: tr('삭제', 'Delete') })) return
-    api.deleteTopic(t.id, data?.hash).then(() => { onChanged(); onSaved(tr(`주제 "${t.title}"를 지웠습니다`, `Deleted topic "${t.title}"`)); go({ page: 'overview', rid }) }).catch(fail)
+    if (!await askConfirm({ title: tr(`주제 "${t.title}"${eulReul(t.title)} 지울까요?`, `Delete topic "${t.title}"?`), hint: tr(`노트 ${mine.length}개는 그대로 남고, 다른 주제가 없는 노트는 "${LOOSE_NOTES_LABEL}"로 갑니다. 원고의 장과 파일은 그대로입니다.`, `The ${plural(mine.length, 'note')} stay. Notes with no other topic go to "${LOOSE_NOTES_LABEL}". Manuscript chapters and files stay.`), ok: tr('삭제', 'Delete') })) return
+    api.deleteTopic(t.id, data?.hash).then(() => { onChanged(); onSaved(tr(`주제 "${t.title}"${eulReul(t.title)} 지웠습니다`, `Deleted topic "${t.title}"`)); go({ page: 'overview', rid }) }).catch(fail)
   }
   const createNote = () => void createNoteAsk(rapi, rid, loose ? null : { id: tid, title: t!.title }, onChanged, onSaved, fail)
   const card = (n: NoteRow) => <NoteCardView key={n.file} row={n} topicTitle={titleOf} onOpen={() => go(routeOfNote(rid, n))} onStar={() => void starNote(n)} />
@@ -247,7 +247,7 @@ export async function createNoteAsk(rapi: ResearchApi, rid: string, topic: { id:
       if (row) file = (await api.setHead(row.file, { topics: [topic.id] }, row.hash)).file
     }
     onChanged()
-    onSaved(tr(`노트 "${r.name}"을 만들었습니다 (${file})`, `Created note "${r.name}" (${file})`))
+    onSaved(tr(`노트 "${r.name}"${eulReul(r.name)} 만들었습니다 (${file})`, `Created note "${r.name}" (${file})`))
     go({ page: 'part', rid, file })
   } catch (e) { fail(e) }
 }
@@ -263,7 +263,7 @@ export function NoteTrash({ rapi, onChanged, onSaved }: { rapi: ResearchApi; onC
   if (!list.length) return null
   const day = (iso: string) => { const d = new Date(iso); return tr(`${d.getMonth() + 1}월 ${d.getDate()}일`, d.toLocaleDateString(locale(), { month: 'short', day: 'numeric' })) }
   const restore = (t: TrashedNote) => rapi.restoreNote(t.id)
-    .then(() => { setList((l) => l.filter((x) => x.id !== t.id)); onChanged(); onSaved(tr(`"${t.name}"을 되살렸습니다`, `Restored "${t.name}"`)) })
+    .then(() => { setList((l) => l.filter((x) => x.id !== t.id)); onChanged(); onSaved(tr(`"${t.name}"${eulReul(t.name)} 되살렸습니다`, `Restored "${t.name}"`)) })
     .catch((e: Error) => onSaved(e.message))
   return (
     <section className="ts-fold note-trash" data-ui="지운 노트">

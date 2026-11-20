@@ -29,7 +29,7 @@ import { TopicEditDialog } from './TopicEditDialog'
 import { routeOfNote } from './RightSidebar'
 import { createNoteAsk, NoteTrash } from './Topics'
 import { gridColumns, notesInPeriod, PERIODS, RECENT_SORTS, SORTS, sortRecent, sortTopics, type NotePeriod, type NoteSort, type RecentSort } from './topicNotes'
-import { t } from './i18n'
+import { eulReul, t } from './i18n'
 import { WorkbenchUpload } from './ProjectInfoPage'
 
 interface Props {
@@ -408,7 +408,7 @@ function ProjectCards({ rid, rapi, notes, project, pc, onChanged, onSaved }: {
   const titleOf = (id: string) => topics.find((x) => x.id === id)?.title
 
   const starTopic = (topic: Topic) => data && api.patchTopic(topic.id, { star: !topic.star }, data.hash)
-    .then(() => { void refresh(); onChanged(); onSaved(topic.star ? t(`"${topic.title}"를 즐겨찾기에서 뺐습니다`, `Removed "${topic.title}" from favorites`) : t(`"${topic.title}"를 즐겨찾기에 넣었습니다`, `Added "${topic.title}" to favorites`)) }).catch(fail)
+    .then(() => { void refresh(); onChanged(); onSaved(topic.star ? t(`"${topic.title}"${eulReul(topic.title)} 즐겨찾기에서 뺐습니다`, `Removed "${topic.title}" from favorites`) : t(`"${topic.title}"${eulReul(topic.title)} 즐겨찾기에 넣었습니다`, `Added "${topic.title}" to favorites`)) }).catch(fail)
   const createTopic = async () => {
     const title = (await askText({ title: t('새 주제', 'New topic'), label: t('이름', 'Name'), placeholder: t('예: Kempe 사슬', 'e.g. Kempe chains'), hint: t(`${LIMITS.title}자까지. 만든 뒤 설명과 카드 미리보기를 적습니다.`, `Up to ${LIMITS.title} characters. Add a description and card preview after creating it.`), ok: t('만들기', 'Create') }))?.trim()
     if (!title) return
@@ -418,11 +418,11 @@ function ProjectCards({ rid, rapi, notes, project, pc, onChanged, onSaved }: {
       await refresh()
       setEditing(r.topic.id)
       onChanged()
-      onSaved(t(`주제 "${r.topic.title}"를 만들었습니다`, `Created topic "${r.topic.title}"`))
+      onSaved(t(`주제 "${r.topic.title}"${eulReul(r.topic.title)} 만들었습니다`, `Created topic "${r.topic.title}"`))
     } catch (e) { fail(e) }
   }
   const starNote = (n: NoteRow) => api.setHead(n.file, { star: !n.star }, n.hash)
-    .then(() => { onChanged(); onSaved(n.star ? t(`"${n.title}"를 즐겨찾기에서 뺐습니다`, `Removed "${n.title}" from favorites`) : t(`"${n.title}"를 즐겨찾기에 넣었습니다`, `Added "${n.title}" to favorites`)) }).catch(fail)
+    .then(() => { onChanged(); onSaved(n.star ? t(`"${n.title}"${eulReul(n.title)} 즐겨찾기에서 뺐습니다`, `Removed "${n.title}" from favorites`) : t(`"${n.title}"${eulReul(n.title)} 즐겨찾기에 넣었습니다`, `Added "${n.title}" to favorites`)) }).catch(fail)
 
   const counts = Object.fromEntries(PERIODS.map((p) => [p.id, notesInPeriod(notes, p.id).length])) as Record<NotePeriod, number>
   const recent = sortRecent(notesInPeriod(notes, period), noteSort)

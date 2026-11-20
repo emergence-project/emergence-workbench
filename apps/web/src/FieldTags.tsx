@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { conceptsApi } from './api'
 import { fieldOptions, matchFields, type FieldOption } from './fields'
-import { t } from './i18n'
+import { eulReul, t } from './i18n'
 
 /** 개념노트 분류에서 만든 분야 목록 (사람의 주 연구 분야 · 프로젝트 분야는 여기서만 고른다) */
 export function useFields(): FieldOption[] | null {
@@ -33,13 +33,13 @@ export function FieldTags({ tags, used, tagClassName = 'tag', onChange }: { tags
   const known = new Set((fields ?? []).map((f) => f.name.toLowerCase()))
   const offer = (fields ?? []).filter((f) => !tags.some((tag) => tag.toLowerCase() === f.name.toLowerCase()))
   const matches = matchFields(q, offer, used)
-  const choose = (f: FieldOption) => { onChange([...tags, f.name], t(`분야 "${f.name}"을 더했습니다`, `Added field "${f.name}"`)); setQ(''); setAt(0); setOpen(false); trigger.current?.focus() }
+  const choose = (f: FieldOption) => { onChange([...tags, f.name], t(`분야 "${f.name}"${eulReul(f.name)} 더했습니다`, `Added field "${f.name}"`)); setQ(''); setAt(0); setOpen(false); trigger.current?.focus() }
   return (
     <div className="net-tags tag-edit" data-ui="분야 이름표">
       {tags.map((tag) => (
         <span key={tag} className={`${tagClassName} tag-x`} title={fields && !known.has(tag.toLowerCase()) ? t('개념노트 분류 목록에 없는 태그입니다', 'This tag is not in the concept note subject list') : undefined}>
           {tag}{fields && !known.has(tag.toLowerCase()) && <span className="muted">{t(' · 목록에 없음', ' · not in list')}</span>}
-          <button className="icon-btn" aria-label={t(`${tag} 제거`, `Remove ${tag}`)} title={t('제거', 'Remove')} onClick={() => onChange(tags.filter((x) => x !== tag), t(`분야 "${tag}"을 뺐습니다`, `Removed field "${tag}"`))}>×</button>
+          <button className="icon-btn" aria-label={t(`${tag} 제거`, `Remove ${tag}`)} title={t('제거', 'Remove')} onClick={() => onChange(tags.filter((x) => x !== tag), t(`분야 "${tag}"${eulReul(tag)} 뺐습니다`, `Removed field "${tag}"`))}>×</button>
         </span>
       ))}
       {!tags.length && <span className="muted">{t('없음', 'None')}</span>}
