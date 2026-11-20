@@ -16,6 +16,8 @@ describe('중앙 대화의 명령', () => {
   })
   it('git · gh 커밋 · 푸시 · PR · squash 합치기는 묻지 않는다 (11/19)', () => {
     for (const c of ['git add -A && git commit -m x', 'git push -u origin fix', 'gh pr create --title t --body b', 'gh pr merge 3 --squash']) expect(bash(c).kind, c).toBe('allow')
+    // main에 바로 올리기와 PR 코멘트는 허락 카드로 (11/20)
+    for (const c of ['git push origin HEAD:main', 'git push origin main', 'git push', 'gh pr comment 3 --body ok']) expect(bash(c).kind, c).toBe('ask')
   })
   it('목록에 없는 명령은 막지 않고 명령 · 까닭 · 폴더를 보이며 묻는다 (11/20 우회)', () => {
     for (const c of ['memory_pressure | xargs echo', "awk '{print $1}' a", 'pkill -f "Chrome.*--headless"', 'npm i', 'git checkout main', 'rm -rf /tmp/shots-1']) {
@@ -33,6 +35,15 @@ describe('중앙 대화의 명령', () => {
       expect(v.kind, c).toBe('deny')
       expect(v.kind === 'deny' && v.message, c).toContain('even with the user')
     }
+  })
+  it('상태 보기로 꾸민 쓰기 · 실행은 묻지 않고 돌지 않는다: 우회로 묻는다 (11/20 보안 검토)', () => {
+    for (const c of [`echo 'x' \\" > ~/.zshenv \\"`, 'printf x | sort -o/w/app/.git/hooks/pre-commit', 'rg --hostname-bin ./x --hyperlink-format default a', 'git config --get a.b --global -e', 'git ls-remote -u ./x .']) expect(bash(c).kind, c).toBe('ask')
+  })
+  it('읽기 전용 프로젝트 대화: 읽기로 꾸민 명령을 묻지 않고 돌리지 않는다 (11/20 보안 검토)', () => {
+    const p: PolicyCtx = { rid: 'p', write: 'read', mode: 'edit', planOk: false, scope: { kind: 'project' }, repo: '/w/p', readable: [], claimedBy: () => undefined }
+    for (const c of ['ls & rm -rf notes', 'sort -o a.md b.md', "sed -n 'w a.md' b.md"]) expect(judge(p, 'Bash', { command: c }).kind, c).toBe('deny')
+    for (const c of ["env sh -c 'rm -rf notes'", 'awk \'BEGIN{"rm -rf notes" | getline}\'']) expect(judge(p, 'Bash', { command: c }).kind, c).toBe('ask')
+    expect(judge(p, 'Bash', { command: 'ls workbench | sort | head' }).kind).toBe('allow')
   })
   it('파일 고치기는 막고 하위 대화와 되는 명령을 알려 준다', () => {
     const v = judge(ctx, 'Write', { file_path: '/w/app/a.ts', content: 'x' })

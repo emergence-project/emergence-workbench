@@ -83,6 +83,7 @@ body.feedback-on .toast { bottom: 76px; }
 @container (max-width: 680px) { .fbp-table :is(th, td):is(:nth-child(2), :nth-child(7)) { width: 0; padding: 0; border-bottom-width: 0; overflow: hidden; visibility: hidden; white-space: nowrap; } }
 @container (max-width: 540px) { .fbp-table :is(th, td):is(:nth-child(6), :nth-child(10), :nth-child(12)) { width: 0; padding: 0; border-bottom-width: 0; overflow: hidden; visibility: hidden; white-space: nowrap; } }
 @container (max-width: 380px) { .fbp-table :is(th, td):nth-child(3) { width: 0; padding: 0; border-bottom-width: 0; overflow: hidden; visibility: hidden; white-space: nowrap; } }
+.fbp-result { flex: none; font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-2); white-space: nowrap; }
 .fbp-state.turn { background: color-mix(in srgb, var(--s-blocked) 14%, transparent); color: var(--s-blocked); }
 .fbp-table td { padding: 6px var(--sp-2); border-bottom: 1px solid var(--line); vertical-align: baseline; }
 .fbp-row { cursor: pointer; }

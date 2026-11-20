@@ -115,7 +115,7 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
       swapped(r)
       if (!busy || r.status.head === r.status.running) return r
       restartAfterAgents()
-      return { ...r, message: t(`새 버전을 받아 두었습니다. 일하는 에이전트 대화 ${busy}개가 끝나면 다시 시작합니다`, `The new version is ready. It restarts once the ${busy} working agent conversation(s) finish`) }
+      return { ...r, message: t(`새 버전을 받아 두었습니다. 일하거나 허락을 기다리는 에이전트 대화 ${busy}개가 끝나면 다시 시작합니다`, `The new version is ready. It restarts once the ${busy} agent conversation(s) that are working or waiting for permission finish`) }
     } catch (e) {
       // 서비스 로그(pnpm service:logs)에 남겨 맥에서 이유를 찾을 수 있게 한다
       console.error(`app update failed: ${(e as Error).message}`)
@@ -152,18 +152,21 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
     if (updating) return { restarting: false, reason: t('업데이트 중입니다', 'Updating') }
     if (inflight > 0 && !force) return { restarting: false, reason: t('처리 중인 일이 있습니다', 'Work is in progress') }
     const busy = force ? 0 : agentsWorking()
-    if (busy) return { restarting: false, reason: t(`일하는 에이전트 대화 ${busy}개가 끝나면 다시 시작합니다`, `Restarts once the ${busy} working agent conversation(s) finish`) }
+    if (busy) return { restarting: false, reason: t(`일하거나 허락을 기다리는 에이전트 대화 ${busy}개가 끝나면 다시 시작합니다`, `Restarts once the ${busy} agent conversation(s) that are working or waiting for permission finish`) }
     const status = await appStatus(repo.root, repo.running)
     if (!status.prepared) return { restarting: false, reason: t('다시 시작할 새 버전이 없습니다', 'No new version to restart into') }
     const restarting = repo.steps.restart()
     if (restarting) stopWaiting()
     return { restarting }
   }
-  /** 일하는 에이전트 대화 수 (차례가 도는 중인 것만. 사용자 답을 기다리는 대화는 다시 켜진 뒤 그대로 이어진다) */
-  function agentsWorking(): number { return ctx.agentChats?.work().chats.filter((c) => c.state === 'running').length ?? 0 }
+  /**
+   * 차례가 도는 중인 에이전트 대화 수. 허락 · 계획 승인 카드를 띄우고 기다리는 대화(waiting)도 센다 (11/20 사용자 결정 "미루자"):
+   * 다시 켜지면 그 카드가 만료되고 대화가 「멈춤」이 되어 끊긴 것처럼 보였다. 줄 선 대화는 지시를 지닌 채 다시 줄을 서므로 세지 않는다
+   */
+  function agentsWorking(): number { return ctx.agentChats?.work().chats.filter((c) => c.state === 'running' || c.state === 'waiting').length ?? 0 }
   /**
    * 에이전트가 모두 쉬기를 기다렸다가 다시 시작한다 (11/19 사용자 결정 "앱에서 에이전트가 동작하면서 앱이 업데이트": 끊지 않고 쉬는 틈에).
-   * 기다리는 동안 창은 「업데이트 대기 중 (일하는 대화 n개 …)」을 보이고 「지금 다시 시작」으로 앞당길 수 있다.
+   * 기다리는 동안 창은 「업데이트 대기 중 (일하거나 허락을 기다리는 대화 n개 …)」을 보이고 「지금 다시 시작」으로 앞당길 수 있다.
    * 차례가 끝나자마자 이어지는 일(중앙 대화를 깨우기 등)이 있어 두 번 잇달아(약 20초) 쉬어야 다시 시작한다. 중앙 대화도 같은 규칙이다.
    */
   let waiting: NodeJS.Timeout | null = null
@@ -186,8 +189,8 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
   app.addHook('onClose', async () => stopWaiting())
   app.post('/api/app/restart', replies(A.AppRestarted), async (req): Promise<A.AppRestarted> => {
     const { force } = parseBody(A.AppRestartBody, req.body)
-    // 「지금 다시 시작」: 일하는 대화를 기다리지 않는다. 돌던 차례는 다시 켜진 뒤 같은 세션으로 이어 간다 (agentChats.ts resumeRestarted)
-    if (!force && agentsWorking()) { restartAfterAgents(); throw new WorkbenchError(409, t(`일하는 에이전트 대화 ${agentsWorking()}개가 끝나면 저절로 다시 시작합니다`, `Restarts by itself once the ${agentsWorking()} working agent conversation(s) finish`)) }
+    // 「지금 다시 시작」: 대화를 기다리지 않는다. 돌던 차례는 다시 켜진 뒤 같은 세션으로 이어 간다 (agentChats.ts resumeRestarted)
+    if (!force && agentsWorking()) { restartAfterAgents(); throw new WorkbenchError(409, t(`일하거나 허락을 기다리는 에이전트 대화 ${agentsWorking()}개가 끝나면 저절로 다시 시작합니다`, `Restarts by itself once the ${agentsWorking()} agent conversation(s) that are working or waiting for permission finish`)) }
     const r = await restartIfReady(force)
     if (!r.restarting) throw new WorkbenchError(409, r.reason ?? t('다시 시작하지 못했습니다', 'Could not restart'))
     return { restarting: true }

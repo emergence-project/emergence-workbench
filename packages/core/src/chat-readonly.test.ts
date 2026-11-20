@@ -43,18 +43,39 @@ describe('git · gh 쓰기 (중앙 대화)', () => {
   const w = { gitWrites: true }
   it('커밋 · 브랜치 · 푸시 · PR · squash 합치기는 묻지 않는다', () => {
     for (const c of [
-      'git add -A && git commit -m "고침"', 'git branch fix-x', 'git branch -d old', 'git push -u origin fix-x', 'git push origin HEAD',
+      'git add -A && git commit -m "고침"', 'git branch fix-x', 'git branch -d old', 'git push -u origin fix-x', 'git push origin HEAD:fix-x', 'git push origin v1 fix-x', 'git push --dry-run',
       'git fetch origin main', 'gh pr create --title t --body b', 'gh pr merge 449 --squash', 'gh pr merge 12 -s --match-head-commit abc',
-      'gh pr comment 3 --body ok', 'git tag v1', 'git log --oneline | head -5', 'git -C /x commit -m x',
+      'git tag v1', 'git log --oneline | head -5', 'git -C /x commit -m x',
     ]) expect(stateOnlyCommand(c, w), c).toBe('ok')
   })
   it('되돌리기 어렵거나 체크아웃 파일을 바꾸는 것은 막는다', () => {
     for (const c of [
+      // main에 바로 올리기 · 받는 가지를 적지 않은 푸시 · PR 코멘트는 묻는다 (11/20)
+      'git push', 'git push origin', 'git push origin HEAD', 'git push origin main', 'git push -u origin HEAD:main', 'git push origin fix:refs/heads/main',
+      'git push origin master', 'git push origin fix main', 'git push origin "refs/heads/*"', 'gh pr comment 3 --body ok',
       'git push --force', 'git push -f origin x', 'git push --force-with-lease', 'git push origin +main', 'git push origin :old', 'git push --delete origin x',
       'git push --mirror', 'git branch -D x', 'git branch -f x', 'git reset --hard', 'git clean -fd', 'git checkout main', 'git switch -c x',
       'git merge origin/main', 'git rebase main', 'git pull', 'git stash', 'git restore a', 'git tag -d v1', 'git fetch --upload-pack=sh',
       'gh pr merge 1', 'gh pr merge 1 --merge', 'gh pr merge 1 --squash --admin', 'gh pr merge 1 --squash -d', 'gh pr create --web',
       'git commit -F - <<EOF', 'npm i', 'rm a', 'echo x > a',
     ]) expect(stateOnlyCommand(c, w), c).toBe('no')
+  })
+})
+
+describe('판정을 빠져나가던 문법 (11/20 보안 검토)', () => {
+  const w = { gitWrites: true }
+  it('\\" 뒤에 숨긴 돌려보내기 · $\'…\' 는 막는다', () => {
+    for (const c of [`echo 'x' \\" > /Users/a/.zshenv \\"`, `echo $'\\'' > /tmp/f $'\\''`, 'cat a\\ b > c', 'ls \; rm -rf x', 'echo "$(echo $(rm x))"']) expect(stateOnlyCommand(c, w), c).toBe('no')
+  })
+  it('\\로 지킨 글자는 그대로 읽는다', () => {
+    for (const c of ['ls My\\ Notes', 'grep "a\\"b" f', 'find . -name \\*.ts', 'echo "$(git log -1 --format=%s $(git rev-parse HEAD))"']) expect(stateOnlyCommand(c, w), c).toBe('ok')
+  })
+  it('붙여 쓴 짧은 옵션으로 파일을 쓰거나 프로그램을 돌리는 것', () => {
+    for (const c of [
+      'sort -o/Users/a/.zshenv x', 'sort -uo out in', 'sort --output=out in', 'tree -oout', 'tree -R -L 2', 'rg --hostname-bin ./x --hyperlink-format default a',
+      'file -C -m magic', 'git ls-remote -u ./x .', 'gh api graphql -F query=@m.graphql',
+      'git config --get a.b --global -e', 'git config --list --file x', 'git config set a.b c', 'git config --get a.b --add c',
+    ]) expect(stateOnlyCommand(c, w), c).toBe('no')
+    for (const c of ['sort -n -k2 x', 'sort -u x | head', 'tree -L 2', 'file a.png', 'git config --get user.name', 'git config get user.name', 'git config --list', 'git ls-remote origin']) expect(stateOnlyCommand(c, w), c).toBe('ok')
   })
 })

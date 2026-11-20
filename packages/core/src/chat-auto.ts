@@ -44,14 +44,24 @@ const GIT_OUTSIDE = new Set(['push', 'clone', 'submodule', 'worktree'])
 /** 내려받아 까는 명령 (꾸러미 관리자의 하위 명령) */
 const INSTALL = /^(install|i|add|remove|uninstall|update|upgrade|publish|link|global)$/
 
-/** 따옴표를 지키며 낱말로 나눈다 (작은 셸 흉내, 해석하지 못하면 거칠게) */
+/**
+ * 따옴표와 \\(다음 글자를 글자 그대로)를 지키며 낱말로 나눈다 (작은 셸 흉내, 해석하지 못하면 거칠게).
+ * \\를 모르면 `echo \\" > 파일 \\"`의 > 가 따옴표 안으로 보여 판정을 빠져나간다 (11/20 보안 검토)
+ */
 export function words(seg: string): string[] {
   const out: string[] = []
   let cur = ''
   let q: string | null = null
   let any = false
-  for (const ch of seg) {
-    if (q) { if (ch === q) q = null; else cur += ch; continue }
+  for (let i = 0; i < seg.length; i++) {
+    const ch = seg[i]!
+    if (q === "'") { if (ch === q) q = null; else cur += ch; continue }
+    if (q) {
+      if (ch === '\\' && /["\\$`]/.test(seg[i + 1] ?? '')) { cur += seg[++i]; continue }
+      if (ch === q) q = null; else cur += ch
+      continue
+    }
+    if (ch === '\\' && i + 1 < seg.length) { cur += seg[++i]; any = true; continue }
     if (ch === '"' || ch === "'") { q = ch; any = true; continue }
     if (/\s/.test(ch)) { if (cur || any) out.push(cur); cur = ''; any = false; continue }
     cur += ch
@@ -60,24 +70,47 @@ export function words(seg: string): string[] {
   return out
 }
 
-/** 명령 줄을 이음표(; && || |, 줄바꿈)로 나눈다. 따옴표 안은 나누지 않는다 */
+/**
+ * 명령 줄을 이음표(; && || | &, 줄바꿈)로 나눈다. 따옴표 안과 \\ 뒤 글자는 나누지 않는다.
+ * 홀로 선 &(뒤에서 돌리기)도 나눈다: `ls & rm -rf x`의 뒤 명령을 놓치지 않게. 2>&1 · &> 의 &는 돌려보내기라 그대로 둔다
+ */
 export function segments(cmd: string): string[] {
   const out: string[] = []
   let cur = ''
   let q: string | null = null
   for (let i = 0; i < cmd.length; i++) {
     const ch = cmd[i]!
-    if (q) { cur += ch; if (ch === q) q = null; continue }
+    if (q) {
+      cur += ch
+      if (q === '"' && ch === '\\' && i + 1 < cmd.length) cur += cmd[++i]
+      else if (ch === q) q = null
+      continue
+    }
+    if (ch === '\\' && i + 1 < cmd.length) { cur += ch + cmd[++i]; continue }
     if (ch === '"' || ch === "'") { q = ch; cur += ch; continue }
-    if (ch === ';' || ch === '\n' || ch === '|' || (ch === '&' && cmd[i + 1] === '&')) {
+    const redirect = ch === '&' && (cmd[i + 1] === '>' || /[<>]$/.test(cur))
+    if (ch === ';' || ch === '\n' || ch === '|' || (ch === '&' && !redirect)) {
       out.push(cur); cur = ''
-      if ((ch === '|' && cmd[i + 1] === '|') || ch === '&') i++
+      if ((ch === '|' || ch === '&') && cmd[i + 1] === ch) i++
       continue
     }
     cur += ch
   }
   out.push(cur)
   return out.map((s) => s.trim()).filter(Boolean)
+}
+
+/** $( … ) · ` … ` 를 안쪽부터 하나씩 꺼내 자리표(SUBST)로 바꾼다. left = 다 풀지 못하고 남았는지 (짝이 안 맞거나 너무 깊다) */
+export function substitutions(cmd: string): { inner: string[]; flat: string; left: boolean } {
+  const inner: string[] = []
+  let flat = cmd
+  for (let n = 0; n < 20; n++) {
+    const m = /\$\(([^()`]*)\)|`([^`]*)`/.exec(flat)
+    if (!m) break
+    inner.push(m[1] ?? m[2] ?? '')
+    flat = `${flat.slice(0, m.index)}SUBST${flat.slice(m.index + m[0].length)}`
+  }
+  return { inner, flat, left: /\$\(|`/.test(flat) }
 }
 
 /**
@@ -87,20 +120,25 @@ export function segments(cmd: string): string[] {
 export function commandKind(cmd: string, o: { cwd: string; inside(abs: string): boolean; home?: string }): ChatKind {
   let worst: ChatKind = 'read'
   const bump = (k: ChatKind) => { if (WEIGHT[k] > WEIGHT[worst]) worst = k }
-  // $( … ) · ` … ` 안의 명령도 본다
-  const inner = [...cmd.matchAll(/\$\(([^()]*)\)|`([^`]*)`/g)].map((m) => m[1] ?? m[2] ?? '')
-  for (const part of inner) bump(commandKind(part, o))
-  for (const seg of segments(cmd)) {
-    // 쓰기 돌려보내기: > 파일 (2>&1 · >/dev/null은 빼고)
-    for (const m of seg.matchAll(/(?:^|[^0-9&<>])>>?\s*([^\s;&|]+)/g)) {
+  // $( … ) · ` … ` 안의 명령도 본다 (겹친 것은 안쪽부터). 다 풀지 못하면 무엇을 돌리는지 모르니 실행으로
+  const sub = substitutions(cmd)
+  for (const part of sub.inner) bump(commandKind(part, o))
+  if (sub.left) bump('run')
+  for (const seg of segments(sub.flat)) {
+    // 쓰기 돌려보내기: > 파일 · 2> 파일 · &> 파일 (2>&1 · >/dev/null은 빼고)
+    for (const m of seg.matchAll(/>>?\|?(?:&(?![\d-]))?\s*([^\s;&|<>]+)/g)) {
       const target = m[1]!
-      if (target === '/dev/null' || target.startsWith('&')) continue
+      if (target === '/dev/null') continue
       bump(touchesOutside(target, o) ? 'outside' : 'edit')
     }
-    let w = words(seg.replace(/\d?>>?\s*\S+/g, ' ').replace(/<\s*\S+/g, ' '))
-    // 앞의 환경 변수 (A=1 cmd)와 시간 재기 같은 앞말
-    while (w.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0]!)) w = w.slice(1)
-    while (w.length && /^(time|nice|nohup|command|builtin|exec)$/.test(w[0]!)) w = w.slice(1)
+    let w = words(seg.replace(/(?:\d|&)?>>?\|?&?\s*[^\s<>]+/g, ' ').replace(/<\s*\S+/g, ' '))
+    // 앞의 환경 변수 (A=1 cmd)와 시간 재기 같은 앞말. env도 뒤 명령을 돌리는 앞말이다 (env sh -c … 가 읽기로 보이지 않게)
+    for (;;) {
+      if (w.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0]!)) w = w.slice(1)
+      else if (w.length && /^(time|nice|nohup|command|builtin|exec)$/.test(w[0]!)) w = w.slice(1)
+      else if (w.length > 1 && w[0]!.split('/').pop() === 'env') { w = w.slice(1); while (w.length && w[0]!.startsWith('-')) w = w.slice(1) }
+      else break
+    }
     if (!w.length) continue
     const prog = w[0]!.split('/').pop()!
     const args = w.slice(1)
@@ -127,14 +165,24 @@ function kindOf(prog: string, args: string[]): ChatKind {
     if (GIT_READ.has(sub)) return 'read'
     return 'run'
   }
-  if (prog === 'sed') return args.some((a) => /^-i/.test(a) || a === '--in-place') ? 'edit' : 'read'
-  // awk의 system() · 파일 쓰기는 실행으로
-  if (prog === 'awk') return args.some((a) => /system\(|print[^|]*>\s*"/.test(a)) ? 'run' : 'read'
+  // 읽는 프로그램이라도 파일을 쓰거나 다른 명령을 돌리는 쓰임은 읽기가 아니다 (11/20 보안 검토)
+  const positional = args.filter((a) => !a.startsWith('-'))
+  const shortHas = (ch: string) => args.some((a) => /^-[a-zA-Z]+/.test(a) && a.slice(1).includes(ch))
+  // sed: -i와 w 명령(파일 쓰기)
+  if (prog === 'sed') return args.some((a) => /^-i/.test(a) || a === '--in-place' || (!a.startsWith('-') && /(^|[;{}/\s])w\s+[^\s;]/.test(a))) ? 'edit' : 'read'
+  // awk의 system() · 명령으로 잇기(| · getline) · 파일 쓰기는 실행으로
+  if (prog === 'awk') return args.some((a) => /system\s*\(|getline|\|\s*"|"\s*\||print[^;}|]*>/.test(a)) ? 'run' : 'read'
   if (prog === 'find') {
     if (args.includes('-delete')) return 'delete'
-    if (args.some((a) => a === '-exec' || a === '-execdir' || a === '-ok')) return 'run'
-    return 'read'
+    if (args.some((a) => /^-(exec|execdir|ok|okdir)$/.test(a))) return 'run'
+    return args.some((a) => /^-(fprint|fprint0|fprintf|fls)$/.test(a)) ? 'edit' : 'read'
   }
+  if (prog === 'sort' && (shortHas('o') || args.some((a) => /^--output(=|$)/.test(a)))) return 'edit'
+  if (prog === 'tree' && args.some((a) => /^-(o|R)/.test(a))) return 'edit'
+  if (prog === 'uniq' && positional.length > 1) return 'edit'
+  if (prog === 'xxd' && shortHas('r')) return 'edit'
+  if (prog === 'yq' && (shortHas('i') || args.some((a) => /^--inplace/.test(a)))) return 'edit'
+  if (prog === 'pdftotext' && positional.length > 0 && positional[positional.length - 1] !== '-' && !args.includes('-')) return 'edit'
   if (prog === 'xargs') return args.length ? kindOf(args.find((a) => !a.startsWith('-')) ?? 'echo', args.slice(1)) : 'read'
   if (READS.has(prog)) return 'read'
   if (EDITS.has(prog)) return 'edit'

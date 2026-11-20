@@ -130,9 +130,18 @@ export function changedSentences(diff: string): string[] {
   return [...new Set(added.filter((x) => !removed.has(x)))].slice(0, 200)
 }
 
-/** 커밋 본문의 요약 줄: 서명 · 링크 · 빈 줄을 빼고 앞의 여섯 줄 */
+/** PR 서식의 머리(Before: · After:)는 화면 말 전 · 후로 */
+const PR_HEAD: Record<string, string> = { before: '전', after: '후' }
+
+/**
+ * 커밋 본문의 요약 줄: 서명 · 링크 · 빈 줄을 빼고 앞의 여섯 줄.
+ * PR 서식의 How: · ## Checks부터는 파일 목록과 검사라 읽지 않는다(11/20: 소개 이력에 영어 머리와 파일 경로가 그대로 보였다).
+ */
 export function summaryLines(body: string): string[] {
-  return body.split('\n').map((l) => l.replace(/^\s*[*-]\s+/, '').trim())
+  const lines = body.split('\n')
+  const end = lines.findIndex((l) => /^\s*(How:?\s*$|##\s)/i.test(l))
+  return (end < 0 ? lines : lines.slice(0, end)).map((l) => l.replace(/^\s*[*-]\s+/, '').trim())
     .filter((l) => l && !/^(Co-Authored-By|Claude-Session|Signed-off-by):/i.test(l) && !/^https?:\/\//.test(l) && !/^🤖|^---+$/.test(l))
+    .map((l) => { const h = /^(Before|After):?$/i.exec(l); return h ? PR_HEAD[h[1]!.toLowerCase()]! : l })
     .slice(0, 6)
 }

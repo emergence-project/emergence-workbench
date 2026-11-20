@@ -260,7 +260,18 @@ describe('앱 업데이트', () => {
     expect(calls).toEqual(['restart'])
     expect((await ub.inject({ method: 'GET', url: '/api/app/status' })).json().status.waitingAgents).toBeUndefined()
     release()
-    await Promise.all([ua.close(), ub.close()])
+    // 허락 카드를 띄우고 기다리는 대화도 기다린다 (11/20): 다시 켜지면 카드가 만료되고 대화가 멈춘다
+    const asking: AgentRunner = async function* (input) { yield { type: 'session', id: 's2' }; await input.canUseTool('Bash', { command: 'python x.py' }); yield { type: 'result', ok: true } }
+    const uc = buildApp({ configDir: path.join(tmp, 'config-web-asking'), appRepo, agentRunner: asking })
+    expect((await uc.inject({ method: 'POST', url: '/api/agent-central/messages', payload: { text: '일해 줘' } })).statusCode).toBe(200)
+    await vi.waitFor(async () => expect((await uc.inject({ method: 'GET', url: '/api/agent-chats' })).json().chats[0].state).toBe('waiting'))
+    calls.length = 0
+    const held = await uc.inject({ method: 'POST', url: '/api/app/restart', payload: {} })
+    expect(held.statusCode).toBe(409)
+    expect(held.json().error).toContain('허락을 기다리는')
+    expect(calls).toEqual([])
+    expect((await uc.inject({ method: 'GET', url: '/api/app/status' })).json().status.waitingAgents).toBe(1)
+    await Promise.all([ua.close(), ub.close(), uc.close()])
   })
 })
 
