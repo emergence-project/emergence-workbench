@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, conceptsApi, figuresApi, type FigureBrief, type LibraryInfo, type RepoInfo } from './api'
 import { PdfFolderSettings } from './PdfFolderSettings'
 import { plural, t } from './i18n'
+import { LibraryLink } from './LibraryLink'
 
 export const LIBRARY_SECTIONS = [
   { id: 'library-folder', label: t('라이브러리 폴더', 'Library folder') },
@@ -48,7 +49,7 @@ export function LibrarySettings({ onSaved, section }: { onSaved(message: string)
         {info?.path ? <ReadOnlyPath label={t('라이브러리 경로', 'Library path')} path={info.path} />
           : <p className="set-desc">{!loaded ? t('라이브러리를 읽는 중…', 'Reading the library…') : info ? t('라이브러리 폴더가 연결되지 않았습니다.', 'No library folder is linked.') : t('라이브러리 경로를 확인할 수 없습니다.', 'Couldn\'t find the library path.')}</p>}
         {info?.path && <p className="set-desc" data-ui="라이브러리 Git 상태">{!loaded ? t('Git 상태를 확인하는 중…', 'Checking Git status…') : <GitState repo={repo} />}</p>}
-        <p className="set-desc" title={t('기본 설정 파일: ~/.config/research-workspace/config.yaml', 'Default settings file: ~/.config/research-workspace/config.yaml')}>{t('경로는 앱 설정 파일 ', 'The path is set in the app settings file ')}<code>config.yaml</code>{t('의 ', ', under ')}<code>library:</code>{t('에서 정합니다.', '.')}</p>
+        <p className="set-desc" title={t('기본 설정 파일: ~/.config/research-workspace/config.yaml', 'Default settings file: ~/.config/research-workspace/config.yaml')}>{t('경로는 ', 'Set the path in ')}<LibraryLink />{t('에서 정합니다. 앱 설정 파일 ', '. It is kept in the app settings file ')}<code>config.yaml</code>{t('의 ', ', under ')}<code>library:</code>{t('에 적힙니다.', '.')}</p>
       </section>
 
       <section id="library-knowledge" data-ui="지식 저장">
