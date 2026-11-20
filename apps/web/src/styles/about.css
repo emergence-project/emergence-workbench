@@ -176,6 +176,9 @@
 /* 절 확인 (11/11 안 C′): 툴바 오른쪽 시계로 이력 보기. 절 머리 오른쪽에 확인 전(주황) · 반영 대기(회색) · 이력 보기에서만 확인함 */
 .about-tools .crumb b { font-weight: var(--fw-medium); }
 .about .sec-head .about-unsure { margin: 0 var(--sp-2) 0 0; }
+/* 누르면 이력이 열린다 (11/20 08:54): 단추로 그리되 모양은 표시 그대로, 올리면 진하게 */
+button.about-unsure, .about-nav-flag[role=button] { cursor: pointer; border: 0; font-family: inherit; }
+button.about-unsure:hover, .about-nav-flag[role=button]:hover { background: color-mix(in srgb, var(--s-blocked) 24%, transparent); }
 .about-pending { flex: none; font-size: var(--fs-xs); font-weight: var(--fw-strong); border-radius: var(--r-pill); padding: 0 7px; background: var(--bg-sunken); color: var(--text-2); white-space: nowrap; }
 .about .sec-head .about-pending { margin-right: var(--sp-2); }
 .about-checked { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--s-solved); white-space: nowrap; margin-right: var(--sp-2); }
