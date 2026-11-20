@@ -1,11 +1,13 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import zlib from 'node:zlib'
 import Fastify from 'fastify'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { serveStatic } from './static.js'
 
 let tmp: string
+const BIG = 'const answer = 42\n'.repeat(400)
 const app = Fastify()
 
 beforeAll(async () => {
@@ -15,6 +17,8 @@ beforeAll(async () => {
   fs.writeFileSync(path.join(dist, 'index.html'), '<html>앱</html>')
   fs.writeFileSync(path.join(dist, 'assets/app-abc.js'), 'console.log(1)')
   fs.writeFileSync(path.join(dist, 'manifest.webmanifest'), '{}')
+  fs.writeFileSync(path.join(dist, 'assets/big-abc.js'), BIG)
+  fs.writeFileSync(path.join(dist, 'assets/pic-abc.png'), BIG)
   fs.writeFileSync(path.join(tmp, 'secret.txt'), 'secret')
   app.get('/api/ok', async () => ({ ok: true }))
   serveStatic(app, dist)
@@ -30,6 +34,21 @@ describe('빌드한 화면 내보내기', () => {
     const js = await app.inject({ url: '/assets/app-abc.js' })
     expect(js.headers['content-type']).toContain('javascript')
     expect(js.headers['cache-control']).toContain('immutable')
+  })
+
+  it('큰 글 파일은 받는 쪽이 받을 수 있을 때만 줄여 보낸다', async () => {
+    const plain = await app.inject({ url: '/assets/big-abc.js' })
+    expect(plain.headers['content-encoding']).toBeUndefined()
+    expect(plain.headers.vary).toBe('accept-encoding')
+    expect(plain.body).toBe(BIG)
+    const zipped = await app.inject({ url: '/assets/big-abc.js', headers: { 'accept-encoding': 'gzip, deflate, br' } })
+    expect(zipped.headers['content-encoding']).toBe('gzip')
+    expect(zipped.headers['cache-control']).toContain('immutable')
+    expect(zipped.rawPayload.length).toBeLessThan(BIG.length / 4)
+    expect(zlib.gunzipSync(zipped.rawPayload).toString()).toBe(BIG)
+    // 작은 파일과 그림은 그대로
+    expect((await app.inject({ url: '/assets/app-abc.js', headers: { 'accept-encoding': 'gzip' } })).headers['content-encoding']).toBeUndefined()
+    expect((await app.inject({ url: '/assets/pic-abc.png', headers: { 'accept-encoding': 'gzip' } })).headers['content-encoding']).toBeUndefined()
   })
 
   it('앱 설치 정보(매니페스트)를 크롬이 알아보는 형식으로 내보낸다', async () => {
