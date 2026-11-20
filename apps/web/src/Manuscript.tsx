@@ -23,7 +23,7 @@ import { HistoryButton, setNoteHistory, useNoteHistory } from './NoteHistory'
 import { NOTE_KIND_LABEL } from './NewNote'
 import { useFileEvents } from './autosave'
 import { useNoteEdit } from './noteEdit'
-import { plural, revealLabel, t } from './i18n'
+import { josa, plural, revealLabel, t } from './i18n'
 import { flash } from './flash'
 
 /** 원고 전체가 한 PDF라 메인 노트마다 세션 하나 */
@@ -125,7 +125,7 @@ function partMenu({ rid, rapi, info, file, row, onShowPdf, onSaved, onChanged, c
 async function commitTitle(rid: string, row: NoteRow | null | undefined, draft: string | null, onSaved: (m: string) => void): Promise<boolean> {
   const name = draft?.replace(/\s+/g, ' ').trim()
   if (!row || !name || name === row.title) return false
-  try { await notesApi(rid).setHead(row.file, { title: name }, row.hash); onSaved(t(`이름을 "${name}"로 바꿨습니다`, `Renamed to "${name}"`)); return true } catch (e) {
+  try { await notesApi(rid).setHead(row.file, { title: name }, row.hash); onSaved(t(`이름을 "${name}"${josa(name, '로')} 바꿨습니다`, `Renamed to "${name}"`)); return true } catch (e) {
     onSaved(e instanceof ConflictError ? t('다른 곳에서 노트 정보가 바뀌어 이름을 바꾸지 않았습니다. 다시 해 주세요.', 'Not renamed: the note info changed elsewhere. Try again.') : (e as Error).message)
     return false
   }
@@ -140,7 +140,7 @@ function ResearchNoteStatus({ row, rapi, onSaved, onChanged }: Pick<PartProps, '
     try {
       await rapi.setNoteMeta(row.ms, { state: NOTE_STATE[status] }, row.hash)
       onChanged?.()
-      onSaved(t(`상태를 ${statusLabel(status)}으로 바꿨습니다`, `Status changed to ${statusLabel(status)}`))
+      onSaved(t(`상태를 ${statusLabel(status)}${josa(statusLabel(status), '로')} 바꿨습니다`, `Status changed to ${statusLabel(status)}`))
     } catch (e) {
       onSaved(e instanceof ConflictError ? t('다른 곳에서 노트 정보가 바뀌어 상태를 바꾸지 않았습니다. 다시 해 주세요.', 'Status not changed: the note info changed elsewhere. Try again.') : (e as Error).message)
     } finally { setBusy(false) }
@@ -340,7 +340,7 @@ function LatexPartTab({ rid, file, info, rapi, summary, onSaved, library, onLibr
           // 10/4 15:41 피드백: 머리와 제목·저자는 노트에 두지 않고 앱이 컴파일·내보내기 때 붙인다
           <div className="banner" data-ui="본문만 남기기 안내">{t('이 노트에 머리(문서 종류·패키지 줄)나 제목·저자 줄이 있습니다. 머리는 LaTeX 서식이, 제목·저자는 네트워킹의 저자 정보가 붙이니 노트에는 본문만 둡니다.', 'This note has a preamble (document class and package lines) or title and author lines. The LaTeX template adds the preamble and Networking adds title and authors, so keep only the body in the note.')}
             <span className="sp" /><button className="btn" data-ui="본문만 남기기" disabled={state !== 'saved'} onClick={() => {
-              rapi.makeBodyOnly(info.key).then((r) => { setStripped(info.key); return load(t(`본문만 남겼습니다 (${[r.removedHead && '머리', r.removedFront > 0 && `제목·저자 줄 ${r.removedFront}개`].filter(Boolean).join(', ')}를 뗐고${r.macros ? `, 정의 ${r.macros}개는 프로젝트 기호 파일로 옮겼습니다` : ''}${r.template ? `, 프로젝트 서식을 "${r.template}"로 정했습니다` : ''}).`,
+              rapi.makeBodyOnly(info.key).then((r) => { setStripped(info.key); return load(t(`본문만 남겼습니다 (${[r.removedHead && '머리', r.removedFront > 0 && `제목·저자 줄 ${r.removedFront}개`].filter(Boolean).join(', ')}를 뗐고${r.macros ? `, 정의 ${r.macros}개는 프로젝트 기호 파일로 옮겼습니다` : ''}${r.template ? `, 프로젝트 서식을 "${r.template}"${josa(r.template, '로')} 정했습니다` : ''}).`,
                 `Kept only the body (removed ${[r.removedHead && 'the preamble', r.removedFront > 0 && plural(r.removedFront, 'title or author line')].filter(Boolean).join(', ')}${r.macros ? `, moved ${plural(r.macros, 'definition')} to the project macros file` : ''}${r.template ? `, set the project template to "${r.template}"` : ''}).`)) })
                 .catch((e: Error) => onSaved(e.message))
             }}>{t('본문만 남기기', 'Keep body only')}</button></div>

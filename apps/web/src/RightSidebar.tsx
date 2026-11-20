@@ -11,7 +11,7 @@ import { headWriterOf, setRightMode, useRightMode, type RightMode } from './note
 import { go, type Route } from './router'
 import { StatusDot } from './StatusDot'
 import { store } from './store'
-import { t } from './i18n'
+import { josa, t } from './i18n'
 import { TerminalPane, useTerminalAvailable } from './TerminalPane'
 
 /**
@@ -135,7 +135,7 @@ function NoteInfoBody({ rid, row, topics, proves = [], projectKind, version, onC
   const descKeys = (e: KeyboardEvent) => { if (desc === null) return; if (e.key === 'Escape') setDesc(null); if (isSendKey(e) && lengthOf(desc) <= LIMITS.description) saveDesc(desc) }
   const titleOfTopic = (id: string) => topics.find((t) => t.id === id)?.title ?? id
   const rest = topics.filter((t) => !row.topics.includes(t.id))
-  const moveUp = (i: number) => { const next = [...row.topics]; [next[i - 1], next[i]] = [next[i]!, next[i - 1]!]; void patch({ topics: next }, i === 1 ? t(`주 주제를 "${titleOfTopic(next[0]!)}"로 바꿨습니다`, `Main topic is now "${titleOfTopic(next[0]!)}"`) : t('주제 순서를 바꿨습니다', 'Changed the topic order')) }
+  const moveUp = (i: number) => { const next = [...row.topics]; [next[i - 1], next[i]] = [next[i]!, next[i - 1]!]; void patch({ topics: next }, i === 1 ? t(`주 주제를 "${titleOfTopic(next[0]!)}"${josa(titleOfTopic(next[0]!), '로')} 바꿨습니다`, `Main topic is now "${titleOfTopic(next[0]!)}"`) : t('주제 순서를 바꿨습니다', 'Changed the topic order')) }
   return (
     <div className="note-info" data-ui="노트 정보">
       <Section label={t('상태', 'Status')} ui="상태">

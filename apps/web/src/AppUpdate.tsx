@@ -3,7 +3,7 @@ import { req, type AppStatus, type WorkbenchEvent } from './api'
 import type { NewRelease } from '@rw/core/contract/app'
 import { anyPending } from './autosave'
 import { go } from './router'
-import { plural, t } from './i18n'
+import { josa, plural, t } from './i18n'
 import { Icon } from './icons'
 
 /** 피드백 처리 상태의 화면 이름 (값은 status.yaml 그대로) */
@@ -255,7 +255,7 @@ export function AppUpdate() {
   const { enabled, status, phase, message, error, failed, bundled, release } = useAppUpdateState()
   useEffect(() => { void checkAppUpdate() }, [])
 
-  if (enabled === false && bundled && release) return <p className="set-desc" data-ui="앱 업데이트 안내"><b>{t(`새 버전 v${release.version}이 있습니다. `, `Version v${release.version} is available. `)}</b><a className="a" href={release.download ?? release.url} target="_blank" rel="noreferrer">{t('설치 파일 받기', 'Download the installer')}</a>{t(' → 받은 파일을 실행하면 바뀝니다(설정과 프로젝트는 그대로).', ' → run it to update (settings and projects stay).')}</p>
+  if (enabled === false && bundled && release) return <p className="set-desc" data-ui="앱 업데이트 안내"><b>{t(`새 버전 v${release.version}${josa(release.version, '이')} 있습니다. `, `Version v${release.version} is available. `)}</b><a className="a" href={release.download ?? release.url} target="_blank" rel="noreferrer">{t('설치 파일 받기', 'Download the installer')}</a>{t(' → 받은 파일을 실행하면 바뀝니다(설정과 프로젝트는 그대로).', ' → run it to update (settings and projects stay).')}</p>
   if (enabled === false && bundled) return <p className="set-desc" data-ui="앱 업데이트 안내">{t('새 버전이 나오면 레일에 알림이 뜹니다. ', 'A notice appears in the left rail when a new version is out. ')}{t('설치 파일로 깐 앱은 스스로 업데이트하지 않습니다. 새 버전은 ', 'An app installed from an installer does not update itself. Download the new version from ')}<a className="a" href={RELEASES} target="_blank" rel="noreferrer">{t('릴리스 쪽', 'the releases page')}</a>{t('에서 설치 파일을 받아 다시 설치합니다(설정과 프로젝트는 그대로).', ' and install it again (settings and projects stay).')}</p>
   if (enabled === false) return <p className="set-desc" data-ui="앱 업데이트 안내">{t('개발용 예제 모드에서는 앱 업데이트를 쓰지 않습니다.', 'App updates are off in sample mode for development.')}</p>
   const pending = status && status.behind === 0 && status.head !== status.running

@@ -6,7 +6,7 @@ import { NOTE_KIND_LABEL } from './NewNote'
 import { go, type Route } from './router'
 import { rank } from './searchMatch'
 import { resultsForQuery, type QueryResults } from './queryResults'
-import { t } from './i18n'
+import { josa, t } from './i18n'
 import { aboutIndex, definitionsFirst } from './aboutSearch'
 
 /** 결과 한 줄 */
@@ -138,7 +138,7 @@ export function SearchOverlay({ rid, onClose }: { rid: string | null; onClose():
         </label>
         <div className="sr-list" id="sr-list" role="listbox" ref={listRef}>
           {catalog === null ? <p className="empty sr-empty">{t('불러오는 중…', 'Loading…')}</p>
-            : !flat.length && concepts.status !== 'pending' && concepts.status !== 'error' ? <p className="empty sr-empty">{q.trim() ? t(`"${q.trim()}"와 맞는 것이 없습니다`, `Nothing matches "${q.trim()}"`) : t('찾을 말을 적으세요', 'Type something to search')}</p>
+            : !flat.length && concepts.status !== 'pending' && concepts.status !== 'error' ? <p className="empty sr-empty">{q.trim() ? t(`"${q.trim()}"${josa(q, '과')} 맞는 것이 없습니다`, `Nothing matches "${q.trim()}"`) : t('찾을 말을 적으세요', 'Type something to search')}</p>
             : groups.map((g) => (
               <div key={g.group} className="sr-group">
                 <div className="sr-head">{GROUP_NAME[g.group]}</div>

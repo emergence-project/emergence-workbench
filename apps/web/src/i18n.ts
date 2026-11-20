@@ -43,12 +43,21 @@ export const openAppLabel = (): string => (onWindows ? t('기본 앱으로 열�
  * 이름 뒤의 목적격 조사: 읽을 때 받침이 있으면 을, 없으면 를 (11/21: "5색 정리"을 지웠습니다 → 를).
  * 한글은 받침으로, 숫자는 읽는 소리로(0 · 1 · 3 · 6 · 7 · 8은 을), 로마자는 l · m · n · ng으로 끝나면 을로 본다. 그 밖은 를
  */
-export const eulReul = (word: string): '을' | '를' => {
-  const last = word.trim().replace(/[\s"'”’)\]]+$/, '').slice(-1)
+/** 읽을 때의 끝소리: 0 받침 없음 · 1 받침 · 2 ㄹ받침 */
+const ending = (word: string): 0 | 1 | 2 => {
+  const w = word.trim().replace(/[\s"'”’」)\]]+$/, '')
+  const last = w.slice(-1)
   const c = last.charCodeAt(0) - 0xac00
-  if (c >= 0 && c < 11172) return c % 28 !== 0 ? '을' : '를'
-  if (/[013678]/.test(last)) return '을'
-  return /[lmn]$|ng$/i.test(word.trim()) ? '을' : '를'
+  if (c >= 0 && c < 11172) return c % 28 === 0 ? 0 : c % 28 === 8 ? 2 : 1
+  if (/[178]/.test(last)) return 2
+  if (/[036]/.test(last)) return 1
+  return /l$/i.test(w) ? 2 : /[mn]$|ng$/i.test(w) ? 1 : 0
+}
+export const eulReul = (word: string): '을' | '를' => (ending(word) ? '을' : '를')
+/** 이름 뒤의 다른 조사도 같은 규칙으로: 이 · 가, 은 · 는, 과 · 와, 으로 · 로(ㄹ받침 뒤는 로) */
+export const josa = (word: string, kind: '이' | '은' | '과' | '로'): string => {
+  const e = ending(word)
+  return kind === '이' ? (e ? '이' : '가') : kind === '은' ? (e ? '은' : '는') : kind === '과' ? (e ? '과' : '와') : e === 1 ? '으로' : '로'
 }
 
 /** English plural helper: `plural(n, 'note')` → "1 note" / "3 notes". */
