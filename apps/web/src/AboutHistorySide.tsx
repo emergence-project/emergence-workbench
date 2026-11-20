@@ -4,7 +4,6 @@ import type { AboutPart } from './aboutContent'
 import { sectionAnchor } from './aboutContent'
 import { checkKey, lastPr, okDate, prsSince, putAboutChecks, useAboutChecks } from './aboutChecks'
 import { aboutChanges, api, setAboutCheck, type AboutChecks } from './api'
-import { askText } from './askText'
 import { t } from './i18n'
 import { Icon } from './icons'
 import { href } from './router'
@@ -63,6 +62,9 @@ function HistoryTable({ part, picked, onPick }: { part: AboutPart; picked: Picke
   const rows = historyRows(part, checks)
   const secs = part.sections ?? []
   const [error, setError] = useState('')
+  // 펼친 고칠 점 칸: 카드 전체(line 없음) 또는 요약의 한 줄. 보낸 것은 이 화면에 남겨 그 줄 아래에 한 줄로 보인다
+  const [draft, setDraft] = useState<FixAt | null>(null)
+  const [sent, setSent] = useState<Record<string, string>>({})
   const on = useRef<HTMLLIElement>(null)
   useEffect(() => { on.current?.scrollIntoView({ block: 'nearest' }) }, [picked?.n, picked?.sec])
   if (!rows.length) return <p className="muted">{t('이 쪽을 고친 업데이트가 아직 없습니다', 'No update has changed this page yet')}</p>
@@ -74,16 +76,20 @@ function HistoryTable({ part, picked, onPick }: { part: AboutPart; picked: Picke
     setError('')
     try { putAboutChecks(await setAboutCheck(left.length ? { key, action: 'ok', pr: r.n } : { key, action: 'check', pr: lastPr(sec) })) } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
   }
-  const answer = async (r: HistoryRow) => {
+  const send = async (r: HistoryRow, at: FixAt, text: string) => {
     const sec = secs[r.sec]!
-    const v = await askText({ title: t(`고칠 점 · #${r.n}`, `To fix · #${r.n}`), label: r.ask ?? t('이 업데이트가 바꾼 것에서 고칠 점', 'What to fix in what this update changed'), multiline: true, ok: t('보내기', 'Send') })
-    if (!v?.trim()) return
+    const quote = at.line
     setError('')
     try {
       await api.addFeedback({
-        kind: '미분류', target: `소개 › ${part.ui ?? part.title} › ${sec.ui ?? sec.title} › 이력`, route: location.hash.slice(1) || undefined, snippet: `#${r.n} ${r.title}`.slice(0, 120),
-        text: `소개 이력의 업데이트 #${r.n}(${r.title})에 답함 (${sec.ui ?? sec.title}).\n\n질문: ${r.ask ?? '이 업데이트가 바꾼 것이 맞는지'}\n\n답: ${v.trim()}`,
+        kind: '미분류', target: `소개 › ${part.ui ?? part.title} › ${sec.ui ?? sec.title} › 이력`, route: location.hash.slice(1) || undefined,
+        snippet: (quote ?? `#${r.n} ${r.title}`).slice(0, 120),
+        text: quote
+          ? `소개 이력의 업데이트 #${r.n}(${r.title})이 바꾼 것 가운데 한 문장에 답함 (${sec.ui ?? sec.title}).\n\n문장: ${quote}\n\n고칠 점: ${text}`
+          : `소개 이력의 업데이트 #${r.n}(${r.title})에 답함 (${sec.ui ?? sec.title}).\n\n질문: ${r.ask ?? '이 업데이트가 바꾼 것이 맞는지'}\n\n답: ${text}`,
       })
+      setSent((m) => ({ ...m, [fixKey(at)]: text }))
+      setDraft(null)
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
   }
   const pick = (r: HistoryRow) => onPick(picked?.n === r.n && picked.sec === r.sec ? null : { n: r.n, sec: r.sec })
@@ -93,6 +99,9 @@ function HistoryTable({ part, picked, onPick }: { part: AboutPart; picked: Picke
       <ol className="about-hist" data-ui="이력 표">
         {rows.map((r) => {
           const open = picked?.n === r.n && picked.sec === r.sec
+          const canFix = checks.enabled && r.ok === undefined
+          const whole: FixAt = { n: r.n, sec: r.sec }
+          const toggle = (at: FixAt) => setDraft(draft && fixKey(draft) === fixKey(at) ? null : at)
           return (
             <li key={`${r.n}-${r.sec}`} ref={open ? on : undefined} className={`about-hist-row${r.todo ? ' todo' : ''}${open ? ' on' : ''}`} data-ui="고친 업데이트" data-ui-item={`#${r.n}`}
               tabIndex={0} aria-expanded={open} onClick={() => pick(r)} onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pick(r) } }}>
@@ -105,13 +114,15 @@ function HistoryTable({ part, picked, onPick }: { part: AboutPart; picked: Picke
                   {r.ok !== undefined ? <span className="about-hist-ok" data-ui="확인함"><i className="mark-ico" aria-hidden>{Icon.check}</i>{t(`확인함 ${shortDate(r.ok)}`, `Reviewed ${shortDate(r.ok)}`)}</span>
                     : checks.enabled && <>
                       <button className="btn sm" data-ui="맞아요" data-tip={t('이 업데이트를 확인함으로', 'Mark this update reviewed')} onClick={() => void confirm(r)}>{Icon.check} {t('맞아요', 'Right')}</button>
-                      <button className="btn sm" data-ui="고칠 점" data-tip={t('이 업데이트에서 고칠 점을 피드백으로', 'Send what to fix in this update as feedback')} onClick={() => void answer(r)}>{Icon.comment} {t('고칠 점', 'To fix')}</button>
+                      <button className="btn sm" data-ui="고칠 점" aria-expanded={draft !== null && fixKey(draft) === fixKey(whole)} data-tip={t('이 업데이트에서 고칠 점을 카드 아래에 적어 피드백으로', 'Write what to fix in this update below the card, sent as feedback')} onClick={() => toggle(whole)}>{Icon.comment} {t('고칠 점', 'To fix')}</button>
                     </>}
                 </span>
               </div>
               <div className="about-hist-what">{r.title}</div>
               {r.ask && <div className="about-hist-ask">{r.ask}</div>}
-              {open && <div className="about-hist-more"><ChangeSummary n={r.n} title={r.title} /></div>}
+              {open && <div className="about-hist-more"><ChangeSummary n={r.n} title={r.title} fix={canFix ? { draft, sent, toggle, send: (at, v) => send(r, at, v), sec: r.sec } : undefined} /></div>}
+              {sent[fixKey(whole)] && <SentLine text={sent[fixKey(whole)]!} />}
+              {draft && fixKey(draft) === fixKey(whole) && <FixBox label={r.ask ?? t('이 업데이트가 바꾼 것에서 고칠 점', 'What to fix in what this update changed')} onSend={(v) => send(r, whole, v)} onClose={() => setDraft(null)} />}
             </li>
           )
         })}
@@ -120,14 +131,79 @@ function HistoryTable({ part, picked, onPick }: { part: AboutPart; picked: Picke
   )
 }
 
-/** 줄 아래에 펼치는 것: 업데이트 제목 전문과 커밋에 적은 바꾼 것 요약 */
-function ChangeSummary({ n, title }: { n: number; title: string }) {
+/** 고칠 점을 적는 자리: 카드 전체(line 없음) 또는 바뀐 것 요약의 한 문장 */
+interface FixAt { n: number; sec: number; line?: string }
+const fixKey = (a: FixAt) => `${a.n}-${a.sec}-${a.line ?? ''}`
+interface FixProps { draft: FixAt | null; sent: Record<string, string>; toggle(at: FixAt): void; send(at: FixAt, text: string): Promise<void>; sec: number }
+
+/**
+ * 창 대신 그 자리 바로 아래에 펼치는 고칠 점 칸 (11/20 피드백 「문장 단위로 … 바로 아래에 펼쳐지면서」, 시안 about-hist-inline-comment).
+ * ⌘↵ 보내기 · Esc 닫기. 카드를 누르면 접히므로 칸 안의 누름은 카드로 올리지 않는다.
+ */
+function FixBox({ quote, label, onSend, onClose }: { quote?: string; label: string; onSend(v: string): Promise<void>; onClose(): void }) {
+  const [v, setV] = useState('')
+  const [busy, setBusy] = useState(false)
+  const go = async () => { if (!v.trim() || busy) return; setBusy(true); try { await onSend(v.trim()) } finally { setBusy(false) } }
+  return (
+    <div className="about-hist-box" data-ui="고칠 점 칸" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+      {quote && <div className="about-hist-quote">{quote}</div>}
+      <textarea rows={2} autoFocus aria-label={label} placeholder={quote ? t('이 문장에서 고칠 점', 'What to fix in this sentence') : label} value={v} onChange={(e) => setV(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void go() }
+          else if (e.key === 'Escape') { e.preventDefault(); onClose() }
+        }} />
+      <div className="about-hist-box-bar">
+        <span className="muted">{t('⌘↵ 보내기 · Esc 닫기', '⌘↵ send · Esc close')}</span>
+        <span className="sp" />
+        <button className="btn sm" onClick={onClose}>{t('취소', 'Cancel')}</button>
+        <button className="btn sm primary" disabled={!v.trim() || busy} onClick={() => void go()}>{t('보내기', 'Send')}</button>
+      </div>
+    </div>
+  )
+}
+
+const SentLine = ({ text }: { text: string }) => <div className="about-hist-sent" data-ui="보낸 고칠 점">{t('고칠 점 보냄', 'Sent')} · {text}</div>
+
+/** 요약의 머리 줄 (커밋 본문의 전 · 후, 서버가 Before · After를 바꿔 둔다): 목록 줄이 아니라 작은 머리말로 */
+const isHead = (l: string) => l === '전' || l === '후'
+
+/** 줄 아래에 펼치는 것: 커밋에 적은 바꾼 것 요약. 확인하지 않은 업데이트면 줄마다 💬로 그 문장 바로 아래에 고칠 점을 적는다 */
+function ChangeSummary({ n, title, fix }: { n: number; title: string; fix?: FixProps }) {
   const q = useAboutChanges(n)
   const lines = (q.data?.summary ?? []).filter((l) => !l.endsWith(title) && !title.endsWith(l))
+  // 머리말(전 · 후)마다 목록을 끊는다
+  const groups: { head?: string; items: string[] }[] = []
+  for (const l of lines) {
+    if (isHead(l)) groups.push({ head: l, items: [] })
+    else {
+      if (!groups.length) groups.push({ items: [] })
+      groups.at(-1)!.items.push(l)
+    }
+  }
   return (
     <div data-ui="바뀐 것 요약">
       {/* 제목 전문은 펼친 줄의 「바뀐 것」 칸에 보이므로 요약에서는 같은 줄을 뺀다 */}
-      {lines.length ? <ul>{lines.map((l, i) => <li key={i}>{l}</li>)}</ul> : null}
+      {groups.map((g, gi) => (
+        <div key={gi}>
+          {g.head && <div className="about-hist-head">{g.head === '전' ? t('전', 'Before') : t('후', 'After')}</div>}
+          {g.items.length > 0 && <ul>{g.items.map((l, i) => {
+            const at: FixAt = { n, sec: fix?.sec ?? 0, line: l }
+            const k = fixKey(at)
+            const editing = fix?.draft && fixKey(fix.draft) === k
+            return (
+              <li key={i} className={`${fix ? 'fixable' : ''}${editing ? ' on' : ''}${fix?.sent[k] ? ' sent' : ''}`}>
+                <span className="about-hist-line">
+                  {l}
+                  {fix && <button className="about-hist-c" data-ui="문장 고칠 점" aria-label={t('이 문장에서 고칠 점', 'What to fix in this sentence')} data-tip={t('이 문장에서 고칠 점', 'What to fix in this sentence')}
+                    aria-expanded={!!editing} onClick={(e) => { e.stopPropagation(); fix.toggle(at) }}>{Icon.comment}</button>}
+                </span>
+                {fix?.sent[k] && <SentLine text={fix.sent[k]!} />}
+                {editing && <FixBox quote={l} label={t('이 문장에서 고칠 점', 'What to fix in this sentence')} onSend={(v) => fix.send(at, v)} onClose={() => fix.toggle(at)} />}
+              </li>
+            )
+          })}</ul>}
+        </div>
+      ))}
       {q.data && !q.data.sentences.length && <p className="muted">{t('이 업데이트는 소개 글의 문장을 바꾸지 않았습니다 (그림 · 표 모양 · 업데이트 번호만)', 'This update did not change sentences of the text (only figures, table shape or update numbers)')}</p>}
     </div>
   )
