@@ -165,6 +165,9 @@
   "답을 기다리는 것": "Waiting for your answer",
   "답하기": "Reply",
   "고칠 점": "To fix",
+  "고칠 점 칸": "To fix box",
+  "문장 고칠 점": "Sentence to fix",
+  "보낸 고칠 점": "Sent to fix",
   "더 보기 메뉴": "More menu",
   "더 보기 항목": "More menu item",
   "되돌리기 버튼": "Undo button",
@@ -822,6 +825,7 @@
   "에이전트에게 맡기기": "Hand to agent",
   "앱 피드백": "App feedback",
   "피드백 맡기기": "Feedback hand-off",
+  "피드백 처리 서버": "Feedback handling server",
   "피드백 합치기": "Feedback merge",
   "바로 맡기기": "Right-away hand-off",
   "피드백 한도": "Feedback time limit",
@@ -1203,5 +1207,6 @@
   "판정 기록 줄": "Debate log row",
   "뒤집힘 지우기": "Clear flipped",
   "뒤집힘 표시": "Mark flipped",
-  "판정 기록 펼치기": "Show all debates"
+  "판정 기록 펼치기": "Show all debates",
+  "다른 앱 수정": "Fix another app"
 }

@@ -61,7 +61,7 @@ import { registerAgentChats } from './routes/agentChats.js'
 import { registerAgentHooks } from './routes/agentHooks.js'
 import { registerTerminal } from './routes/terminal.js'
 import type { AgentRunner } from './agentChats.js'
-import { appWorktrees, type AppWork } from './appWorktree.js'
+import { appWorktrees, otherApps, type AppWork } from './appWorktree.js'
 import { registerCommonRules } from './routes/commonRules.js'
 import { allowedRequest, extraHosts, fileResponseHeaders } from './hostGuard.js'
 import { phoneRequestOk, samplePhone, tailscalePhone, type Phone } from './phone.js'
@@ -121,6 +121,8 @@ export interface AppOptions {
   agentRunner?: AgentRunner
   /** 앱 고치기 대화의 작업 폴더와 PR (없으면 appRepo로 만든다. 예제 모드 · 테스트는 sampleAppWork) */
   agentApp?: AppWork
+  /** 앱 고치기 대화가 고칠 다른 앱 (없으면 앱 저장소 옆 폴더에서 찾는다. 테스트는 sampleAppWork) */
+  agentApps?: Record<string, AppWork>
   /** PDF 질문에 답할 Claude (기본: 맥의 `claude -p`, 테스트에서 바꿈) */
   ask?: AskRunner
   /** false면 에이전트 저장을 에이전트 이름으로 커밋해 올리지 않는다 (agentCommit.ts, 테스트) */
@@ -404,7 +406,11 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerAgentEdits(app, ctx)
   registerAgentMockups(app, path.join(opts.configDir, 'agent-worktrees'))
   // 앱 고치기 · 피드백 맡기기는 관리자 앱(피드백을 직접 받는 앱)에서만: 중계 서버로 보내는 앱은 앱 저장소가 있어도 끈다 (11/13)
-  registerAgentChats(app, ctx, opts.agentRunner, opts.agentApp ?? (opts.appRepo && !opts.feedbackRelay ? appWorktrees(opts.appRepo.root, path.join(opts.configDir, 'agent-worktrees'), opts.personalDir ? path.join(opts.personalDir, 'CLAUDE.md') : undefined) : undefined))
+  // 다른 앱 (11/20): 앱 저장소 옆에 받아 둔 앱도 앱 고치기 대화로 고친다 (appWorktree.ts otherApps)
+  const otherWork = opts.agentApps ?? (opts.appRepo && !opts.feedbackRelay && !opts.agentApp
+    ? Object.fromEntries(otherApps(opts.appRepo.root).map((a) => [a.id, appWorktrees(a.root, path.join(opts.configDir, 'agent-worktrees'), undefined, a)]))
+    : undefined)
+  registerAgentChats(app, ctx, opts.agentRunner, opts.agentApp ?? (opts.appRepo && !opts.feedbackRelay ? appWorktrees(opts.appRepo.root, path.join(opts.configDir, 'agent-worktrees'), opts.personalDir ? path.join(opts.personalDir, 'CLAUDE.md') : undefined) : undefined), otherWork)
   registerAgentHooks(app, ctx)
   registerTerminal(app, ctx)
   registerGoogle(app, ctx, opts.google ?? new Google(opts.configDir))

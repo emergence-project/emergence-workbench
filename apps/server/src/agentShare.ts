@@ -8,12 +8,16 @@
  * - 이어 하기: 「이 맥에서 이어 하기」를 누르면 같은 프로젝트 · 범위 · 설정으로 이 컴퓨터의 새 대화를 만들고 앞 줄을 그대로 옮긴다.
  *   Claude 세션 파일은 옮기지 않는다(컴퓨터마다 경로가 다르고 크다): 첫 지시에 앞 대화의 요약(carryText)을 붙여 넘긴다.
  *   같은 대화를 두 번 이어 오면 처음 만든 대화를 연다.
+ * - 보관 요청 (11/20 사용자 "대화를 여는 권한도 있으니 닫을 권한도"): 중앙의 chat_archive가 다른 컴퓨터의 대화를 고르면 이 컴퓨터는 바꿀 수 없으니
+ *   요청을 _chats/<이 컴퓨터>/_archive.json으로 올린다. 대상 컴퓨터는 맞추기 뒤 자기 앞으로 온 요청을 읽어, 그 대화가 일하는 중이 아니고
+ *   요청 뒤에 다시 쓰지 않았으면 보관한다(applyArchiveAsks). 요청은 대상이 보관됐거나 · 요청 뒤에 다시 쓰였거나 · 없어지면 다음 올리기에서 빠진다.
+ *   끝난 대화 복구(chat_unarchive, 11/20 사용자 "종료된 대화를 복구하는 것도")는 같은 길로 undo 요청을 보낸다. 지우기는 중앙에게 없다(사용자만).
  */
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import zlib from 'node:zlib'
-import { ChatItem, ChatRow, type Chat } from '@rw/core/contract/agentChats'
+import { CENTRAL_RID, ChatItem, ChatRow, type CentralArchived, type Chat } from '@rw/core/contract/agentChats'
 import { AgentChats, LIVE, rowOf, type Stored } from './agentChats.js'
 import { packFile } from './agentTidy.js'
 import { machineName } from './backup.js'
@@ -23,7 +27,13 @@ import { WorkbenchError } from './workbench.js'
 /** 개인 저장소 안 대화 폴더 */
 export const SHARE_ROOT = '_chats'
 /** 다른 컴퓨터의 대화 하나 */
-export interface ForeignChat { machine: string; row: ChatRow; items: ChatItem[] }
+export interface ForeignChat { machine: string; row: ChatRow; items: ChatItem[]; /** 그 컴퓨터에서 보관했는가 (row.archived는 여기서 늘 true) */ archived: boolean }
+/** 다른 컴퓨터에 보내는 보관 요청 (중앙의 chat_archive). machine = 그 대화가 있는 컴퓨터, undo = 보관함에서 꺼내기 (chat_unarchive) */
+export interface ArchiveAsk { machine: string; id: string; title: string; reason: string; at: string; undo?: boolean }
+/** _chats/<컴퓨터>/ 안 보관 요청 파일 이름 (대화 파일과 섞이지 않게 _로 시작) */
+export const ARCHIVE_ASKS = '_archive'
+/** 이 컴퓨터가 보낸 보관 요청을 두는 파일 (대화 폴더 안. .json으로 끝나지 않아 대화로 읽히지 않는다) */
+const ASKS_FILE = 'archive-asks.jsonl'
 /** 이어 올 때 첫 지시에 붙이는 앞 대화의 길이 (글자) */
 export const CARRY_MAX = 12_000
 
@@ -58,7 +68,7 @@ export function otherMachineChats(dir: string | undefined, machine = machineName
   const out: ForeignChat[] = []
   for (const m of names) {
     let files: string[] = []
-    try { files = fs.readdirSync(path.join(root, m)).filter((f) => f.endsWith('.json')) } catch { continue }
+    try { files = fs.readdirSync(path.join(root, m)).filter((f) => f.endsWith('.json') && !f.startsWith('_')) } catch { continue }
     for (const f of files) {
       const file = path.join(root, m, f)
       let mtime = 0
@@ -82,7 +92,7 @@ function readForeign(file: string, machine: string): ForeignChat | null {
   const items = Array.isArray(raw.items) ? raw.items.flatMap((x) => { const r = ChatItem.safeParse(x); return r.success ? [r.data] : [] }) : []
   // 이 컴퓨터에서는 돌지 않는다: 보관함에서 읽기만 (상태는 끝남으로, 잡은 파일 · 차례 표시 · 수정 검토로 가는 고친 파일 목록은 뺀다)
   const { live: _l, tasks: _t, compacting: _c, draft: _d, queue: _q, since: _s, wait: _w, ...rest } = row.data
-  return { machine, row: { ...rest, state: 'idle', claims: [], changed: [], archived: true, machine }, items }
+  return { machine, row: { ...rest, state: 'idle', claims: [], changed: [], archived: true, machine }, items, archived: row.data.archived }
 }
 
 /** 앞 대화를 이어 받는 첫 지시 머리 (줄이 길면 앞을 자른다) */
@@ -95,6 +105,12 @@ export function carryText(f: ForeignChat): string {
     body,
     '[End of the earlier conversation. The new message follows.]',
   ].join('\n\n')
+}
+
+function isAsk(x: unknown): x is ArchiveAsk {
+  if (!x || typeof x !== 'object') return false
+  const o = Object.fromEntries(Object.entries(x))
+  return ['machine', 'id', 'title', 'reason', 'at'].every((k) => typeof o[k] === 'string') && (o.undo === undefined || typeof o.undo === 'boolean')
 }
 
 /** 다른 컴퓨터에서 이어 온 대화의 원래 대화 */
@@ -116,7 +132,80 @@ export class SharedChats extends AgentChats {
       const row = rowOf(c)
       out[c.id] = JSON.stringify({ row: { ...row, state: LIVE.has(row.state) ? 'idle' : row.state }, items: shareItems(itemsOf(this.deps.dir, c)) })
     }
+    const asks = this.pendingAsks()
+    if (asks.length) out[ARCHIVE_ASKS] = JSON.stringify(asks)
     return out
+  }
+
+  /** 이 컴퓨터가 보낸 보관 요청 가운데 아직 적용되지 않은 것 (적용됐거나 · 요청 뒤에 다시 쓰였거나 · 대화가 없어진 것은 버린다) */
+  private pendingAsks(): ArchiveAsk[] {
+    const file = path.join(this.deps.dir, ASKS_FILE)
+    let all: ArchiveAsk[] = []
+    try { all = fs.readFileSync(file, 'utf8').split('\n').flatMap((l) => { try { const x: unknown = JSON.parse(l); return isAsk(x) ? [x] : [] } catch { return [] } }) } catch { return [] }
+    const foreign = new Map(otherMachineChats(this.shareDir).map((f) => [`${f.machine}/${f.row.id}`, f]))
+    const keep = all.filter((a) => { const f = foreign.get(`${a.machine}/${a.id}`); return !!f && f.archived === !!a.undo && f.row.updated <= a.at })
+    if (keep.length !== all.length) fs.writeFileSync(file, keep.map((a) => JSON.stringify(a)).join('\n'))
+    return keep
+  }
+
+  /**
+   * 하위 대화가 아닌 대화를 보관한다 (중앙의 chat_archive), undo면 보관함에서 꺼낸다 (chat_unarchive). 이 컴퓨터의 대화는 바로, 다른 컴퓨터의 대화는 요청으로.
+   * 일하는 중 · 이미 그 상태인 대화는 거절한다. 지우지 않는다(지우기는 사용자만)
+   */
+  archiveOrAsk(id: string, reason: string, undo = false): CentralArchived {
+    const c = this.chats.get(id)
+    if (c?.rid === CENTRAL_RID) throw new WorkbenchError(400, t('중앙 대화는 이렇게 보관하거나 꺼내지 않습니다', 'The central conversation is not archived or restored this way'))
+    const out = c ? this.archiveHere(c, undo) : this.askArchive(id, reason, undo)
+    const central = [...this.chats.values()].filter((x) => x.rid === CENTRAL_RID && !x.archived).sort((a, b) => b.updated.localeCompare(a.updated))[0]
+    const where = out.machine ? t(` (${out.machine}, 다음 맞추기 때)`, ` (${out.machine}, at its next sync)`) : ''
+    const [ko, en] = undo ? ['복구', 'restored'] : ['보관', 'archived']
+    central?.items.push({ kind: 'text', at: new Date().toISOString(), text: t(`자동: ${ko} · ${out.title}${where} · ${reason.trim()}`, `Automatic: ${en} · ${out.title}${where} · ${reason.trim()}`) })
+    if (central) this.touch(central)
+    return out
+  }
+
+  private archiveHere(c: Stored, undo: boolean): CentralArchived {
+    if (!undo && c.archived) throw new WorkbenchError(409, t('이미 보관함에 있습니다', 'Already archived'))
+    if (undo && !c.archived) throw new WorkbenchError(409, t('보관함에 없습니다', 'Not archived'))
+    if (LIVE.has(c.state)) throw new WorkbenchError(409, t('일하는 중이라 보관하지 않습니다. 끝나기를 기다리세요', 'Still working; wait until it finishes before archiving'))
+    this.archive(c.id, !undo)
+    return { id: c.id, title: c.title }
+  }
+
+  private askArchive(id: string, reason: string, undo: boolean): CentralArchived {
+    const f = this.foreign(id)
+    if (!f) throw new WorkbenchError(404, t('그런 대화가 없습니다', 'No such conversation'))
+    if (!undo && f.archived) throw new WorkbenchError(409, t(`${f.machine}에서 이미 보관했습니다`, `Already archived on ${f.machine}`))
+    if (undo && !f.archived) throw new WorkbenchError(409, t(`${f.machine}에서 보관함에 있지 않습니다`, `Not archived on ${f.machine}`))
+    if (this.pendingAsks().some((x) => x.id === id)) throw new WorkbenchError(409, t(`이미 ${f.machine}에 청했습니다. 다음 맞추기를 기다리세요`, `Already asked of ${f.machine}; wait for its next sync`))
+    const ask: ArchiveAsk = { machine: f.machine, id, title: f.row.title, reason: reason.trim().slice(0, 300), at: new Date().toISOString(), ...(undo && { undo: true }) }
+    fs.appendFileSync(path.join(this.deps.dir, ASKS_FILE), `\n${JSON.stringify(ask)}`)
+    return { id, title: f.row.title, machine: f.machine }
+  }
+
+  /**
+   * 맞추기 뒤: 다른 컴퓨터가 이 컴퓨터 앞으로 올린 보관 · 꺼내기 요청을 적용한다 (routes/backup.ts).
+   * 그 대화가 일하는 중이거나 · 요청 뒤에 다시 쓰였거나(이 컴퓨터에서 다시 열어 이어 함) · 이미 그 상태면 두지 않는다. 바꾼 대화 id를 돌려준다
+   */
+  applyArchiveAsks(machine = machineName()): string[] {
+    if (!this.shareDir) return []
+    const root = path.join(this.shareDir, SHARE_ROOT)
+    let dirs: string[] = []
+    try { dirs = fs.readdirSync(root).filter((d) => d !== machine) } catch { return [] }
+    const done: string[] = []
+    for (const d of dirs) {
+      let asks: unknown
+      try { asks = JSON.parse(fs.readFileSync(path.join(root, d, `${ARCHIVE_ASKS}.json`), 'utf8')) } catch { continue }
+      for (const a of Array.isArray(asks) ? asks.filter(isAsk) : []) {
+        const c = this.chats.get(a.id)
+        if (a.machine !== machine || !c || c.archived === !a.undo || LIVE.has(c.state) || c.updated > a.at) continue
+        const text = a.undo ? t(`자동: ${d}의 중앙이 보관함에서 꺼냈습니다 · ${a.reason}`, `Automatic: restored from the archive by the central conversation on ${d} · ${a.reason}`) : t(`자동: ${d}의 중앙이 보관함에 넣었습니다 · ${a.reason}`, `Automatic: archived by the central conversation on ${d} · ${a.reason}`)
+        c.items.push({ kind: 'text', at: new Date().toISOString(), text })
+        this.archive(a.id, !a.undo)
+        done.push(a.id)
+      }
+    }
+    return done
   }
 
   /** 이 컴퓨터의 대화와 다른 컴퓨터의 대화 (화면의 목록) */

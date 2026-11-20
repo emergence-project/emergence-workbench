@@ -1,10 +1,12 @@
 // 상단바 알림 종 (11/20 시안 4절 안 B "알림 아이콘을 두고, 최근 알림을 모아보는게 어떨까?"):
 // 제목줄의 「#n 반영됨」 글자 대신 종 하나와 읽지 않은 수. 누르면 지난 7일의 알림을 시간순으로 본다:
 // 반영됨(합친 PR이 지금 앱에 들어옴) · 에이전트(내 차례인 대화) · 피드백(내 차례) · 오류(아래에 떴던 실패 알림)
+// 에이전트 알림은 레일의 에이전트 수와 같은 대화를 센다: 허락 · 계획을 기다리거나 오류로 멈춘 대화와, 끝났는데 아직 열어 보지 않은 대화 (11/20 피드백 23:27)
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, type ChatRow, type FeedbackItem } from './api'
 import { useChatList, stateName } from './AgentChats'
+import { isUnseen, useSeen } from './agentSeen'
 import { feedbackBucket } from './feedbackBuckets'
 import { feedbackSummary } from './feedbackFormat'
 import { t } from './i18n'
@@ -25,12 +27,12 @@ const OLD_SHIPPED_SEEN = 'rw-feedback-shipped-seen'
 const WEEK = 7 * 24 * 3600_000
 const FIRST = 8
 
-/** 알림 목록 (새것이 위). 순수 함수: 테스트에서 부른다 */
-export function noticesOf(chats: ChatRow[], feedback: FeedbackItem[], errors: { at: string; text: string }[], now = Date.now()): Notice[] {
+/** 알림 목록 (새것이 위). 순수 함수: 테스트에서 부른다. unseen = 끝났는데 아직 열어 보지 않은 대화인가 (agentSeen) */
+export function noticesOf(chats: ChatRow[], feedback: FeedbackItem[], errors: { at: string; text: string }[], now = Date.now(), unseen: (c: ChatRow) => boolean = () => false): Notice[] {
   const out: Notice[] = []
   for (const c of chats) {
     if (c.shipped && c.pr) out.push({ key: `shipped:${c.id}`, kind: 'shipped', at: c.updated, text: `#${c.pr.number} ${c.title}`, open: () => go({ page: 'feedback', ...(c.feedback && { key: c.feedback }) }) })
-    else if (!c.archived && (c.state === 'waiting' || c.state === 'error')) out.push({ key: `agent:${c.id}:${c.updated}`, kind: 'agent', at: c.updated, text: `「${c.title}」 ${stateName(c)}`, open: () => go({ page: 'agent', id: c.id }) })
+    else if (!c.archived && (c.state === 'waiting' || c.state === 'error' || unseen(c))) out.push({ key: `agent:${c.id}:${c.updated}`, kind: 'agent', at: c.updated, text: `「${c.title}」 ${c.state === 'idle' ? t('종료 · 아직 열어 보지 않음', 'Done · not opened yet') : stateName(c)}`, open: () => go({ page: 'agent', id: c.id }) })
   }
   for (const e of feedback) {
     if (feedbackBucket(e, now) !== '확인 필요') continue
@@ -58,8 +60,10 @@ export function NoticeBell() {
   const [more, setMore] = useState(false)
   const box = useRef<HTMLSpanElement>(null)
   useDismiss(open, box, () => setOpen(false))
+  // 대화를 열어 보면(본 기록이 바뀌면) 그 알림이 빠진다
+  const agentSeen = useSeen()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const list = useMemo(() => noticesOf(chats ?? [], fb ?? [], store.get(ERRORS, [])), [chats, fb, errorsTick])
+  const list = useMemo(() => noticesOf(chats ?? [], fb ?? [], store.get(ERRORS, []), Date.now(), isUnseen), [chats, fb, errorsTick, agentSeen])
   const unread = list.filter((n) => !seen.includes(n.key))
   const mark = (keys: string[]) => { const next = [...new Set([...seen, ...keys])].slice(-400); store.set(SEEN, next); setSeen(next) }
   const shown = more ? list : list.slice(0, FIRST)

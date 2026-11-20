@@ -1,6 +1,6 @@
 import { QueryClient } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { batchInvalidation, invalidationKeys, qk } from './queries'
+import { batchInvalidation, invalidationKeys, qk, slowInvalidationKeys } from './queries'
 
 describe('파일 알림 → 다시 받을 자료', () => {
   it('알림이 바꾸는 자료만 고른다 (일지 한 줄에 프로젝트 자료 전체를 다시 받지 않는다)', () => {
@@ -29,6 +29,10 @@ describe('파일 알림 → 다시 받을 자료', () => {
     // 기록 올리기 결과가 바뀌면(실패가 생기거나 풀림) 그 결과와 안 올린 기록 (기록 탭 맨 위 줄 · 실패 알림 · 맥락 칸 올리기)
     expect(invalidationKeys({ type: 'records-publish', research: 'p' })).toEqual([qk.recordsPublish('p'), qk.status('p'), qk.changes('p')])
     expect(invalidationKeys({ type: 'agent-chat', research: 'p', id: 'c1' })).toEqual([qk.agentChatLists, qk.agentChat('c1'), qk.agentWork])
+    // 앱 고치기 대화의 알림은 피드백을 바로 다시 받지 않고 느린 쪽(15초 모음)으로: 대화 열기가 큰 피드백 요청 뒤에 줄 서지 않게
+    expect(invalidationKeys({ type: 'agent-chat', research: '_app', id: 'c1' })).toEqual([qk.agentChatLists, qk.agentChat('c1'), qk.agentWork])
+    expect(slowInvalidationKeys({ type: 'agent-chat', research: '_app', id: 'c1' })).toEqual([qk.feedback])
+    expect(slowInvalidationKeys({ type: 'agent-chat', research: 'p', id: 'c1' })).toEqual([])
     expect(qk.recordsUnpublished('p').slice(0, 3)).toEqual([...qk.recordsPublish('p')])
     expect(qk.status('p').slice(0, 2)).toEqual([...qk.project('p')])
     expect(qk.tasks('p').slice(0, 2)).toEqual([...qk.project('p')])

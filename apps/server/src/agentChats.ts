@@ -16,79 +16,18 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { APP_RID, CENTRAL_RID, startModel } from '@rw/core/contract/agentChats'
 import type { AppChecks, AppSubmitBody, AppSubmitted, AskAnswer, Attach, CentralOpenBody, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
-import type { AppWork, Snap } from './appWorktree.js'
+import { appEnv, notStarted, type AppWork, type Snap } from './appWorktree.js'
+export { appEnv } from './appWorktree.js'
 import { autoCustom, autoOf, type AgentSettings } from '@rw/core'
 import { HERE, t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
 import { FRESH_MS } from './appMemory.js'
 import { accountEnv, accountForNew, switchAccount, type AccountBook } from './claudeAccounts.js'
 
-// ---------- 에이전트 실행기 (실제는 agentRunner.ts의 Claude Agent SDK, 테스트는 가짜) ----------
-
-export type ToolDecision = { allow: true } | { allow: false; message: string }
-
-export interface RunInput {
-  prompt: string
-  /** 붙여 넣은 그림 (이번 지시에만) */
-  images?: ImageIn[]
-  /** plan이면 계획을 승인할 때까지 SDK의 계획 모드로 시작한다 */
-  mode: ChatMode
-  model: ChatModel
-  effort: ChatEffort
-  /** 이어서 지시할 때: 앞 차례의 세션 */
-  sessionId?: string
-  cwd: string
-  /** 읽어도 묻지 않는 폴더 (공용 라이브러리) */
-  extraDirs: string[]
-  /** 대화를 열 때 주는 짧은 안내 (범위 · 단계 · 다른 대화가 잡은 파일) */
-  brief: string
-  write: ChatWrite
-  /** 앱 고치기 대화: 그 대화 id (앱 MCP에 app_submit · app_checks를 붙이고, 파일 고치기 도구와 명령을 연다). central = 중앙 대화 (chat_* 도구). chat = 중앙이 아닌 대화의 id (central_help로 중앙에게 중재를 청한다, 11/19) */
-  appChat?: string; central?: boolean; chat?: string
-  /** 에이전트 프로세스에 더할 환경 변수 (앱 고치기 대화: 화면 그림 포트 등) */
-  env?: Record<string, string>
-  /**
-   * 이어서 보낼 지시 (Claude Code처럼 차례가 끝나도 에이전트를 열어 둔다). 실행기는 첫 지시 뒤 여기서 오는 지시를 그대로 넘기고,
-   * 닫히면(앱이 오래 쉬거나 설정이 바뀜) 하던 차례를 끝낸 뒤 끝난다. 읽지 않고 끝내는 실행기(예제 · 시험)면 남은 지시를 앱이 다음 실행에 넘긴다
-   */
-  inbox?: Inbox<Turn>
-  /** 되돌리기 뒤: sessionId의 이 메시지까지만 이어 새 세션으로 가른다 (그 뒤 대화는 버린다) */
-  resumeAt?: string
-  /** 실행기가 하던 차례만 끊는 손잡이를 넘긴다 (Claude Code의 Esc). true = 끊겼고 기다리는 지시도 없음 */
-  /** unread = 실행기가 가져갔지만 에이전트가 아직 읽지 않은 지시 (닫힐 때 「다음에 보냄」으로 되돌린다) */ control?: (c: { interrupt(): Promise<boolean>; unread?: () => Turn[] }) => void
-  canUseTool: (tool: string, input: Record<string, unknown>) => Promise<ToolDecision>
-  signal: AbortSignal
-}
-
-export type RunEvent =
-  | { type: 'session'; id: string }
-  | { type: 'text'; text: string; sub?: boolean }
-  | { type: 'tool'; tool: string; input: Record<string, unknown>; sub?: boolean }
-  | { type: 'result'; ok: boolean; cost?: number; seconds?: number; error?: string; tokens?: { in: number; out: number }; context?: { used: number; window: number } }
-  /** 앞 내용을 요약함 (자동 · /compact) */
-  | { type: 'compact'; auto: boolean; before: number; after?: number }
-  /** 요약하는 중 */
-  | { type: 'status'; compacting: boolean }
-  /** 뒤에서 도는 명령 수가 바뀜 */
-  | { type: 'tasks'; count: number }
-  /** 쓰는 중인 글 조각 (주 에이전트, 다 쓰면 text가 온다) */
-  | { type: 'delta'; text: string }
-  /** 생각한 것의 요약 */
-  | { type: 'think'; text: string }
-  /** 주 에이전트의 메시지 하나가 끝남 (되돌리기: 다음 지시 앞에서 대화를 가를 자리) */
-  | { type: 'mark'; uuid: string }
-
-/** 지시 하나 (글과 붙인 그림) */
-export type Turn = { prompt: string; images?: ImageIn[] }
-
+export type { AgentRunner, OneShot, RunEvent, RunInput, ToolDecision, Turn } from './agentRun.js'
+import type { AgentRunner, OneShot, RunInput, ToolDecision, Turn } from './agentRun.js'
 export { Inbox } from './agentInbox.js'
 import { Inbox } from './agentInbox.js'
-/**
- * 실행기. models = 고를 수 있는 모델 (맥의 Claude Code에게 묻는다, 모르면 없음),
- * side = 곁 질문 하나에 작은 모델이 도구 없이 답한다 (prompt에 대화 요약과 질문이 다 들어 있다)
- */
-export type AgentRunner = ((input: RunInput) => AsyncIterable<RunEvent>) & { models?: () => Promise<ModelChoice[]>; side?: (o: OneShot) => Promise<string>; review?: (o: OneShot) => Promise<string> }
-/** 한 번 묻기: model · effort = 토론 자리의 모델 · 생각 수준 (없으면 실행기의 기본) */ export type OneShot = { prompt: string; cwd: string; model?: string; effort?: ChatEffort }
 
 export * from './agentPolicy.js'
 import { clip, describeStep, FILE_WRITE_TOOLS, judge, MCP, pathOf, PLAN_TOOL, posix, str, withAlso, type PolicyCtx } from './agentPolicy.js'
@@ -209,11 +148,13 @@ export interface AgentChatsDeps {
   draft?: (chat: Pick<ChatRow, 'id' | 'rid'>, text: string) => void
   /** 앱 고치기 대화의 작업 폴더와 PR (앱 저장소가 있는 맥에서만) */
   app?: AppWork
+  /** 앱 고치기 대화가 고칠 수 있는 다른 앱 (id → 작업 폴더와 PR, 이 앱 저장소 옆에 받아 둔 것만, 11/20) */
+  apps?: Record<string, AppWork>
   /**
    * 앱 피드백 폴더 (맡기기 · 처리 기록). written = 처리 기록을 적은 뒤 (저절로 올리기).
-   * claims = 저절로 맡기기를 한 컴퓨터만 (feedbackClaims.ts): taken은 다른 컴퓨터가 이번 차례에 맡았는지, claim은 이 컴퓨터가 맡기 (since = 그 항목을 마지막으로 손댄 때)
+   * claims = 저절로 맡기기를 한 컴퓨터만 (feedbackClaims.ts): taken은 다른 컴퓨터가 이번 차례에 맡았는지, claim은 이 컴퓨터가 맡기 (since = 그 항목을 마지막으로 손댄 때). elsewhere = 저절로 맡는 것은 서버(다른 컴퓨터)라 이 컴퓨터는 맡지 않음 (serverRelay.ts)
    */
-  feedback?: { dir: string; written?: () => void; claims?: { taken(key: string, since: number): boolean; claim(key: string, since: number): Promise<boolean> } }
+  feedback?: { dir: string; written?: () => void; claims?: { taken(key: string, since: number): boolean; claim(key: string, since: number): Promise<boolean> }; elsewhere?: () => boolean }
   /** 설정 › 에이전트 (피드백을 언제 맡기고 언제 합치나 · 한 차례 한도) */
   settings?: () => AgentSettings
   /** 합친 커밋이 지금 도는 앱에 들어 있는가 (모르면 undefined) */
@@ -286,6 +227,13 @@ export class AgentChats {
 
   /** 이 맥에서 앱 고치기 대화를 열 수 있는지 */
   get app(): boolean { return !!this.deps.app }
+  /** 고를 수 있는 다른 앱 (새 대화 메뉴) */
+  get otherApps(): { id: string; name: string }[] { return Object.entries(this.deps.apps ?? {}).map(([id, w]) => ({ id, name: w.profile?.name ?? id })) }
+  /** 그 대화가 고치는 앱의 작업 폴더와 PR (앱 고치기 대화가 아니거나 그 앱이 이 컴퓨터에 없으면 없음) */
+  protected workOf(c: Pick<Stored, 'scope'>): AppWork | undefined {
+    if (c.scope.kind !== 'app') return undefined
+    return c.scope.app ? this.deps.apps?.[c.scope.app] : this.deps.app
+  }
 
   /** 피드백을 맡길 수 있는지 (피드백 화면의 「에이전트에게 맡기기」) */
   get handOffOk(): boolean { return !!this.deps.app && !!this.deps.feedback && this.deps.settings?.().feedback !== 'off' }
@@ -305,9 +253,14 @@ export class AgentChats {
   create(b: NewChatBody, link: { feedback?: string; bundle?: string[]; record?: { target: string; id: string }; parent?: string; urgent?: boolean } = {}, prompt?: string): Chat {
     const app = b.rid === APP_RID
     if (app && !this.deps.app) throw new WorkbenchError(404, t(`${HERE.ko}에는 앱 저장소가 없어 앱 고치기 대화를 열 수 없습니다`, `No app repository on ${HERE.en}, so app conversations are not available`))
+    const other = app ? b.scope?.app : undefined
+    if (other && !this.deps.apps?.[other]) throw new WorkbenchError(404, t(`${HERE.ko}에는 그 앱(${other})의 저장소가 없습니다`, `The ${other} repository is not on ${HERE.en}`))
+    const cap = other ? this.deps.apps?.[other]?.profile?.maxChats : undefined
+    const open = cap ? [...this.chats.values()].filter((o) => o.scope.app === other && !o.archived && !o.merged && (LIVE.has(o.state) || !!o.pr)) : []
+    if (cap && open.length >= cap) throw new WorkbenchError(409, t(`${other} 대화는 한 번에 ${cap}개까지입니다 (CI 러너가 하나): ${open.map((o) => `「${o.title}」`).join(' · ')}가 끝나거나 보관한 뒤 여세요`, `At most ${cap} ${other} conversations at once (one CI runner): wait for ${open.map((o) => `"${o.title}"`).join(', ')} to finish or archive one`))
     if (!app && b.scope?.kind === 'app') throw new WorkbenchError(400, t('앱 범위는 앱 고치기 대화에만 씁니다', 'The app scope is only for app conversations'))
     if (!app) this.deps.project(b.rid) // 등록하지 않은 프로젝트면 404
-    const scope = withAlso(app ? { kind: 'app' } : b.scope ?? { kind: 'project' }, b.rid, (r) => this.deps.project(r)) // 함께 고칠 프로젝트는 등록한 것만 (없으면 404)
+    const scope = withAlso(app ? { kind: 'app', ...(other && { app: other }) } : b.scope ?? { kind: 'project' }, b.rid, (r) => this.deps.project(r)) // 함께 고칠 프로젝트는 등록한 것만 (없으면 404)
     if ((scope.kind === 'topic' || scope.kind === 'note') && !scope.target) throw new WorkbenchError(400, t('주제 · 노트 범위에는 대상이 필요합니다', 'A topic or note scope needs a target'))
     if (scope.target && (scope.target.includes('..') || path.isAbsolute(scope.target))) throw new WorkbenchError(400, t('범위 대상이 맞지 않음', 'Invalid scope target'))
     const at = now()
@@ -468,7 +421,7 @@ export class AgentChats {
     const pt = c.points?.[point]
     const it = c.items[at]
     if (!pt || !it || it.kind !== 'user') throw new WorkbenchError(409, t('여기로는 되돌릴 수 없습니다', 'Cannot rewind to this message'))
-    const app = c.scope.kind === 'app' ? this.deps.app : undefined
+    const app = this.workOf(c)
     let files: number | undefined
     if (app?.restore && c.worktree && pt.snap) files = await app.restore(c.worktree, pt.snap)
     const s = this.sessions.get(id)
@@ -549,7 +502,8 @@ export class AgentChats {
     this.aborts.get(id)?.abort()
     this.chats.delete(id)
     for (const f of [this.fileOf(id), packFile(this.deps.dir, id)]) fs.rmSync(f, { force: true })
-    if (c.worktree && this.deps.app) void this.deps.app.dispose(c.worktree).catch(() => undefined)
+    const w = this.workOf(c)
+    if (c.worktree && w) void w.dispose(c.worktree).catch(() => undefined)
   }
 
   /** 기록에 이어진 대화 (보관한 것도 찾는다: 한 기록에 대화 하나) */
@@ -607,19 +561,20 @@ export class AgentChats {
    */
   async appChecks(id: string, wait = 0, every = CHECK_EVERY_MS): Promise<AppChecks> {
     const { c, w } = this.appOf(id)
-    const until = Date.now() + Math.min(Math.max(wait, 0), 10) * 60_000
+    const until = Date.now() + Math.min(Math.max(wait, 0), w.profile?.ciWaitMin ?? 10) * 60_000
     for (;;) {
       const r = await w.checks(c.worktree!, c.branch!)
-      if (r.done || Date.now() + every > until || !this.aborts.has(id)) return r
+      if (r.done || Date.now() + every > until || !this.aborts.has(id)) return wait && !r.done ? notStarted(r, w.profile?.selfHosted) : r
       await new Promise((ok) => setTimeout(ok, every))
     }
   }
 
   private appOf(id: string): { c: Stored; w: AppWork } {
     const c = this.must(id)
-    if (c.scope.kind !== 'app' || !this.deps.app) throw new WorkbenchError(400, t('앱 고치기 대화가 아닙니다', 'Not an app conversation'))
+    const w = this.workOf(c)
+    if (!w) throw new WorkbenchError(400, t('앱 고치기 대화가 아닙니다', 'Not an app conversation'))
     if (!c.worktree || !c.branch) throw new WorkbenchError(409, t('작업 폴더를 아직 만들지 않았습니다', 'The work folder is not ready yet'))
-    return { c, w: this.deps.app }
+    return { c, w }
   }
 
   /** 테스트 · 끄기: 도는 차례를 모두 멈춘다 */
@@ -829,7 +784,9 @@ export class AgentChats {
 
   /** 앱 고치기 대화끼리는 일하는 중이거나 PR이 아직 합쳐지지 않은 다른 대화가 고친 파일도 (합칠 때 부딪힘, 11/16 "중앙 에이전트" 2단계). 함께 고칠 프로젝트(scope.also)의 파일은 `프로젝트:파일`로 잡는다 (11/19) */
   private claimedBy(self: string, file: string, rid = this.chats.get(self)?.rid): string | undefined {
-    for (const o of this.chats.values()) if (o.id !== self && (LIVE.has(o.state) && o.claims.includes(o.rid === rid ? file : `${rid}:${file}`) || o.rid === rid && o.rid === APP_RID && (LIVE.has(o.state) || !!o.pr) && !o.merged && !o.archived && o.changed.includes(file))) return o.title
+    // 다른 앱을 고치는 앱 고치기 대화끼리는 같은 경로라도 다른 저장소다 (11/20)
+    const mine = this.chats.get(self)?.scope.app
+    for (const o of this.chats.values()) if (o.id !== self && (o.rid !== APP_RID || o.scope.app === mine) && (LIVE.has(o.state) && o.claims.includes(o.rid === rid ? file : `${rid}:${file}`) || o.rid === rid && o.rid === APP_RID && (LIVE.has(o.state) || !!o.pr) && !o.merged && !o.archived && o.changed.includes(file))) return o.title
     return undefined
   }
 
@@ -862,12 +819,12 @@ export class AgentChats {
     // 앱 고치기 대화: 이번 차례에 고치기 도구로 바꾼 파일 (명령으로 바꾼 파일과 가르려고)
     let touched = new Set<string>()
     try {
-      const app = c.scope.kind === 'app' && this.deps.app ? this.deps.app : undefined
+      const app = this.workOf(c)
       let p: { repo: string; title: string }
       if (app) {
         const w = await app.prepare(c.id)
         if (c.worktree !== w.dir || c.branch !== w.branch) { c.worktree = w.dir; c.branch = w.branch; this.touch(c) }
-        p = { repo: w.dir, title: 'Emergence Workbench' }
+        p = { repo: w.dir, title: app.profile?.name ?? 'Emergence Workbench' }
         // 처음 연 대화: 첫 지시의 되돌릴 자리에 작업 폴더를 찍어 둔다
         if (app.snapshot && !c.snap) {
           c.snap = await app.snapshot(w.dir).catch(() => undefined)
@@ -955,7 +912,7 @@ export class AgentChats {
         cwd: p.repo,
         extraDirs: app ? [] : this.deps.extraDirs(),
         brief: app
-          ? appBriefFor({ branch: c.branch ?? '', write: c.write, mode, rules: app.rules, feedback: !!c.feedback, agent: c.agent, parent: !!c.parent })
+          ? appBriefFor({ branch: c.branch ?? '', write: c.write, mode, rules: app.rules, ...(app.profile?.id && { other: app.profile }), feedback: !!c.feedback, agent: c.agent, parent: !!c.parent })
           : briefFor({ rid: c.rid, title: p.title, scope: c.scope, write: c.write, mode, others: others.map((o) => ({ title: o.title, claims: o.claims })), agent: c.agent, parent: !!c.parent }),
         write: c.write,
         ...(app ? { appChat: c.id } : c.rid === CENTRAL_RID && { central: true }), ...(c.rid !== CENTRAL_RID && { chat: c.id }), env: { ...(app && appEnv(c.id)), ...accountEnv(this.deps.accounts, c) },
@@ -1078,13 +1035,6 @@ export class AgentChats {
       c.items.push({ kind: 'error', at: now(), text: t(`답을 기록에 적지 못했습니다: ${(e as Error).message}`, `Could not write the answer to the record: ${(e as Error).message}`).slice(0, MAX_TEXT) })
     }
   }
-}
-
-/** 앱 고치기 대화의 환경: 대화마다 다른 화면 그림 포트, 맥의 Chrome (playwright 브라우저를 받지 않아도 되게) */
-export function appEnv(id: string): Record<string, string> {
-  const n = parseInt(crypto.createHash('sha1').update(id).digest('hex').slice(0, 6), 16)
-  const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-  return { SHOTS_PORT: String(8200 + (n % 600)), ...(!process.env.CHROMIUM_PATH && fs.existsSync(chrome) && { CHROMIUM_PATH: chrome }) }
 }
 
 const userItem = (m: ChatMessageBody, queued?: boolean, point?: string): ChatItem => ({

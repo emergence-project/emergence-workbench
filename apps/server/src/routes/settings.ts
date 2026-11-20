@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/settings'
 import * as A from '@rw/core/contract/app'
 import { parseBody, replies } from '../contract.js'
-import { appInfo, appStatus, updateApp, UpdateError } from '../appupdate.js'
+import { appInfo, appStatus, updateApp, UpdateError, type AppStatus } from '../appupdate.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 import { aiKeyView, readAiKeys, removeAiKey, saveAiKey, useAi } from '../aiKey.js'
@@ -13,7 +13,9 @@ import { releaseChecker } from '../releaseCheck.js'
 import { t } from '../i18n.js'
 import { SYNC_RECHECK_MS, syncDelayMs } from '../syncTiming.js'
 import { errorLog, repeat } from '../scheduler.js'
-import { SYNC_KINDS, type SyncChoice, type SyncKind } from '@rw/core'
+import { normalizeAgentSettings, SYNC_KINDS, type SyncChoice, type SyncKind } from '@rw/core'
+import { DEVICE_KEY_HEADER } from '../deviceServer.js'
+import { askServer, pickFeedback, remoteServer, serverName, splitFeedback, unreachable } from '../serverRelay.js'
 
 export function registerSettings(app: FastifyInstance, ctx: RouteContext): void {
   const { registry, opts } = ctx
@@ -90,10 +92,38 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
     started.catch(() => { /* 오류는 상태의 error로 보인다 */ })
     return codexStatus(registry.configDir)
   })
-  app.get('/api/settings/agents', replies(C.AgentSettings), async (): Promise<C.AgentSettings> => registry.agents)
+  // 피드백 자동 처리 (맡기기 · 합치기 · 한도)는 서버로 정한 컴퓨터가 있으면 그 서버의 값 하나 (11/20 「피드백 자동 처리 설정은 동기화」):
+  // 서버가 아닌 맥은 서버에 읽고 쓰고, 닿지 않으면 그렇다고 보인다 (이 맥의 값으로 대신 맡지 않는다)
+  const relayFetch = opts.chatPlace?.fetch ?? fetch
+  const langOf = (h: unknown) => (typeof h === 'string' ? h : undefined)
+  const fromServer = async (lang?: string): Promise<C.AgentSettings> => {
+    const local = registry.agents
+    const cfg = remoteServer(opts)
+    if (!cfg) return local
+    const server = serverName(cfg)
+    try {
+      const got = await askServer(cfg, '/api/settings/agents', { lang }, relayFetch)
+      return { ...local, ...pickFeedback(normalizeAgentSettings(got, local)), place: { server } }
+    } catch (e) {
+      return { ...local, place: { server, error: unreachable(server, e) } }
+    }
+  }
+  app.get('/api/settings/agents', replies(C.AgentSettings), async (req): Promise<C.AgentSettings> =>
+    req.headers[DEVICE_KEY_HEADER] !== undefined ? registry.agents : fromServer(langOf(req.headers['x-rw-lang'])))
   app.put('/api/settings/agents', replies(C.AgentSettings), async (req): Promise<C.AgentSettings> => {
+    const body = parseBody(C.AgentSettingsBody, req.body)
+    const cfg = req.headers[DEVICE_KEY_HEADER] !== undefined ? null : remoteServer(opts)
+    if (cfg) {
+      const lang = langOf(req.headers['x-rw-lang'])
+      const { shared, rest } = splitFeedback(body)
+      if (Object.keys(shared).length) {
+        try { await askServer(cfg, '/api/settings/agents', { method: 'PUT', body: shared, lang }, relayFetch) } catch (e) { throw new WorkbenchError(503, unreachable(serverName(cfg), e)) }
+      }
+      if (Object.keys(rest).length) registry.setAgents(rest)
+      return fromServer(lang)
+    }
     const was = registry.agents.feedback
-    const saved = registry.setAgents(parseBody(C.AgentSettingsBody, req.body))
+    const saved = registry.setAgents(body)
     // 「자동 처리」를 켜면 다음 1분을 기다리지 않고 쌓인 대기를 바로 맡긴다 (11/20 22:37 제안)
     if (saved.feedback === 'instant' && was !== 'instant') ctx.feedbackSaved?.()
     return saved
@@ -172,10 +202,16 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
     const busy = force ? 0 : agentsWorking()
     if (busy) return { restarting: false, reason: t(`일하거나 허락을 기다리는 에이전트 대화 ${busy}개가 끝나면 다시 시작합니다`, `Restarts once the ${busy} agent conversation(s) that are working or waiting for permission finish`) }
     const status = await appStatus(repo.root, repo.running)
-    if (!status.prepared) return { restarting: false, reason: t('다시 시작할 새 버전이 없습니다', 'No new version to restart into') }
+    if (!status.prepared) return { restarting: false, reason: notReady(status) }
     const restarting = repo.steps.restart()
     if (restarting) stopWaiting()
     return { restarting }
+  }
+  /** 미리 빌드한 새 버전이 없을 때의 이유. 받았는데 화면 빌드가 아직이면 「새 버전 없음」이 아니다 (11/20 피드백 23:23: 대기 중 표시와 모순처럼 읽혔다) */
+  function notReady(s: AppStatus): string {
+    if (s.behind > 0) return t('새 버전을 아직 받지 않았습니다', 'The new version has not been pulled yet')
+    if (s.head !== s.running) return t('새 버전을 받았지만 화면 빌드가 아직 준비되지 않았습니다', 'The new version is pulled but its build is not ready yet')
+    return t('다시 시작할 새 버전이 없습니다', 'No new version to restart into')
   }
   /**
    * 차례가 도는 중인 에이전트 대화 수. 허락 · 계획 승인 카드를 띄우고 기다리는 대화(waiting)도 센다 (11/20 사용자 결정 "미루자"):
@@ -191,11 +227,15 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
   function restartAfterAgents(everyMs = 10_000): void {
     if (waiting) return
     let quiet = 0
-    waiting = setInterval(() => {
+    waiting = setInterval(async () => {
       quiet = agentsWorking() || inflight > 0 || updating ? 0 : quiet + 1
-      if (quiet < 2) return
+      if (quiet < 2 || !opts.appRepo) return
+      // 「지금 다시 시작」과 같이 빌드가 준비됐는지 본다: 받기만 하고 빌드 전이면 계속 기다리고, 새 버전이 없어졌으면 그만 기다린다
+      const s = await appStatus(opts.appRepo.root, opts.appRepo.running).catch(() => null)
+      if (!s || !waiting) return
+      if (!s.prepared) { if (s.head === s.running && s.behind === 0) { stopWaiting(); ctx.broadcast({ type: 'app', research: null }) } return }
       stopWaiting()
-      if (opts.appRepo) opts.appRepo.steps.restart()
+      opts.appRepo.steps.restart()
     }, everyMs)
     waiting.unref()
     ctx.broadcast({ type: 'app', research: null })

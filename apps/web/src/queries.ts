@@ -145,13 +145,19 @@ export function invalidationKeys(e: WorkbenchEvent): QueryKey[] {
   if (e.type === 'account') return [qk.account, qk.setup, qk.githubRepos]
   // 앱 업데이트 상태는 AppUpdate.tsx가 따로 다시 확인한다 (App.tsx)
   if (e.type === 'app') return []
-  if (e.type === 'agent-chat') {
-    const keys: QueryKey[] = [qk.agentChatLists, ...(e.id ? [qk.agentChat(e.id)] : [qk.agentChats]), qk.agentWork]
-    return e.research === APP_RID ? [...keys, qk.feedback] : keys
-  }
+  // 앱 고치기 대화의 피드백 화면은 slowInvalidationKeys가 (자주 오므로 느리게)
+  if (e.type === 'agent-chat') return [qk.agentChatLists, ...(e.id ? [qk.agentChat(e.id)] : [qk.agentChats]), qk.agentWork]
   const keys = projectKeys(e)
   // research는 프로젝트 키 전체라 현황도 들어 있다
   return e.type === 'research' ? keys : [...keys, qk.status(e.research), qk.changes(e.research)]
+}
+
+/**
+ * 느리게 다시 받는 자료: 도는 앱 고치기 대화는 1분에 여러 번 알리는데, 그때마다 피드백 전체(수백 KB)와 소개 확인을
+ * 다시 받으면 브라우저의 연결(호스트당 6개)이 막혀 대화 열기가 그 뒤에 줄을 선다. App.tsx가 길게(15초) 모아 다시 받는다
+ */
+export function slowInvalidationKeys(e: WorkbenchEvent): QueryKey[] {
+  return e.type === 'agent-chat' && e.research === APP_RID ? [qk.feedback] : []
 }
 
 /** 모든 사람 페이지 (qk.person(id)의 앞부분) */

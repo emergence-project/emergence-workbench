@@ -2,10 +2,8 @@
 // 대화 목록 맨 위에 고정한 「중앙」 줄, 처음 말하는 화면, 중앙 오른쪽 칸의 작업 현황. 하위 대화는 보통 대화와 같은 화면으로 연다
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { agentChatsApi, type ChatEffort, type ChatRow } from './api'
-import { effortsOf, familyName, familyOf, fitEffort, modelFamilies, pickFamily, useModels } from './AgentPick'
-import { EFFORT_NAME, PopButton } from './ChatComposer'
-import { accountLabel, useAgentAccounts } from './ClaudeAccountsSettings'
+import { agentChatsApi, CENTRAL_RID, type ChatEffort, type ChatMessageBody, type ChatRow } from './api'
+import { Composer } from './ChatComposer'
 import { Icon } from './icons'
 import { ChatStateMark, stateName } from './AgentChats'
 import { shownState } from './agentSeen'
@@ -37,68 +35,34 @@ export function CentralLine({ row, on, onOpen }: { row?: ChatRow; on: boolean; o
   )
 }
 
-/** 중앙 대화가 없을 때: 첫 말을 보내면 중앙을 열고 그 대화로 간다 */
+/**
+ * 중앙 대화가 없을 때: 첫 말을 보내면 중앙을 열고 그 대화로 간다.
+ * 입력란은 새 대화와 같은 상자 (11/20 피드백 "새 대화창의 디자인을 통일"): ＋ 붙이기 · 모델 · 생각 · 계정은 상자 안 아래 줄, 둥근 보내기.
+ * 중앙은 파일을 고치지 않아 맡기는 정도는 고르지 않는다. 그림은 연 뒤의 입력란에서 붙인다
+ */
 export function CentralStart() {
   const client = useQueryClient()
-  const [text, setText] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [fail, setFail] = useState<string | null>(null)
   const [start, setStart] = useState<{ model: string; effort: ChatEffort; account?: string }>({ model: 'opus', effort: 'medium' })
-  const submit = async () => {
-    if (!text.trim() || busy) return
-    setBusy(true)
-    setFail(null)
-    try {
-      const c = await agentChatsApi.talk(text.trim(), screenLine(), start)
-      client.setQueryData(qk.agentChat(c.id), c)
-      void client.invalidateQueries({ queryKey: qk.agentChatLists })
-      go({ page: 'agent', id: c.id })
-    } catch (e) { setFail(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
+  const submit = async (m: ChatMessageBody) => {
+    if (m.images?.length) throw new Error(t('중앙의 첫 말에는 그림을 붙일 수 없습니다. 연 뒤에 붙이세요', 'Images can be attached after Central opens'))
+    const c = await agentChatsApi.talk(m.text, screenLine(), start, m.attach)
+    client.setQueryData(qk.agentChat(c.id), c)
+    void client.invalidateQueries({ queryKey: qk.agentChatLists })
+    go({ page: 'agent', id: c.id })
+    return true
   }
   return (
     <div className="scroll"><div className="page-body ac-start" data-ui="중앙 시작">
       <h1 className="ac-h">{t('중앙', 'Central')}</h1>
-      <p className="muted ac-central-what">{t(
-        '무엇이든 여기에 먼저 말하세요. 질문에는 바로 답하고, 앱 고치기 · 프로젝트 작성 · 피드백 처리는 하위 대화를 열어 맡깁니다. 중앙은 파일을 고치지 않지만 커밋 · 푸시 · PR 합치기(squash)는 직접 하고, 다시 시작은 내가 합니다.',
-        'Say anything here first. It answers questions directly and hands app fixes, project writing and feedback to sub-conversations. Central does not edit files but commits, pushes and squash-merges PRs itself; restarting stays with you.',
-      )}</p>
-      <textarea id="central-first" className="ac-central-input" rows={4} value={text} autoFocus placeholder={t('예: 피드백에서 그림이 안 보인대. 고쳐 줘', 'Example: pictures do not show in feedback. Fix it')}
-        aria-label={t('중앙에게 말하기', 'Talk to Central')} onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); void submit() } }} />
-      <div className="ac-central-send">
-        <span className="ac-central-picks"><StartPicks start={start} onChange={(s) => setStart((o) => ({ ...o, ...s }))} /></span>
-        {fail && <span className="error-text">{fail}</span>}
-        <button className="btn primary" disabled={!text.trim() || busy} onClick={() => void submit()}>{t('보내기', 'Send')}</button>
+      <div className="ac-new">
+        <Composer rid={CENTRAL_RID} agentFixed noTrust autoFocus
+          settings={{ trust: 'read', agent: 'claude', model: start.model, effort: start.effort, account: start.account ?? 'default' }}
+          onSettings={(s) => setStart((o) => ({ ...o, ...(s.model && { model: s.model }), ...(s.effort && { effort: s.effort }), ...(s.account && { account: s.account }) }))}
+          onSubmit={submit} placeholder={t('무엇이든 먼저 말하세요 · 예: 피드백에서 그림이 안 보인대. 고쳐 줘', 'Say anything first · e.g. pictures do not show in feedback. Fix it')} />
+        <span className="muted ac-hint">{t('질문에는 바로 답하고, 앱 고치기 · 프로젝트 작성 · 피드백 처리는 하위 대화에 맡깁니다. 중앙은 파일을 고치지 않고, 다시 시작은 내가 합니다', 'Answers questions directly and hands app fixes, project writing and feedback to sub-conversations. Central does not edit files; restarting stays with you')}</span>
       </div>
     </div></div>
   )
-}
-
-/**
- * 중앙을 처음 열 때 고르는 모델 · 생각 깊이 · 계정 (11/20 시안 5절 "모델 변경/크레딧을 사용하는 계정도 변경할 수 있게").
- * 중앙은 Claude가 맡으므로 에이전트는 고르지 않는다. 연 뒤에는 중앙 입력란의 같은 메뉴로 바꾼다
- */
-function StartPicks({ start, onChange }: { start: { model: string; effort: ChatEffort; account?: string }; onChange(s: Partial<{ model: string; effort: ChatEffort; account: string }>): void }) {
-  const models = useModels('claude-code')
-  const accounts = (useAgentAccounts('claude').data?.accounts ?? []).filter((a) => a.login)
-  const fam = familyOf(start.model, models)
-  const efforts = effortsOf(start.model, models)
-  const check = (on: boolean) => <span className="ac-pop-check" aria-hidden>{on ? Icon.check : null}</span>
-  const account = accounts.find((a) => a.id === start.account)
-  return <>
-    <PopButton ui="모델 고르기" tip={t('모델', 'Model')} down label={<>{familyName(start.model, models)} ▾</>}>
-      {(close) => modelFamilies(models).filter((f) => f.base !== 'default').map((f) => {
-        const on = (fam.family?.base ?? '') === f.base, value = pickFamily(f, fam.suffix)
-        return <button key={f.base} role="menuitemradio" aria-checked={on} className={on ? 'on' : ''} onClick={() => { close(); onChange({ model: value, ...fitEffort(start.effort, effortsOf(value, models)) }) }}>{check(on)}{f.name}</button>
-      })}
-    </PopButton>
-    {efforts.length > 0 && <PopButton ui="생각 고르기" tip={t('생각 깊이', 'Thinking')} down label={<>{EFFORT_NAME[start.effort]} ▾</>}>
-      {(close) => efforts.map((m) => <button key={m} role="menuitemradio" aria-checked={start.effort === m} className={start.effort === m ? 'on' : ''} onClick={() => { close(); onChange({ effort: m }) }}>{check(start.effort === m)}{EFFORT_NAME[m]}</button>)}
-    </PopButton>}
-    {accounts.length > 1 && <PopButton ui="중앙 계정" tip={t('크레딧을 쓰는 계정', 'Account whose credits are used')} down label={<>{account ? accountLabel(account) : t('기본 계정', 'Default account')} ▾</>}>
-      {(close) => accounts.map((a) => <button key={a.id} role="menuitemradio" aria-checked={start.account === a.id} className={start.account === a.id ? 'on' : ''} onClick={() => { close(); onChange({ account: a.id }) }}>{check(start.account === a.id)}{accountLabel(a)}</button>)}
-    </PopButton>}
-  </>
 }
 
 /** 작업 현황의 시각 · 정체를 1분마다 다시 센다 */

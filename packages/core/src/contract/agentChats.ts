@@ -67,6 +67,8 @@ export const ChatScope = z.object({
   target: z.string().optional(),
   /** project일 때 함께 고칠 수 있는 다른 프로젝트 id (새 대화에서 여럿 고름). 그 밖의 프로젝트 · 개념노트는 읽기만 */
   also: z.array(z.string().min(1).max(200)).max(20).optional(),
+  /** app일 때 고칠 다른 앱 (OTHER_APPS의 id, 예: qcad). 없으면 이 앱 (11/20) */
+  app: z.string().regex(/^[a-z][\w-]{0,30}$/).optional(),
 }).strict()
 
 /** 지시에 붙인 것 하나. ref = 노트 파일 · 주제 id · 파일 경로 · 문헌 키 · 기록 id, text = 고른 글 */
@@ -230,7 +232,9 @@ export const Chat = ChatRow.extend({ items: z.array(ChatItem), always: z.array(z
 /** GET /agent-chats?rid= */
 /** app = 이 맥에서 앱 고치기 대화를 열 수 있는지 (앱 저장소가 있을 때) */
 /** handOff = 피드백을 맡길 수 있는지 (앱 저장소 · 피드백 폴더가 있고 설정 › 에이전트에서 끄지 않음) */
-export const ChatList = z.object({ chats: z.array(ChatRow), limit: z.number(), app: z.boolean(), handOff: z.boolean() }).strict()
+/** 이 컴퓨터에서 앱 고치기 대화로 고칠 수 있는 다른 앱 (저장소를 받아 둔 것만, 11/20) */
+export const OtherApp = z.object({ id: z.string(), name: z.string() }).strict()
+export const ChatList = z.object({ chats: z.array(ChatRow), limit: z.number(), app: z.boolean(), apps: z.array(OtherApp).optional(), handOff: z.boolean() }).strict()
 /**
  * GET /agent-chats/models: 맥의 Claude Code가 고를 수 있게 하는 모델 (Claude Code를 못 띄우면 빈 목록, 화면은 별칭 넷으로).
  * resolved = 실제 모델 id (default · opus 같은 별칭이 무엇인지), efforts = 받는 생각 깊이 (없으면 생각 깊이를 고르지 않는다)
@@ -386,6 +390,7 @@ export type ChatItem = z.infer<typeof ChatItem>
 export type ChatRow = z.infer<typeof ChatRow>
 export type Chat = z.infer<typeof Chat>
 export type ChatList = z.infer<typeof ChatList>
+export type OtherApp = z.infer<typeof OtherApp>
 export type ChatOne = z.infer<typeof ChatOne>
 export type ChatDeleted = z.infer<typeof ChatDeleted>
 export type WorkState = z.infer<typeof WorkState>
@@ -419,6 +424,8 @@ export const CentralKid = z.object({
   ci: z.enum(['pending', 'failed', 'passed']).optional(), todos: z.object({ done: z.number(), total: z.number() }).strict().optional(),
   /** 지금 오류가 비정상 종료면 이 대화가 비정상 종료된 횟수 (11/20) */
   crashes: z.number().optional(),
+  /** 다른 앱을 고치는 앱 고치기 (scope.app, 11/20) */
+  app: z.string().optional(),
 }).strict()
 // ---------- 중앙 방 (11/20 사용자 결정, 시안 https://claude.ai/artifact/1e4G2p1cQjgVNSSAZ9RFHr) ----------
 
@@ -476,6 +483,8 @@ export type RoomAnswer = z.infer<typeof RoomAnswer>
  */
 export const CentralState = z.object({
   id: z.string().optional(), kids: z.array(CentralKid), app: z.boolean(),
+  /** 이 컴퓨터에서 고칠 수 있는 다른 앱 (chat_open app, 11/20) */
+  apps: z.array(OtherApp).optional(),
   held: z.array(z.object({ title: z.string(), at: z.string().optional() }).strict()).optional(),
   feedback: z.array(z.object({ key: z.string(), target: z.string(), text: z.string(), at: z.string() }).strict()).optional(),
   /** 중앙의 하위 대화가 아닌 대화 가운데 비정상 종료로 멈춘 것 (작업 현황의 「내 차례」, 11/20). count = 그 대화의 비정상 종료 횟수 */
@@ -497,9 +506,22 @@ export const CentralOpenBody = z.object({
   feedbacks: z.array(z.string()).max(5).optional(),
   /** 앱 고치기만: 앱 버그 · 앱이 멈춘 때 메모리 · 줄과 상관없이 바로 연다 (한 번에 하나, 11/19) */
   urgent: z.boolean().optional(),
+  /** 앱 고치기만: 고칠 다른 앱 (ChatList.apps의 id). 없으면 이 앱 (11/20) */
+  app: z.string().regex(/^[a-z][\w-]{0,30}$/).optional(),
 }).strict()
 export const CentralSendBody = z.object({ id: z.string(), text: z.string().trim().min(1).max(20000) }).strict()
 export const CentralCloseBody = z.object({ id: z.string(), summary: z.string().trim().min(1).max(2000) }).strict()
+/**
+ * POST /agent-central/archive: 중앙이 하위 대화가 아닌 대화도 보관함에 넣는다 (chat_archive, 11/20 사용자 "대화를 여는 권한도 있으니 닫을 권한도").
+ * 일하는 중이 아닌 것만, 보관만 (지우기는 사용자만, 11/20 "지우는 것은 너가 하는 권한이 있으면 안되"). 다른 컴퓨터의 대화는 보관 요청을 개인 저장소로 넘기고 그 컴퓨터가 다음 맞추기 때 보관한다 (machine).
+ * POST /agent-central/unarchive: 같은 몸으로 보관함에서 꺼낸다 (chat_unarchive, 끝난 대화 복구)
+ */
+export const CentralArchiveBody = z.object({ id: z.string(), reason: z.string().trim().min(1).max(300) }).strict()
+export const CentralArchived = z.object({ id: z.string(), title: z.string(), machine: z.string().optional() }).strict()
+/** POST /agent-central/priority: 자리를 기다리는 앱 고치기(held)의 여는 순서를 바꾼다 (chat_priority, 11/20). title = 기다리는 일의 제목(정확히, 아니면 한 개만 맞는 일부), to = 새 순서 (1 = 맨 앞) */
+export const CentralPriorityBody = z.object({ title: z.string().trim().min(1).max(60), to: z.number().int().min(1).default(1), reason: z.string().trim().min(1).max(300) }).strict()
+/** 바꾼 뒤의 기다리는 순서 (제목, 맨 앞이 다음에 열린다) */
+export const CentralHeldOrder = z.object({ held: z.array(z.string()) }).strict()
 /** POST /agent-central/answer: 중앙이 하위 대화의 허락 · 계획 카드에 답한다 (크리티컬한 것은 409, 사용자에게 남긴다) */
 export const CentralAnswerBody = z.object({ id: z.string(), ask: z.string(), answer: z.enum(['allow', 'deny']), note: z.string().trim().max(2000).optional() }).strict()
 export const CentralKidOne = z.object({ kid: CentralKid }).strict()
@@ -522,6 +544,9 @@ export type CentralOpenBody = z.infer<typeof CentralOpenBody>
 export type CentralMessageBody = z.infer<typeof CentralMessageBody>
 export type CentralKidOne = z.infer<typeof CentralKidOne>
 export type CentralHelped = z.infer<typeof CentralHelped>
+export type CentralArchived = z.infer<typeof CentralArchived>
+export type CentralPriorityBody = z.infer<typeof CentralPriorityBody>
+export type CentralHeldOrder = z.infer<typeof CentralHeldOrder>
 export type CentralOpened = z.infer<typeof CentralOpened>
 export type CentralAnswerBody = z.infer<typeof CentralAnswerBody>
 

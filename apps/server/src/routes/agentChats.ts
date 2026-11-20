@@ -28,6 +28,7 @@ import { repeat } from '../scheduler.js'
 import { chatCap, chatRoom, MemoryGauge } from '../appMemory.js'
 import { machineName } from '../backup.js'
 import { publishFeedback } from '../feedback.js'
+import { remoteServer } from '../serverRelay.js'
 import { claimedElsewhere, claimFeedback } from '../feedbackClaims.js'
 import { agentAnswer } from '../ask.js'
 import { t } from '../i18n.js'
@@ -56,7 +57,7 @@ function injectFetch(app: FastifyInstance): typeof fetch {
 /** 중앙 메모 파일 (시안 §9 ⑤): 개인 저장소가 있으면 agent/central-memo.md로 두고 써지면 올린다, 없으면 이 컴퓨터 설정 폴더 */
 const MEMO_PATH = 'agent/central-memo.md'
 
-export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runner?: AgentRunner, appWork?: AppWork): DebateChats {
+export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runner?: AgentRunner, appWork?: AppWork, others?: Record<string, AppWork>): DebateChats {
   const { registry, broadcast, repoPath } = ctx
   const personal = ctx.opts.personalDir
   const centralMemo = () => personal
@@ -98,7 +99,8 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     notify: (c) => broadcast({ type: 'agent-chat', research: c.rid, id: c.id }),
     draft: (c, text) => broadcast({ type: 'agent-draft', research: c.rid, id: c.id, text }),
     ...(appWork && { app: appWork }),
-    ...(ctx.opts.feedbackDir && { feedback: { dir: ctx.opts.feedbackDir, written: () => ctx.feedbackWritten?.(), ...(claims && { claims }) } }),
+    ...(appWork && others && Object.keys(others).length && { apps: others }),
+    ...(ctx.opts.feedbackDir && { feedback: { dir: ctx.opts.feedbackDir, written: () => ctx.feedbackWritten?.(), ...(claims && { claims }), elsewhere: () => !!remoteServer(ctx.opts) } }),
     settings: () => registry.agents,
     accounts: { claude: accounts, codex: codexAccounts },
     // Codex 검토 (11/9): 묻기와 같은 codex exec, 읽기 전용. 예제 · 시험은 실행기의 것
@@ -132,7 +134,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
 
   // 대화를 서버에서 (chatPlace.ts): 이 컴퓨터의 대화는 서버로 넘기지 않고, 서버 목록에 「이 맥」으로 더한다
   setLocalChats(app, { has: (id) => { try { chats.get(id); return true } catch { return false } }, list: (rid) => chats.list(rid) })
-  app.get<{ Querystring: { rid?: string } }>('/api/agent-chats', replies(C.ChatList), async (req): Promise<C.ChatList> => ({ chats: chats.listAll(req.query.rid || undefined), limit: chats.limit, app: chats.app, handOff: chats.handOffOk }))
+  app.get<{ Querystring: { rid?: string } }>('/api/agent-chats', replies(C.ChatList), async (req): Promise<C.ChatList> => ({ chats: chats.listAll(req.query.rid || undefined), limit: chats.limit, app: chats.app, ...(chats.otherApps.length && { apps: chats.otherApps }), handOff: chats.handOffOk }))
 
   /** 고를 수 있는 모델 (맥의 Claude Code에게 물어 30분 기억, 못 띄우면 빈 목록) */
   app.get('/api/agent-chats/extras', replies(C.ChatExtras), async (): Promise<C.ChatExtras> => chatExtras(MCP_NAME))
