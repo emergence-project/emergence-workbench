@@ -64,7 +64,7 @@ test('the actual CI capture command selects the same bounded default scope', () 
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
   const YAML = createRequire(path.join(root, 'apps/server/package.json'))('yaml')
   const workflow = YAML.parse(fs.readFileSync(path.join(root, '.github/workflows/ci.yml'), 'utf8'))
-  const command = workflow.jobs.check.steps.find((step) => step.run?.startsWith('pnpm shots')).run
+  const command = workflow.jobs.shots.steps.find((step) => step.run?.startsWith('pnpm shots')).run
   const options = parseShotOptions(command.split(/\s+/).slice(2), {})
   assert.deepEqual(options, { viewport: { width: 1200, height: 735 }, theme: 'mixed', sample: 'default', lang: 'ko', help: false })
   assert.equal(selectScreens(options.sample).length, 131)
