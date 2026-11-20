@@ -13,7 +13,7 @@
  *   앱이 다시 켜지면 아직 보내지 않은 깨우기는 사라진다 (CI · 합쳐짐은 1분마다 tickCentral이 다시 찾는다).
  */
 import { agentTurnReasons, agentTurns, userTurn } from '@rw/core'
-import { APP_RID, CENTRAL_RID, type AppMerged, type CentralAnswerBody, type CentralFeedback, type CentralMemo, type CentralKid, type CentralOpenBody, type CentralOpened, type CentralState, type Chat, type CentralMessageBody, type ChatItem, type ChatMessageBody, type ChatMode } from '@rw/core/contract/agentChats'
+import { APP_RID, CENTRAL_RID, type AppMerged, type CentralAnswerBody, type CentralFeedback, type CentralHeldOrder, type CentralMemo, type CentralPriorityBody, type CentralKid, type CentralOpenBody, type CentralOpened, type CentralState, type Chat, type CentralMessageBody, type ChatItem, type ChatMessageBody, type ChatMode } from '@rw/core/contract/agentChats'
 import { APP_CHECKS, APP_SUBMIT, LIVE, handedAt, lastTouched, promptOf, rowOf, type AgentChatsDeps, type Stored } from './agentChats.js'
 import { endSummaryPrompt } from './agentPrompts.js'
 import { due, memoBlock, pack, readMemo, TIDY_SUMMARIES, writeMemo, type CentralMemoDeps } from './agentTidy.js'
@@ -27,6 +27,7 @@ import { AUTO_SEND_MAX, CENTRAL_BRIEF, CRITICAL, type Critical } from './central
 export { AUTO_SEND_MAX, CENTRAL_BRIEF, CRITICAL, type Critical } from './centralBrief.js'
 import { cut, digestOf, kidReport, kidSig, lastReport, oneLine, stateWord, tail } from './agentCentralDigest.js'
 import { crashesOf, crashLines, lastCrash } from './agentCrash.js'
+import { moveHeld } from './agentHeld.js'
 
 /** 중앙을 저절로 깨울 때 넘기는 마지막 글 · CI 기록 길이 (11/18) */
 const REPORT_FULL = 4000
@@ -448,6 +449,7 @@ export class CentralChats extends FeedbackChats {
     }
     return { kid: await this.openKid(b) }
   }
+  /** 기다리는 앱 고치기의 여는 순서를 바꾼다 (chat_priority, agentHeld.ts) */ priority(b: CentralPriorityBody): CentralHeldOrder { const c = this.central(), r = moveHeld(c, b); if (c) this.touch(c); return r }
 
   /** 하위 대화를 바로 연다. 앱 고치기에 남은 메모리가 모자라면 409 (기다리게 두기는 openOrHold) */
   async openKid(b: CentralOpenBody): Promise<CentralKid> {

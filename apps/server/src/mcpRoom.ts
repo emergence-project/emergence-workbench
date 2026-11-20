@@ -4,7 +4,7 @@
 // 앱 서버 API만 부르고 파일을 직접 읽거나 쓰지 않는다
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import { AGENT_KINDS, DebateOpened, RoomAnswer } from '@rw/core/contract/agentChats'
+import { AGENT_KINDS, CentralArchived, CentralHeldOrder, DebateOpened, RoomAnswer } from '@rw/core/contract/agentChats'
 import type { Text } from './mcp.js'
 
 type Reply = { ok: true; body: unknown } | { ok: false; error: Text }
@@ -42,5 +42,41 @@ export function registerRoomTools(server: McpServer, post: (url: string, payload
   }, async (a) => {
     const r = await post('/api/agent-debate/host', a)
     return r.ok ? text(`Opened debate ${DebateOpened.parse(r.body).id}. Tell the user in one line; the result comes later.`) : r.error
+  })
+}
+
+/** 중앙이 하위 대화가 아닌 대화를 보관한다 (chat_archive, 11/20 사용자 "대화를 여는 권한도 있으니 닫을 권한도"). 꺼내기(chat_unarchive)와 기다리는 앱 고치기 순서(chat_priority)도. 지우기는 사용자 몫 */
+export function registerArchiveTool(server: McpServer, post: (url: string, payload: unknown) => Promise<Reply>): void {
+  server.registerTool('chat_archive', {
+    title: 'Archive a conversation',
+    description: 'Archive a conversation that is not your sub-conversation (for sub-conversations use chat_close), only when its work was confirmed finished elsewhere: its feedback is 반영 or 답변, or another conversation already did the work, and it is left on an error or idle. Refused while it is working. It only archives (the user can take it back from the archive; deleting stays with the user), and a line in your conversation shows it. A conversation on another computer is archived at that computer\'s next sync, unless it was continued there meanwhile.',
+    inputSchema: { id: z.string().describe('Conversation id (chat_list or the conversation list)'), reason: z.string().max(300).describe('One line in Korean: where its work was finished') },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  }, async (a) => {
+    const r = await post('/api/agent-central/archive', a)
+    if (!r.ok) return r.error
+    const b = CentralArchived.parse(r.body)
+    return text(b.machine ? `Asked ${b.machine} to archive "${b.title}" at its next sync` : `Archived "${b.title}"`)
+  })
+  server.registerTool('chat_unarchive', {
+    title: 'Take a conversation out of the archive',
+    description: 'Bring an archived conversation back into the list, when the user or the situation needs that finished conversation again (its work turned out unfinished, or it is the right place to continue). A line in your conversation shows it. A conversation on another computer comes back at that computer\'s next sync. You cannot delete any conversation: deleting stays with the user.',
+    inputSchema: { id: z.string().describe('Conversation id (chat_list with archived conversations, or the archive)'), reason: z.string().max(300).describe('One line in Korean: why it is needed again') },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  }, async (a) => {
+    const r = await post('/api/agent-central/unarchive', a)
+    if (!r.ok) return r.error
+    const b = CentralArchived.parse(r.body)
+    return text(b.machine ? `Asked ${b.machine} to bring back "${b.title}" at its next sync` : `Brought back "${b.title}"`)
+  })
+  server.registerTool('chat_priority', {
+    title: 'Reorder waiting app tasks',
+    description: 'Move one app-fix task that waits for free memory (held; it opens when room frees, front first) to another place in that line, e.g. to the front when the user is waiting on it. Nothing is dropped. A line in your conversation shows it.',
+    inputSchema: { title: z.string().min(1).max(60).describe('The waiting task\'s title (exact, or a part that matches only one)'), to: z.number().int().min(1).optional().describe('New place, 1 = front (default)'), reason: z.string().min(1).max(300).describe('One line in Korean: why') },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  }, async (a) => {
+    const r = await post('/api/agent-central/priority', a)
+    if (!r.ok) return r.error
+    return text(`Waiting order: ${CentralHeldOrder.parse(r.body).held.map((t, i) => `${i + 1}. ${t}`).join(' · ')}`)
   })
 }
