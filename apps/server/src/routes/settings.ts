@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/settings'
 import * as A from '@rw/core/contract/app'
 import { parseBody, replies } from '../contract.js'
-import { appInfo, appStatus, updateApp, UpdateError } from '../appupdate.js'
+import { appInfo, appStatus, updateApp, UpdateError, type AppStatus } from '../appupdate.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
 import { aiKeyView, readAiKeys, removeAiKey, saveAiKey, useAi } from '../aiKey.js'
@@ -202,10 +202,16 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
     const busy = force ? 0 : agentsWorking()
     if (busy) return { restarting: false, reason: t(`일하거나 허락을 기다리는 에이전트 대화 ${busy}개가 끝나면 다시 시작합니다`, `Restarts once the ${busy} agent conversation(s) that are working or waiting for permission finish`) }
     const status = await appStatus(repo.root, repo.running)
-    if (!status.prepared) return { restarting: false, reason: t('다시 시작할 새 버전이 없습니다', 'No new version to restart into') }
+    if (!status.prepared) return { restarting: false, reason: notReady(status) }
     const restarting = repo.steps.restart()
     if (restarting) stopWaiting()
     return { restarting }
+  }
+  /** 미리 빌드한 새 버전이 없을 때의 이유. 받았는데 화면 빌드가 아직이면 「새 버전 없음」이 아니다 (11/20 피드백 23:23: 대기 중 표시와 모순처럼 읽혔다) */
+  function notReady(s: AppStatus): string {
+    if (s.behind > 0) return t('새 버전을 아직 받지 않았습니다', 'The new version has not been pulled yet')
+    if (s.head !== s.running) return t('새 버전을 받았지만 화면 빌드가 아직 준비되지 않았습니다', 'The new version is pulled but its build is not ready yet')
+    return t('다시 시작할 새 버전이 없습니다', 'No new version to restart into')
   }
   /**
    * 차례가 도는 중인 에이전트 대화 수. 허락 · 계획 승인 카드를 띄우고 기다리는 대화(waiting)도 센다 (11/20 사용자 결정 "미루자"):
@@ -221,11 +227,15 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
   function restartAfterAgents(everyMs = 10_000): void {
     if (waiting) return
     let quiet = 0
-    waiting = setInterval(() => {
+    waiting = setInterval(async () => {
       quiet = agentsWorking() || inflight > 0 || updating ? 0 : quiet + 1
-      if (quiet < 2) return
+      if (quiet < 2 || !opts.appRepo) return
+      // 「지금 다시 시작」과 같이 빌드가 준비됐는지 본다: 받기만 하고 빌드 전이면 계속 기다리고, 새 버전이 없어졌으면 그만 기다린다
+      const s = await appStatus(opts.appRepo.root, opts.appRepo.running).catch(() => null)
+      if (!s || !waiting) return
+      if (!s.prepared) { if (s.head === s.running && s.behind === 0) { stopWaiting(); ctx.broadcast({ type: 'app', research: null }) } return }
       stopWaiting()
-      if (opts.appRepo) opts.appRepo.steps.restart()
+      opts.appRepo.steps.restart()
     }, everyMs)
     waiting.unref()
     ctx.broadcast({ type: 'app', research: null })
