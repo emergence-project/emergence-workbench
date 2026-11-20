@@ -5,7 +5,7 @@ import { promisify } from 'node:util'
 import { buildFrontMatter, buildSettingTex, canonicalNoteFile, isBodyOnly, sameNoteFile, markdownToLatex, markRecords, resolveRecordMarks, PDF_RECORDS_PREAMBLE, type RecordMark, MD_PREAMBLE, parseLatexErrors, type Author, parseSynctexEdit, parseSynctexView, type LatexTemplate, type PdfBox, frontMatterLines } from '@rw/core'
 import { hashOf, writeAtomic, isInside } from './fsutil.js'
 import { hasFrontMatter, hasMaketitle, needsBodyOnly, NOTE_MACROS } from './noteBody.js'
-import { isCompletePdf, type CompileResult, type Engine } from './latex.js'
+import { isCompletePdf, noLatexmk, type CompileResult, type Engine } from './latex.js'
 import { placeTemplateFiles, SHARED_MACROS, templateFilePath } from './latexFiles.js'
 import { beginInputs, fileStamp, finishInputs, inputsChanged, recordedInputs, type PdfState, type ShownPdf, type SuccessfulInputs } from './manuscriptFreshness.js'
 import { bibliographyLines, libraryCitedBib, LIBRARY_CITED_BIB, noteBibFiles } from './noteBib.js'
@@ -484,7 +484,7 @@ async function doCompile(wb: Workbench, key: string, readOptions: () => Manuscri
     const hasPdf = isCompletePdf(pdf)
     if (!hasPdf && fs.existsSync(pdf)) problems.unshift({ file: path.relative(repo, main), line: 0, message: t('PDF가 끝까지 만들어지지 않았습니다 (그림 파일을 찾지 못했을 수 있음). 아래 오류를 먼저 고치세요.', 'The PDF was not finished (a figure file may be missing). Fix the errors below first.'), inBlock: false })
     const ok = code === 0 && hasPdf && problems.length === 0
-    if (!ok && problems.length === 0) problems.push({ file: path.relative(repo, main), line: 0, message: code === -1 ? t('latexmk를 실행하지 못했습니다.', 'Could not run latexmk.') : t('PDF를 새로 만들지 못했습니다. 로그를 확인하세요.', 'Could not make a new PDF. Check the log.'), inBlock: false })
+    if (!ok && problems.length === 0) problems.push({ file: path.relative(repo, main), line: 0, message: code === -1 ? noLatexmk() : t('PDF를 새로 만들지 못했습니다. 로그를 확인하세요.', 'Could not make a new PDF. Check the log.'), inBlock: false })
     result = { ok, durationMs: Date.now() - started, hasPdf, problems, logTail: log.split('\n').slice(-40).join('\n'), ...(explicit.marks.length && { records: { added: explicit.marks.length, failed: false } }) }
     const at = new Date().toISOString()
     // 오류가 있어도 이번에 끝까지 만든 PDF는 그대로 보여 준다 (10/5 사용자 "오류가 나면 오류가 나는대로 보여줘").

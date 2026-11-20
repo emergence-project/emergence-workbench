@@ -5,7 +5,7 @@ import { Dialog } from './dialogs'
 import { ElsewhereHomeCard, ElsewhereSection } from './ElsewhereProjects'
 import { GoogleSettings } from './GoogleSettings'
 import { Icon } from './icons'
-import { lang, plural, t } from './i18n'
+import { lang, onWindows, plural, t } from './i18n'
 import { PersonEditDialog } from './network/PersonEditDialog'
 import { announce, usePeople, useMe } from './network/people'
 import { qk } from './queries'
@@ -135,7 +135,9 @@ export function SetupAccounts({ onSaved, onUiRestored }: { onSaved(message: stri
         <Row ok={!!s?.tex} optional name="TeX" sub={t('PDF 컴파일', 'PDF compile')} ui="TeX"
           action={<button className="btn" disabled={setup.isFetching} onClick={() => void setup.refetch()}>{t('다시 확인', 'Check again')}</button>}>
           {s?.tex ? t('latexmk 있음. ', 'latexmk found. ') : t('latexmk 없음. ', 'latexmk not found. ')}
-          {t('원고·노트를 PDF로 만들 때만 필요합니다. MacTeX를 깔면 자동으로 찾습니다.', 'Needed only to make PDFs of manuscripts and notes. Install MacTeX and the app finds it.')}
+          {onWindows
+            ? t('원고·노트를 PDF로 만들 때만 필요합니다. MiKTeX나 TeX Live를 깔면 자동으로 찾습니다.', 'Needed only to make PDFs of manuscripts and notes. Install MiKTeX or TeX Live and the app finds it.')
+            : t('원고·노트를 PDF로 만들 때만 필요합니다. MacTeX를 깔면 자동으로 찾습니다.', 'Needed only to make PDFs of manuscripts and notes. Install MacTeX and the app finds it.')}
         </Row>
       </div>
       <h3 className="set-h3">{t('구글 (선택)', 'Google (optional)')}</h3>
