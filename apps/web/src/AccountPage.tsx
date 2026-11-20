@@ -2,6 +2,7 @@ import type { UiSettings } from '@rw/core'
 import { useQuery } from '@tanstack/react-query'
 import { accountApi } from './api'
 import { useAgentKinds } from './AgentPick'
+import { AiKeyAccounts } from './AiKeySettings'
 import { ClaudeAccountsSettings, DEFAULT_ACCOUNT, useAgentAccounts } from './ClaudeAccountsSettings'
 import { t } from './i18n'
 import { qk } from './queries'
@@ -11,6 +12,7 @@ import { SetupAccounts } from './SetupChecklist'
 /**
  * 계정 (11/19 01:01 피드백 「왼쪽 띠 아래 계정 아이콘」, 09:17 진행 "설정 톱니 위에 두고, 계정 페이지는 유일한 페이지로"):
  * GitHub 로그인 · 계정 동기화 · 내 이름 · 구글(옛 설정 › 계정)과 Claude · Codex 계정(옛 설정 › 에이전트)을 이 한 페이지에서 본다.
+ * ChatGPT 연결(Codex 「이 컴퓨터」 줄)과 Gemini · Claude API 키도 여기서 넣는다 (11/20 사용자 "옮기자").
  * 로그인은 여기서만 하고, 대화 종류마다 쓸 계정 고르기는 설정 › 에이전트 (11/20 사용자 "그러면 그렇게하자").
  * 옛 주소 #/settings/google은 여기로 연다 (router.ts).
  */
@@ -25,6 +27,7 @@ export function AccountPage({ onUi, onSaved }: { onUi(patch: Partial<UiSettings>
               <SetupAccounts onSaved={onSaved} onUiRestored={onUi} />
               <ClaudeAccountsSettings onSaved={onSaved} />
               <ClaudeAccountsSettings kind="codex" onSaved={onSaved} />
+              <AiKeyAccounts onSaved={onSaved} />
             </section>
           </div>
         </div>

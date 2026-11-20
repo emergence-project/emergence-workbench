@@ -201,7 +201,7 @@ export class ClaudeAccounts {
   /** 그 계정 폴더로 `claude auth login`을 띄운다 (브라우저가 열린다). 기본 계정은 터미널에서 */
   login(id: string): State {
     const dir = this.dirOf(id)
-    if (!dir) throw new WorkbenchError(400, this.kind === 'codex' ? t('기본 계정은 설정 › 에이전트의 「ChatGPT로 연결」에서 바꿉니다', 'Switch the default account with Connect ChatGPT under Settings › Agents') : t('기본 계정은 터미널에서 claude → /login으로 바꿉니다', 'Switch the default account with claude → /login in the terminal'))
+    if (!dir) throw new WorkbenchError(400, this.kind === 'codex' ? t('기본 계정은 「이 컴퓨터」 줄의 「다른 계정으로」에서 바꿉니다', 'Switch the default account with "Switch account" in the "This computer" row') : t('기본 계정은 터미널에서 claude → /login으로 바꿉니다', 'Switch the default account with claude → /login in the terminal'))
     const cli = this.cli()
     if (!cli) throw new WorkbenchError(409, t(`이 컴퓨터에 ${this.spec.name}가 없습니다`, `${this.spec.name} is not on this computer`))
     this.signing.get(id)?.proc.kill()

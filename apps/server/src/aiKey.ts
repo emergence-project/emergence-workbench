@@ -1,10 +1,11 @@
-// 앱이 직접 AI에게 묻기 (11/8 "인공지능 에이전트가 없는 친구도 논문을 읽으며 질문"): 설정 › 에이전트에서 Claude(Anthropic) 키나 Gemini 키를 넣으면
+// 앱이 직접 AI에게 묻기 (11/8 "인공지능 에이전트가 없는 친구도 논문을 읽으며 질문"): 계정 페이지에 Claude(Anthropic) 키나 Gemini 키를 넣고 설정 › 에이전트에서 고르면
 // 기록 · 논문의 질문에 claude 명령 대신 그 API가 답한다. 파일을 읽는 도구가 없으므로 질문이 가리키는 파일(PDF · 노트)을 요청에 붙인다.
 // ChatGPT(11/8 사용자 "친구가 chatgpt를 유료로 쓴다")는 키 대신 Codex CLI에 ChatGPT 계정으로 로그인해 그 요금제로 답한다(codexCli.ts).
 // 키는 이 컴퓨터의 앱 설정 폴더 ai-key.json에만 둔다(config.yaml과 따로: 설정 사본을 올려도 키는 나가지 않는다). 화면에는 끝 네 자만 보인다.
 import Anthropic from '@anthropic-ai/sdk'
 import fs from 'node:fs'
 import path from 'node:path'
+import { z } from 'zod'
 import type { AskRunner } from './ask.js'
 import { writeAtomic } from './fsutil.js'
 import { codexAsk } from './codexCli.js'
@@ -23,24 +24,84 @@ const TIMEOUT_MS = 6 * 60_000
 
 const keyFile = (configDir: string) => path.join(configDir, 'ai-key.json')
 
-export function readAiKey(configDir: string): AiKey | null {
-  try {
-    const v: unknown = JSON.parse(fs.readFileSync(keyFile(configDir), 'utf8'))
-    if (v && typeof v === 'object' && 'provider' in v && v.provider === 'chatgpt') return { provider: 'chatgpt', key: '' }
-    if (v && typeof v === 'object' && 'provider' in v && 'key' in v && (v.provider === 'claude' || v.provider === 'gemini') && typeof v.key === 'string' && v.key) return { provider: v.provider, key: v.key }
-  } catch { /* 없음 */ }
-  return null
+type KeyProvider = Exclude<AiProvider, 'chatgpt'>
+/** ai-key.json: 넣어 둔 키(계정 페이지)와 질문에 고른 AI(설정 › 에이전트). use가 없으면 아직 고른 적 없음, null이면 이 컴퓨터의 claude 명령 */
+interface AiKeyFile { use?: AiProvider | null; keys: Partial<Record<KeyProvider, string>> }
+
+const Str = z.string().min(1).optional().catch(undefined)
+const Prov = z.enum(['claude', 'gemini', 'chatgpt'])
+/** 예전 모양 { provider, key }: 키 하나를 넣으면 곧 그것을 골랐다 */
+const OldFile = z.object({ provider: Prov, key: z.unknown().optional() })
+const NewFile = z.object({
+  use: Prov.nullable().optional().catch(undefined),
+  keys: z.object({ claude: Str, gemini: Str }).catch({}),
+}).catch({ keys: {} })
+
+export function readAiKeys(configDir: string): AiKeyFile {
+  let v: unknown
+  try { v = JSON.parse(fs.readFileSync(keyFile(configDir), 'utf8')) } catch { return { keys: {} } }
+  const old = OldFile.safeParse(v)
+  if (old.success) {
+    const { provider, key } = old.data
+    return { use: provider, keys: provider !== 'chatgpt' && typeof key === 'string' && key ? { [provider]: key } : {} }
+  }
+  const f = NewFile.parse(v ?? {})
+  const keys: AiKeyFile['keys'] = {}
+  if (f.keys.claude) keys.claude = f.keys.claude
+  if (f.keys.gemini) keys.gemini = f.keys.gemini
+  return { ...(f.use !== undefined ? { use: f.use } : {}), keys }
 }
 
-export function writeAiKey(configDir: string, k: { provider: AiProvider; key?: string } | null): void {
-  if (!k) { fs.rmSync(keyFile(configDir), { force: true }); return }
+function writeAiKeys(configDir: string, f: AiKeyFile): void {
   fs.mkdirSync(configDir, { recursive: true })
-  writeAtomic(keyFile(configDir), JSON.stringify(k.provider === 'chatgpt' ? { provider: k.provider } : { provider: k.provider, key: (k.key ?? '').trim() }) + '\n')
+  writeAtomic(keyFile(configDir), JSON.stringify(f) + '\n')
   try { fs.chmodSync(keyFile(configDir), 0o600) } catch { /* 윈도우 */ }
 }
 
-/** 화면에 보일 때: 어느 AI인지와 키 끝 네 자 */
-export const aiKeyView = (k: AiKey | null) => k ? { provider: k.provider, model: AI_MODELS[k.provider], hint: k.key.slice(-4) } : null
+/** 질문에 답할 AI: 고른 것이 쓸 수 있을 때만 (고른 키를 지웠으면 null = claude 명령) */
+export function readAiKey(configDir: string): AiKey | null {
+  const f = readAiKeys(configDir)
+  if (f.use === 'chatgpt') return { provider: 'chatgpt', key: '' }
+  if (f.use && f.keys[f.use]) return { provider: f.use, key: f.keys[f.use]! }
+  return null
+}
+
+/** 키 넣기 (계정 페이지). 아직 아무것도 고른 적 없으면 넣은 키를 고른다: 처음 넣는 사람은 고르기를 따로 하지 않아도 된다 */
+export function saveAiKey(configDir: string, provider: KeyProvider, key: string): void {
+  const f = readAiKeys(configDir)
+  f.keys[provider] = key.trim()
+  if (f.use === undefined) f.use = provider
+  writeAiKeys(configDir, f)
+}
+
+export function removeAiKey(configDir: string, provider: KeyProvider): void {
+  const f = readAiKeys(configDir)
+  delete f.keys[provider]
+  if (f.use === provider) f.use = null
+  writeAiKeys(configDir, f)
+}
+
+/** 질문에 답할 AI 고르기 (설정 › 에이전트) */
+export function useAi(configDir: string, provider: AiProvider | null): void {
+  writeAiKeys(configDir, { ...readAiKeys(configDir), use: provider })
+}
+
+/** 시험 · 예전 호출용: 키를 넣고 그것을 고른다 (null이면 모두 지움) */
+export function writeAiKey(configDir: string, k: { provider: AiProvider; key?: string } | null): void {
+  if (!k) { fs.rmSync(keyFile(configDir), { force: true }); return }
+  if (k.provider !== 'chatgpt') saveAiKey(configDir, k.provider, k.key ?? '')
+  useAi(configDir, k.provider)
+}
+
+/** 화면에 보일 때: 고른 AI와 모델, 넣어 둔 키마다 끝 네 자 */
+export function aiKeyView(configDir: string) {
+  const k = readAiKey(configDir)
+  const { keys } = readAiKeys(configDir)
+  return {
+    key: k ? { provider: k.provider, model: AI_MODELS[k.provider], hint: k.key.slice(-4) } : null,
+    saved: { claude: keys.claude?.slice(-4) ?? null, gemini: keys.gemini?.slice(-4) ?? null },
+  }
+}
 
 const NO_TOOLS = t('\n\n(이 답에서는 Read 같은 도구를 쓸 수 없습니다. 위에서 말한 파일은 이 메시지에 붙어 있으니 그것을 읽고 답하세요.)', '\n\n(No tools such as Read are available for this answer. The file mentioned above is attached to this message; read it and answer.)')
 
@@ -68,7 +129,7 @@ function claudeAsk(key: string, file: Attached | null, prompt: string): Promise<
       if (!text) throw new WorkbenchError(502, t('Claude가 빈 답을 보냈습니다', 'Claude returned an empty answer'))
       return text
     }, (e: unknown) => {
-      if (e instanceof Anthropic.AuthenticationError) throw new WorkbenchError(401, t('Claude API 키가 맞지 않습니다. 설정 › 에이전트에서 키를 다시 넣어 주세요', 'The Claude API key was rejected. Enter it again in Settings › Agents'))
+      if (e instanceof Anthropic.AuthenticationError) throw new WorkbenchError(401, t('Claude API 키가 맞지 않습니다. 계정 페이지에서 키를 다시 넣어 주세요', 'The Claude API key was rejected. Enter it again on the Account page'))
       if (e instanceof Anthropic.RateLimitError) throw new WorkbenchError(429, t('Claude API 사용 한도에 걸렸습니다. 잠시 뒤 다시 하거나 크레딧을 확인하세요', 'The Claude API rate or credit limit was hit. Try again later or check your credits'))
       if (e instanceof Anthropic.APIError) throw new WorkbenchError(502, t(`Claude API 오류 (${e.status ?? '연결'}): ${e.message.slice(0, 300)}`, `Claude API error (${e.status ?? 'connection'}): ${e.message.slice(0, 300)}`))
       throw e
@@ -89,7 +150,7 @@ async function geminiAsk(key: string, file: Attached | null, prompt: string, fet
     })
   } catch (e) { throw new WorkbenchError(502, t(`Gemini에 닿지 못했습니다: ${e instanceof Error ? e.message : String(e)}`, `Could not reach Gemini: ${e instanceof Error ? e.message : String(e)}`)) }
   const body: GeminiReply = await res.json().catch(() => ({}))
-  if (res.status === 400 && /api key/i.test(body.error?.message ?? '') || res.status === 401 || res.status === 403) throw new WorkbenchError(401, t('Gemini API 키가 맞지 않습니다. 설정 › 에이전트에서 키를 다시 넣어 주세요', 'The Gemini API key was rejected. Enter it again in Settings › Agents'))
+  if (res.status === 400 && /api key/i.test(body.error?.message ?? '') || res.status === 401 || res.status === 403) throw new WorkbenchError(401, t('Gemini API 키가 맞지 않습니다. 계정 페이지에서 키를 다시 넣어 주세요', 'The Gemini API key was rejected. Enter it again on the Account page'))
   if (res.status === 429) throw new WorkbenchError(429, t('Gemini 사용 한도에 걸렸습니다. 잠시 뒤 다시 해 주세요', 'The Gemini rate limit was hit. Try again later'))
   if (!res.ok) throw new WorkbenchError(502, t(`Gemini 오류 (${res.status}): ${(body.error?.message ?? '').slice(0, 300)}`, `Gemini error (${res.status}): ${(body.error?.message ?? '').slice(0, 300)}`))
   const text = (body.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? '').join('').trim()

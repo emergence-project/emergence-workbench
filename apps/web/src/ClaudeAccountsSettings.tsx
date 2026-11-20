@@ -1,7 +1,8 @@
 // 계정 › Claude 계정 (11/16 사용자 "pro 계정을 주로 답변용으로" · "로그인 정보를 담아두고 쉽게 로그인 · 전환"):
 // 계정마다 한 번 로그인해 두면(계정마다 따로 된 폴더) 다시 묻지 않는다. 대화 종류마다 어느 계정으로 돌지는 설정 › 에이전트에서 고르고(AgentAccountRoles),
 // 여기서는 계정마다 어디에 쓰이는지만 읽기로 보인다 (11/20 사용자 "그러면 그렇게하자": 로그인은 계정 페이지에서만, 다른 곳은 등록된 계정을 고르기만)
-// 「이 컴퓨터」 줄은 이 컴퓨터의 Claude Code · Codex 로그인 상태(깔렸는지 · 로그인했는지 · 다른 계정으로)도 보인다 (옛 설정 › 에이전트 › 계정)
+// 「이 컴퓨터」 줄은 이 컴퓨터의 Claude Code · Codex 로그인 상태(깔렸는지 · 로그인했는지 · 다른 계정으로)도 보인다 (옛 설정 › 에이전트 › 계정).
+// Codex 「이 컴퓨터」 줄이 곧 「ChatGPT로 연결」이다: 질문에 답하는 Codex와 같은 ~/.codex 로그인 (11/20 사용자 "옮기자")
 // Codex도 같은 모양 (11/20 시안 4절), 계정 줄마다 5시간 · 이번 주 한도 막대 (80%를 넘으면 주황, 못 읽으면 「아직 모름」)
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
@@ -12,6 +13,7 @@ import { t } from './i18n'
 import { Icon } from './icons'
 import { qk } from './queries'
 import { href } from './router'
+import { ChatGptConnect } from './ChatGptConnect'
 import { CopyButton, Row } from './SetupChecklist'
 
 /** 서버 계약(contract/claudeAccounts.ts)과 같은 값. 화면 번들에 zod를 넣지 않으려고 값은 여기 다시 적는다 */
@@ -106,7 +108,7 @@ function AccountRow({ kind, a, uses, busy, onRun, onSaved, onError }: { kind: Ac
         {(!a.login || a.signing?.error) && !(a.signing && !a.signing.error) && <button className="btn" disabled={busy} onClick={() => onRun(() => api.login(a.id))}>{t('로그인', 'Sign in')}</button>}
         <button className="icon-btn" data-tip={t('계정 제거', 'Remove account')} aria-label={t('계정 제거', 'Remove account')} onClick={() => void remove()}>{Icon.trash}</button>
       </span> : <ThisComputerAction kind={kind} onSaved={onSaved} onError={onError} />}>
-      {a.email ?? (extra ? t('로그인하지 않았습니다.', 'Not signed in.') : <ThisComputerHint kind={kind} />)}
+      {a.email ?? (extra ? t('로그인하지 않았습니다.', 'Not signed in.') : <ThisComputerHint kind={kind} onSaved={onSaved} />)}
       {!extra && a.email && <span className="muted">{kind === 'codex' ? t(' · 터미널의 codex와 같은 계정', ' · Same as codex in the terminal') : t(' · 터미널의 claude와 같은 계정', ' · Same as claude in the terminal')}</span>}
       {uses && <span className="muted acct-uses" data-ui="계정 쓰임">{uses.length ? t(`쓰임: ${uses.join(' · ')}`, `Used for: ${uses.join(' · ')}`) : t('쓰임: 없음', 'Used for: nothing')}</span>}
       {a.login && <Limits l={a.limits} />}
@@ -126,13 +128,18 @@ function AccountRow({ kind, a, uses, busy, onRun, onSaved, onError }: { kind: Ac
 /** 「이 컴퓨터」 줄의 그 에이전트 (깔렸는지 · 로그인했는지). Claude는 claude-code */
 const useThisComputer = (kind: AccountKind) => useAgentKinds()?.find((k) => k.id === (kind === 'codex' ? 'codex' : 'claude-code'))
 
-/** 이 컴퓨터 계정이 비었을 때의 안내: 깔 명령 · 로그인 방법 */
-function ThisComputerHint({ kind }: { kind: AccountKind }) {
+/** 이 컴퓨터 계정이 비었을 때의 안내: 깔 명령 · 로그인 방법. Codex는 「ChatGPT로 연결」(받기 → 브라우저 로그인, 11/20 옛 설정 › 에이전트에서 옮김) */
+function ThisComputerHint({ kind, onSaved }: { kind: AccountKind; onSaved(m: string): void }) {
+  const client = useQueryClient()
   const k = useThisComputer(kind)
   const cli = kind === 'codex' ? 'codex' : 'claude'
+  if (kind === 'codex' && (!k?.installed || k.login !== true)) return <ChatGptConnect onDone={() => {
+    void Promise.all([qk.agentKinds, KEY.codex, qk.codex].map((queryKey) => client.invalidateQueries({ queryKey })))
+    onSaved(t('ChatGPT로 연결했습니다. 질문에 Codex가 답하게 하려면 설정 › 에이전트에서 고르세요', 'Connected ChatGPT. To have Codex answer questions, pick it in Settings › Agents'))
+  }} />
   if (k && !k.installed && !k.bundled) return <>{t(`이 컴퓨터에 ${cli}가 없습니다. 깔고 터미널에서 한 번 열어 로그인하세요: `, `${cli} is not on this computer. Install it and open it once in a terminal to sign in: `)}<code className="setup-cmd">{k.install}</code></>
   return kind === 'codex'
-    ? t('이 컴퓨터의 Codex에 로그인한 계정입니다. 설정 › 에이전트의 「ChatGPT로 연결」로 로그인하세요.', 'The account signed in to Codex on this computer. Sign in with Connect ChatGPT under Settings › Agents.')
+    ? t('이 컴퓨터의 Codex에 로그인한 계정입니다.', 'The account signed in to Codex on this computer.')
     : t('이 컴퓨터의 Claude Code에 로그인한 계정입니다. 터미널에서 claude를 열고 /login으로 로그인하세요.', 'The account signed in to Claude Code on this computer. Open claude in a terminal and sign in with /login.')
 }
 
@@ -142,6 +149,8 @@ function ThisComputerAction({ kind, onSaved, onError }: { kind: AccountKind; onS
   const [switching, setSwitching] = useState(false)
   const k = useThisComputer(kind)
   if (!k) return null
+  // Codex가 없거나 로그인 전이면 단추는 줄 안의 「ChatGPT로 연결」
+  if (kind === 'codex' && (!k.installed || k.login !== true)) return null
   if (!k.installed) return k.install ? <CopyButton text={k.install} onSaved={onSaved} /> : null
   if (k.login === false) return null
   const other = async () => {
@@ -160,7 +169,7 @@ function ThisComputerAction({ kind, onSaved, onError }: { kind: AccountKind; onS
 function AddAccount({ kind, cli, busy, onAdd }: { kind: AccountKind; cli: boolean; busy: boolean; onAdd(name: string): void }) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
-  if (!cli) return <p className="muted setup-row">{kind === 'codex' ? t('이 컴퓨터에 Codex가 없어 계정을 추가하지 못합니다. 설정 › 에이전트에서 먼저 ChatGPT로 연결하세요.', 'Codex is not on this computer, so accounts cannot be added. Connect ChatGPT under Settings › Agents first.') : t('이 컴퓨터에 Claude Code가 없어 계정을 추가하지 못합니다.', 'Claude Code is not on this computer, so accounts cannot be added.')}</p>
+  if (!cli) return <p className="muted setup-row">{kind === 'codex' ? t('이 컴퓨터에 Codex가 없어 계정을 추가하지 못합니다. 위 「이 컴퓨터」 줄에서 먼저 ChatGPT로 연결하세요.', 'Codex is not on this computer, so accounts cannot be added. Connect ChatGPT in the "This computer" row above first.') : t('이 컴퓨터에 Claude Code가 없어 계정을 추가하지 못합니다.', 'Claude Code is not on this computer, so accounts cannot be added.')}</p>
   if (!open) return <div className="setup-row ac-acct-add"><button className="btn" data-ui="계정 추가" onClick={() => setOpen(true)}>{Icon.plus} {t('계정 추가', 'Add account')}</button></div>
   const add = () => { if (name.trim()) { onAdd(name.trim()); setOpen(false); setName('') } }
   return (

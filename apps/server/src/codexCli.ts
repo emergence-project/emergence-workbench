@@ -182,8 +182,8 @@ export async function fileText(file: string): Promise<string> {
 /** `codex exec`로 답 하나: 읽기 전용 샌드박스, 마지막 답만 파일로 받는다 */
 export async function codexAsk(configDir: string, cwd: string, prompt: string, file?: string): Promise<string> {
   const bin = codexBin(configDir)
-  if (!bin) throw new WorkbenchError(503, t('Codex가 없습니다. 설정 › 에이전트 › AI 키에서 ChatGPT로 다시 연결해 주세요', 'Codex is missing. Connect ChatGPT again in Settings › Agents › AI key'))
-  if (!process.env.RW_CODEX_BIN && !codexLoggedIn(bin)) throw new WorkbenchError(401, t('ChatGPT 로그인이 필요합니다. 설정 › 에이전트 › AI 키에서 ChatGPT로 연결해 주세요', 'ChatGPT sign-in is needed. Connect ChatGPT in Settings › Agents › AI key'))
+  if (!bin) throw new WorkbenchError(503, t('Codex가 없습니다. 계정 페이지의 Codex 「이 컴퓨터」 줄에서 ChatGPT로 다시 연결해 주세요', 'Codex is missing. Connect ChatGPT again in the Codex "This computer" row on the Account page'))
+  if (!process.env.RW_CODEX_BIN && !codexLoggedIn(bin)) throw new WorkbenchError(401, t('ChatGPT 로그인이 필요합니다. 계정 페이지의 Codex 「이 컴퓨터」 줄에서 ChatGPT로 연결해 주세요', 'ChatGPT sign-in is needed. Connect ChatGPT in the Codex "This computer" row on the Account page'))
   let full = prompt
   if (file && fs.existsSync(file)) {
     const text = await fileText(file).catch(() => '')
