@@ -107,7 +107,7 @@ describe('앱 업데이트', () => {
     fs.writeFileSync(path.join(mac, 'app.ts'), 'mac edit\n')
     const blocked = await update()
     expect(blocked.statusCode).toBe(409)
-    expect(blocked.json().error).toMatch(/이 맥에서 고친 파일이 있어.*app\.ts/)
+    expect(blocked.json().error).toMatch(/(이 맥|이 컴퓨터)에서 고친 파일이 있어.*app\.ts/)
     expect(fs.readFileSync(path.join(mac, 'app.ts'), 'utf8')).toBe('mac edit\n')
 
     const off = buildApp({ configDir: path.join(tmp, 'config-app2') })
