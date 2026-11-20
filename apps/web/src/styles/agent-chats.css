@@ -220,6 +220,9 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-list .empty { padding: var(--sp-2); }
 .ac-line-dot { flex: none; width: 10px; display: inline-flex; justify-content: center; }
 .ac-line-dot .g-name { display: none; }
+/* 점 자리(10px)에는 점만: 오류 · 대기의 이름은 아래 줄이 적는다. 글자를 그대로 두면 제목 위로 넘친다 */
+.ac-line-dot .ac-state.error-text, .ac-line-dot .ac-state.muted { font-size: 0; }
+.ac-line-dot .ac-state.error-text::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--danger); }
 .ac-line-meta { padding-left: calc(10px + var(--sp-2)); }
 /* 보관한 대화의 결과 요약 첫 줄 (11/16 정리 · 압축) */
 .ac-line-sum { font-size: var(--fs-2xs); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; padding-left: calc(10px + var(--sp-2)); }
