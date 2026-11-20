@@ -10,6 +10,7 @@ import { go } from './router'
 import { figureListFilter, rememberFigureList, showFigure } from './figureView'
 import { store } from './store'
 import { lang, plural, revealLabel, t } from './i18n'
+import { LibraryLink } from './LibraryLink'
 
 /**
  * 그림 라이브러리 (10/4 19:10 피드백 "반복해서 쓰는 그림을 공용 자산으로").
@@ -148,7 +149,7 @@ export function FiguresPage({ filter: routeFilter, open, onSaved }: { filter?: s
           {!data && (error
             ? <p className="empty fg-empty">{t('그림 목록을 읽지 못했습니다', 'Could not read the figure list')}: {error} <button className="btn sm" onClick={forgetFigures}>{t('다시 읽기', 'Reload')}</button></p>
             : <p className="empty fg-empty">{t('불러오는 중…', 'Loading…')}</p>)}
-          {data && !data.library && <div className="banner">{t('공유 라이브러리가 설정되지 않아 프로젝트 전용 그림만 보입니다. 설정 › 공유 라이브러리에서 정해 주세요.', 'No shared library is set, so only project figures show. Set it in Settings › Shared library.')}</div>}
+          {data && !data.library && <div className="banner">{t('공용 라이브러리 폴더가 아직 없어 프로젝트 전용 그림만 보입니다. ', 'No shared library folder yet, so only project figures show. ')}<LibraryLink />{t('에서 폴더를 정해 주세요.', ' is where you set it.')}</div>}
           {data && (view === 'cards'
             ? (
               <div className="fg-cards">

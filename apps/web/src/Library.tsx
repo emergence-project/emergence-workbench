@@ -12,6 +12,7 @@ import { go } from './router'
 import { Icon } from './icons'
 import { useAutosave } from './autosave'
 import { t } from './i18n'
+import { LibraryLink } from './LibraryLink'
 /** 저장하고 이만큼 더 손을 멈추면 PDF를 다시 만든다 */
 const COMPILE_AFTER_MS = 1500
 export const KIND_NAME: Record<LibraryKind, string> = { concept: t('개념노트', 'Concept note'), paper: t('문헌노트', 'Literature note') }
@@ -212,7 +213,7 @@ export function LibraryPage({ info, topic, rightOpen = true, onChanged, onSaved 
 }
 
 function NoLibrary() {
-  return <main className="stage full"><section className="pane"><div className="page-body"><h2>{t('지식', 'Knowledge')}</h2><p className="muted">{t('라이브러리 폴더가 설정되지 않았습니다 (~/.config/research-workspace/config.yaml의 library).', 'No library folder is set (library in ~/.config/research-workspace/config.yaml).')}</p></div></section></main>
+  return <main className="stage full"><section className="pane"><div className="page-body"><h2>{t('지식', 'Knowledge')}</h2><p className="muted">{t('공용 라이브러리 폴더가 아직 없습니다. 개념노트는 그 폴더에 둡니다. ', 'No shared library folder yet. Concept notes live in that folder. ')}<LibraryLink />{t('에서 폴더를 정해 주세요.', ' is where you set it.')}</p></div></section></main>
 }
 
 /** 지식 지도 (왼쪽 띠의 "지도", 10/6에 지식 화면의 보기에서 자리만 옮김. 지도 자체는 그대로) */

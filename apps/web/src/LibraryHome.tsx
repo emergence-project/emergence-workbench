@@ -11,6 +11,7 @@ import { readPaper } from './PaperRead'
 import { relativeTime } from './format'
 import { go, type Route } from './router'
 import { plural, t } from './i18n'
+import { LibraryLink } from './LibraryLink'
 
 /**
  * 그림 첫 화면 (라이브러리 L2, 설계 결정 2026-10-06 "라이브러리 첫 화면"). 논문 첫 화면은 10/31 시안대로 따로(PapersHome).
@@ -149,7 +150,7 @@ export function PapersHome({ info, rightOpen, onSaved }: { info: LibraryInfo | n
       <div className={`kh-layout${rightOpen ? '' : ' no-right'}`}>
         <div className="scroll kh-main lh-pmain">
           {error && <div className="banner danger">{t('첫 화면 숫자를 읽지 못했습니다', 'Could not read the counts for this page')}: {error}</div>}
-          {b && !b.library && <div className="banner">{t('공유 라이브러리가 설정되지 않았습니다. 설정 › 라이브러리 관리에서 저장 위치를 확인해 주세요.', 'The shared library is not set up. Check its location in Settings › Library.')}</div>}
+          {b && !b.library && <div className="banner">{t('공용 라이브러리 폴더가 아직 없습니다. ', 'No shared library folder yet. ')}<LibraryLink />{t('에서 폴더를 정해 주세요.', ' is where you set it.')}</div>}
           <div className="lh-gap" aria-hidden />
           <div className="lh-find"><PaperFind value={q} onChange={setQ} papers={all ?? []} projects={b?.projects ?? []} onSaved={onSaved} /></div>
           <div className="kh-cols">
