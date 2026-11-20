@@ -47,6 +47,9 @@ const TRUST_HINT: Record<Trust, string> = {
   plan: t('먼저 계획을 보이고, 승인할 때 이어 갈 방법을 고릅니다', 'Shows a plan first; you choose how to continue when you approve it'),
   edit: t('범위 안 노트를 바로 고칩니다. 명령 · 웹 · 범위 밖은 묻거나 막습니다', 'Edits notes in scope right away. Commands, web and out-of-scope work ask or are blocked'),
 }
+/** 중앙 대화 (11/20): 명령은 맡기는 정도와 상관없이 같은 판정 — 읽기 명령은 묻지 않고, 바꾸는 일은 하위 대화에 맡긴다 */
+const CENTRAL_COMMANDS = t('읽기 명령은 묻지 않고 돌립니다. 바꾸는 일은 하위 대화에 맡깁니다', 'Read commands run without asking. Changes go to a sub-conversation')
+const CENTRAL_HINT: Record<Trust, string> = { read: CENTRAL_COMMANDS, ask: CENTRAL_COMMANDS, plan: TRUST_HINT.plan, edit: CENTRAL_COMMANDS }
 export const trustOf = (c: { write: string; mode: ChatMode }): Trust => (c.write === 'read' ? 'read' : c.mode)
 export const settingsOf = (v: Trust): ChatSettings => (v === 'read' ? { write: 'read' } : { write: 'notes', mode: v })
 /** ⇧⇥: 다음 맡기는 정도 */
@@ -420,13 +423,13 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
           {(close) => TRUSTS.filter((v) => v !== 'plan' || isClaude(settings.agent)).map((v) => (
             <button key={v} role="menuitemradio" aria-checked={settings.trust === v} className={`ac-pop-item${settings.trust === v ? ' on' : ''}`} onClick={() => { close(); onSettings({ trust: v }) }}>
               <span className="ac-pop-check" aria-hidden>{settings.trust === v ? Icon.check : null}</span>
-              <span className="ac-pop-what"><span>{TRUST_NAME[v]}</span><span className="muted">{(rid === APP_RID ? APP_HINT : TRUST_HINT)[v]}</span></span>
+              <span className="ac-pop-what"><span>{TRUST_NAME[v]}</span><span className="muted">{(rid === APP_RID ? APP_HINT : rid === CENTRAL_RID ? CENTRAL_HINT : TRUST_HINT)[v]}</span></span>
             </button>
           ))}
         </PopButton>
         {/* 권한 설명은 늘 보이는 줄 대신 ? 툴팁 (10/31 시안 6절). 누르면 소개의 그 절 */}
         <a className="icon-btn sm ac-help" href={href({ page: 'about', part: 'agents', anchor: 'conversations' })} data-ui="권한 설명" aria-label={t('권한 설명', 'About permissions')}
-          data-tip={settings.custom ? t('직접 정한 권한입니다. 세부 패널 「이 대화의 권한」에서 봅니다', 'Custom permissions; see "Permissions here" in the detail pane') : (rid === APP_RID ? APP_HINT : TRUST_HINT)[settings.trust]}>{Icon.help}</a>
+          data-tip={settings.custom ? t('직접 정한 권한입니다. 세부 패널 「이 대화의 권한」에서 봅니다', 'Custom permissions; see "Permissions here" in the detail pane') : (rid === APP_RID ? APP_HINT : rid === CENTRAL_RID ? CENTRAL_HINT : TRUST_HINT)[settings.trust]}>{Icon.help}</a>
         {/* 모델과 생각 깊이는 따로 (11/9 11:07): 왼쪽에서 모델을 고르고, 그 모델이 받는 깊이를 오른쪽에서 */}
         <PopButton ui="모델 고르기" tip={t('에이전트 · 모델', 'Agent · model')} label={<>{!isClaude(settings.agent) && <><AgentChip agent={settings.agent} /> </>}{familyName(settings.model, models)} ▾</>}>
           {(close) => <>
