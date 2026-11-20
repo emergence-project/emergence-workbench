@@ -13,6 +13,8 @@ export const SearchItem = z.object({
   /** 속한 프로젝트 */
   rid: z.string().optional(),
   project: z.string().optional(),
+  /** 프로젝트 안의 자리: 장은 그 원고 이름, 주제 폴더의 노트는 그 주제 이름 (같은 이름의 줄을 가려 보게) */
+  within: z.string().optional(),
   /** 장·노트의 파일 (저장소 기준 경로) */
   file: z.string().optional(),
   /** 노트 구분 (원고·연구노트·계산 노트) */

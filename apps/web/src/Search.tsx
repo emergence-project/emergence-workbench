@@ -76,7 +76,7 @@ export function SearchOverlay({ rid, onClose }: { rid: string | null; onClose():
     ]
     const items = catalog ?? []
     const toHit = (x: SearchItem): Hit | null => {
-      const base = { key: `${x.kind}:${x.rid ?? ''}:${x.id}`, title: x.title, icon: KIND_ICON[x.kind], where: x.project }
+      const base = { key: `${x.kind}:${x.rid ?? ''}:${x.id}`, title: x.title, icon: KIND_ICON[x.kind], where: x.within && x.within !== x.title ? `${x.project} › ${x.within}` : x.project }
       const kind = x.kind === 'note' && x.noteKind ? NOTE_KIND_LABEL[x.noteKind] : KIND_LABEL[x.kind]
       switch (x.kind) {
         case 'project': return { ...base, kind, where: undefined, to: { page: 'overview', rid: x.id } }
