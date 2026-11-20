@@ -55,7 +55,7 @@ export function CentralStart() {
     <div className="scroll"><div className="page-body ac-start" data-ui="중앙 시작">
       <h1 className="ac-h">{t('중앙', 'Central')}</h1>
       <div className="ac-new">
-        <Composer rid={CENTRAL_RID} agentFixed noTrust autoFocus
+        <Composer rid={CENTRAL_RID} keep="new:central" agentFixed noTrust autoFocus
           settings={{ trust: 'read', agent: 'claude', model: start.model, effort: start.effort, account: start.account ?? 'default' }}
           onSettings={(s) => setStart((o) => ({ ...o, ...(s.model && { model: s.model }), ...(s.effort && { effort: s.effort }), ...(s.account && { account: s.account }) }))}
           onSubmit={submit} placeholder={t('무엇이든 먼저 말하세요 · 예: 피드백에서 그림이 안 보인대. 고쳐 줘', 'Say anything first · e.g. pictures do not show in feedback. Fix it')} />

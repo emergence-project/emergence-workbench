@@ -644,7 +644,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, o
         {behind && <button className="btn sm ac-latest" data-ui="최신으로" onClick={toEnd}>{Icon.down}{t('최신으로', 'Latest')}</button>}
         {showTodos && <TodoBar todos={chat.todos} />}
         <QueuedBar chat={chat} onEdit={(f) => setFill({ ...f, n: Date.now() })} onError={setFail} />
-        <Composer rid={chat.rid} auto={auto} settings={settings} agentFixed onSettings={(s) => void change(s)} onSubmit={send} onStop={live ? () => void stop() : undefined}
+        <Composer rid={chat.rid} keep={chat.id} auto={auto} settings={settings} agentFixed onSettings={(s) => void change(s)} onSubmit={send} onStop={live ? () => void stop() : undefined}
           placeholder={placeholder} fail={fail} fill={fill} room={debateComposer(chat) ?? room} />
         <div className="muted ac-keys">{/* 토론 입력란에는 권한 단추가 없다 */!chat.debate && t('⇧⇥ 권한 · ', '⇧⇥ permissions · ')}{t('⌘↵ 보내기', '⌘↵ send')}{live && t(' · Esc 멈추기', ' · Esc stop')}</div>
       </div>}
@@ -693,7 +693,7 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
   const lead = !fixed && <ProjectPick picked={rid ? [rid, ...more] : []} projects={projects ?? []} appOk={appOk} apps={apps} appTarget={target} onAppTarget={(id) => { setAppPick(id); store.set('rw-agent-app', id) }} onPick={([r = '', ...rest]) => { setPick(r); store.set('rw-agent-project', r); setAlso(rest); store.set('rw-agent-also', rest) }} />
   return (
     <div className="ac-new" data-ui="새 대화">
-      {rid && <Composer key={rid} rid={rid} lead={lead} auto={note ? { kind: 'note', ref: note.file, label: note.title } : undefined} settings={{ ...settings, ...(acc.account && { account: acc.account }) }} onSettings={acc.onSettings} onSubmit={start}
+      {rid && <Composer key={rid} rid={rid} keep={`new:${rid}`} lead={lead} auto={note ? { kind: 'note', ref: note.file, label: note.title } : undefined} settings={{ ...settings, ...(acc.account && { account: acc.account }) }} onSettings={acc.onSettings} onSubmit={start}
         placeholder={app ? t('고칠 것을 쓰세요 · 그림 붙여넣기', 'What should change in the app? · paste images') : t('맡길 일을 쓰세요 · / 명령 · @ 노트 붙이기 · 그림 붙여넣기', 'What should the agent do? · / commands · @ attach · paste images')} />}
       {rid && <ChatHerePick h={here} />}{app && <AppFixHint name={target && (apps.find((a) => a.id === target)?.name ?? target)} />}
     </div>
