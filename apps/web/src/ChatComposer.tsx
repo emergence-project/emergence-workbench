@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ClipboardEvent, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { visibleBox, type Box } from './tipPlace'
 import { useQuery } from '@tanstack/react-query'
 import { agentChatsApi, api, APP_RID, CENTRAL_RID, notesApi, type Attach, type AttachKind, type ChatEffort, type ChatMessageBody, type ChatMode, type ChatModel, type ChatSettings, type ImageIn } from './api'
 import { useCmdEnter } from './cmdEnter'
@@ -143,7 +144,6 @@ function readImage(f: File): Promise<ImageIn & { name: string }> {
   })
 }
 
-type Box = { top: number; bottom: number; left: number; right: number }
 /**
  * 메뉴 자리: 바라는 쪽(위, down이면 아래)에 안 들어가고 반대쪽이 더 넓으면 뒤집고, 들어갈 높이를 넘으면 그 높이까지(스크롤).
  * 가로는 단추 왼쪽(down이면 오른쪽)에 맞추되 보이는 칸(box) 안으로 민다. x = 단추 왼쪽에서 메뉴 왼쪽까지
@@ -157,18 +157,6 @@ export function fitMenu(menu: { width: number; height: number }, btn: Box, box: 
   const want = down ? btn.right - menu.width : btn.left
   const left = Math.max(box.left + gap, Math.min(want, box.right - gap - menu.width))
   return { down: d, x: left - btn.left, ...(menu.height > room && { max: Math.max(room, 0) }) }
-}
-
-/** 메뉴가 보이는 칸: 창과, 넘친 것을 자르는 조상(패널 등)이 겹치는 곳 */
-function visibleBox(el: Element): Box {
-  const b: Box = { top: 0, left: 0, bottom: window.innerHeight, right: window.innerWidth }
-  for (let p = el.parentElement; p; p = p.parentElement) {
-    const s = getComputedStyle(p)
-    if (s.overflowX === 'visible' && s.overflowY === 'visible') continue
-    const r = p.getBoundingClientRect()
-    b.top = Math.max(b.top, r.top); b.left = Math.max(b.left, r.left); b.bottom = Math.min(b.bottom, r.bottom); b.right = Math.min(b.right, r.right)
-  }
-  return b
 }
 
 /** 입력란 아래 줄의 작은 메뉴 버튼 (＋ · 맡기는 정도 · 모델과 생각). 메뉴는 패널 · 창 끝에서 잘리지 않게 뒤집거나 민다 (fitMenu) */

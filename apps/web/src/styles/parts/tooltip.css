@@ -1,5 +1,6 @@
 /* 툴팁 (공용 부품, 디자인 문서 3절): 버튼 이름 · 단축키는 title 대신 data-tip으로 아래에 작게 띄운다.
  * data-tip을 단 요소면 어디서나 같은 모양이다. 자리만 바꾸는 변형:
+ * 창이나 패널 끝에서 잘릴 자리면 tipPlace.ts가 data-tip-up(위로) · data-tip-x(끝 맞춤)를 달아 옮긴다 (11/21).
  * .tip-start · .tip-end 왼쪽 · 오른쪽 끝에 맞춤(창 밖으로 나가지 않게), .tip-right 오른쪽 옆(레일), .tip-wrap 긴 설명을 여러 줄로 */
 :where([data-tip]) { position: relative; }
 [data-tip]:hover::after, [data-tip]:focus-visible::after { content: attr(data-tip); position: absolute; top: calc(100% + 2px); left: 50%; transform: translateX(-50%); z-index: var(--z-tooltip); background: var(--text); color: var(--bg); font-size: var(--fs-xs); font-weight: var(--fw-normal); letter-spacing: 0; text-align: left; padding: 2px var(--sp-2); border-radius: var(--r-sm); white-space: nowrap; pointer-events: none; }
@@ -7,3 +8,9 @@
 .tip-end[data-tip]:hover::after, .tip-end[data-tip]:focus-visible::after { left: auto; right: 0; transform: none; }
 .tip-right[data-tip]:hover::after, .tip-right[data-tip]:focus-visible::after { top: 50%; left: calc(100% + 4px); transform: translateY(-50%); }
 .tip-wrap[data-tip]:hover::after, .tip-wrap[data-tip]:focus-visible::after { width: max-content; max-width: 280px; white-space: normal; line-height: 1.45; padding: var(--sp-1) var(--sp-2); }
+[data-tip][data-tip-x="start"]:hover::after, [data-tip][data-tip-x="start"]:focus-visible::after { left: 0; right: auto; transform: none; }
+[data-tip][data-tip-x="end"]:hover::after, [data-tip][data-tip-x="end"]:focus-visible::after { left: auto; right: 0; transform: none; }
+[data-tip][data-tip-up]:hover::after, [data-tip][data-tip-up]:focus-visible::after { top: auto; bottom: calc(100% + 2px); }
+/* 자리를 재는 자 (tipPlace.ts): 툴팁과 같은 글자 · 여백, 보이지 않는다 */
+.tip-ruler { position: fixed; left: -9999px; top: 0; visibility: hidden; pointer-events: none; font-size: var(--fs-xs); font-weight: var(--fw-normal); letter-spacing: 0; padding: 2px var(--sp-2); white-space: nowrap; }
+.tip-ruler.wrap { width: max-content; max-width: 280px; white-space: normal; line-height: 1.45; padding: var(--sp-1) var(--sp-2); }
