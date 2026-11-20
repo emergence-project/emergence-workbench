@@ -88,6 +88,7 @@ import '@xterm/xterm/css/xterm.css'
 import './styles/terminal.css'
 import './styles/central-room.css'
 import './styles/server.css'
+import './styles/agent-foreign.css'
 
 applyUi(cachedUi())
 phoneStart()

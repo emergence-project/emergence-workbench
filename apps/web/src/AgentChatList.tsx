@@ -46,10 +46,12 @@ export function AgentSide({ id }: { id?: string }) {
   const toggle = (k: string) => { const v = fold.includes(k) ? fold.filter((x) => x !== k) : [...fold, k]; setFoldState(v); store.set(FOLD_KEY, v) }
 
   // 대상: 전체 · 앱 개발(앱 저장소가 있거나 대화가 있으면) · 등록한 프로젝트 · 등록에서 빠졌지만 대화가 있는 프로젝트 · 지식(대화가 있으면)
-  const live = list.filter((c) => !c.archived)
-  const has = (rid: string) => list.some((c) => c.rid === rid)
+  // 다른 컴퓨터의 대화(machine)는 보관함에서 컴퓨터마다 묶어 읽기만 한다 (11/20). 대상은 이 컴퓨터의 대화로 정한다
+  const mine = list.filter((c) => !c.machine)
+  const live = mine.filter((c) => !c.archived)
+  const has = (rid: string) => mine.some((c) => c.rid === rid)
   const targets = [ALL, ...(listed?.app || has(APP_RID) ? [APP_RID] : []), ...(projects ?? []).map((p) => p.id),
-    ...[...new Set(list.map((c) => c.rid))].filter((r) => r !== APP_RID && r !== LIBRARY_RID && !projects?.some((p) => p.id === r)), ...(has(LIBRARY_RID) ? [LIBRARY_RID] : [])]
+    ...[...new Set(mine.map((c) => c.rid))].filter((r) => r !== APP_RID && r !== LIBRARY_RID && !projects?.some((p) => p.id === r)), ...(has(LIBRARY_RID) ? [LIBRARY_RID] : [])]
   const at = targets.includes(target) ? target : ALL
   const inTarget = (c: ChatRow) => at === ALL || c.rid === at
   const shown = list.filter((c) => c.archived === archive && inTarget(c))
@@ -67,7 +69,7 @@ export function AgentSide({ id }: { id?: string }) {
   const stopPicking = () => { setPicking(false); setPicked([]) }
   const pickOf = (c: ChatRow) => picking ? {
     on: picked.includes(c.id),
-    disabled: !archive && isLive(c.state) ? t('도는 대화는 멈춘 뒤 보관합니다', 'Stop it before archiving') : undefined,
+    disabled: c.machine ? t('다른 컴퓨터의 대화는 그 컴퓨터에서 고칩니다', 'Change it on the computer where it ran') : !archive && isLive(c.state) ? t('도는 대화는 멈춘 뒤 보관합니다', 'Stop it before archiving') : undefined,
     toggle: () => setPicked(picked.includes(c.id) ? picked.filter((x) => x !== c.id) : [...picked, c.id]),
   } : undefined
   const line = (c: ChatRow) => <ChatLine key={c.id} c={c} on={c.id === id} actions pick={pickOf(c)} where={at === ALL ? targetName(c.rid, projects) : undefined} onOpen={() => go({ page: 'agent', id: c.id })} />
@@ -93,7 +95,9 @@ export function AgentSide({ id }: { id?: string }) {
 
   const byState = (s: State) => shown.filter((c) => stateOf(c) === s).sort(s === 'queued' ? (a, b) => (a.queue ?? 99) - (b.queue ?? 99) : (a, b) => b.updated.localeCompare(a.updated))
   // 보관함은 대상마다 묶는다 (11/20 시안 1절 「보관함을 연 때」)
-  const archiveGroups = targets.filter((r) => r !== ALL).map((r) => [r, shown.filter((c) => c.rid === r).sort((a, b) => b.updated.localeCompare(a.updated))] as const).filter(([, cs]) => cs.length)
+  const newest = (a: ChatRow, b: ChatRow) => b.updated.localeCompare(a.updated)
+  const archiveGroups = [...targets.filter((r) => r !== ALL).map((r) => [`archive:${r}`, targetName(r, projects), shown.filter((c) => c.rid === r && !c.machine).sort(newest)] as const),
+    ...[...new Set(shown.map((c) => c.machine).filter((m): m is string => !!m))].sort().map((m) => [`machine:${m}`, t(`${m}에서`, `On ${m}`), shown.filter((c) => c.machine === m).sort(newest)] as const)].filter(([, , cs]) => cs.length)
 
   return (
     <div className="set-side ac-list" data-ui="대화 목록">
@@ -127,7 +131,7 @@ export function AgentSide({ id }: { id?: string }) {
         </div>
         : <button className="a ac-pick-start" data-ui="대화 여러 개 고르기" onClick={() => setPicking(true)}>{archive ? t('골라서 꺼내기 · 삭제', 'Pick to unarchive or delete') : t('선택 보관', 'Pick to archive')}</button>)}
       {archive
-        ? (archiveGroups.length ? archiveGroups.map(([r, cs]) => group(`archive:${r}`, targetName(r, projects), cs, '보관함 묶음')) : <div className="empty">{t('보관한 대화가 없습니다', 'Nothing archived')}</div>)
+        ? (archiveGroups.length ? archiveGroups.map(([k, name, cs]) => group(k, name, cs, '보관함 묶음')) : <div className="empty">{t('보관한 대화가 없습니다', 'Nothing archived')}</div>)
         : STATES.map((s) => group(s, STATE_GROUP[s], byState(s), '상태 묶음', STATE_EMPTY[s]))}
       {/* 보관함은 맨 아래 아이콘 하나로 열고 닫는다 (11/19 피드백 09:23) */}
       {(archive || archived > 0) && <div className="ac-side-foot"><button className={`icon-btn ac-archive-btn${archive ? ' on' : ''}`} data-ui="보관함 아이콘" aria-pressed={archive} data-tip={archive ? t('보관함 닫기', 'Close archive') : t(`보관함 ${archived}`, `Archive ${archived}`)} aria-label={archive ? t('보관함 닫기', 'Close archive') : t(`보관함 열기 (${archived})`, `Open archive (${archived})`)} onClick={() => { stopPicking(); setArchive(!archive) }}>{Icon.archive}{archived > 0 && <span className="n">{archived}</span>}</button></div>}

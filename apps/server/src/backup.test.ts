@@ -142,6 +142,17 @@ describe('workbench 백업', () => {
     expect(git(remote, 'show', 'main:_settings/config.yaml')).toBe('legacy: true')
   })
 
+  it('에이전트 대화는 컴퓨터마다 _chats/<컴퓨터>/로 통째로 바꿔 올린다: 지운 대화는 빠지고 다른 컴퓨터 것은 그대로 (11/20)', async () => {
+    const remote = path.join(tmp, 'chats.git')
+    execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote])
+    const run = (machine: string, chats: Record<string, string>) => backupWorkbenches({ dir: path.join(tmp, `chats-${machine}`), remote, targets: [], machine, chats })
+    expect(await run('book', { 'c-1': '{"a":1}', 'c-2': '{"b":2}', '../x': 'no' })).toMatchObject({ pushed: true })
+    expect(await run('mini', { 'm-1': '{}' })).toMatchObject({ pushed: true })
+    expect(await run('book', { 'c-2': '{"b":3}' })).toMatchObject({ pushed: true })
+    expect(git(remote, 'ls-tree', '-r', '--name-only', 'main').split('\n')).toEqual(['_chats/book/c-2.json', '_chats/mini/m-1.json'])
+    expect(git(remote, 'show', 'main:_chats/book/c-2.json')).toBe('{"b":3}')
+  })
+
   it('컴퓨터마다 프로젝트 목록(GitHub 주소 · 폴더 이름)을 올리고, 다른 컴퓨터의 목록을 저장소 하나에 한 번씩 읽는다', async () => {
     const remote = path.join(tmp, 'lists.git')
     execFileSync('git', ['init', '-q', '--bare', '-b', 'main', remote])

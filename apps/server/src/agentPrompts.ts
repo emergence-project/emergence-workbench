@@ -99,8 +99,10 @@ export function promptOf(text: string, attach?: Attach[]): string {
 
 /** 에이전트에게 넘길 글 (prompt가 없으면 promptOf). 보낸 기기의 지금 화면 한 줄은 그 대화에 마지막으로 붙인 것과 다를 때만 뒤에 붙인다
  *  (여러 기기면 마지막으로 말을 보낸 기기의 화면이 된다) */
-export function promptFor(c: { view?: string }, m: { text: string; attach?: Attach[]; view?: string }, prompt?: string): string {
-  const base = prompt ?? promptOf(m.text, m.attach)
+/** carry = 다른 컴퓨터에서 이어 온 대화의 앞 대화 (agentShare.ts): 첫 지시 앞에 한 번 붙인다 */
+export function promptFor(c: { view?: string; carry?: string }, m: { text: string; attach?: Attach[]; view?: string }, prompt?: string): string {
+  let base = prompt ?? promptOf(m.text, m.attach)
+  if (c.carry && !CC_COMMAND.test(base.trim())) { base = `${c.carry}\n\n${base}`; delete c.carry }
   if (!m.view || m.view === c.view || CC_COMMAND.test(base.trim())) return base
   c.view = m.view
   return `${base}\n\nUser's screen now: ${m.view}`
