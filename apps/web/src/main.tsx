@@ -87,6 +87,7 @@ import './styles/central.css'
 import '@xterm/xterm/css/xterm.css'
 import './styles/terminal.css'
 import './styles/central-room.css'
+import './styles/server.css'
 
 applyUi(cachedUi())
 phoneStart()
