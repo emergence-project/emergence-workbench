@@ -87,18 +87,36 @@ export class FeedbackChats extends SharedChats {
   private picked = new Map<string, string>()
 
   /**
-   * 저절로 맡기기(instant): 도는 대화가 한도보다 적으면 에이전트 차례 하나를 맡긴다: 사용자가 가장 최근에 손댄 항목부터 (방금 남긴 코멘트에 바로 답하게, 11/20).
+   * 저절로 맡기기(instant): 도는 대화가 한도보다 적으면 에이전트 차례를 맡긴다: 사용자가 가장 최근에 손댄 항목부터 (방금 남긴 코멘트에 바로 답하게, 11/20).
    * 앞서 맡았던 대화가 있는 항목은 혼자 그 대화에 이어 맡기고, 처음인 항목은 그 항목이 든 묶음으로 맡긴다
    * (같은 화면의 수정끼리, 질문 · 제안끼리, feedbackGroups.ts, 11/19).
-   * 1분마다와, 사용자가 피드백 · 코멘트 · 답을 저장한 바로 뒤에 (routes/feedback.ts의 feedbackSaved, 11/20: 1분을 기다리지 않게)
+   * 1분마다와, 사용자가 피드백 · 코멘트 · 답을 저장한 바로 뒤에 (routes/feedback.ts의 feedbackSaved, 11/20: 1분을 기다리지 않게),
+   * 「자동 처리」를 켠 바로 뒤에 (routes/settings.ts). 한 번에 자리(한도)가 남는 만큼 맡는다: 쌓인 대기가 1분에 하나씩 나가지 않게 (11/20 22:37 제안).
+   * 겹쳐 부르면 앞 차례가 끝난 뒤 한 번 더 돈다 (같은 항목을 두 번 맡지 않게)
    */
-
   async pickFeedback(): Promise<void> {
+    if (this.picking) { this.pickAgain = true; return this.picking }
+    this.picking = (async () => {
+      try {
+        do {
+          this.pickAgain = false
+          for (let n = 0; n < this.deps.limit && await this.pickOne(); n++) { /* 자리가 남는 동안 */ }
+        } while (this.pickAgain)
+      } finally { this.picking = null }
+    })()
+    return this.picking
+  }
+
+  private picking: Promise<void> | null = null
+  private pickAgain = false
+
+  /** 에이전트 차례 하나(또는 그 묶음)를 맡긴다. 맡겼으면 true */
+  private async pickOne(): Promise<boolean> {
     const fb = this.deps.feedback
     const s = this.deps.settings?.()
-    if (!this.deps.app || !fb || !s) return
+    if (!this.deps.app || !fb || !s) return false
     // 클라우드에서 처리가 켜져 있어도 쉬지 않는다: 클라우드 루틴이 맡은(handoff.yaml) 항목만 건너뛴다 (11/20 사용자 "클라우드가 잡은 것 외에는 로컬이")
-    if (s.feedback !== 'instant' || this.running() + this.queue.length >= this.deps.limit) return
+    if (s.feedback !== 'instant' || this.running() + this.queue.length >= this.deps.limit) return false
     const chats = [...this.chats.values()]
     const waiting = listAllFeedback(fb.dir)
       // 글 시각은 분 단위라 맡은 분과 같은 분에 남긴 코멘트도 새 것으로 본다 (같은 글로 두 번 맡지 않게 picked)
@@ -106,14 +124,15 @@ export class FeedbackChats extends SharedChats {
       .filter((e) => !fb.claims?.taken(e.key, lastTouched(e)))
       .sort((a, b) => lastTouched(b) - lastTouched(a))
     const first = waiting[0]
-    if (!first) return
+    if (!first) return false
     const next = chats.some((c) => keysOf(c).includes(first.key)) ? [first] : bundlesOf(waiting.filter((e) => !chats.some((c) => keysOf(c).includes(e.key)))).find((b) => b.items.some((e) => e.key === first.key))?.items ?? [first]
     // 다른 컴퓨터도 저절로 맡기기를 켰으면 먼저 적어 올린 쪽만 맡는다 (묶음 안에서 맡은 것만)
     const mine: string[] = []
     for (const e of next) if (!fb.claims || (await fb.claims.claim(e.key, lastTouched(e)).catch(() => false))) mine.push(e.key)
-    if (!mine.length) return
+    if (!mine.length) return false
     for (const e of next) if (mine.includes(e.key)) this.picked.set(e.key, mark(e))
     try { this.handOff(mine) } catch { /* 다른 대화가 막 시작했으면 다음 차례에 */ }
+    return true
   }
 
   /**

@@ -91,7 +91,13 @@ export function registerSettings(app: FastifyInstance, ctx: RouteContext): void 
     return codexStatus(registry.configDir)
   })
   app.get('/api/settings/agents', replies(C.AgentSettings), async (): Promise<C.AgentSettings> => registry.agents)
-  app.put('/api/settings/agents', replies(C.AgentSettings), async (req): Promise<C.AgentSettings> => registry.setAgents(parseBody(C.AgentSettingsBody, req.body)))
+  app.put('/api/settings/agents', replies(C.AgentSettings), async (req): Promise<C.AgentSettings> => {
+    const was = registry.agents.feedback
+    const saved = registry.setAgents(parseBody(C.AgentSettingsBody, req.body))
+    // 「자동 처리」를 켜면 다음 1분을 기다리지 않고 쌓인 대기를 바로 맡긴다 (11/20 22:37 제안)
+    if (saved.feedback === 'instant' && was !== 'instant') ctx.feedbackSaved?.()
+    return saved
+  })
 
 
   // 설치 파일로 깐 앱: GitHub 릴리스에 새 판이 있으면 알린다 (releaseCheck.ts, 몇 시간에 한 번)
