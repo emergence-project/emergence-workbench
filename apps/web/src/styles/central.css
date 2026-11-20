@@ -1,10 +1,8 @@
 /* 중앙 대화 (11/16 "중앙 에이전트", 시안 9x2Bud4dVQyYkS6RhdnbAG §2): 목록 맨 위 「중앙」 줄 · 첫 화면 · 하위 대화 줄 */
 .ac-central .label { font-weight: var(--fw-strong); }
 .ac-central-turn { color: var(--s-blocked); }
-.ac-central-what { margin: 0; max-width: 60ch; }
 .ac-central-input { width: 100%; resize: vertical; font: inherit; padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--bg); color: var(--text); }
 .ac-central-send { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-3); flex-wrap: wrap; }
-.ac-central-picks { display: flex; align-items: center; gap: var(--sp-1); margin-right: auto; }
 /* 작업 현황 (11/19 "뭐가 남아있고, 뭐가 정체되어 있는지", 시안 2026-11-19-central-checklist 안 A): 오른쪽 칸 맨 위, 줄 하나 = 맡긴 일 하나 */
 /* 세부 패널의 절 (SideSection.tsx, 참고 Claude Code 앱): 작은 회색 제목 + 절 사이 얇은 선, 접는 절은 「제목 ›」 */
 .side-sec { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }

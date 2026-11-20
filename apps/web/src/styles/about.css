@@ -207,6 +207,25 @@ button.about-unsure:hover, .about-nav-flag[role=button]:hover { background: colo
 .about-hist-ask { color: var(--s-blocked); }
 .about-hist-more ul { margin: 0; padding-left: 1.1em; }
 .about-hist-more p { margin: 0; }
+/* 요약의 전 · 후 머리말과 줄마다 고칠 점 (11/20 시안 about-hist-inline-comment) */
+.about-hist-head { margin: var(--sp-1) 0 2px; font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-3); }
+.about-hist-more li.fixable > .about-hist-line { display: block; position: relative; padding-right: 22px; border-radius: var(--r-xs); }
+.about-hist-more li.fixable > .about-hist-line:hover { background: var(--bg-hover); }
+.about-hist-more li.on > .about-hist-line { background: color-mix(in srgb, var(--focus-line) 22%, transparent); }
+.about-hist-c { position: absolute; right: 0; top: 1px; width: 18px; height: 18px; padding: 0; border: 0; border-radius: var(--r-xs); background: none; color: var(--text-3); display: grid; place-items: center; cursor: pointer; opacity: 0; }
+.about-hist-c svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.about-hist-c:hover { color: var(--text); background: var(--bg-sunken); }
+.about-hist-c:focus-visible { opacity: 1; outline: 2px solid var(--focus-line); }
+/* 카드도 li.on이라 줄(.about-hist-more 안의 li)로 좁힌다 */
+.about-hist-line:hover .about-hist-c, .about-hist-more li.on > .about-hist-line .about-hist-c, .about-hist-more li.sent > .about-hist-line .about-hist-c { opacity: 1; }
+.about-hist-more li.sent > .about-hist-line .about-hist-c { color: var(--s-blocked); }
+.about-hist-sent { font-size: var(--fs-xs); color: var(--s-blocked); margin: 2px 0; }
+.about-hist-box { margin: var(--sp-1) 0; padding: var(--sp-1) var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--bg); cursor: default; }
+.about-hist-more li .about-hist-box { margin-left: -1.1em; }
+.about-hist-quote { font-size: var(--fs-xs); color: var(--text-3); border-left: 2px solid var(--line-strong); padding-left: var(--sp-1); margin-bottom: var(--sp-1); }
+.about-hist-box textarea { display: block; width: 100%; border: 0; resize: vertical; font: inherit; font-size: var(--fs-sm); color: var(--text); background: none; outline: none; }
+.about-hist-box-bar { display: flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-xs); }
+.about-hist-box-bar .sp { flex: 1; }
 /* 그 업데이트가 바꾼 문장 (CSS Custom Highlight, markChanges) */
 ::highlight(about-change) { background-color: var(--hl-bg); }
 @media (max-width: 900px) {
