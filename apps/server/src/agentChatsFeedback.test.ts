@@ -7,9 +7,9 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { appBriefFor, feedbackPrompt, pictureImage, type AgentRunner, type RunEvent, type RunInput } from './agentChats.js'
 import { buildApp } from './app.js'
 import { FeedbackChats } from './agentFeedbackTick.js'
-import { DEFAULT_AGENT_SETTINGS, type AgentSettings } from '@rw/core'
+import { DEFAULT_AGENT_SETTINGS, agentTurns, type AgentSettings } from '@rw/core'
 import { sampleAppWork, type AppWork } from './appWorktree.js'
-import { addFeedbackComment, listAllFeedback, writeFeedbackAnswer } from './feedback.js'
+import { addFeedbackComment, appendFeedback, listAllFeedback, writeFeedbackAnswer } from './feedback.js'
 import { writeFeedbackCloud } from './feedbackCloud.js'
 
 const FIX = path.resolve(import.meta.dirname, '../../../fixtures/sandbox-feedback')
@@ -338,5 +338,52 @@ describe('피드백 대화 돌보기 (설정 › 에이전트 "앱 피드백")',
     expect(prompts.at(-1)).toContain('origin/main')
     expect(stored.merged).toBeUndefined()
     settings = { ...settings, feedback: 'manual' }
+  })
+})
+
+describe('자동 처리: 쌓인 대기를 한 번에 맡기기 (11/20 22:37 제안)', () => {
+  let tmp: string
+  let fb: string
+  const hold: (() => void)[] = []
+  const runner: AgentRunner = async function* (): AsyncIterable<RunEvent> {
+    yield { type: 'session', id: 's' }
+    await new Promise<void>((r) => hold.push(r))
+    yield { type: 'result', ok: true } as RunEvent
+  }
+  const make = (limit: number) => new FeedbackChats({
+    dir: path.join(tmp, `chats-${limit}`), runner, limit,
+    project: () => ({ repo: tmp, title: 'x' }), readable: () => [], extraDirs: () => [], notify: () => {},
+    app: sampleAppWork(path.join(tmp, `wt-${limit}`)), feedback: { dir: fb }, settings: () => ({ ...DEFAULT_AGENT_SETTINGS, feedback: 'instant' }),
+  })
+  const keysIn = (c: FeedbackChats) => c.list().flatMap((x) => x.bundle ?? (x.feedback ? [x.feedback] : []))
+
+  beforeAll(() => {
+    tmp = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rw-fbsweep-'))
+    fb = path.join(tmp, 'feedback')
+    fs.cpSync(FIX, fb, { recursive: true })
+    // 다른 화면의 수정 둘: 묶음이 셋 이상 되게
+    appendFeedback(fb, { kind: '수정', target: '홈 › 할 일', text: '글자가 작아요' })
+    appendFeedback(fb, { kind: '수정', target: '설정 › 계정', text: '단추가 겹쳐요' })
+  })
+  afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }))
+
+  it('자리가 남으면 한 차례에 대기 항목을 모두 맡기고, 겹쳐 불러도 같은 항목을 두 번 맡지 않는다', async () => {
+    const waiting = listAllFeedback(fb).filter((e) => agentTurns(e).length).map((e) => e.key)
+    const chats = make(8)
+    await Promise.all([chats.pickFeedback(), chats.pickFeedback()])
+    const keys = keysIn(chats)
+    expect(chats.list().length).toBeGreaterThanOrEqual(3)
+    expect(new Set(keys).size).toBe(keys.length)
+    // 남은 대기는 없다: 한 번 더 불러도 새 대화가 생기지 않는다
+    const n = chats.list().length
+    await chats.pickFeedback()
+    expect(chats.list().length).toBe(n)
+    expect([...keys].sort()).toEqual([...waiting].sort())
+  })
+
+  it('한도만큼만 맡긴다', async () => {
+    const chats = make(1)
+    await chats.pickFeedback()
+    expect(chats.list().length).toBe(1)
   })
 })
