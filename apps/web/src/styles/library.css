@@ -96,3 +96,11 @@
 .lib-src { min-width: 0; min-height: 0; display: flex; flex-direction: column; border-right: 1px solid var(--line); }
 .lib-pdf { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .lib-problems { font-size: var(--fs-xs); }
+/* 폰: 지도 필터 줄은 옆으로 밀어 보고(끝이 잘려 안 보였다), 범례는 낱말이 끊기지 않게 여러 줄로 */
+@media (max-width: 600px) {
+  .kn-map-bar { overflow-x: auto; scrollbar-width: none; }
+  .kn-map-bar > * { flex: none; }
+  .kn-legend { flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); padding-right: 112px; } /* 오른쪽은 ＋ 메모 버튼 자리 */
+  .kn-legend > span { white-space: nowrap; }
+  .kn-legend .sp { display: none; }
+}
