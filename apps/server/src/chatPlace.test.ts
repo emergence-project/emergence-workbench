@@ -52,7 +52,10 @@ describe('대화를 서버에서', () => {
     const localRow = full('here1', '이 맥 대화', '2026-11-20T11:00:00Z')
     setLocalChats(app, { has: (id) => id === 'here1', list: () => [localRow as never] })
     expect((await app.inject({ method: 'GET', url: '/api/chat-place' })).json()).toMatchObject({ remote: true, server: { machine: 'studio', label: 'Mac Studio', this: false } })
-    const list = (await app.inject({ method: 'GET', url: '/api/agent-chats' })).json()
+    const listRes = await app.inject({ method: 'GET', url: '/api/agent-chats' })
+    // 넘기는 데 든 시간은 Server-Timing(relay)으로: 다른 컴퓨터에서 대화가 느릴 때 개발 도구로 잰다
+    expect(listRes.headers['server-timing']).toMatch(/^relay;dur=\d+(\.\d)?$/)
+    const list = listRes.json()
     expect(list.chats.map((c: { id: string; local?: boolean }) => [c.id, !!c.local])).toEqual([['here1', true], ['s1', false]])
     await app.inject({ method: 'POST', url: '/api/agent-central/messages', payload: { text: '안녕' } })
     expect(calls.map((c) => [c.method, c.url, c.key])).toEqual([

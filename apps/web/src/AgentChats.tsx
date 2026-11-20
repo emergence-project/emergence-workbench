@@ -571,21 +571,19 @@ export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, o
   const changed = chat?.updated
   useMarkSeen(id, changed)
   useEffect(() => { setOver({}); atEnd.current = true; setBehind(false) }, [id])
-  useEffect(() => {
-    const el = listRef.current
-    if (!el) return
-    if (atEnd.current) el.scrollTop = el.scrollHeight
-    else setBehind(true)
-  }, [changed, id])
-  const onScroll = () => {
-    const el = listRef.current
-    if (!el) return
-    atEnd.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48
-    if (atEnd.current) setBehind(false)
-  }
+  useEffect(() => { const el = listRef.current; if (!el) return; if (atEnd.current) el.scrollTop = el.scrollHeight; else setBehind(true) }, [changed, id])
+  const onScroll = () => { const el = listRef.current; if (!el) return; atEnd.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48; if (atEnd.current) setBehind(false) }
   const toEnd = () => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; atEnd.current = true; setBehind(false) }, room = useComposerRoom(chat?.rid === CENTRAL_RID)
+  // 줄들은 대화 내용이 바뀔 때만 다시 그린다. 쓰는 중인 글(agent-draft)은 몇 번이고 오는데, 그때마다 긴 대화의 모든 줄(마크다운 · 수식)을 다시 그리면 화면이 무거워진다
+  const act = useRef<{ rewind(point: string): void; changes?(): void }>({ rewind: () => undefined })
+  const lines = useMemo(() => {
+    if (!chat) return null
+    const { blocks, log } = chatLog(chat.items), running = isLive(chat.state)
+    const onChanges = onPane ? () => act.current.changes?.() : undefined
+    return blocks.map((b, i) => b.kind === 'proc' ? <ProcLine key={i} from={b.from} to={b.to} log={log} live={running && i === blocks.length - 1} /> : <ItemView key={i} chat={chat} it={b.item} who={chat.rid === CENTRAL_RID && hostWhoAt(blocks, i)} onError={setFail} onChanges={onChanges} onRewind={(p) => act.current.rewind(p)} onPass={(text) => setFill({ text, n: Date.now() })} />)
+  }, [id, chat?.items, chat?.state, chat?.updated, chat?.rid, chat?.machine, !!onPane]) // eslint-disable-line react-hooks/exhaustive-deps -- 쓰는 중인 글(draft)만 바뀐 chat은 줄을 다시 그리지 않는다
   if (!chat) return <div className="empty center">{error ? (error as Error).message : t('불러오는 중…', 'Loading…')}</div>
-  const live = isLive(chat.state), { blocks, log } = chatLog(chat.items)
+  const live = isLive(chat.state)
   const settings: Settings = { trust: trustOf(chat), model: chat.model, effort: chat.effort, agent: chat.agent, account: chat.account ?? 'default', ...(chat.rid !== APP_RID && autoCustom(chat) && !over.trust && { custom: true }), ...over }
   const change = (s: Partial<Settings>) => {
     setOver((o) => ({ ...o, ...s }))
@@ -636,13 +634,14 @@ export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, o
         : chat.rid === APP_RID ? t('이어서 쓰기 · 그림 붙여넣기', 'Continue · paste images') : t('이어서 쓰기 · / 명령 · @ 붙이기', 'Continue · / commands · @ attach')
   const showTodos = chat.todos.length > 0 && (live || chat.todos.some((x) => x.state !== 'completed'))
   const openChanges = onPane ? () => { if (!pane) onPane() } : undefined
+  act.current = { rewind: (p) => void rewind(p), changes: openChanges }
   return (
     <AppLinkProvider feedback={chat.rid === CENTRAL_RID || chat.rid === APP_RID}><div className="ac-chat" data-ui="에이전트 대화">
       {head && <ChatHead chat={chat} pane={pane} onPane={onPane} tools={tools} onBack={onBack} onDeleted={onDeleted} onSaved={onSaved} onError={setFail} />}{head && chat.rid === CENTRAL_RID && <RoomStrip />}{head && <DebateStrip chat={chat} />}
       {chat.record && <RecordBanner rid={chat.rid} record={chat.record} />}
       <ol ref={listRef} className="ac-items" data-ui="대화 줄들" role="log" onScroll={onScroll}>
         {!!chat.trimmed && <li className="ac-note muted">{t(`오래된 앞 줄 ${chat.trimmed}개는 지웠습니다 (대화는 마지막 400줄만 둡니다)`, `${chat.trimmed} older lines were removed (a conversation keeps its last 400)`)}</li>}
-        {blocks.map((b, i) => b.kind === 'proc' ? <ProcLine key={i} from={b.from} to={b.to} log={log} live={live && i === blocks.length - 1} /> : <ItemView key={i} chat={chat} it={b.item} who={chat.rid === CENTRAL_RID && hostWhoAt(blocks, i)} onError={setFail} onChanges={openChanges} onRewind={(p) => void rewind(p)} onPass={(text) => setFill({ text, n: Date.now() })} />)}
+        {lines}
         {!!chat.draft && <li className="ac-text ac-draft" data-ui="쓰는 중인 글"><MemoText text={chat.draft} /></li>}
         {chat.state === 'running' && <li className="ac-note muted ac-working" aria-live="polite"><StatusDot s="in-progress" name={chat.compacting ? t('앞 내용을 요약하는 중', 'Summarizing earlier messages') : t('작업 중', 'Working')} label /></li>}
         {!!chat.tasks && chat.state !== 'running' && <li className="ac-note muted ac-working" data-ui="뒤에서 도는 명령" aria-live="polite"><StatusDot s="in-progress" name={t(`뒤에서 명령 ${chat.tasks}개가 도는 중 · 끝나면 이어서 합니다`, `${chat.tasks} background command${chat.tasks > 1 ? 's' : ''} running · continues when done`)} label /></li>}
