@@ -182,38 +182,31 @@ button.about-unsure:hover, .about-nav-flag[role=button]:hover { background: colo
 .about-pending { flex: none; font-size: var(--fs-xs); font-weight: var(--fw-strong); border-radius: var(--r-pill); padding: 0 7px; background: var(--bg-sunken); color: var(--text-2); white-space: nowrap; }
 .about .sec-head .about-pending { margin-right: var(--sp-2); }
 .about-checked { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--s-solved); white-space: nowrap; margin-right: var(--sp-2); }
-.about-hist-ok { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--s-solved); }
 .about-legend b svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.9; vertical-align: -2px; }
 
-/* 오른쪽 사이드바 (11/20 시안 2 · 3절, AboutHistorySide.tsx): 탭 「이력 · 고치기」. 이력은 (절, 업데이트) 표, 확인 전 줄은 옅은 주황 */
-.stage.about-with-side { grid-template-columns: minmax(0, 1fr) 340px; }
-.about-rs { background: var(--bg-side); }
+/* 이력 · 수정 칸 (11/20 시안 3절 안 C, AboutHistorySide.tsx): 두 칸으로 나눠 오른쪽 칸에. 업데이트마다 카드, 확인 전 카드는 옅은 주황 */
+.stage.about-with-side { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.about-rs { background: var(--bg); border-left: 1px solid var(--line); }
 .about-rs .rs-head { gap: var(--sp-2); }
-.about-hist { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); table-layout: fixed; }
-.about-hist th { text-align: left; font-weight: var(--fw-strong); font-size: var(--fs-xs); color: var(--text-3); padding: 0 var(--sp-1) var(--sp-1); border-bottom: 1px solid var(--line); }
-.about-hist th { white-space: nowrap; }
-.about-hist th:nth-child(1) { width: 24%; }
-.about-hist th:nth-child(2) { width: 21%; }
-.about-hist th:nth-child(4) { width: 58px; }
-.about-hist td { padding: var(--sp-1); vertical-align: top; border-bottom: 1px solid var(--line); }
-.about-hist-row { cursor: pointer; }
+.about-rs .rs-pad { padding: var(--sp-4); }
+.about-hist { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
+.about-hist-row { display: grid; gap: var(--sp-1); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-md); cursor: pointer; }
 .about-hist-row:hover { background: var(--bg-hover); }
 .about-hist-row.todo { background: color-mix(in srgb, var(--s-blocked) 8%, transparent); }
-.about-hist-row.on { background: var(--bg); box-shadow: inset 2px 0 0 var(--line-strong); }
+.about-hist-row.on { border-color: var(--line-strong); }
 .about-hist-row:focus-visible { outline: 2px solid var(--focus-line); outline-offset: -2px; }
-.about-hist-sec { color: var(--text); overflow-wrap: anywhere; }
-.about-hist-pr { display: flex; flex-direction: column; }
-.about-hist-pr .a { color: var(--text); }
-.about-hist-pr .muted { font-size: var(--fs-xs); }
-.about-hist-what { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
-.about-hist-row.on .about-hist-what { white-space: normal; color: var(--text); }
-.about-hist-act { text-align: right; white-space: nowrap; cursor: default; }
-.about-hist-act .icon-btn { width: 24px; height: 24px; }
-.about-hist-ok { font-size: var(--fs-xs); }
-.about-hist-ask td, .about-hist-more td { border-top: 0; padding-top: 0; font-size: var(--fs-xs); color: var(--text-2); }
-.about-hist-ask td { color: var(--s-blocked); }
-.about-hist-more ul { margin: var(--sp-1) 0 0; padding-left: 1.1em; }
-.about-hist-more p { margin: var(--sp-1) 0 0; }
+.about-hist-top { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); font-size: var(--fs-sm); min-width: 0; }
+.about-hist-top .sp { flex: 1; }
+.about-hist-top .muted { white-space: nowrap; }
+.about-hist-pr { color: var(--text); font-weight: var(--fw-strong); white-space: nowrap; }
+.about-hist-what { color: var(--text); }
+.about-hist-act { display: inline-flex; align-items: center; gap: var(--sp-1); white-space: nowrap; cursor: default; }
+.about-hist-act .btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; vertical-align: -2px; }
+.about-hist-ok { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--s-solved); font-size: var(--fs-xs); }
+.about-hist-ask, .about-hist-more { font-size: var(--fs-sm); color: var(--text-2); }
+.about-hist-ask { color: var(--s-blocked); }
+.about-hist-more ul { margin: 0; padding-left: 1.1em; }
+.about-hist-more p { margin: 0; }
 /* 그 업데이트가 바꾼 문장 (CSS Custom Highlight, markChanges) */
 ::highlight(about-change) { background-color: var(--hl-bg); }
 @media (max-width: 900px) {
