@@ -111,6 +111,11 @@ describe('다른 컴퓨터의 대화', () => {
     const live = book.create({ rid: 'p', text: '도는 중' })
     expect(() => book.archiveOrAsk(live.id, 'x')).toThrow('일하는 중')
     expect(() => book.archiveOrAsk('nope', 'x')).toThrow('그런 대화가 없습니다')
+    // 11/20 "종료된 대화를 복구하는 것도": chat_unarchive. 보관함에 없으면 거절
+    expect(book.archiveOrAsk(c.id, '다시 이어 할 일', true)).toEqual({ id: c.id, title: '오류로 끝난 일' })
+    expect(book.get(c.id).archived).toBe(false)
+    expect(book.get(central.id).items.at(-1)).toMatchObject({ kind: 'text', text: '자동: 복구 · 오류로 끝난 일 · 다시 이어 할 일' })
+    expect(() => book.archiveOrAsk(c.id, '또', true)).toThrow('보관함에 없습니다')
     book.stopAll()
   })
 
@@ -151,6 +156,17 @@ describe('다른 컴퓨터의 대화', () => {
     expect(mini.applyArchiveAsks('Macmini')).toEqual([])
 
     // 맥미니가 다시 올리면 맥북은 끝난 요청(보관됨 · 다시 쓰임)을 버린다
+    put('Macmini', mini.sharedFiles())
+    expect(book.sharedFiles()[ARCHIVE_ASKS]).toBeUndefined()
+
+    // 보관한 a를 맥북의 중앙이 다시 꺼내 달라고 청하면, 맥미니가 맞추기 뒤 꺼낸다
+    await new Promise((r) => setTimeout(r, 5))
+    expect(book.archiveOrAsk(a.id, '다시 필요함', true).machine).toBe('Macmini')
+    expect(() => book.archiveOrAsk(a.id, '또', true)).toThrow('이미')
+    put('MacBook', book.sharedFiles())
+    expect(mini.applyArchiveAsks('Macmini')).toEqual([a.id])
+    expect(mini.get(a.id).archived).toBe(false)
+    expect(mini.get(a.id).items.at(-1)).toMatchObject({ kind: 'text', text: '자동: MacBook의 중앙이 보관함에서 꺼냈습니다 · 다시 필요함' })
     put('Macmini', mini.sharedFiles())
     expect(book.sharedFiles()[ARCHIVE_ASKS]).toBeUndefined()
     mini.stopAll(); book.stopAll()

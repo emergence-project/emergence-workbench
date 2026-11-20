@@ -35,6 +35,13 @@ export function registerAgentCentral(app: FastifyInstance, chats: CentralChats):
     const b = parseBody(C.CentralArchiveBody, req.body)
     return chats.archiveOrAsk(b.id, b.reason)
   })
+  /** 끝난 대화를 보관함에서 꺼낸다 (chat_unarchive, 11/20). 지우기는 중앙에게 없다 */
+  app.post('/api/agent-central/unarchive', replies(C.CentralArchived), async (req): Promise<C.CentralArchived> => {
+    const b = parseBody(C.CentralArchiveBody, req.body)
+    return chats.archiveOrAsk(b.id, b.reason, true)
+  })
+  /** 자리를 기다리는 앱 고치기의 여는 순서 (chat_priority, 11/20) */
+  app.post('/api/agent-central/priority', replies(C.CentralHeldOrder), async (req): Promise<C.CentralHeldOrder> => chats.priority(parseBody(C.CentralPriorityBody, req.body)))
 
   /** 다른 대화가 중앙에게 중재를 청한다 (central_help): 중앙을 깨운다 */
   app.post('/api/agent-central/help', replies(C.CentralHelped), async (req): Promise<C.CentralHelped> => {
