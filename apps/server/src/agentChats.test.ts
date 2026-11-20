@@ -78,6 +78,9 @@ describe('허락 규칙', () => {
   it('저장소 · 읽어도 되는 폴더는 묻지 않고 읽고, 그 밖은 묻는다', () => {
     expect(judge(ctx(), 'Read', { file_path: `${repo}/a.md` }).kind).toBe('allow')
     expect(judge(ctx(), 'Grep', { pattern: 'x' }).kind).toBe('allow')
+    // Glob의 무늬로 폴더를 벗어나면 묻는다
+    for (const pattern of ['/etc/**/*.conf', '../../**/*.md', '~/.ssh/*', '/*', '../other.md', '/etc/hosts']) expect(judge(ctx(), 'Glob', { pattern }).kind, pattern).toBe('ask')
+    for (const pattern of ['**/*.md', 'workbench/**/note.md', 'workbench/../*.md', '*.{ts,tsx}', 'a.md']) expect(judge(ctx(), 'Glob', { pattern }).kind, pattern).toBe('allow')
     expect(judge(ctx(), 'Read', { file_path: '/r/lib/concepts/a.md' }).kind).toBe('allow')
     const v = judge(ctx(), 'Read', { file_path: '/etc/passwd' })
     expect(v).toMatchObject({ kind: 'ask', key: 'Read:/etc/passwd' })
