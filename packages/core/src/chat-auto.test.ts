@@ -40,6 +40,10 @@ describe('명령이 하는 일', () => {
     expect(runPrograms('GIT_PAGER=less git log')).toEqual(['GIT_PAGER= git log'])
     expect(runPrograms('ls | wc -l')).toEqual([])
   })
+  it('가운데의 ../ · 옵션에 붙여 적은 경로로 폴더를 벗어나면 외부', () => {
+    for (const c of ['cat workbench/../../other/secret', 'ls a/b/../../..', 'grep -r x --file=/etc/hosts .', 'grep -f/etc/hosts a', 'rg x --ignore-file=~/.ssh/config', 'cd workbench/../.. && ls']) expect(k(c), c).toBe('outside')
+    for (const c of ['cat workbench/../a.md', "grep -rn \"from '../x'\" workbench", 'rg --glob=*.md x', 'ls --color=auto', 'cat --number a.md', 'grep --file=patterns.txt a']) expect(k(c), c).toBe('read')
+  })
   it('셸의 묶음 말 뒤의 명령도 본다', () => {
     for (const c of ['for f in a b; do rm $f; done', 'if true; then rm x; fi', 'while read l; do rm "$l"; done < list', '( rm x )', '(rm x)', '{ rm x; }', '! rm x']) expect(k(c), c).toBe('delete')
     for (const c of ['for f in *.md; do wc -l "$f"; done', 'if [ -f a ]; then cat a; else echo none; fi', '(cd workbench && ls)', 'while read l; do echo "$l"; done < a']) expect(k(c), c).toBe('read')

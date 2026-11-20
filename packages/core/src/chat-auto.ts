@@ -169,7 +169,7 @@ export function commandKind(cmd: string, o: { cwd: string; inside(abs: string): 
     const args = w.slice(1)
     bump(kindOf(prog, args))
     // 폴더 밖 경로 (읽기라도 폴더 밖이면 외부)
-    for (const a of args) if (looksLikePath(a) && touchesOutside(a, o)) bump('outside')
+    for (const a of args) { const v = pathPart(a); if (looksLikePath(v) && touchesOutside(v, o)) bump('outside') }
     if (prog === 'cd' && args[0] && touchesOutside(args[0], o)) bump('outside')
   }
   return worst
@@ -237,7 +237,10 @@ function kindOf(prog: string, args: string[]): ChatKind {
   return 'run'
 }
 
-const looksLikePath = (a: string) => a.startsWith('/') || a.startsWith('~') || a.startsWith('..') || /^"?\$\{?HOME\b/.test(a)
+/** 옵션에 붙여 적은 경로도 본다: --file=/etc/x · -f/etc/x */
+const pathPart = (a: string) => /^--?[A-Za-z][\w-]*=(.+)$/.exec(a)?.[1] ?? /^-[A-Za-z]([/~].+)$/.exec(a)?.[1] ?? a
+/** 가운데의 ../ 로 폴더를 벗어나는 것도 본다 (sub/../../밖) */
+const looksLikePath = (a: string) => a.startsWith('/') || a.startsWith('~') || a.startsWith('..') || a.includes('../') || a.endsWith('/..') || /^"?\$\{?HOME\b/.test(a)
 
 function touchesOutside(p: string, o: { cwd: string; inside(abs: string): boolean; home?: string }): boolean {
   if (p === '/dev/null' || p.startsWith('/dev/std') || p.startsWith('/tmp/') || p === '/tmp') return false
