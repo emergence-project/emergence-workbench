@@ -1,7 +1,7 @@
 import { personId, type Author } from '@rw/core'
 import { latexApi, type PersonView } from '../api'
 import { askText } from '../askText'
-import { t } from '../i18n'
+import { eulReul, t } from '../i18n'
 import { qk, queryClient } from '../queries'
 import { PersonCard } from './PersonCard'
 import { announce, useLatexSetup } from './people'
@@ -25,7 +25,7 @@ export function NoteAuthors({ person, people, onSaved }: { person: PersonView; p
     if (!name || !authors) return
     if (authors.some((a) => personId(a.name) === personId(name))) { onSaved(t(`"${name}"은 이미 노트 저자입니다`, `"${name}" is already a note author`)); return }
     const known = byId.get(personId(name))
-    await saveAuthors([...authors, { name: known?.name ?? name, ...(known?.email && { email: known.email }), affiliations: known?.affiliations ?? [] }], t(`"${name}"을 노트 저자에 더했습니다`, `Added "${name}" to note authors`))
+    await saveAuthors([...authors, { name: known?.name ?? name, ...(known?.email && { email: known.email }), affiliations: known?.affiliations ?? [] }], t(`"${name}"${eulReul(name)} 노트 저자에 더했습니다`, `Added "${name}" to note authors`))
   }
   // 10/4 20:51 반려 "내 카드 아래가 아니라 내 프로필 카드 안에": 프로필 카드 맨 아래 칸
   return (
@@ -39,7 +39,7 @@ export function NoteAuthors({ person, people, onSaved }: { person: PersonView; p
               {authors.map((a) => {
                 const p = viewOf(a)
                 return <PersonCard key={p.id} p={p} people={people} isMe={p.id === person.id} badge={a.corresponding ? t('교신', 'Corresponding') : undefined}
-                  onRemove={p.id === person.id ? undefined : () => void saveAuthors(authors.filter((x) => x !== a), t(`"${a.name}"을 노트 저자에서 뺐습니다`, `Removed "${a.name}" from note authors`))} />
+                  onRemove={p.id === person.id ? undefined : () => void saveAuthors(authors.filter((x) => x !== a), t(`"${a.name}"${eulReul(a.name)} 노트 저자에서 뺐습니다`, `Removed "${a.name}" from note authors`))} />
               })}
             </div>
           )}

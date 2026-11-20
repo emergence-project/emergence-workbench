@@ -1,7 +1,7 @@
 import { networkApi, type PersonView } from '../api'
 import { askText } from '../askText'
 import { go } from '../router'
-import { plural, t } from '../i18n'
+import { eulReul, plural, t } from '../i18n'
 import { StarIcon } from '../marks'
 import { addedOf, announce, Avatar, byStarThenName, subOf, useMe, usePeople } from './people'
 
@@ -13,7 +13,7 @@ async function addPerson(people: PersonView[], onSaved: (m: string) => void) {
     announce()
     const p = v.people.find((x) => x.name === name)
     if (p) go({ page: 'network', person: p.id })
-    onSaved(t(`"${name}"을 네트워킹에 더했습니다`, `Added "${name}" to Networking`))
+    onSaved(t(`"${name}"${eulReul(name)} 네트워킹에 더했습니다`, `Added "${name}" to Networking`))
   } catch (e) { onSaved((e as Error).message) }
 }
 

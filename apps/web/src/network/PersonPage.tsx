@@ -5,7 +5,7 @@ import { askConfirm } from '../askText'
 import { FieldTags as FieldPicker } from '../FieldTags'
 import { Icon } from '../icons'
 import { go } from '../router'
-import { plural, t, HERE } from '../i18n'
+import { eulReul, HERE, plural, t } from '../i18n'
 import { qk } from '../queries'
 import { NewPapersSection } from './NewPapers'
 import { NoteAuthors } from './NoteAuthors'
@@ -34,8 +34,8 @@ export function PersonPage({ id, onSaved }: { id: string; onSaved(m: string): vo
   }
   const setTags = (tags: string[], message: string) => void save(withChange(people, person, { tags }), message)
   const remove = async () => {
-    if (!await askConfirm({ title: t(`"${person.name}"을 네트워킹에서 뺄까요?`, `Remove "${person.name}" from Networking?`), hint: t('적어 둔 소속·분야·메모가 사라지고, 참고 문헌은 그대로입니다.', 'The affiliation, fields and memo you wrote are lost. References stay.'), ok: t('제거', 'Remove') })) return
-    void save(people.filter((p) => p.id !== person.id), t(`"${person.name}"을 뺐습니다`, `Removed "${person.name}"`)).then(() => go({ page: 'network' }))
+    if (!await askConfirm({ title: t(`"${person.name}"${eulReul(person.name)} 네트워킹에서 뺄까요?`, `Remove "${person.name}" from Networking?`), hint: t('적어 둔 소속·분야·메모가 사라지고, 참고 문헌은 그대로입니다.', 'The affiliation, fields and memo you wrote are lost. References stay.'), ok: t('제거', 'Remove') })) return
+    void save(people.filter((p) => p.id !== person.id), t(`"${person.name}"${eulReul(person.name)} 뺐습니다`, `Removed "${person.name}"`)).then(() => go({ page: 'network' }))
   }
   const [main, ...more] = person.affiliations
   const emails = [person.email, ...person.emails].filter((m): m is string => !!m)

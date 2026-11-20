@@ -39,6 +39,18 @@ export const pickFolderLabel = (): string => (onWindows ? t('폴더 고르기', 
 /** "맥 앱으로 열기" (윈도우: 기본 앱으로 열기): 파일을 그 종류에 연결된 앱으로 연다 */
 export const openAppLabel = (): string => (onWindows ? t('기본 앱으로 열기', 'Open in default app') : t('맥 앱으로 열기', 'Open in Mac app'))
 
+/**
+ * 이름 뒤의 목적격 조사: 읽을 때 받침이 있으면 을, 없으면 를 (11/21: "5색 정리"을 지웠습니다 → 를).
+ * 한글은 받침으로, 숫자는 읽는 소리로(0 · 1 · 3 · 6 · 7 · 8은 을), 로마자는 l · m · n · ng으로 끝나면 을로 본다. 그 밖은 를
+ */
+export const eulReul = (word: string): '을' | '를' => {
+  const last = word.trim().replace(/[\s"'”’)\]]+$/, '').slice(-1)
+  const c = last.charCodeAt(0) - 0xac00
+  if (c >= 0 && c < 11172) return c % 28 !== 0 ? '을' : '를'
+  if (/[013678]/.test(last)) return '을'
+  return /[lmn]$|ng$/i.test(word.trim()) ? '을' : '를'
+}
+
 /** English plural helper: `plural(n, 'note')` → "1 note" / "3 notes". */
 export const plural = (n: number, one: string, many = `${one}s`): string => `${n} ${n === 1 ? one : many}`
 

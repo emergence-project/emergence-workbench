@@ -9,7 +9,7 @@ import { PaperCards } from './Topics'
 import { askText } from './askText'
 import { Icon } from './icons'
 import { ProofMark } from './StatusDot'
-import { plural, t } from './i18n'
+import { eulReul, plural, t } from './i18n'
 
 /** 노트의 네 덩이 중 페이지가 있는 셋. 넷째(지도)는 MapPage */
 export type NotesSection = 'notes' | 'concepts' | 'papers'
@@ -82,7 +82,7 @@ function ResearchNotes({ rid, rapi, summary, notes, manuscripts, onChanged, onSa
 
       <section className="notes-sec" data-ui="원고 목록">
         {papers.length > 0 && <PaperCards rid={rid} manuscripts={papers} onCopy={(key) => setNewFrom(key)} onAdd={() => setPicking(true)}
-          onRemove={(ms) => rapi.unsetMainNote(ms.main).then(() => { onChanged(); onSaved(t(`"${ms.name}"을 목록에서 뺐습니다. 파일 ${ms.main}은 그대로이고, 카드 줄 끝의 "＋ 원고 추가"로 다시 넣을 수 있습니다`, `Removed "${ms.name}" from the list. The file ${ms.main} stays, and "＋ Add manuscript" at the end of the card row puts it back`)) }).catch((e: Error) => onSaved(e.message))} />}
+          onRemove={(ms) => rapi.unsetMainNote(ms.main).then(() => { onChanged(); onSaved(t(`"${ms.name}"${eulReul(ms.name)} 목록에서 뺐습니다. 파일 ${ms.main}은 그대로이고, 카드 줄 끝의 "＋ 원고 추가"로 다시 넣을 수 있습니다`, `Removed "${ms.name}" from the list. The file ${ms.main} stays, and "＋ Add manuscript" at the end of the card row puts it back`)) }).catch((e: Error) => onSaved(e.message))} />}
         {newFrom !== null && <NewNote key={newFrom} rid={rid} rapi={rapi} manuscripts={manuscripts} from={newFrom} onChanged={onChanged} onSaved={onSaved} onClose={() => setNewFrom(null)} />}
         <MainNotePicker rapi={rapi} more={papers.length > 0} open={picking} onClose={() => setPicking(false)} onDone={() => { setPicking(false); onSaved(t('원고를 정했습니다 — research.yaml에 적었습니다', 'Set the manuscript in research.yaml')); onChanged() }} />
       </section>
@@ -111,7 +111,7 @@ function LibraryNotes({ kind, rid, library, onLibraryChanged, onSaved }: {
   const titleKo = kind === 'concept' ? '개념노트' : '문헌노트'
   const title = kind === 'concept' ? t('개념노트', 'Concept notes') : t('문헌노트', 'Literature notes')
   const link = (id: string, name: string) =>
-    api.linkConcept(rid, id, true).then(() => { onLibraryChanged(); onSaved(t(`개념노트 "${name}"를 이 프로젝트에 연결했습니다`, `Linked concept note "${name}" to this project`)) }).catch((e: Error) => onSaved(e.message))
+    api.linkConcept(rid, id, true).then(() => { onLibraryChanged(); onSaved(t(`개념노트 "${name}"${eulReul(name)} 이 프로젝트에 연결했습니다`, `Linked concept note "${name}" to this project`)) }).catch((e: Error) => onSaved(e.message))
   return (
     <>
       <header className="notes-head">

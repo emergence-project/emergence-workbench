@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { ManuscriptInfo, NoteKind, ResearchApi } from './api'
 import { go } from './router'
-import { plural, t } from './i18n'
+import { eulReul, plural, t } from './i18n'
 
 /** 노트 구분 이름 (10/4 피드백: 모든 프로젝트에 같은 셋) */
 export const NOTE_KIND_LABEL: Record<NoteKind, string> = { paper: t('원고', 'Manuscript'), note: t('노트', 'Note'), calc: t('노트', 'Note') }
@@ -33,7 +33,7 @@ export function NewNote({ rid, rapi, manuscripts, from, onChanged, onSaved, onCl
     setBusy(true)
     try {
       const r = await rapi.createNote(kind, name.trim(), start === BLANK ? undefined : start)
-      onSaved(t(`${NOTE_KIND_LABEL[r.kind]} "${r.name}"을 만들었습니다 (${r.path}${r.skipped.length ? ` · 원고 폴더 밖이라 복사하지 않은 파일 ${r.skipped.length}개: ${r.skipped.join(', ')}` : ''})`,
+      onSaved(t(`${NOTE_KIND_LABEL[r.kind]} "${r.name}"${eulReul(r.name)} 만들었습니다 (${r.path}${r.skipped.length ? ` · 원고 폴더 밖이라 복사하지 않은 파일 ${r.skipped.length}개: ${r.skipped.join(', ')}` : ''})`,
         `Created ${NOTE_KIND_LABEL[r.kind]!.toLowerCase()} "${r.name}" (${r.path}${r.skipped.length ? ` · ${plural(r.skipped.length, 'file')} outside the manuscript folder not copied: ${r.skipped.join(', ')}` : ''})`))
       onChanged(); onClose()
       go({ page: 'part', rid, file: r.path })
