@@ -5,6 +5,7 @@ import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AgentRunner, RunEvent, RunInput } from './agentChats.js'
 import { mentionsOf, ROOM_DEFAULT, RoomChats, routeOf } from './agentRoom.js'
+import { tallyOf, verdictOf } from '@rw/core'
 
 const room = { host: 'claude-code' as const, members: ROOM_DEFAULT.members }
 
@@ -82,7 +83,7 @@ describe('중앙 방', () => {
     await vi.waitFor(() => expect(turns).toHaveLength(2))
     await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
     expect(turns[1]).toContain('[Codex answered in the room:]\nCodex 답')
-    expect(turns[1]).toContain('answer last and sum up')
+    expect(turns[1]).toContain('sum up in at most three short lines')
     const items = chats.get(c.id).items
     const tail = items.slice(items.findIndex((x) => x.kind === 'user' && x.text === '@모두 어떻게 생각해?'))
     expect(items.filter((x) => x.kind === 'user' && x.text === '@모두 어떻게 생각해?')).toHaveLength(1)
@@ -103,19 +104,26 @@ describe('중앙 방', () => {
     expect(turns[1]).toContain('without seeing the others')
   })
 
-  it('토론 모드에서는 부른 차례대로, 앞사람의 답을 보고 이어 답한다. 규칙은 파일에 남는다', async () => {
-    const { chats, dir } = make()
+  it('판정: 첫 줄 「판정: …」을 읽어 칩으로, 여럿을 부른 차례는 판정 기록에 남고 사용자가 뒤집힘을 표시한다', async () => {
+    expect(verdictOf('판정: 맞음 — 식이 따라 나옴')).toBe('yes')
+    expect(verdictOf('**판정:** 틀림 — 부등호')).toBe('no')
+    expect(verdictOf('Verdict: unsure — not enough')).toBe('unsure')
+    expect(verdictOf('그냥 의견입니다. 판정: 맞음')).toBeUndefined()
+    expect(tallyOf(['yes', 'yes'])).toMatchObject({ agree: true, top: 'yes', count: 2 })
+    expect(tallyOf(['yes', 'no'])?.agree).toBe(false)
+    const { chats, review } = make()
+    review.mockImplementation(async (o: { prompt: string }) => { asked.push(o.prompt); return '판정: 맞음 — (3)이 나옴' })
     const c = chats.talk('시작')
     await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
     chats.invite('gemini', 'user', 'talk')
-    expect(chats.roomState().rules.mode).toBe('independent')
-    chats.setRules({ mode: 'debate' })
-    chats.send(c.id, { text: '@모두 어떻게 생각해?' })
+    chats.send(c.id, { text: '@모두 식 (3)이 맞는지 판정해 줘' })
     await vi.waitFor(() => expect(turns).toHaveLength(2))
-    expect(asked[0]).not.toContain('곁 답')
-    expect(asked[1]).toContain('Codex: Codex 답')
-    expect(turns[1]).toContain('debate mode')
-    expect(JSON.parse(fs.readFileSync(path.join(dir, 'agent-room.json'), 'utf8')).rules.mode).toBe('debate')
+    expect(asked[0]).toContain('판정: 맞음 | 틀림 | 모름')
+    expect(chats.get(c.id).items.filter((x) => x.kind === 'member').map((x) => (x.kind === 'member' ? x.verdict : 0))).toEqual(['yes', undefined])
+    const log = chats.roomState().log
+    expect(log).toMatchObject({ total: 1, flipped: 0, recent: [{ q: '식 (3)이 맞는지 판정해 줘', mode: 'independent', votes: [{ agent: 'codex', v: 'yes' }], flipped: false }] })
+    expect(chats.flip(log.recent[0]!.at, true).log).toMatchObject({ total: 1, flipped: 1 })
+    expect(() => chats.flip('없음', true)).toThrow(/없습니다/)
   })
 
   it('초대 · 권한 · 내보내기: 사용자는 수정 말고, 방장은 규칙 안에서 까닭과 함께 읽기만 · 발언까지. 방 소식이 남고 파일에 남는다', async () => {

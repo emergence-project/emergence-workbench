@@ -4,8 +4,8 @@ import type { FastifyInstance } from 'fastify'
 import * as C from '@rw/core/contract/agentChats'
 import { LIBRARY_RID } from '@rw/core'
 import fs from 'node:fs'
-import { MCP_NAME, type AgentRunner } from '../agentChats.js'
-import { RoomChats } from '../agentRoom.js'
+import { MCP_NAME, type AgentRunner, type OneShot } from '../agentChats.js'
+import { DebateChats } from '../agentDebate.js'
 import { registerAgentRoom } from './agentRoom.js'
 import { publishPaths } from '../pathsync.js'
 import { assertPrivateRemote } from '../personalRepo.js'
@@ -56,7 +56,7 @@ function injectFetch(app: FastifyInstance): typeof fetch {
 /** 중앙 메모 파일 (시안 §9 ⑤): 개인 저장소가 있으면 agent/central-memo.md로 두고 써지면 올린다, 없으면 이 컴퓨터 설정 폴더 */
 const MEMO_PATH = 'agent/central-memo.md'
 
-export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runner?: AgentRunner, appWork?: AppWork): RoomChats {
+export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runner?: AgentRunner, appWork?: AppWork): DebateChats {
   const { registry, broadcast, repoPath } = ctx
   const personal = ctx.opts.personalDir
   const centralMemo = () => personal
@@ -86,13 +86,13 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   // 실제 맥: 상한은 이 컴퓨터 크기로, 그 안에서는 남은 메모리로 연다 (예제 · 시험은 고정 CHAT_LIMIT)
   const gauge = runner ? undefined : new MemoryGauge()
   const cap = runner ? CHAT_LIMIT : chatCap()
-  const chats = new RoomChats({
+  const chats = new DebateChats({
     dir: path.join(registry.configDir, 'agent-chats'),
     runner: runner ?? claudeAgentRunner(mcpFor),
     ...(!runner && { others: { codex: acpAgentRunner(ACP_AGENTS.codex, chatMcp, registry.configDir), gemini: acpAgentRunner(ACP_AGENTS.gemini, chatMcp, registry.configDir) } }),
     limit: cap,
     ...(gauge && { room: (live: number, fresh: number) => { const m = gauge.current; return m ? chatRoom(live, fresh, m, cap).ok : live < CHAT_LIMIT } }),
-    project: (rid) => rid === C.CENTRAL_RID ? { repo: centralDir(), title: t('중앙', 'Central') } : ({ repo: repoPath(rid), title: rid === LIBRARY_RID ? t('지식 라이브러리', 'Knowledge library') : registry.list().find((r) => r.id === rid)?.title ?? rid }),
+    project: (rid) => rid === C.CENTRAL_RID || rid === C.DEBATE_RID ? { repo: centralDir(), title: t('중앙', 'Central') } : ({ repo: repoPath(rid), title: rid === LIBRARY_RID ? t('지식 라이브러리', 'Knowledge library') : registry.list().find((r) => r.id === rid)?.title ?? rid }),
     readable: () => [...(registry.libraryPath ? [registry.libraryPath] : []), ...registry.list().map((r) => r.path)],
     extraDirs: () => (registry.libraryPath ? [registry.libraryPath] : []),
     notify: (c) => broadcast({ type: 'agent-chat', research: c.rid, id: c.id }),
@@ -102,7 +102,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     settings: () => registry.agents,
     accounts: { claude: accounts, codex: codexAccounts },
     // Codex 검토 (11/9): 묻기와 같은 codex exec, 읽기 전용. 예제 · 시험은 실행기의 것
-    ...(runner ? runner.review && { review: runner.review } : { review: (o: { prompt: string; cwd: string }) => codexAsk(registry.configDir, o.cwd, o.prompt) }),
+    ...(runner ? runner.review && { review: runner.review } : { review: (o: OneShot) => codexAsk(registry.configDir, o.cwd, o.prompt, undefined, o) }),
     ...(ctx.opts.appRepo && { inApp: ((repo) => commitChecker(repo.root, () => repo.running))(ctx.opts.appRepo) }),
     recordAnswer: (rid, rec, text, edits) => {
       const changed = edits.length ? [t('고친 곳 (아래 「고친 곳 검토」에서 승인):', 'Changed (approve under "Review changes" below):'), ...edits.map((e) => `- ${e.file} +${e.added} −${e.removed}`)].join('\n') : ''

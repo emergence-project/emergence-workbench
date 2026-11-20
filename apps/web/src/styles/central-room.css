@@ -27,3 +27,40 @@
 .room-note .icon-btn { margin-left: auto; }
 .room-to { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); padding: 0 var(--sp-1); }
 .room-to .room-who b { font-weight: var(--fw-medium); color: var(--text-2); }
+/* 2단계 판정 (11/20, 시안 R88teWLKuf7DgokaYQA61n): 판정 칩 · 입장 바꿈 · 판정 기록 */
+.verdict-chip { margin-left: auto; flex: none; display: inline-flex; align-items: center; padding: 0 var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-pill); font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--text-2); white-space: nowrap; }
+.verdict-chip.split { border-color: var(--s-blocked); color: var(--s-blocked); }
+.verdict-stance { margin-left: auto; font-size: var(--fs-xs); color: var(--s-blocked); white-space: nowrap; }
+.verdict-stance + .verdict-chip { margin-left: 0; }
+.verdict-log { display: flex; flex-direction: column; }
+.verdict-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--sp-2); align-items: center; padding: var(--sp-1) 0; border-top: 1px solid var(--line); font-size: var(--fs-sm); }
+.verdict-row:first-child { border-top: none; }
+.verdict-row .verdict-q { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.verdict-row .verdict-when, .verdict-row .verdict-res { font-size: var(--fs-xs); color: var(--text-3); }
+.verdict-row .verdict-res { color: var(--text-2); }
+.verdict-row .verdict-res.split { color: var(--s-blocked); }
+.verdict-row .a { font-size: var(--fs-xs); justify-self: end; }
+.verdict-row .verdict-chip { margin-left: 0; justify-self: end; }
+/* 토론 (11/20 「토론 + 정해진 4단계」, 시안 R88teWLKuf7DgokaYQA61n): 단계 띠 · 답 줄 · 중앙 한 줄 · 설정 칸 */
+.debate-strip { gap: var(--sp-1) var(--sp-2); }
+.debate-strip > .sp { flex: 1; }
+.debate-step { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; }
+.debate-step b { display: inline-grid; place-items: center; width: 16px; height: 16px; border: 1px solid var(--line-strong); border-radius: var(--r-pill); font-size: var(--fs-2xs); font-weight: var(--fw-medium); }
+.debate-step svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; }
+.debate-step.done { color: var(--text-2); }
+.debate-step.on { color: var(--text); font-weight: var(--fw-medium); }
+.debate-step.on b { border-color: var(--primary); background: var(--primary); color: var(--on-primary); }
+.debate-stage { flex: none; font-size: var(--fs-xs); color: var(--text-3); }
+.debate-label { flex: none; font-size: var(--fs-xs); color: var(--text-2); padding: 0 var(--sp-1); border: 1px solid var(--line); border-radius: var(--r-xs); }
+.debate-member.sum { background: var(--bg-sunken); }
+.debate-line { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.debate-line .debate-tag { flex: none; font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--text-2); }
+.debate-line .debate-q { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.debate-line .verdict-chip { margin-left: 0; }
+.debate-line .debate-state { flex: none; font-size: var(--fs-xs); white-space: nowrap; }
+.debate-line .a { flex: none; font-size: var(--fs-xs); }
+.debate-seats { display: flex; flex-direction: column; margin-top: var(--sp-1); padding-top: var(--sp-1); border-top: 1px solid var(--line); }
+.debate-seat { display: grid; grid-template-columns: minmax(0, 1fr) auto auto 24px; align-items: center; column-gap: var(--sp-1); min-height: 30px; font-size: var(--fs-sm); }
+.debate-seat > .muted { grid-column: 1 / -1; grid-row: 2; font-size: var(--fs-xs); padding-left: 18px; }
+.debate-seat .room-who { overflow: hidden; }
+.debate-add { display: flex; gap: var(--sp-2); padding: var(--sp-1) 0; font-size: var(--fs-xs); }

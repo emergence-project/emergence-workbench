@@ -283,7 +283,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
     if (menu.kind === '/') {
       // 고르면 메뉴를 닫는다 (/compact처럼 글이 명령 그대로면 메뉴가 다시 맞아 열려 있었다)
       const fill = (v: string) => { setText(v); setCaret(v.length); setClosed(menu.start); requestAnimationFrame(() => box.current?.focus()) }
-      const cmds = COMMANDS.filter((c) => c.cmd.slice(1).toLowerCase().startsWith(q) || c.label.toLowerCase().includes(q))
+      const cmds = [...(room?.commands ?? []), ...COMMANDS].filter((c) => c.cmd.slice(1).toLowerCase().startsWith(q) || c.label.toLowerCase().includes(q))
         .map((c) => ({ key: c.cmd, label: c.cmd, meta: c.label, run: () => { fill(c.text); if (c.send) void submit(c.text) } }))
       // 스킬: 고르면 그 스킬을 쓰라는 글로 시작한다 (에이전트가 Skill 도구로 읽는다)
       const skills = (extras?.skills ?? []).filter((s) => s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q))
@@ -423,6 +423,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
         </PopButton>
         {lead}
         <input ref={file} type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden onChange={(e) => { void addImages([...(e.target.files ?? [])]); e.target.value = '' }} />
+        {!room?.plain && <>
         <PopButton ui="맡기는 정도" tip={t('권한 (⇧⇥)', 'Permissions (⇧⇥)')} wide label={<>{settings.custom ? CUSTOM_NAME : TRUST_NAME[settings.trust]} ▾</>}>
           {(close) => TRUSTS.filter((v) => v !== 'plan' || isClaude(settings.agent)).map((v) => (
             <button key={v} role="menuitemradio" aria-checked={settings.trust === v} className={`ac-pop-item${settings.trust === v ? ' on' : ''}`} onClick={() => { close(); onSettings({ trust: v }) }}>
@@ -457,6 +458,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
             {(close) => thinking.map((o) => <button key={o.key} role="menuitemradio" aria-checked={o.on} className={o.on ? 'on' : ''} onClick={() => { close(); onSettings(o.pick) }}><span className="ac-pop-check" aria-hidden>{o.on ? Icon.check : null}</span>{o.name}</button>)}
           </PopButton>
         )}
+        </>}
         <span className="sp" />
         {stopping
           ? <button className="ac-send stop" data-ui="대화 멈추기" data-tip={t('멈추기 (Esc)', 'Stop (Esc)')} aria-label={t('멈추기', 'Stop')} onClick={onStop}><span className="ac-stop-sq" aria-hidden /></button>

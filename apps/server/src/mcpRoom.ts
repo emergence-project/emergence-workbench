@@ -1,9 +1,10 @@
 // 에이전트용 입구(mcp.ts)의 중앙 방 도구 (11/20 사용자 결정 "중앙 = 여럿이 말하는 방", 시안 https://claude.ai/artifact/1e4G2p1cQjgVNSSAZ9RFHr):
-// 방장(중앙 대화)만 받는다. room_ask 방 사람에게 묻기 · room_invite 초대(읽기만 · 발언까지, 까닭 한 줄) · room_remove 내가 초대한 사람 내보내기.
+// 방장(중앙 대화)만 받는다. room_ask 방 사람에게 묻기 · room_invite 초대(읽기만 · 발언까지, 까닭 한 줄) · room_remove 내가 초대한 사람 내보내기 ·
+// debate_open 토론 열기(11/20 「토론 + 정해진 4단계」, 결론은 끝난 뒤 다음 차례 앞에 온다).
 // 앱 서버 API만 부르고 파일을 직접 읽거나 쓰지 않는다
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import { AGENT_KINDS, RoomAnswer } from '@rw/core/contract/agentChats'
+import { AGENT_KINDS, DebateOpened, RoomAnswer } from '@rw/core/contract/agentChats'
 import type { Text } from './mcp.js'
 
 type Reply = { ok: true; body: unknown } | { ok: false; error: Text }
@@ -33,4 +34,13 @@ export function registerRoomTools(server: McpServer, post: (url: string, payload
     inputSchema: { agent },
     annotations: write,
   }, async (a) => { const r = await post('/api/agent-room/host/remove', a); return r.ok ? text('Removed') : r.error })
+  server.registerTool('debate_open', {
+    title: 'Open a debate',
+    description: 'Open a debate: a separate conversation for one question where being wrong is costly (a bug cause, a design choice, a math or physics claim). The app runs fixed steps: the participants answer blind, critique each other with names hidden, revise (a changed position needs a new reason), and a judge that does not vote sums up in three lines. You do not take part. The user watches it and ends it; then its one-line result comes back to you before your next turn. Use it instead of asking members one by one when a careful cross-check matters.',
+    inputSchema: { q: z.string().min(1).max(8000).describe('The question, with the context the participants need (they read only this)'), agents: z.array(agent).min(2).max(4).optional().describe('Participants; default = the room members other than you') },
+    annotations: write,
+  }, async (a) => {
+    const r = await post('/api/agent-debate/host', a)
+    return r.ok ? text(`Opened debate ${DebateOpened.parse(r.body).id}. Tell the user in one line; the result comes later.`) : r.error
+  })
 }
