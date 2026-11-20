@@ -10,6 +10,7 @@ export function registerAgentRoom(app: FastifyInstance, chats: RoomChats): void 
   app.post('/api/agent-room/perm', replies(C.RoomState), async (req): Promise<C.RoomState> => { const b = parseBody(C.RoomPermBody, req.body); return chats.setPerm(b.agent, b.perm) })
   app.post('/api/agent-room/remove', replies(C.RoomState), async (req): Promise<C.RoomState> => chats.removeMember(parseBody(C.RoomAgentBody, req.body).agent, 'user'))
   app.post('/api/agent-room/rules', replies(C.RoomState), async (req): Promise<C.RoomState> => chats.setRules(parseBody(C.RoomRulesBody, req.body)))
+  app.post('/api/agent-room/verdict', replies(C.RoomState), async (req): Promise<C.RoomState> => { const b = parseBody(C.VerdictFlipBody, req.body); return chats.flip(b.at, b.flipped) })
   // 방장(중앙 대화의 MCP)만 부른다
   app.post('/api/agent-room/host/invite', replies(C.RoomState), async (req): Promise<C.RoomState> => { const b = parseBody(C.RoomInviteBody, req.body); return chats.invite(b.agent, 'host', b.perm, b.reason) })
   app.post('/api/agent-room/host/remove', replies(C.RoomState), async (req): Promise<C.RoomState> => chats.removeMember(parseBody(C.RoomAgentBody, req.body).agent, 'host'))

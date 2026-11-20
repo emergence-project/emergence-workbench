@@ -28,7 +28,7 @@ import { ProjectPick, RecentChats } from './AgentProjectPick'
 import { AgentChip, agentOf, effortsOf, familyName, familyOf, fitEffort, isClaude, useChatSettings, useModels } from './AgentPick'
 import { isReviewCommand, ReviewButton, ReviewCard } from './AgentReview'
 import { CENTRAL_PAGE, CentralBoard, CentralBoardButton, CentralLine, CentralStart } from './CentralChat'
-import { HostWho, hostWhoAt, MemberItem, RoomItem, RoomManage, RoomStrip, useComposerRoom } from './CentralRoom'
+import { HostWho, hostWhoAt, MemberItem, RoomItem, RoomManage, RoomStrip, useComposerRoom, VerdictLog } from './CentralRoom'
 import { APP_HINT, ATTACH_NAME, ChatQuoteMenu, Composer, CUSTOM_NAME, EFFORT_NAME, effortLabel, PopButton, settingsOf, sideQuestion, TRUST_NAME, trustOf, type Fill, type Settings } from './ChatComposer'
 
 /**
@@ -386,7 +386,7 @@ function AttachChips({ attach, images }: { attach?: Attach[]; images?: number })
   )
 }
 
-function ItemView({ chat, it, who, onError, onChanges, onRewind, onPass }: { chat: Chat; it: Exclude<ChatItem, { kind: 'step' | 'think' }>; who?: boolean; onError(m: string): void; onChanges?(): void; onRewind?(point: string): void; onPass?(text: string): void }) {
+function ItemView({ chat, it, who, onError, onChanges, onRewind, onPass }: { chat: Chat; it: Exclude<ChatItem, { kind: 'step' | 'think' }>; who?: ReturnType<typeof hostWhoAt>; onError(m: string): void; onChanges?(): void; onRewind?(point: string): void; onPass?(text: string): void }) {
   const when = new Date(it.at).toLocaleString()
   switch (it.kind) {
     // 중앙을 저절로 깨운 알림은 옅은 한 줄 (11/19: 진행은 작업 현황에서 보고, 대화에는 짧게)
@@ -399,7 +399,7 @@ function ItemView({ chat, it, who, onError, onChanges, onRewind, onPass }: { cha
         )}
       </li>
     )
-    case 'text': return <li className={`ac-text${it.sub ? ' sub' : ''}`} data-ui="에이전트 글" title={when}>{who && <HostWho />}{it.sub && <span className="muted ac-hint">{t('하위 에이전트', 'Subagent')}</span>}<MemoText text={it.text} /><Mockups text={it.text} chat={chat.id} /><CopyButton text={it.text} /></li>
+    case 'text': return <li className={`ac-text${it.sub ? ' sub' : ''}`} data-ui="에이전트 글" title={when}>{who && <HostWho votes={who} />}{it.sub && <span className="muted ac-hint">{t('하위 에이전트', 'Subagent')}</span>}<MemoText text={it.text} /><Mockups text={it.text} chat={chat.id} /><CopyButton text={it.text} /></li>
     case 'ask': return it.plan !== undefined ? <PlanCard chat={chat} it={it} onError={onError} /> : <AskCard chat={chat} it={it} onError={onError} />
     case 'todos': return null
     case 'edit': return <EditLine chat={chat} it={it} onChanges={onChanges} />
@@ -828,7 +828,7 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
   // 중앙은 파일을 고치지 않으므로 이 칸을 작업 현황에 쓰고, 「이 대화」는 그 아래 접어 둔다
   if (chat.rid === CENTRAL_RID) return (
     <WorkAside>
-      <WorkLog chat={chat} /><CentralBoard /><RoomManage />
+      <WorkLog chat={chat} /><CentralBoard /><VerdictLog /><RoomManage />
       <details className="ac-info-fold" data-ui="이 대화 접기"><summary>{t('이 대화', 'This conversation')} <span className="muted">{t('모델 · 토큰 · 권한 ›', 'model · tokens · permissions ›')}</span></summary><ChatInfo chat={chat} /></details>
     </WorkAside>
   )

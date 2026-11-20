@@ -38,6 +38,7 @@ export const agentChatsApi = {
   roomPerm: (agent: AgentKind, perm: RoomPerm) => req('/api/agent-room/perm', send('POST', { agent, perm })).then((r) => json<RoomState>(r)),
   roomRemove: (agent: AgentKind) => req('/api/agent-room/remove', send('POST', { agent })).then((r) => json<RoomState>(r)),
   roomRules: (rules: Partial<RoomRules>) => req('/api/agent-room/rules', send('POST', rules)).then((r) => json<RoomState>(r)),
+  roomVerdictFlip: (at: string, flipped: boolean) => req('/api/agent-room/verdict', send('POST', { at, flipped })).then((r) => json<RoomState>(r)),
   /** 중앙에게 말하기 (중앙이 없으면 연다) */
   talk: (text: string, view?: string) => req('/api/agent-central/messages', send('POST', { text, view })).then(one),
   /** 이어서 지시 (일하는 중이면 다음 차례에 읽는다) */

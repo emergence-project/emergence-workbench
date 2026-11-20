@@ -174,7 +174,10 @@ try {
       // 중앙 방 (11/20): @Codex로 검토를 부르고, 방장이 MCP로 하듯 Gemini를 까닭과 함께 읽기만으로 초대한다
       await fetch(`${base}api/agent-chats/${central}/messages`, { method: 'POST', headers: json, body: JSON.stringify({ text: en ? '@Codex review the picture fix in feedback' : '@Codex 피드백 그림 고친 것 검토해 줘' }) })
       for (let i = 0; i < 50; i++) { const c = (await (await fetch(`${base}api/agent-chats/${central}`)).json()).chat; if (c.items.some((x) => x.kind === 'member' && x.text)) break; await new Promise((r) => setTimeout(r, 100)) }
-      await fetch(`${base}api/agent-room/host/invite`, { method: 'POST', headers: json, body: JSON.stringify({ agent: 'gemini', perm: 'read', reason: en ? 'A second look at the derivation in section 2' : '2절 유도를 Claude와 따로 한 번 더 확인' }) })
+      await fetch(`${base}api/agent-room/host/invite`, { method: 'POST', headers: json, body: JSON.stringify({ agent: 'gemini', perm: 'talk', reason: en ? 'A second look at the derivation in section 2' : '2절 유도를 Claude와 따로 한 번 더 확인' }) })
+      // 2단계 (11/20): @모두로 판정을 물으면 판정 칩 · 방장 정리의 판정 모음 · 오른쪽 판정 기록
+      await fetch(`${base}api/agent-chats/${central}/messages`, { method: 'POST', headers: json, body: JSON.stringify({ text: en ? '@all Is equation (3) in section 2 of the Kempe note right? Give a verdict' : '@모두 켐페 노트 2절의 식 (3)이 맞는지 판정해 줘' }) })
+      for (let i = 0; i < 80; i++) { const c = (await (await fetch(`${base}api/agent-chats/${central}`)).json()).chat; if (c.state === 'idle' && c.items.filter((x) => x.kind === 'member' && x.verdict).length >= 2) break; await new Promise((r) => setTimeout(r, 100)) }
     }
     if (name === 'feedback-agent') {
       // 피드백 맡기기 (2단계 나): 수정 요청이 온 항목을 앱 고치기 대화에 맡기고, 앱 MCP가 하듯 PR 올리기와 처리 기록(feedback_answer)을 부른다

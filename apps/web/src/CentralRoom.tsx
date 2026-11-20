@@ -2,7 +2,8 @@
 // 중앙 머리 아래 방 사람 줄(왕관 = 방장), 방 사람의 답 · 방 소식 줄, 방장 글의 이름, 오른쪽 칸의 방 관리, 입력란 @ 메뉴와 「받는 이」
 import { useRef, useState, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ROOM_NAME, routeOf } from '@rw/core'
+import { ROOM_NAME, routeOf, tallyOf } from '@rw/core'
+import type { RoomVerdict } from '@rw/core/contract/agentChats'
 import { agentChatsApi, type AgentKind, type ChatItem, type RoomMember, type RoomPerm, type RoomState } from './api'
 import { AgentLogo } from './agentLogos'
 import { MemoText } from './memo'
@@ -20,6 +21,16 @@ const PERM_TIP: Record<RoomPerm, string> = {
   read: t('부르면 접힌 요약만 냅니다', 'Gives a folded summary when called'),
   talk: t('부르면 방에서 답합니다. 파일은 고치지 않습니다', 'Answers in the room when called. Does not change files'),
   edit: t('방장: 하위 대화 · 파일 · PR을 맡습니다', 'Host: runs sub-conversations, files and pull requests'),
+}
+/** 판정 (2단계 11/20, 시안 https://claude.ai/artifact/R88teWLKuf7DgokaYQA61n) */
+const V_NAME: Record<RoomVerdict, string> = { yes: t('맞음', 'Right'), no: t('틀림', 'Wrong'), unsure: t('모름', 'Unsure') }
+/** 한 차례 판정의 한 마디: 일치 · 맞음 2/2, 엇갈림 · 맞음 1 · 틀림 1 */
+export function tallyText(votes: RoomVerdict[]): { text: string; split: boolean } | undefined {
+  const r = tallyOf(votes)
+  if (!r) return undefined
+  if (r.agree) return { text: t(`일치 · ${V_NAME[r.top]} ${r.count}/${r.total}`, `Agree · ${V_NAME[r.top]} ${r.count}/${r.total}`), split: false }
+  const parts = (['yes', 'no', 'unsure'] as const).filter((v) => votes.includes(v)).map((v) => `${V_NAME[v]} ${votes.filter((x) => x === v).length}`)
+  return { text: `${t('엇갈림', 'Split')} · ${parts.join(' · ')}`, split: true }
 }
 const NEXT_STEP = t('수정 넘기기는 다음 단계입니다. 지금은 방장(Claude)만 수정합니다', 'Handing over edit comes next. For now only the host (Claude) edits')
 
@@ -131,7 +142,9 @@ export function MemberItem({ it }: { it: Extract<ChatItem, { kind: 'member' }> }
   const body = it.text ? <MemoText text={it.text} /> : it.error ? <span className="error-text">! {it.error}</span> : <span className="muted">{t('답하는 중…', 'Answering…')}</span>
   return (
     <li className="room-member" data-ui="방 사람 답" title={new Date(it.at).toLocaleString()}>
-      <div className="room-member-h"><Who agent={it.by} perm={perm} />{it.from === 'host' && <span className="muted">{t('방장이 물음', 'Asked by the host')}{it.q ? ` · ${it.q.split('\n')[0]}` : ''}</span>}</div>
+      <div className="room-member-h"><Who agent={it.by} perm={perm} />{it.from === 'host' && <span className="muted">{t('방장이 물음', 'Asked by the host')}{it.q ? ` · ${it.q.split('\n')[0]}` : ''}</span>}
+        {it.prev && it.verdict && <span className="verdict-stance" data-ui="입장 바꿈">{t(`입장 바꿈 · 앞 차례 ${V_NAME[it.prev]} → ${V_NAME[it.verdict]}`, `Changed stance · ${V_NAME[it.prev]} → ${V_NAME[it.verdict]}`)}</span>}
+        {it.verdict && <span className="verdict-chip" data-ui="판정">{t('판정', 'Verdict')} · {V_NAME[it.verdict]}</span>}</div>
       {it.fold && it.text ? <details><summary className="muted">{t('요약 펼치기', 'Show summary')}</summary>{body}</details> : body}
     </li>
   )
@@ -157,20 +170,55 @@ export function RoomItem({ it }: { it: Extract<ChatItem, { kind: 'room' }> }) {
 }
 
 /** 방장 글 앞의 이름: 사용자 말 · 방 사람 답 다음 첫 방장 글에만 */
-export function HostWho() {
+export function HostWho({ votes = [] }: { votes?: RoomVerdict[] }) {
   const room = useRoom()
-  return room ? <div className="room-member-h"><Who agent={room.host} host perm="edit" /></div> : null
+  const tally = votes.length >= 2 ? tallyText(votes) : undefined
+  return room ? <div className="room-member-h"><Who agent={room.host} host perm="edit" />{tally && <><span className="muted">{t('정리', 'Summary')}</span><span className={`verdict-chip${tally.split ? ' split' : ''}`} data-ui="판정 모음">{tally.text}</span></>}</div> : null
 }
-export function hostWhoAt(items: { kind: string; item?: ChatItem }[], i: number): boolean {
+/** 방장 이름을 그릴 자리면 바로 앞 차례(사용자 말 뒤)의 방 사람 판정들, 아니면 false */
+export function hostWhoAt(items: { kind: string; item?: ChatItem }[], i: number): false | RoomVerdict[] {
   const it = items[i]?.item
   if (it?.kind !== 'text' || it.sub) return false
+  const votes: RoomVerdict[] = []
+  let seen = false
   for (let j = i - 1; j >= 0; j--) {
     const x = items[j]!.item
     if (!x) continue
-    if (x.kind === 'text' && !x.sub) return false
-    if (x.kind === 'user' || x.kind === 'member') return true
+    if (x.kind === 'text' && !x.sub) return seen ? votes.reverse() : false
+    if (x.kind === 'member') { seen = true; if (x.verdict && !x.from) votes.push(x.verdict) }
+    if (x.kind === 'user') return votes.reverse()
   }
-  return true
+  return votes.reverse()
+}
+
+/** 오른쪽 사이드바 판정 기록 (2단계): 여럿을 부른 차례의 판정 · 「뒤집힘 표시」 · 뒤집힌 비율 */
+export function VerdictLog() {
+  const room = useRoom()
+  const change = useRoomChange()
+  const [all, setAll] = useState(false)
+  if (!room?.log.total) return null
+  const { total, flipped, recent } = room.log
+  const shown = all ? recent : recent.slice(0, 3)
+  return (
+    <SideSection title={t('판정 기록', 'Verdicts')} ui="판정 기록" aside={<span className="cb-counts">{t(`${total}번 · 나중에 뒤집힘 ${flipped}`, `${total} · flipped later ${flipped}`)}{total ? ` (${Math.round((flipped / total) * 100)}%)` : ''}</span>}>
+      <div className="verdict-log">
+        {shown.map((e) => {
+          const tally = tallyText(e.votes.map((x) => x.v))
+          return (
+            <div key={e.at} className="verdict-row" data-ui="판정 기록 줄" title={e.votes.map((x) => `${ROOM_NAME[x.agent]} ${V_NAME[x.v]}`).join(' · ')}>
+              <span className="verdict-q">{e.q || t('(물음 없음)', '(no question)')}</span>
+              <span className="verdict-when">{new Date(e.at).toLocaleDateString()}</span>
+              <span className={`verdict-res${tally?.split ? ' split' : ''}`}>{tally?.text} · {e.mode === 'debate' ? t('토론', 'Debate') : t('독립', 'Independent')}</span>
+              {e.flipped
+                ? <button className="verdict-chip" data-ui="뒤집힘 지우기" data-tip={t('뒤집힘 표시를 지웁니다', 'Clear the flipped mark')} onClick={() => void change(() => agentChatsApi.roomVerdictFlip(e.at, false))}>{t('나중에 뒤집힘', 'Flipped later')}</button>
+                : <button className="a" data-ui="뒤집힘 표시" data-tip={t('이 판정이 나중에 틀린 것으로 드러났을 때 누릅니다', 'Mark when this verdict later turned out wrong')} onClick={() => void change(() => agentChatsApi.roomVerdictFlip(e.at, true))}>{t('뒤집힘 표시', 'Mark flipped')}</button>}
+            </div>
+          )
+        })}
+      </div>
+      {recent.length > 3 && <button className="a ac-hint" data-ui="판정 기록 펼치기" onClick={() => setAll(!all)}>{all ? t('접기', 'Show less') : t('모두 보기 ›', 'Show all ›')}</button>}
+    </SideSection>
+  )
 }
 
 /** 입력란: @ 메뉴 맨 위의 방 사람과 「모두」, 아래 「받는 이」 */

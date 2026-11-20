@@ -27,3 +27,17 @@
 .room-note .icon-btn { margin-left: auto; }
 .room-to { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); padding: 0 var(--sp-1); }
 .room-to .room-who b { font-weight: var(--fw-medium); color: var(--text-2); }
+/* 2단계 판정 (11/20, 시안 R88teWLKuf7DgokaYQA61n): 판정 칩 · 입장 바꿈 · 판정 기록 */
+.verdict-chip { margin-left: auto; flex: none; display: inline-flex; align-items: center; padding: 0 var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-pill); font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--text-2); white-space: nowrap; }
+.verdict-chip.split { border-color: var(--s-blocked); color: var(--s-blocked); }
+.verdict-stance { margin-left: auto; font-size: var(--fs-xs); color: var(--s-blocked); white-space: nowrap; }
+.verdict-stance + .verdict-chip { margin-left: 0; }
+.verdict-log { display: flex; flex-direction: column; }
+.verdict-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--sp-2); align-items: center; padding: var(--sp-1) 0; border-top: 1px solid var(--line); font-size: var(--fs-sm); }
+.verdict-row:first-child { border-top: none; }
+.verdict-row .verdict-q { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.verdict-row .verdict-when, .verdict-row .verdict-res { font-size: var(--fs-xs); color: var(--text-3); }
+.verdict-row .verdict-res { color: var(--text-2); }
+.verdict-row .verdict-res.split { color: var(--s-blocked); }
+.verdict-row .a { font-size: var(--fs-xs); justify-self: end; }
+.verdict-row .verdict-chip { margin-left: 0; justify-self: end; }

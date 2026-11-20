@@ -79,6 +79,9 @@ export const Todo = z.object({ text: z.string(), state: z.enum(TODO_STATES) }).s
 export const EditPart = z.object({ old: z.string(), new: z.string() }).strict()
 
 /** 대화의 한 줄 */
+/** 방 사람의 판정 (11/20 2단계): yes 맞음 · no 틀림 · unsure 모름. prev = 토론에서 앞 차례의 판정 (바뀌었을 때만) */
+export const ROOM_VERDICTS = ['yes', 'no', 'unsure'] as const
+export type RoomVerdict = (typeof ROOM_VERDICTS)[number]
 export const ChatItem = z.discriminatedUnion('kind', [
   /** queued = 일하는 중에 보내 다음 차례에 읽을 지시, auto = 사용자가 아니라 앱이 중앙 대화를 깨운 알림 (하위 대화가 끝남 · CI 실패 · PR 합쳐짐, 11/18) */
   z.object({ kind: z.literal('user'), at: z.string(), text: z.string(), attach: z.array(Attach).optional(), images: z.number().optional(), queued: z.boolean().optional(), point: z.string().optional(), auto: z.boolean().optional() }).strict(),
@@ -128,7 +131,7 @@ export const ChatItem = z.discriminatedUnion('kind', [
    * 중앙 방 사람의 답 (11/20 사용자 결정 "중앙 = 여럿이 말하는 방"): 사용자가 @이름 · @모두로 부르거나 방장이 room_ask로 물었을 때.
    * q = 방장이 물은 말 (from host), fold = 읽기만 사람의 접힌 요약. text가 없고 error도 없으면 답하는 중
    */
-  z.object({ kind: z.literal('member'), at: z.string(), by: z.enum(AGENT_KINDS), q: z.string().optional(), from: z.literal('host').optional(), fold: z.boolean().optional(), text: z.string().optional(), error: z.string().optional(), seconds: z.number().optional() }).strict(),
+  z.object({ kind: z.literal('member'), at: z.string(), by: z.enum(AGENT_KINDS), q: z.string().optional(), from: z.literal('host').optional(), fold: z.boolean().optional(), text: z.string().optional(), error: z.string().optional(), seconds: z.number().optional(), verdict: z.enum(ROOM_VERDICTS).optional(), prev: z.enum(ROOM_VERDICTS).optional() }).strict(),
   /** 방이 바뀜: 초대 · 내보내기 · 권한 · 방 규칙. by = 사용자 · 방장, reason = 방장이 초대한 까닭 한 줄 */
   z.object({ kind: z.literal('room'), at: z.string(), act: z.enum(['invite', 'remove', 'perm', 'rules']), agent: z.enum(AGENT_KINDS).optional(), perm: z.enum(['read', 'talk', 'edit']).optional(), prev: z.enum(['read', 'talk', 'edit']).optional(), by: z.enum(['user', 'host']), reason: z.string().optional() }).strict(),
 ])
@@ -398,8 +401,12 @@ export const RoomMember = z.object({ agent: z.enum(AGENT_KINDS), perm: z.enum(RO
  *  mode = 여럿을 부를 때 답하는 방식(11/20 사용자 제안 "모드 전환"): independent 서로의 답을 가린 채 동시에 · debate 앞사람의 답을 보고 차례로 */
 export const ROOM_MODES = ['independent', 'debate'] as const
 export const RoomRules = z.object({ hostInvite: z.boolean(), defaultPerm: z.enum(['read', 'talk']), callMax: z.number().int().min(1).max(3), mode: z.enum(ROOM_MODES).default('independent') }).strict()
-/** 방: host = 방장(수정을 가진 사람), members = 방장 포함 (사용자 말고 4명까지), asking = 지금 답하는 사람 */
-export const RoomState = z.object({ host: z.enum(AGENT_KINDS), members: z.array(RoomMember), rules: RoomRules, asking: z.array(z.enum(AGENT_KINDS)) }).strict()
+/** 판정 기록 한 줄 (11/20 2단계): @모두 · 여럿을 부른 차례마다. flipped = 나중에 틀린 것으로 드러남 (사용자가 표시) */
+export const VerdictEntry = z.object({ at: z.string(), q: z.string(), mode: z.enum(ROOM_MODES), votes: z.array(z.object({ agent: z.enum(AGENT_KINDS), v: z.enum(ROOM_VERDICTS) }).strict()), flipped: z.boolean() }).strict()
+/** 방: host = 방장(수정을 가진 사람), members = 방장 포함 (사용자 말고 4명까지), asking = 지금 답하는 사람, log = 판정 기록(최근 것부터, total · flipped는 전체 수) */
+export const RoomState = z.object({ host: z.enum(AGENT_KINDS), members: z.array(RoomMember), rules: RoomRules, asking: z.array(z.enum(AGENT_KINDS)),
+  log: z.object({ total: z.number(), flipped: z.number(), recent: z.array(VerdictEntry) }).strict() }).strict()
+export const VerdictFlipBody = z.object({ at: z.string(), flipped: z.boolean() }).strict()
 export const RoomInviteBody = z.object({ agent: z.enum(AGENT_KINDS), perm: z.enum(ROOM_PERMS).optional(), reason: z.string().trim().max(200).optional() }).strict()
 export const RoomPermBody = z.object({ agent: z.enum(AGENT_KINDS), perm: z.enum(ROOM_PERMS) }).strict()
 export const RoomAgentBody = z.object({ agent: z.enum(AGENT_KINDS) }).strict()
@@ -411,6 +418,7 @@ export type RoomPerm = (typeof ROOM_PERMS)[number]
 export type RoomMember = z.infer<typeof RoomMember>
 export type RoomRules = z.infer<typeof RoomRules>
 export type RoomState = z.infer<typeof RoomState>
+export type VerdictEntry = z.infer<typeof VerdictEntry>
 export type RoomAnswer = z.infer<typeof RoomAnswer>
 
 /**
