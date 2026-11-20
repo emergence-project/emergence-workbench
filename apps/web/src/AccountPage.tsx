@@ -1,7 +1,7 @@
 import type { UiSettings } from '@rw/core'
 import { useQuery } from '@tanstack/react-query'
 import { accountApi } from './api'
-import { ClaudeAccountsSettings, DEFAULT_ACCOUNT, useClaudeAccounts } from './ClaudeAccountsSettings'
+import { ClaudeAccountsSettings, DEFAULT_ACCOUNT, useAgentAccounts } from './ClaudeAccountsSettings'
 import { t } from './i18n'
 import { qk } from './queries'
 import { useMe, usePeople } from './network/people'
@@ -22,6 +22,7 @@ export function AccountPage({ onUi, onSaved }: { onUi(patch: Partial<UiSettings>
               <div className="sec-head"><h2>{t('계정', 'Accounts')}</h2></div>
               <SetupAccounts onSaved={onSaved} onUiRestored={onUi} />
               <ClaudeAccountsSettings onSaved={onSaved} />
+              <ClaudeAccountsSettings kind="codex" onSaved={onSaved} />
             </section>
           </div>
         </div>
@@ -33,12 +34,13 @@ export function AccountPage({ onUi, onSaved }: { onUi(patch: Partial<UiSettings>
 /** 띠의 계정 단추 얼굴: GitHub 사진, 없으면 이름 머리글자. 로그인이 풀린 Claude 계정(더한 계정만, 이 컴퓨터 계정은 설정 › 에이전트 연결이 본다)이나 동기화 오류가 있으면 빨간 점 */
 export function AccountRailIcon() {
   const account = useQuery({ queryKey: qk.account, queryFn: accountApi.get }).data
-  const claude = useClaudeAccounts().data
+  const claude = useAgentAccounts('claude').data
+  const codex = useAgentAccounts('codex').data
   const me = useMe(usePeople().data)
   const gh = account?.github
   const name = gh?.name || me?.name || gh?.login || ''
   const letters = name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('')
-  const broken = !!account?.sync?.error || !!claude?.accounts.some((a) => a.id !== DEFAULT_ACCOUNT && !a.login && !a.signing)
+  const broken = !!account?.sync?.error || [claude, codex].some((k) => k?.accounts.some((a) => a.id !== DEFAULT_ACCOUNT && !a.login && !a.signing))
   return (
     <span className="rail-account">
       {gh?.avatar ? <img src={gh.avatar} alt="" /> : <span className="rail-account-letters">{letters || '?'}</span>}

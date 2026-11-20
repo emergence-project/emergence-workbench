@@ -11,6 +11,7 @@ import { assertPrivateRemote } from '../personalRepo.js'
 import { registerAgentCentral } from './agentCentral.js'
 import { registerClaudeAccounts } from './claudeAccounts.js'
 import { ClaudeAccounts } from '../claudeAccounts.js'
+import { setLimitsFile } from '../agentLimits.js'
 import { chatExtras } from '../agentExtras.js'
 import type { AppWork } from '../appWorktree.js'
 import { claudeAgentRunner } from '../agentRunner.js'
@@ -75,7 +76,11 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   // 중앙 대화의 작업 폴더 (11/16): 앱 저장소가 있으면 그것을 읽기로, 없으면 설정 폴더 안 빈 폴더
   const centralDir = () => { const d = ctx.opts.appRepo?.root ?? path.join(registry.configDir, 'central'); fs.mkdirSync(d, { recursive: true }); return d }
   // Claude 계정 여럿 (11/16): 대화 종류마다 계정 폴더. 예제 · 시험은 이 컴퓨터의 claude 대신 아무것도 하지 않는 명령을 띄운다
-  const accounts = new ClaudeAccounts(registry.configDir, runner ? { cli: () => (process.platform === 'win32' ? undefined : '/bin/true') } : { global: true })
+  const fake = runner ? { cli: () => (process.platform === 'win32' ? undefined : '/bin/true') } : {}
+  const accounts = new ClaudeAccounts(registry.configDir, runner ? fake : { global: true })
+  // Codex 계정 여럿 (11/20 시안 4절) · 계정마다 한도 (agentLimits.ts: Claude는 대화가 보낸 값을 설정 폴더에 적어 둔다)
+  const codexAccounts = new ClaudeAccounts(registry.configDir, { ...fake, kind: 'codex' })
+  if (!runner) setLimitsFile(path.join(registry.configDir, 'agent-limits.json'))
   // 실제 맥: 상한은 이 컴퓨터 크기로, 그 안에서는 남은 메모리로 연다 (예제 · 시험은 고정 CHAT_LIMIT)
   const gauge = runner ? undefined : new MemoryGauge()
   const cap = runner ? CHAT_LIMIT : chatCap()
@@ -93,7 +98,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     ...(appWork && { app: appWork }),
     ...(ctx.opts.feedbackDir && { feedback: { dir: ctx.opts.feedbackDir, written: () => ctx.feedbackWritten?.(), ...(claims && { claims }) } }),
     settings: () => registry.agents,
-    accounts,
+    accounts: { claude: accounts, codex: codexAccounts },
     // Codex 검토 (11/9): 묻기와 같은 codex exec, 읽기 전용. 예제 · 시험은 실행기의 것
     ...(runner ? runner.review && { review: runner.review } : { review: (o: { prompt: string; cwd: string }) => codexAsk(registry.configDir, o.cwd, o.prompt) }),
     ...(ctx.opts.appRepo && { inApp: ((repo) => commitChecker(repo.root, () => repo.running))(ctx.opts.appRepo) }),
@@ -200,6 +205,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
 
   registerAgentCentral(app, chats)
   registerClaudeAccounts(app, accounts, !!runner)
+  registerClaudeAccounts(app, codexAccounts, !!runner)
 
   /** 지금 도는 대화와 잡은 파일: 화면 · 앱 밖 에이전트가 같은 것을 보고 피한다 */
   app.get('/api/agent-work', replies(C.WorkState), async (): Promise<C.WorkState> => chats.work())

@@ -84,6 +84,7 @@ export const qk = {
   /** 설정 › 에이전트 (에이전트마다 시작 권한 · 하는 일, 저절로 검토) */
   agentSettings: ['agent-settings'] as const,
   claudeAccounts: ['claude-accounts'] as const,
+  codexAccounts: ['codex-accounts'] as const,
   centralMemo: ['agent-central-memo'] as const,
   account: ['account'] as const,
   agentExtras: ['agent-extras'] as const,

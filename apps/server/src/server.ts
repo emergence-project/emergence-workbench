@@ -97,6 +97,8 @@ if (process.env.RW_SANDBOX === '1') {
     // 중앙 메모 예 (11/16): 사용자가 정한 오래 갈 사실 (실사용은 개인 저장소 agent/central-memo.md)
     fs.writeFileSync(path.join(configDir, 'central-memo.md'), sampleEn ? '- Captions under before/after pictures are "Before" and "After".\n- Feedback is always handled by feedback sub-conversations.\n' : '- 전후 그림의 설명은 「전」 「후」로 쓴다.\n- 피드백은 늘 피드백 하위 대화가 처리한다.\n')
     fs.writeFileSync(path.join(configDir, 'claude-accounts.json'), `${JSON.stringify({ accounts: [{ id: 'a5a3b1e', name: 'Pro' }], roles: { central: 'a5a3b1e', feedback: 'a5a3b1e' } }, null, 2)}\n`)
+    // Codex 계정 예 (11/20 시안 4절): 더한 Plus 계정 하나, 프로젝트 대화는 그 계정으로
+    fs.writeFileSync(path.join(configDir, 'codex-accounts.json'), `${JSON.stringify({ accounts: [{ id: 'a7c0d3e', name: 'Plus' }], roles: { project: 'a7c0d3e' } }, null, 2)}\n`)
   }
   if (!registry.list().some((r) => r.path === fs.realpathSync(research))) {
     const { id } = registry.register(research)
