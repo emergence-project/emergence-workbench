@@ -187,8 +187,13 @@ export function PopButton({ label, ui, tip, children, wide, down, icon, pill }: 
  * 아래 줄 ＋ · 맡기는 정도 ▾ · 모델 · 생각 ▾ · 보내기(도는 중이고 글이 없으면 멈추기). ⇧⇥로 맡기는 정도를 바꾼다.
  * 대화 중에 바꾼 설정은 다음 차례부터 (onSettings)
  */
-export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placeholder, fail: outerFail, fill, autoFocus, agentFixed, lead, room, noTrust }: {
+/** 보내지 않은 글: 다른 화면을 보고 와도 남게 입력란마다(대화 · 새 대화의 프로젝트) 하나, 보내면 지운다 (화면을 새로 열면 없어진다) */
+const unsent = new Map<string, string>()
+
+export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placeholder, fail: outerFail, fill, autoFocus, agentFixed, lead, room, noTrust, keep }: {
   rid: string
+  /** 보내지 않은 글을 둘 이름 (없으면 두지 않는다) */
+  keep?: string
   /** 아래 줄 ＋ 다음에 둘 것 (새 대화의 프로젝트 고르기) */
   lead?: ReactNode
   auto?: Attach
@@ -209,8 +214,15 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
   /** 맡기는 정도를 고르지 않는 입력란 (중앙 시작, 11/20): 권한 메뉴 · ? · ⇧⇥를 숨긴다 */
   noTrust?: boolean
 }) {
-  const [text, setText] = useState('')
-  const [caret, setCaret] = useState(0)
+  const [text, setText] = useState(() => (keep && unsent.get(keep)) || '')
+  const [caret, setCaret] = useState(text.length)
+  const kept = useRef(keep)
+  useEffect(() => {
+    // 같은 입력란이 다른 대화로 바뀌면 그 대화의 글로 바꾼다 (앞 대화의 글은 이미 두었다)
+    if (kept.current !== keep) { kept.current = keep; const v = (keep && unsent.get(keep)) || ''; setText(v); setCaret(v.length); return }
+    if (!keep) return
+    if (text.trim()) unsent.set(keep, text); else unsent.delete(keep)
+  }, [keep, text])
   const [attach, setAttach] = useState<Attach[]>([])
   const [images, setImages] = useState<(ImageIn & { name: string })[]>([])
   const [autoOff, setAutoOff] = useState(false)
