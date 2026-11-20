@@ -35,7 +35,8 @@ export function DebateStrip({ chat }: { chat: Chat }) {
   return (
     <div className="room-strip debate-strip" data-ui="토론 단계">
       {DEBATE_STAGES.map((s, i) => {
-        const skipped = d.step === 'done' && (s === 'critique' || s === 'revise') && !ran(s)
+        // 끝난 토론에서 돌지 않은 단계는 ✓를 그리지 않는다: 비판 · 고친 답은 건너뜀, 멈추거나 답이 없어 정리가 없으면 정리도 (11/21)
+        const skipped = d.step === 'done' && !ran(s)
         return <span key={s} className={`debate-step${i === at ? ' on' : ''}${i < at && !skipped ? ' done' : ''}`} data-tip={STAGE_TIP[s]}>
           {i < at && !skipped ? Icon.check : <b>{i + 1}</b>}{STAGE_NAME[s]}{s === 'critique' && (skipped ? <span className="muted"> · {t('건너뜀', 'skipped')}</span> : d.rounds > 1 && i === at && <span className="muted"> {d.round}/{d.rounds}</span>)}
         </span>
@@ -69,7 +70,8 @@ export function DebateMember({ it }: { it: Extract<ChatItem, { kind: 'member' }>
 /** 중앙의 토론 한 줄: 물음 · 결과 · 열기 */
 export function DebateLine({ it }: { it: Extract<ChatItem, { kind: 'debate' }> }) {
   const tally = it.votes?.length ? tallyText(it.votes) : undefined
-  const state = it.state === 'running' ? t('도는 중', 'Running') : it.state === 'ended' ? t('끝냄', 'Ended') : t('정리됨 · 끝내기 전', 'Summed up · not ended')
+  // 멈추거나 답이 없어 정리가 없는 토론을 「정리됨」이라 하지 않는다 (결론 줄과 판정이 정리의 표시다)
+  const state = it.state === 'running' ? t('도는 중', 'Running') : it.state === 'ended' ? t('끝냄', 'Ended') : it.line ? t('정리됨 · 끝내기 전', 'Summed up · not ended') : t('멈춤 · 정리 없음', 'Stopped · no summary')
   return (
     <li className="ac-note debate-line" data-ui="토론 줄" title={new Date(it.at).toLocaleString()}>
       <span className="debate-tag">{t('토론', 'Debate')}</span>
