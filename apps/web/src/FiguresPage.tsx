@@ -72,7 +72,7 @@ export function FiguresSide({ filter, list }: { filter?: string; list: boolean }
   const nav = (id: string, label: string, n: number, title?: string, ui = label) => (
     <button key={id} className={`nav${filter === id ? ' on' : ''}`} data-ui="그림 거르기" data-ui-item={ui} title={title}
       onClick={() => go({ page: 'figures', filter: id })}>
-      <span className="label">{label}</span><span className="meta">{n}</span>
+      <span className="label">{label}</span>{data && <span className="meta">{n}</span>}
     </button>
   )
   return (
