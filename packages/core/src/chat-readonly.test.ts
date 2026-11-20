@@ -110,3 +110,43 @@ describe('반복문 · python 읽기 · find -exec (11/20 "중앙 읽기 명령�
     ]) expect(stateOnlyCommand(c, w), c).toBe('no')
   })
 })
+
+describe('셸이 낱말을 펼쳐 판정을 비켜 가는 길 (11/21 보안 검토)', () => {
+  const no = (c: string) => expect(stateOnlyCommand(c), c).toBe('no')
+  const ok = (c: string) => expect(stateOnlyCommand(c), c).toBe('ok')
+  it('변수 · 중괄호가 옵션으로 펼쳐지는 꼴은 묻는다', () => {
+    for (const c of [
+      'find .$IFS-delete', 'find . -{delete,print}', 'sort a$IFS-o${IFS}b', 'git log -1$IFS--output=/tmp/x',
+      'for f in ". -delete"; do find $f; done', 'for f in delete; do find . -$f; done', 'for f in "a b"; do uniq $f; done',
+      'for f in {-delete,x}; do find . $f; done', 'for f in kern.maxfiles=1; do sysctl $f; done', 'for f in eww; do ps $f; done',
+      'printf -v f -- -delete; find . $f', 'for x in a; do echo ${x@P}; done', 'echo "${x@P}"', 'uniq a{,b}', 'uniq *.txt',
+      'python3 -I -m json.tool *.json', 'find . -name x $1',
+    ]) no(c)
+  })
+  it('값이 한 낱말로 정해진 변수와 정규식의 $ · { } 는 그대로 둔다', () => {
+    for (const c of [
+      'for d in a b; do git -C $d status; done', 'for f in a.json b.json; do python3 -I -m json.tool $f; done', 'for f in *.json; do cat "$f" | head -3; done',
+      'for f in a b; do echo ${f%.json} ${f##*/}; done', 'git -C $HOME/x status', 'find $HOME/x -name a', 'rg "foo$|bar" src', 'rg "a{2,3}" src', 'find . -name "*.md" -exec cat {} +',
+      'git grep -n "end$|fin"', 'find ${HOME}/x -type f',
+    ]) ok(c)
+  })
+  it('하위 명령은 첫 낱말로 본다: 옵션의 값이 허용한 이름이어도 뒤의 명령을 돌리지 않는다', () => {
+    for (const c of ['npm --loglevel info run build', 'pnpm --loglevel info run build', 'pnpm --filter list run build', 'yarn --cwd info run build', 'gh pr --repo view merge 5']) no(c)
+    for (const c of ['pnpm -r list', 'npm ls -g', 'npm -g ls', 'pnpm --filter=web list', 'gh pr view 5 --json title', 'gh run list --limit 5', 'brew list']) ok(c)
+  })
+  it('git ls-remote --exec · date --set 은 묻는다', () => {
+    for (const c of ['git ls-remote --exec=/bin/echo .', 'git ls-remote --exe=/bin/echo .', 'date --set=2020-01-01']) no(c)
+    for (const c of ['git ls-remote --exit-code origin', 'date +%F']) ok(c)
+  })
+  it('python: 쓰기로 여는 숨은 꼴은 묻는다', () => {
+    const py = (code: string) => `python3 -I -c "${code}" f`
+    for (const code of [
+      `import sys; open(*[sys.argv[1],'w']).write('x')`, `from pathlib import Path; import sys; Path(sys.argv[1]).open('w')`, `from pathlib import Path; Path('a').open(mode='w')`,
+      `import sys; open(sys.argv[1], mode='r' if 0 else 'w')`, `open('a(b', 'w')`, `ｅｖａｌ('1')`, `print(f'{open(1)}')`, `import sys; open(sys.argv[1], **{'mode': 'w'})`,
+    ]) no(py(code))
+    for (const code of [
+      `import json,sys; print(len(json.load(open(sys.argv[1]))))`, `import sys; print(open(sys.argv[1], 'r', encoding='utf-8').read()[:200])`, `import sys; print(open(sys.argv[1], mode='rb').read(8))`,
+      `from pathlib import Path; import sys; print(Path(sys.argv[1]).open().read()[:80])`, `from pathlib import Path; print(Path('a(b').open('r').read())`,
+    ]) ok(py(code))
+  })
+})

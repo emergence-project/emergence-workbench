@@ -12,11 +12,19 @@ type Rule = (args: string[]) => boolean
 const any: Rule = () => true
 const without = (...bad: string[]): Rule => (args) => !args.some((a) => bad.some((b) => a === b || (b.startsWith('--') && a.startsWith(`${b}=`))))
 const positional = (args: string[]) => args.filter((a) => !a.startsWith('-'))
+/**
+ * 하위 명령은 첫 낱말이어야 한다. 그 앞에는 값을 따로 받지 않는 옵션만 둔다 (11/21 보안 검토):
+ * 첫 "옵션 아닌 낱말"로 고르면 `npm --loglevel info run build`처럼 옵션의 값이 허용한 이름일 때 뒤의 진짜 하위 명령이 그냥 돌았다
+ */
+const LEAD = /^(-g|--global|-r|--recursive|--json|--long|--parseable|-a|--all|--[\w-]+=.*)$/
 const sub = (allowed: Record<string, Rule>, bad: string[] = []): Rule => (args) => {
-  const s = positional(args)[0] ?? ''
-  const rule = allowed[s]
-  return !!rule && !args.some((a) => bad.includes(a) || bad.some((b) => b.startsWith('--') && a.startsWith(`${b}=`))) && rule(args.slice(args.indexOf(s) + 1))
+  let i = 0
+  while (i < args.length && LEAD.test(args[i]!)) i++
+  const rule = allowed[args[i] ?? '']
+  return !!rule && !args.some((a) => bad.includes(a) || bad.some((b) => b.startsWith('--') && a.startsWith(`${b}=`))) && rule(args.slice(i + 1))
 }
+/** 파일 이름으로 펼쳐지는 글자 */
+const GLOB = (x: string) => /[*?[]/.test(x)
 const versionOnly: Rule = (args) => args.length === 1 && /^(-v|-V|--version)$/.test(args[0]!)
 /** 긴 옵션의 줄임꼴도 같은 옵션으로 본다 (git · getopt_long은 --outp=x 를 --output=x 로 읽는다) */
 const longOpt = (...names: string[]) => (x: string) => {
@@ -29,8 +37,8 @@ const GIT: Record<string, Rule> = {
   'cat-file': any, 'merge-base': any, 'name-rev': any, whatchanged: any, 'rev-list': any, 'for-each-ref': any, 'show-ref': any,
   'show-branch': any, 'count-objects': any, cherry: any, 'range-diff': any, 'check-ignore': any, 'check-attr': any, 'verify-commit': any,
   'verify-tag': any, version: any,
-  // --upload-pack · -u 는 지정한 프로그램을 돌린다
-  'ls-remote': (a) => !a.some((x) => /^-u/.test(x) || longOpt('--upload-pack')(x)),
+  // --upload-pack · -u 와 숨은 같은 옵션 --exec 는 지정한 프로그램을 돌린다
+  'ls-remote': (a) => !a.some((x) => /^-u/.test(x) || longOpt('--upload-pack', '--exec')(x)),
   worktree: (a) => a[0] === 'list',
   submodule: (a) => a.length === 0 || a[0] === 'status',
   // -O · --open-files-in-pager는 지정한 프로그램을 돌린다
@@ -161,7 +169,25 @@ const PY_MODULES = new Set([
 const PY_OS = /^(path|listdir|scandir|walk|stat|lstat|getcwd|sep|linesep|curdir|pardir|name|devnull|cpu_count|getpid|uname|readlink|access|fspath|get_terminal_size|statvfs|R_OK|F_OK|X_OK|W_OK)$/
 const PY_SYS = /^(argv|stdin|stdout|stderr|version|version_info|platform|exit|maxsize|getsizeof|executable|getdefaultencoding)$/
 const PY_BAD = /\b(exec|eval|getattr|setattr|delattr|globals|locals|vars|breakpoint|help|input|write_text|write_bytes|touch|mkdir|unlink|rmdir|rename|symlink_to|hardlink_to|link_to|chmod|lchmod|chown)\b/
-function pythonCode(code: string): boolean {
+/** 문자열 안을 _ 로 가린 같은 길이의 글 (괄호 · 쉼표를 셀 때). 닫히지 않으면 null */
+function maskStrings(code: string): string | null {
+  let out = ''
+  for (let i = 0; i < code.length;) {
+    const ch = code[i]!
+    if (ch !== '"' && ch !== "'") { out += ch; i++; continue }
+    const q = code.startsWith(ch.repeat(3), i) ? ch.repeat(3) : ch
+    let j = i + q.length
+    while (j < code.length && !code.startsWith(q, j)) j += code[j] === '\\' ? 2 : 1
+    if (j >= code.length) return null
+    out += q + '_'.repeat(j - i - q.length) + q
+    i = j + q.length
+  }
+  return out
+}
+const PY_READ_MODE = /^\s*['"][rbt]*['"]\s*$/
+function pythonCode(raw: string): boolean {
+  // 파이썬은 이름을 NFKC로 읽는다: 전각 글자로 적은 ｅｖａｌ도 eval이다 (11/21 보안 검토)
+  const code = raw.normalize('NFKC')
   if (/[$]|SUBST|__|\\[xuUN0-7]/.test(code)) return false
   if (PY_BAD.test(code)) return false
   // 다른 모듈에 딸린 모듈(glob.os · json.codecs · collections._sys)로 os 검사를 비켜 가지 못하게
@@ -184,25 +210,34 @@ function pythonCode(code: string): boolean {
   }
   // pathlib을 쓰면 Path.replace도 파일을 옮기므로 .replace 를 막는다
   if (/\b(pathlib|Path)\b/.test(code) && /\.\s*(replace|copy|move)\w*\b/.test(code)) return false
-  // open: 이름으로만 부르고(다른 이름에 담지 않고), 둘째 값은 읽기 모드 글자만
+  // open: 이름으로만 부르고(다른 이름에 담지 않고), 모드는 읽기 글자만. 11/21 보안 검토에서 막은 것:
+  // open(*값) · Path(…).open('w')(첫 값이 모드) · mode='r' if 0 else 'w' · 문자열 안의 괄호로 둘째 값을 숨기기 · 문자열(f-string) 안의 open
+  const masked = maskStrings(code)
+  if (masked === null) return false
   for (const m of code.matchAll(/\bopen\b/g)) {
-    const after = code.slice(m.index! + 4)
-    if (!/^\s*\(/.test(after)) return false
-    const args = after.slice(after.indexOf('(') + 1)
+    const at = m.index
+    if (masked.slice(at, at + 4) !== 'open') return false
+    const lead = /^\s*\(/.exec(masked.slice(at + 4))
+    if (!lead) return false
+    const start = at + 4 + lead[0].length
+    const cuts = [start]
     let depth = 0
-    let end = 0
-    for (; end < args.length; end++) {
-      const ch = args[end]!
+    let end = start
+    for (; end < masked.length; end++) {
+      const ch = masked[end]!
       if ('([{'.includes(ch)) depth++
       else if (')]}'.includes(ch)) { if (depth === 0) break; depth-- }
+      else if (ch === ',' && depth === 0) cuts.push(end + 1)
     }
-    const inside = args.slice(0, end)
-    if (/\b(mode|opener)\s*=/.test(inside) && !/\bmode\s*=\s*['"][rbt]*['"]/.test(inside)) return false
-    if (/\bopener\s*=/.test(inside)) return false
-    let d = 0
-    const top = [...inside].map((ch) => { if ('([{'.includes(ch)) d++; else if (')]}'.includes(ch)) d--; return d === 0 ? ch : ' ' }).join('')
-    const parts = top.split(',')
-    if (parts.length > 1 && !/^\s*$/.test(parts[1]!) && !/^\s*(mode\s*=\s*)?['"][rbt]*['"]\s*$/.test(parts[1]!) && !/^\s*\w+\s*=/.test(parts[1]!)) return false
+    if (end >= masked.length) return false
+    const method = /\.\s*$/.test(masked.slice(0, at))
+    for (const [k, from] of cuts.entries()) {
+      const part = code.slice(from, k + 1 < cuts.length ? cuts[k + 1]! - 1 : end)
+      if (/^\s*\*/.test(part)) return false
+      const kw = /^\s*(\w+)\s*=(?!=)/.exec(part)
+      if (kw) { if (kw[1] === 'opener' || (kw[1] === 'mode' && !PY_READ_MODE.test(part.slice(kw[0].length)))) return false; continue }
+      if (k === (method ? 0 : 1) && part.trim() && !PY_READ_MODE.test(part)) return false
+    }
   }
   return true
 }
@@ -214,7 +249,7 @@ const pythonRule: Rule = (a) => {
   if (!isolated) return false
   if (a[i] === '-m' && a[i + 1] === 'json.tool') {
     const rest = a.slice(i + 2)
-    return rest.every((x) => !x.startsWith('-') || /^--(sort-keys|compact|json-lines|no-ensure-ascii|tab|no-indent)$/.test(x)) && positional(rest).length <= 1
+    return rest.every((x) => !x.startsWith('-') || /^--(sort-keys|compact|json-lines|no-ensure-ascii|tab|no-indent)$/.test(x)) && positional(rest).length <= 1 && !rest.some(GLOB)
   }
   if (!isolated) return false
   return a[i] === '-c' && typeof a[i + 1] === 'string' && pythonCode(a[i + 1]!)
@@ -233,13 +268,14 @@ const PROGRAMS: Record<string, Rule> = {
   rg: without('--pre', '--hostname-bin'),
   // -C는 magic 파일을 컴파일해 쓴다
   file: (a) => !a.some((x) => /^-[a-zA-Z]*C/.test(x) || longOpt('--compile')(x)),
-  uniq: (a) => positional(a).length <= 1,
-  date: (a) => positional(a).every((x) => x.startsWith('+')) && !a.includes('-s'),
+  // 둘째 이름은 쓸 파일이다: 별표가 두 파일로 펼쳐져도 그렇다
+  uniq: (a) => positional(a).length <= 1 && !a.some(GLOB),
+  date: (a) => positional(a).every((x) => x.startsWith('+')) && !a.includes('-s') && !a.some(longOpt('--set')),
   hostname: (a) => positional(a).length === 0,
   find: findRule,
   sysctl: (a) => !a.some((x) => x.includes('=') || /^-\w*w/.test(x)),
   // ps e · -E는 다른 프로세스의 환경 변수(열쇠)를 보인다
-  ps: (a) => !a.some((x) => x === '-E' || (!x.startsWith('-') && /e/.test(x))),
+  ps: (a) => !a.some((x) => x === '-E' || x.includes('$') || (!x.startsWith('-') && /e/.test(x))),
   top: (a) => a.includes('-l'),
   // -l은 실제로 메모리 압박을 건다
   memory_pressure: (a) => a.length === 0 || (a.length === 1 && a[0] === '-Q'),
@@ -283,6 +319,33 @@ function bare(cmd: string): string {
   return out
 }
 
+/**
+ * 셸이 낱말을 바꾸는 문법 (11/21 보안 검토). 판정은 적힌 낱말을 보는데 셸은 돌리기 전에 낱말을 펼친다:
+ * `find .$IFS-delete` · `find . -{delete,print}` 는 -delete 가 되고, 반복 변수에 ". -delete"를 담아도 그렇다. `${x@P}` 는 값 안의 명령을 돌린다.
+ * 그래서 ① ${이름} · ${이름%무늬} · ${이름#무늬} 밖의 ${ } 는 어디서든 막고, ② 옵션을 가리는 프로그램에서는 중괄호 펼침과 변수를 막되
+ * 값이 한 낱말로 정해진 것($HOME 등, 글자 그대로 적은 반복 낱말의 변수)이 옵션 아닌 낱말에 든 것만 둔다
+ */
+const PARAM_ODD = /\$\{(?![A-Za-z_]\w*(?:[%#]{1,2}[^}$`@]*)?\})/
+const BRACES = /\{[^{}]*(,|\.\.)[^{}]*\}/
+const VAR = /\$\{?([A-Za-z_]\w*)?/g
+/** 펼쳐지는 $ (뒤에 이름 · 숫자 · { · 특수 변수 글자가 온다. 정규식의 끝 $ 는 아니다) */
+const EXPANDS = /\$[A-Za-z_0-9{$?!#*@-]/
+const SAFE_VARS = /^(HOME|PWD|USER|TMPDIR)$/
+/** 반복문에 글자 그대로 적은 낱말: 빈칸 · 별표 · 중괄호 · = 가 없고 - 로 시작하지 않아, 변수로 써도 낱말 하나이고 옵션이 되지 않는다 */
+const SIMPLE_WORD = /^[^\s\-*?[\]{}~$=][^\s*?[\]{}$=]*$/
+function expansionsOk(prog: string, args: string[], loopVars: Set<string>): boolean {
+  for (const x of args) {
+    if (BRACES.test(x) && (prog !== 'rg' || /^[-{]/.test(x))) return false
+    if (!EXPANDS.test(x)) continue
+    if (x.startsWith('-')) return false
+    for (const m of x.matchAll(VAR)) {
+      if (!m[1]) { if (EXPANDS.test(x.slice(m.index, m.index + 2))) return false; continue }
+      if (!SAFE_VARS.test(m[1]) && !loopVars.has(m[1])) return false
+    }
+  }
+  return true
+}
+
 const WRITE_PROGRAMS: Record<string, Rule> = { ...PROGRAMS, git: gitRule(GIT_WRITE), gh: ghRule(GH_WRITE) }
 
 /** gitWrites: 중앙용. 상태 보기에 더해 git · gh로 커밋 · 가지 푸시(main 아님) · PR 만들기 · squash 합치기까지 ok */
@@ -291,7 +354,8 @@ export function stateOnlyCommand(cmd: string, o: { gitWrites?: boolean } = {}, d
   const programs = o.gitWrites ? WRITE_PROGRAMS : PROGRAMS
   let worst: StateOnly = 'ok'
   // $'…' · $"…" (따옴표 안의 \\' 를 다르게 읽는 문법)은 해석하지 않고 막는다
-  if (/\$['"]/.test(cmd)) return 'no'
+  if (/\$['"]/.test(cmd) || PARAM_ODD.test(cmd)) return 'no'
+  const loopVars = new Set<string>()
   // $( … ) · ` … `: 안쪽도 같은 목록으로 보고, 자리표 낱말로 바꾼다 (겹친 것은 안쪽부터, 다 풀지 못하면 막는다)
   const { inner: inners, flat, left } = substitutions(cmd)
   if (left) return 'no'
@@ -313,6 +377,8 @@ export function stateOnlyCommand(cmd: string, o: { gitWrites?: boolean } = {}, d
     if (w[0] === 'for') {
       if (!/^[A-Za-z_]\w*$/.test(w[1] ?? '') || w[2] !== 'in' || w.slice(3).some((x) => x.startsWith('-') || /\$|SUBST/.test(x))) return 'no'
       if (w.some((x) => SECRET.test(x))) worst = 'sensitive'
+      if (w.slice(3).every((x) => SIMPLE_WORD.test(x))) loopVars.add(w[1]!)
+      else loopVars.delete(w[1]!)
       continue
     }
     if (w[0] === 'done' && w.length === 1) continue
@@ -324,6 +390,9 @@ export function stateOnlyCommand(cmd: string, o: { gitWrites?: boolean } = {}, d
     if (prog.includes('/') && !/^\/(usr\/)?s?bin\/[^/]+$/.test(prog)) return 'no'
     const rule = programs[prog.split('/').pop()!]
     if (!rule || !rule(w.slice(1))) return 'no'
+    // python -c 코드 뒤의 낱말은 sys.argv일 뿐 옵션이 되지 않는다 (for f in *.json; do python3 -I -c "…" "$f"; done)
+    const name = prog.split('/').pop()!, code = /^python3?$/.test(name) ? w.indexOf('-c') : -1
+    if (rule !== any && !expansionsOk(name, code > 0 ? w.slice(1, code + 2) : w.slice(1), loopVars)) return 'no'
     // $( … )의 출력이 옵션이 되지 않게: 옵션을 가리는 프로그램에서는 $( … )로 시작하거나 옵션 안에 든 낱말을 막는다
     // (git log $(git merge-base …)..HEAD 처럼 안쪽이 모두 git이면 둔다)
     if (rule !== any && w.slice(1).some((x) => (x.startsWith('-') && x.includes('SUBST')) || (x.startsWith('SUBST') && !(prog === 'git' && inners.every((p) => /^\s*git\s/.test(p)))))) return 'no'
