@@ -192,7 +192,7 @@ export function PopButton({ label, ui, tip, children, wide, down, icon, pill }: 
  * 아래 줄 ＋ · 맡기는 정도 ▾ · 모델 · 생각 ▾ · 보내기(도는 중이고 글이 없으면 멈추기). ⇧⇥로 맡기는 정도를 바꾼다.
  * 대화 중에 바꾼 설정은 다음 차례부터 (onSettings)
  */
-export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placeholder, fail: outerFail, fill, autoFocus, agentFixed, lead, room }: {
+export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placeholder, fail: outerFail, fill, autoFocus, agentFixed, lead, room, noTrust }: {
   rid: string
   /** 아래 줄 ＋ 다음에 둘 것 (새 대화의 프로젝트 고르기) */
   lead?: ReactNode
@@ -211,6 +211,8 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
   agentFixed?: boolean
   /** 중앙 방 (11/20): @ 메뉴 맨 위의 방 사람 · 모두, 입력란 아래 받는 이 */
   room?: ComposerRoom
+  /** 맡기는 정도를 고르지 않는 입력란 (중앙 시작, 11/20): 권한 메뉴 · ? · ⇧⇥를 숨긴다 */
+  noTrust?: boolean
 }) {
   const [text, setText] = useState('')
   const [caret, setCaret] = useState(0)
@@ -340,7 +342,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
     if (menu && e.key === 'Escape') { e.preventDefault(); setClosed(menu.start); return }
     // 목록 줄에서 Enter는 다음 항목, Tab · Shift+Tab은 들여쓰기 · 내어쓰기 (목록 줄이 아니면 Shift+Tab은 허락 단계)
     if (onListKey(e, setText)) { setCaret(e.currentTarget.selectionStart); return }
-    if (e.key === 'Tab' && e.shiftKey) { e.preventDefault(); onSettings({ trust: nextTrust(settings.trust, isClaude(settings.agent)) }); return }
+    if (e.key === 'Tab' && e.shiftKey && !noTrust) { e.preventDefault(); onSettings({ trust: nextTrust(settings.trust, isClaude(settings.agent)) }); return }
     if (e.key === 'Escape' && onStop && !text) { e.preventDefault(); onStop(); return }
     sendKey.onKeyDown(e)
   }
@@ -416,6 +418,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
         </PopButton>
         {lead}
         <input ref={file} type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden onChange={(e) => { void addImages([...(e.target.files ?? [])]); e.target.value = '' }} />
+        {!noTrust && <>
         <PopButton ui="맡기는 정도" tip={t('권한 (⇧⇥)', 'Permissions (⇧⇥)')} wide label={<>{settings.custom ? CUSTOM_NAME : TRUST_NAME[settings.trust]} ▾</>}>
           {(close) => TRUSTS.filter((v) => v !== 'plan' || isClaude(settings.agent)).map((v) => (
             <button key={v} role="menuitemradio" aria-checked={settings.trust === v} className={`ac-pop-item${settings.trust === v ? ' on' : ''}`} onClick={() => { close(); onSettings({ trust: v }) }}>
@@ -427,6 +430,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
         {/* 권한 설명은 늘 보이는 줄 대신 ? 툴팁 (10/31 시안 6절). 누르면 소개의 그 절 */}
         <a className="icon-btn sm ac-help" href={href({ page: 'about', part: 'agents', anchor: 'conversations' })} data-ui="권한 설명" aria-label={t('권한 설명', 'About permissions')}
           data-tip={settings.custom ? t('직접 정한 권한입니다. 세부 패널 「이 대화의 권한」에서 봅니다', 'Custom permissions; see "Permissions here" in the detail pane') : (rid === APP_RID ? APP_HINT : TRUST_HINT)[settings.trust]}>{Icon.help}</a>
+        </>}
         {/* 모델과 생각 깊이는 따로 (11/9 11:07): 왼쪽에서 모델을 고르고, 그 모델이 받는 깊이를 오른쪽에서 */}
         <PopButton ui="모델 고르기" tip={t('에이전트 · 모델', 'Agent · model')} label={<>{!isClaude(settings.agent) && <><AgentChip agent={settings.agent} /> </>}{familyName(settings.model, models)} ▾</>}>
           {(close) => <>

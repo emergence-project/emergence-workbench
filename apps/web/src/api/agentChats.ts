@@ -41,7 +41,7 @@ export const agentChatsApi = {
   roomRemove: (agent: AgentKind) => req('/api/agent-room/remove', send('POST', { agent })).then((r) => json<RoomState>(r)),
   roomRules: (rules: Partial<RoomRules>) => req('/api/agent-room/rules', send('POST', rules)).then((r) => json<RoomState>(r)),
   /** 중앙에게 말하기 (중앙이 없으면 연다) */
-  talk: (text: string, view?: string, start?: CentralMessageBody['start']) => req('/api/agent-central/messages', send('POST', { text, view, ...(start && { start }) })).then(one),
+  talk: (text: string, view?: string, start?: CentralMessageBody['start'], attach?: CentralMessageBody['attach']) => req('/api/agent-central/messages', send('POST', { text, view, ...(start && { start }), ...(attach?.length && { attach }) })).then(one),
   /** 이어서 지시 (일하는 중이면 다음 차례에 읽는다) */
   send: (id: string, body: ChatMessageBody) => req(`${base}/${enc(id)}/messages`, send('POST', body)).then(one),
   /** 곁 질문 (하던 일을 멈추지 않고 작은 모델이 대화 요약만 보고 답한다) */
