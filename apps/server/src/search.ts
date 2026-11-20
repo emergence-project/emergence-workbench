@@ -18,16 +18,19 @@ export function searchCatalog(registry: Registry, notes: LibraryNote[] = listLib
     const at = { rid: r.id, project: r.title }
     try {
       const wb = registry.get(r.id)
-      for (const t of readTopics(wb)) out.push({ kind: 'card', id: t.id, title: t.title, ...at })
+      const topics = readTopics(wb)
+      for (const t of topics) out.push({ kind: 'card', id: t.id, title: t.title, ...at })
+      const topicOf = (file: string) => { const id = /^workbench\/topics\/([^/]+)\//.exec(file)?.[1]; return id ? topics.find((t) => t.id === id)?.title : undefined }
       const seen = new Set<string>()
       for (const m of allManuscripts(wb)) {
         const first = m.parts[0]?.file ?? m.main
-        out.push({ kind: 'note', id: m.key || m.main, title: m.name, also: m.main, file: first, noteKind: m.kind, ...at })
+        const topic = topicOf(m.main)
+        out.push({ kind: 'note', id: m.key || m.main, title: m.name, also: m.main, file: first, noteKind: m.kind, ...at, ...(topic ? { within: topic } : {}) })
         seen.add(first)
         for (const p of m.parts) {
           if (p.line || seen.has(p.file)) continue // 한 파일 원고의 절은 그 파일 하나로
           seen.add(p.file)
-          out.push({ kind: 'part', id: p.id, title: p.title, also: `${p.file} ${m.name}`, file: p.file, ...at })
+          out.push({ kind: 'part', id: p.id, title: p.title, also: `${p.file} ${m.name}`, file: p.file, ...at, within: m.name })
         }
       }
       for (const s of listStatements(wb.root)) {
