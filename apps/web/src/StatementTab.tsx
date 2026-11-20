@@ -91,7 +91,7 @@ export function StatementTab({ rid, sid, rapi, summary, notes, bus, onChanged }:
         </div>
         {state === 'conflict' && (
           <div className="banner danger" data-ui="저장 충돌 안내">
-            {t('다른 곳(에이전트나 다른 편집기)에서 이 파일이 바뀌어 저장을 멈췄습니다. 덮어쓰지 않았습니다.', 'This file changed elsewhere (an agent or another editor), so saving stopped. Nothing was overwritten.')}
+            {t('다른 곳(에이전트나 다른 편집기)에서 이 파일이 바뀌어 저장을 멈췄습니다. 덮어쓰지 않았습니다. 이 화면에서 고친 것 가운데 남길 것은 복사해 두고 「파일 다시 읽기」를 누르세요.', 'This file changed elsewhere (an agent or another editor), so saving stopped. Nothing was overwritten. Copy any edits you want to keep, then press Reload file.')}
           </div>
         )}
         {notice && <div className="banner" data-ui="알림">{notice}<span className="sp" /><button className="btn ghost" onClick={() => setNotice(null)}>{t('닫기', 'Close')}</button></div>}
