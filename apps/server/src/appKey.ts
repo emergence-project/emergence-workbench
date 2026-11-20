@@ -51,12 +51,14 @@ export function openTarget(to: unknown): string {
  * 열쇠 검사와 `/__open`. 다른 훅보다 먼저 건다. 화면 글은 고르지 않고 두 말로 적는다(열쇠 없는 요청은 언어 설정도 모른다)
  * 쿠키는 SameSite=Lax: 창의 여는 중 쪽(tauri://)에서 넘어오는 첫 이동에도 실려야 한다. 다른 사이트의 요청은 hostGuard가 막는다
  */
-export function registerKeyGate(app: FastifyInstance, key: string, port: number): void {
+export function registerKeyGate(app: FastifyInstance, key: string, port: number, deviceOk: (headers: Record<string, string | string[] | undefined>) => boolean = () => false): void {
   app.addHook('onRequest', async (req, reply) => {
     const pathOnly = req.url.split('?')[0] ?? ''
     // Codex · Gemini 대화의 MCP 입구는 주소에 대화마다 만든 긴 열쇠가 들어 있다 (agentMcpHttp.ts)
     // 설정 › 서버: 다른 컴퓨터가 알리는 곳은 개인 저장소의 기기 열쇠를 라우트가 본다 (routes/devices.ts)
     if (pathOnly === OPEN_PATH || pathOnly.startsWith('/api/agent-mcp/') || DEVICE_PATHS.includes(pathOnly) || hasKey(req.headers, key, port)) return
+    // 대화를 서버에서 (3단계): 다른 컴퓨터가 넘긴 대화 요청 · 실시간 알림은 기기 열쇠로 받는다 (routes/chatPlace.ts)
+    if (pathOnly.startsWith('/api/') && deviceOk(req.headers)) return
     const msg = '앱 창에서만 열 수 있습니다 · Open this from the app window'
     return pathOnly === '/api' || pathOnly.startsWith('/api/') ? reply.status(401).send({ error: msg }) : reply.status(401).type('text/plain; charset=utf-8').send(msg)
   })

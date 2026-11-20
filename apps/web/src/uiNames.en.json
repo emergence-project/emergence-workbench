@@ -1172,5 +1172,7 @@
   "기기 줄": "Device row",
   "기기 계정": "Device accounts",
   "서버 컴퓨터": "Server computer",
-  "기기 로그아웃": "Device sign-out"
+  "기기 로그아웃": "Device sign-out",
+  "대화가 도는 곳": "Where chats run",
+  "대화 서버": "Chat server"
 }
