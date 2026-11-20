@@ -24,23 +24,29 @@ import { NoteSuggestions } from './NoteSuggestions'
  * 머리말(--- … ---)은 여기서 고치지 않는다: 저장할 때 그 글자를 그대로 앞에 붙인다.
  */
 
+/** 틀이 넣는 절 제목: 화면 언어를 따른다 (영어 화면에서 한국어 제목이 들어가지 않게). 앱은 이 제목을 뜻으로 읽지 않는다 */
+const H = {
+  goal: t('목표', 'Goal'), progress: t('진행', 'Progress'), result: t('결과', 'Result'), open: t('남은 문제', 'Open problems'), next: t('이어지는 노트', 'Next notes'),
+  claim: t('주장', 'Claim'), proof: t('증명', 'Proof'), left: t('남은 것', 'Left to do'), calc: t('계산', 'Calculation'),
+}
+
 /** 연구노트 틀 (10/4): 절은 ## 제목. 커지면 하위 노트 대신 이어지는 노트를 따로 만든다 */
 export const RESEARCH_NOTE_COMMANDS: Command[] = [
-  { label: t('노트 틀', 'Note outline'), detail: '목표 · 진행 · 결과 · 남은 문제', tpl: '## 목표\n\n${}\n\n## 진행\n\n## 결과\n\n## 남은 문제\n' },
-  { label: t('목표', 'Goal'), detail: '## 목표', tpl: '## 목표\n\n${}' },
-  { label: t('결과', 'Result'), detail: '## 결과', tpl: '## 결과\n\n${}' },
-  { label: t('남은 문제', 'Open problems'), detail: '## 남은 문제', tpl: '## 남은 문제\n\n- ${}' },
-  { label: t('이어지는 노트', 'Next notes'), detail: '## 이어지는 노트 [[ ]]', tpl: '## 이어지는 노트\n\n- [[${}]]', then: 'link' },
+  { label: t('노트 틀', 'Note outline'), detail: `${H.goal} · ${H.progress} · ${H.result} · ${H.open}`, tpl: `## ${H.goal}\n\n\${}\n\n## ${H.progress}\n\n## ${H.result}\n\n## ${H.open}\n` },
+  { label: t('목표', 'Goal'), detail: `## ${H.goal}`, tpl: `## ${H.goal}\n\n\${}` },
+  { label: t('결과', 'Result'), detail: `## ${H.result}`, tpl: `## ${H.result}\n\n\${}` },
+  { label: t('남은 문제', 'Open problems'), detail: `## ${H.open}`, tpl: `## ${H.open}\n\n- \${}` },
+  { label: t('이어지는 노트', 'Next notes'), detail: `## ${H.next} [[ ]]`, tpl: `## ${H.next}\n\n- [[\${}]]`, then: 'link' },
   { label: t('증명', 'Proof'), detail: t('**Proof.** … ∎ (접힘)', '**Proof.** … ∎ (folded)'), tpl: '**Proof.** ${} ∎' },
   ...COMMON_COMMANDS,
 ]
 
 /** 보조 노트 틀: 주장 하나 (보조정리·유도·계산·열린 문제) */
 export const AUX_NOTE_COMMANDS: Command[] = [
-  { label: t('주장 노트 틀', 'Claim note outline'), detail: '주장 · 증명 · 남은 것', tpl: '## 주장\n\n${}\n\n## 증명\n\n**Proof.** ∎\n\n## 남은 것\n' },
-  { label: t('주장', 'Claim'), detail: '## 주장', tpl: '## 주장\n\n${}' },
+  { label: t('주장 노트 틀', 'Claim note outline'), detail: `${H.claim} · ${H.proof} · ${H.left}`, tpl: `## ${H.claim}\n\n\${}\n\n## ${H.proof}\n\n**Proof.** ∎\n\n## ${H.left}\n` },
+  { label: t('주장', 'Claim'), detail: `## ${H.claim}`, tpl: `## ${H.claim}\n\n\${}` },
   { label: t('증명', 'Proof'), detail: t('**Proof.** … ∎ (접힘)', '**Proof.** … ∎ (folded)'), tpl: '**Proof.** ${} ∎' },
-  { label: t('계산', 'Calculation'), detail: '## 계산', tpl: '## 계산\n\n$$\n${}\n$$' },
+  { label: t('계산', 'Calculation'), detail: `## ${H.calc}`, tpl: `## ${H.calc}\n\n$$\n\${}\n$$` },
   ...OPTIONAL_AUX_NOTE_COMMANDS,
   ...COMMON_COMMANDS,
 ]
