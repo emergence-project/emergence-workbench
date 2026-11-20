@@ -9,6 +9,7 @@ import { writeAtomic } from './fsutil'
 import { git as gitAt, gitBuffer, gitRun, GIT_TIMEOUT } from './git.js'
 import { HERE, t } from './i18n.js'
 import type { ProjectProfile } from './registry.js'
+import { writeDevice, type DeviceRecord } from './devices.js'
 
 /**
  * 맥에만 있던 작업대 정보(workbench/)와 앱 설정을 사용자의 비공개 개인 저장소(personalRepo.ts)에 두고, 그것을 정본으로 맞춘다
@@ -145,6 +146,8 @@ export async function backupWorkbenches(opts: {
   machine?: string
   /** 이 컴퓨터의 프로젝트 목록: 주면 _settings/<컴퓨터>/projects.yaml로 올린다 (다른 컴퓨터가 받는다) */
   projects?: SharedProject[]
+  /** 이 컴퓨터의 기기 정보: 바뀌었거나 오래됐으면 _settings/<컴퓨터>/device.yaml로 올린다 (서버 › 기기, devices.ts) */
+  device?: DeviceRecord
   /** 테스트용: GitHub 것을 맥에 쓰기 바로 전에 부른다 (그 사이 다른 쪽이 고친 경우를 흉내 낸다) */
   beforeWrite?: (abs: string) => void
 }): Promise<BackupResult> {
@@ -157,7 +160,7 @@ export async function backupWorkbenches(opts: {
   for (const t of opts.targets) {
     if (fs.existsSync(t.path) && !(await workbenchTracked(t.path))) candidates.push(t)
   }
-  if (!candidates.length && !opts.settings && !opts.projects) return { at, projects: [], commit: null, pushed: false, ...empty, message: t('맞출 연구가 없습니다 (모두 연구 저장소에 올라가 있음)', 'No projects to sync (all are pushed to their own repositories)') }
+  if (!candidates.length && !opts.settings && !opts.projects && !opts.device) return { at, projects: [], commit: null, pushed: false, ...empty, message: t('맞출 연구가 없습니다 (모두 연구 저장소에 올라가 있음)', 'No projects to sync (all are pushed to their own repositories)') }
 
   let remoteRef: string | null = null
   let baseRef: string | null = null
@@ -246,6 +249,7 @@ export async function backupWorkbenches(opts: {
     fs.writeFileSync(file, YAML.stringify(opts.projects))
     if (!paths.includes(path.dirname(SETTINGS))) paths.push(path.dirname(SETTINGS))
   }
+  if (opts.device && writeDevice(opts.dir, opts.device, now) && !paths.includes(path.dirname(SETTINGS))) paths.push(path.dirname(SETTINGS))
   const extra = { pulled, conflicts, settingsPulled }
   const what = [pulled.length && t(`GitHub에서 ${pulled.length}개 받음`, `pulled ${pulled.length} from GitHub`), conflicts.length && t(`양쪽에서 고친 ${conflicts.length}개는 GitHub 것을 옆에 받아 둠`, `${conflicts.length} edited on both sides: the GitHub copy was saved alongside`)].filter(Boolean).join(', ')
   try {
