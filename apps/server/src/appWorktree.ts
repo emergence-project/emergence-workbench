@@ -27,6 +27,8 @@ export interface FileDiff { file: string; added: number; removed: number; patch:
 export interface Snap { tree: string; head: string }
 
 export interface AppWork {
+  /** 고치는 앱 (안내 · 화면의 이름). 없으면 이 앱 */
+  profile?: AppProfile
   /** 대화 하나의 작업 폴더와 브랜치 (이미 있으면 그대로). origin/main에서 새로 연다 */
   prepare(id: string): Promise<{ dir: string; branch: string }>
   /** 작업 폴더를 치운다 */
@@ -66,22 +68,23 @@ async function gh(dir: string, args: string[]): Promise<string> {
 const tail = (s: string, n = 12000) => (s.length > n ? s.slice(-n) : s)
 
 /** 올리기 전에 작업 폴더에서 돌리는 빠른 검사 (CI에서 떨어져 한 번 더 오가는 일을 줄인다, 11/20). 파일이 없는 저장소에서는 건너뛴다 */
-export const LOCAL_CHECKS: { name: string; needs: string; cmd: string; args: string[] }[] = [
+export interface LocalCheck { name: string; needs: string; cmd: string; args: string[]; env?: Record<string, string> }
+export const LOCAL_CHECKS: LocalCheck[] = [
   { name: 'type-check', needs: 'package.json', cmd: 'pnpm', args: ['type-check'] },
   { name: 'check-ports', needs: 'scripts/ci/check-ports.mjs', cmd: 'node', args: ['scripts/ci/check-ports.mjs'] },
   { name: 'check-about', needs: 'scripts/ci/check-about.mjs', cmd: 'node', args: ['scripts/ci/check-about.mjs'] },
   { name: 'check-ratchet', needs: 'scripts/ci/check-ratchet.mjs', cmd: 'node', args: ['scripts/ci/check-ratchet.mjs'] },
 ]
-export type CheckRun = (cmd: string, args: string[], cwd: string) => Promise<unknown>
-const runCheck: CheckRun = (cmd, args, cwd) => exec(cmd, args, { cwd, timeout: 5 * 60_000, maxBuffer: 16 * 1024 * 1024, env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0' } })
+export type CheckRun = (cmd: string, args: string[], cwd: string, env?: Record<string, string>) => Promise<unknown>
+const runCheck: CheckRun = (cmd, args, cwd, env) => exec(cmd, args, { cwd, timeout: 5 * 60_000, maxBuffer: 16 * 1024 * 1024, env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0', ...env } })
 
 /** 빠른 검사들을 돌려 떨어진 것의 출력 끝부분을 모은다 (모두 통과면 undefined). 명령이 없으면(ENOENT) 그 검사는 건너뛴다 */
-export async function localChecks(dir: string, run: CheckRun = runCheck): Promise<string | undefined> {
+export async function localChecks(dir: string, run: CheckRun = runCheck, list: LocalCheck[] = LOCAL_CHECKS): Promise<string | undefined> {
   const failed: string[] = []
-  for (const c of LOCAL_CHECKS) {
+  for (const c of list) {
     if (!fs.existsSync(path.join(dir, c.needs))) continue
     try {
-      await run(c.cmd, c.args, dir)
+      await run(c.cmd, c.args, dir, c.env)
     } catch (e) {
       const { code, stdout, stderr, message } = Object.assign({ code: '', stdout: '', stderr: '', message: '' }, e)
       if (code === 'ENOENT') continue
@@ -89,6 +92,68 @@ export async function localChecks(dir: string, run: CheckRun = runCheck): Promis
     }
   }
   return failed.length ? failed.join('\n\n') : undefined
+}
+
+/**
+ * 앱 고치기 대화가 고칠 앱 (11/20 사용자 "퀀텀캐드에도"): 이 앱 말고도, 이 앱 저장소 옆 폴더에 받아 둔 앱을 같은 길로 고친다.
+ * 작업 폴더 · 올리기 · CI · 합치기는 같고, 올리기 전 검사 · 안내 · 소개 조각 · 화면 그림만 앱마다 다르다
+ */
+export interface AppProfile {
+  /** 대화 범위의 app 값 (이 앱은 없음) */
+  id?: string
+  name: string
+  checks: LocalCheck[]
+  /** 이 앱의 소개 이력 조각(about/prs/<번호>.json)을 적는가 */
+  about: boolean
+  /** 화면 그림 산출물(shots)을 남기는 CI 워크플로 (없으면 그림을 받지 않는다) */
+  shotsWorkflow?: string
+  /** 에이전트 안내에 더하는 그 앱의 규칙 (영어, 한 줄씩) */
+  brief?: string[]
+  /** CI가 도는 파일 (워크플로의 paths와 같게): 접두어 · "*.확장자", 앞에 !면 뺀다(뒤 줄이 이김). 바뀐 파일이 모두 밖이면 CI 없이 빠른 검사로 합친다 (11/20) */
+  ciPaths?: string[]
+  /** app_checks가 기다리는 최대 분 (기본 10). 검사가 길거나 줄 서는 앱은 늘린다 */
+  ciWaitMin?: number
+  /** CI가 한 컴퓨터의 자체 러너에서 돈다 (오래 시작하지 않으면 러너가 꺼졌다고 알린다) */
+  selfHosted?: boolean
+  /** 동시에 여는 그 앱의 대화 수 (일하는 중 · PR이 합쳐지지 않은 것). 러너가 하나인 앱은 적게 */
+  maxChats?: number
+}
+
+/** 그 파일이 CI 경로 안인가 (ciPaths 규칙, 뒤 줄이 이김) */
+export function ciCovers(file: string, rules: string[]): boolean {
+  let hit = false
+  for (const r of rules) {
+    const neg = r.startsWith('!'), p = neg ? r.slice(1) : r
+    const m = p === '**' || (p.startsWith('*.') ? file.endsWith(p.slice(1)) : p.endsWith('/') ? file.startsWith(p) : file === p)
+    if (m) hit = !neg
+  }
+  return hit
+}
+export const THIS_APP: AppProfile = { name: 'Emergence Workbench', checks: LOCAL_CHECKS, about: true, shotsWorkflow: 'ci.yml', ciPaths: ['**', '!*.md', '!docs/', 'fixtures/', 'templates/'] }
+
+/** 다른 앱: id · 이름 · 이 앱 저장소 옆의 폴더 이름. 그 폴더가 git 저장소일 때만 쓴다 */
+export function otherApps(appRoot: string): (AppProfile & { id: string; root: string })[] {
+  const qcad = path.join(path.dirname(appRoot), 'quantum_cad')
+  const project = 'code-space/qcad-gravity-sensing'
+  return [{
+    id: 'qcad', name: 'QuantumCAD', root: qcad, about: false,
+    // qcad-verify.yml의 paths. 러너는 맥미니 하나: 전체 실행 약 16분에 줄도 서서 30분까지 기다리고, 대화는 둘까지
+    ciPaths: [`${project}/`, '.github/workflows/qcad-verify.yml'], ciWaitMin: 30, selfHosted: true, maxChats: 2,
+    checks: [
+      // 작업 문서 · 결정 기록의 공통 형식 (docs/repo-format.md, 이 앱의 agent:check)
+      { name: 'agent-check', needs: 'workbench', cmd: 'node', args: [path.join(appRoot, 'scripts/agent-check.mjs'), '.'] },
+      // 등록한 도구마다 리본 자리가 하나
+      { name: 'tool-slots', needs: `${project}/scripts/check-tool-slots.py`, cmd: 'uv', args: ['run', '--directory', project, '--locked', 'python', 'scripts/check-tool-slots.py'], env: { UV_PYTHON: '3.12' } },
+    ],
+    brief: [
+      `The app lives in ${project}/ (FastAPI server, React screens in apps/web, packages/). Read AGENTS.md at the repository root and ${project}/README.md first; they win over anything general here.`,
+      `Set UV_PYTHON=3.12 for uv. Run only the Python tests your change reaches: \`uv run --locked python scripts/select-tests.py <changed paths>\` in ${project} prints them (ALL, NONE or files), then \`uv run --locked pytest -n auto <files>\`. Screens: \`pnpm typecheck\` and \`pnpm exec vitest run\` in ${project}/apps/web.`,
+      'CI is qcad-verify on the maintainer\'s Mac mini runner: one runner, so checks queue; a run takes minutes for small changes and about 16 minutes when everything runs. Wait with app_checks wait: 30 instead of submitting again.',
+      'One open pull request per area (subsurface and gravity / quantum sensor / shared UI), one feature per pull request; if the task is a new feature, state up to three acceptance criteria in your first report before building.',
+      'Changes only outside the app folder (workbench/ tasks, docs) get no CI: app_checks then reports a SKIPPED row and app_merge merges on the local checks.',
+      'This repository is private, but keep secrets and personal data out of commits.',
+    ],
+  }].filter((a) => fs.existsSync(path.join(a.root, '.git')))
 }
 
 /**
@@ -123,12 +188,13 @@ export function checkRowsOfError(e: unknown): CheckRow[] {
 const MergedPrs = z.array(z.object({ number: z.number(), mergeCommit: z.object({ oid: z.string() }).nullish() }))
 
 /** 실제: 앱 저장소(root)의 worktree를 base/<대화 id>에, PR은 gh로 */
-export function appWorktrees(root: string, base: string, rules?: string): AppWork {
+export function appWorktrees(root: string, base: string, rules?: string, profile: AppProfile = THIS_APP): AppWork {
   const prOf = async (dir: string, branch: string): Promise<{ number: number; url: string } | undefined> => {
     const list = JSON.parse(await gh(dir, ['pr', 'list', '--state', 'open', '--head', branch, '--json', 'number,url'])) as { number: number; url: string }[]
     return list[0]
   }
   return {
+    profile,
     rules: rules && fs.existsSync(rules) ? rules : undefined,
     async prepare(id) {
       const dir = path.join(base, id)
@@ -157,7 +223,7 @@ export function appWorktrees(root: string, base: string, rules?: string): AppWor
       const ahead = (await git(dir, ['rev-list', '--count', 'origin/main..HEAD'])).trim()
       if (ahead === '0') throw new WorkbenchError(400, t('바뀐 것이 없어 올리지 않았습니다', 'Nothing changed, so nothing was pushed'))
       // 형식 검사 · 이식 안내서 · 소개 · 구조 래칫 검사를 먼저: 떨어지면 방금 한 커밋을 풀고(고친 것은 그대로) 오류를 대화에 돌려준다
-      const failed = await localChecks(dir)
+      const failed = await localChecks(dir, undefined, profile.checks)
       if (failed) {
         if (staged) await git(dir, ['reset', '--soft', 'HEAD~1'])
         throw new WorkbenchError(400, `${t('올리기 전 검사에서 떨어져 올리지 않았습니다. 고친 뒤 다시 app_submit 하세요', 'Local checks failed, so nothing was pushed. Fix and call app_submit again')}\n\n${failed}`)
@@ -172,7 +238,7 @@ export function appWorktrees(root: string, base: string, rules?: string): AppWor
       })()
       // 번호를 안 뒤: 고친 소개 절을 그 번호의 조각 파일에 적어 한 번 더 올린다 (CI는 앞 실행을 멈추고 새로 돈다)
       const files = (await git(dir, ['diff', '--name-only', 'origin/main...HEAD'])).split('\n').filter(Boolean)
-      const frag = aboutFragment(files, await git(dir, ['log', '--format=%B', 'origin/main..HEAD']), pr.number)
+      const frag = profile.about && aboutFragment(files, await git(dir, ['log', '--format=%B', 'origin/main..HEAD']), pr.number)
       const at = frag && path.join(dir, frag.file)
       if (frag && at && (!fs.existsSync(at) || fs.readFileSync(at, 'utf8') !== frag.text)) {
         fs.mkdirSync(path.dirname(at), { recursive: true })
@@ -191,6 +257,11 @@ export function appWorktrees(root: string, base: string, rules?: string): AppWor
         rows = JSON.parse(await gh(dir, ['pr', 'checks', String(pr.number), '--json', 'name,state,link'])) as CheckRow[]
       } catch (e) {
         rows = checkRowsOfError(e)
+      }
+      // CI가 돌지 않는 PR (바뀐 파일이 모두 워크플로 경로 밖): 빠른 검사를 지났으니 건너뜀 한 줄로 끝난 것으로 본다
+      if (!rows.length && profile.ciPaths) {
+        const files = (await git(dir, ['diff', '--name-only', 'origin/main...HEAD'])).split('\n').filter(Boolean)
+        if (files.length && !files.some((f) => ciCovers(f, profile.ciPaths!))) return { pr: pr.number, checks: [{ name: t('CI 없음: 바뀐 파일이 모두 CI 경로 밖', 'No CI: every changed file is outside the CI paths'), state: 'SKIPPED' }], done: true, ok: true }
       }
       const checks = rows.map((r) => ({ name: r.name, state: r.state.toUpperCase(), ...(r.link && { link: r.link }) }))
       const done = checks.length > 0 && checks.every((c) => DONE.has(c.state))
@@ -223,8 +294,8 @@ export function appWorktrees(root: string, base: string, rules?: string): AppWor
       return m && { number: m.number, sha: m.mergeCommit?.oid ?? '' }
     },
     async shot(dir, branch, name) {
-      if (!/^[\w-]+$/.test(name)) return null
-      const runs = JSON.parse(await gh(dir, ['run', 'list', '--branch', branch, '--workflow', 'ci.yml', '--limit', '1', '--json', 'databaseId,status'])) as { databaseId: number; status: string }[]
+      if (!/^[\w-]+$/.test(name) || !profile.shotsWorkflow) return null
+      const runs = JSON.parse(await gh(dir, ['run', 'list', '--branch', branch, '--workflow', profile.shotsWorkflow, '--limit', '1', '--json', 'databaseId,status'])) as { databaseId: number; status: string }[]
       const run = runs[0]
       if (!run || run.status !== 'completed') return null
       fs.mkdirSync(base, { recursive: true })
@@ -308,4 +379,17 @@ export function sampleAppWork(base: string, sampleShots?: string): AppWork {
     // 예제의 "고친 뒤" 그림: 예제 피드백 폴더에 있는 그림을 그대로 쓴다 (없으면 없음)
     async shot(_dir, _branch, name) { const f = sampleShots && path.join(sampleShots, `${name}.png`); return f && fs.existsSync(f) ? fs.readFileSync(f) : null },
   }
+}
+
+/** 기다려도 검사가 시작하지 않음: 자체 러너면 꺼졌거나 줄 섰다고 알린다 */
+export function notStarted(r: AppChecks, selfHosted?: boolean): AppChecks {
+  if (!selfHosted || !r.checks.length || r.checks.some((x) => !/QUEUED|PENDING|WAITING|EXPECTED/.test(x.state))) return r
+  return { ...r, log: 'No check has started yet: the self-hosted runner (Mac mini) is off or busy with other runs. Tell the user instead of waiting again.' }
+}
+
+/** 앱 고치기 대화의 환경: 대화마다 다른 화면 그림 포트, 맥의 Chrome (playwright 브라우저를 받지 않아도 되게) */
+export function appEnv(id: string): Record<string, string> {
+  const n = parseInt(crypto.createHash('sha1').update(id).digest('hex').slice(0, 6), 16)
+  const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+  return { SHOTS_PORT: String(8200 + (n % 600)), ...(!process.env.CHROMIUM_PATH && fs.existsSync(chrome) && { CHROMIUM_PATH: chrome }) }
 }

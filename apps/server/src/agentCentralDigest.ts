@@ -61,7 +61,7 @@ export function digestOf(kids: CentralKid[], held = 0, seen?: ReadonlyMap<string
     if (seen?.get(k.id) === kidSig(k)) return `- ${k.id} · "${k.title}" · ${stateWord[k.state] ?? k.state} · unchanged`
     const pr = k.pr ? ` · PR #${k.pr.number}${k.merged ? ' merged' : ''}` : ''
     const w = k.wait ? `waiting for ${k.wait === 'plan' ? 'plan approval' : 'permission'}${k.ask ? ` (ask ${k.ask.id}${k.ask.critical ? ', critical: leave to the user' : ''})` : ''}` : stateWord[k.state] ?? k.state
-    return `- ${k.id} · ${k.rid === APP_RID ? 'app' : k.rid} · "${k.title}" · ${w}${pr}${k.report ? ` · ${k.reported ? 'report' : 'last'}: ${oneLine(k.report, REPORT_CHARS)}` : ''}`
+    return `- ${k.id} · ${k.rid === APP_RID ? (k.app ? `app:${k.app}` : 'app') : k.rid} · "${k.title}" · ${w}${pr}${k.report ? ` · ${k.reported ? 'report' : 'last'}: ${oneLine(k.report, REPORT_CHARS)}` : ''}`
   })].join('\n') + wait
 }
 

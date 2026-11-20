@@ -43,11 +43,14 @@ export class FeedbackChats extends SharedChats {
         const es = keysOf(c).map((k) => items.get(k))
         const approved = es.length > 0 && es.every((e) => !!e?.review && e.review.verdict === '승인' && (!e.status?.handled_at || e.review.at > e.status.handled_at))
         // 앱 고치기 대화는 저절로 합치지 않으므로, 사용자가 합쳤는지 본다
-        if (!c.feedback && !c.merged && c.worktree && c.branch && app.prMerged) {
-          const m = await app.prMerged(c.worktree, c.branch)
+        const w = this.workOf(c) ?? app
+        if (!c.feedback && !c.merged && c.worktree && c.branch && w.prMerged) {
+          const m = await w.prMerged(c.worktree, c.branch)
           if (m) { c.merged = m.sha || 'merged'; this.touch(c) }
         }
         if (c.merged) {
+          // 다른 앱(11/20)은 이 앱이 다시 켜지는 것과 상관없다: 합치면 끝
+          if (!c.shipped && c.scope.app) { c.shipped = true; this.touch(c) }
           if (!c.shipped && this.deps.inApp && (await this.deps.inApp(c.merged))) { c.shipped = true; this.touch(c) }
           if (c.shipped && (!c.feedback || approved || s.merge === 'approved')) this.closeDone(c)
           continue
