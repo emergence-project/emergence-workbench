@@ -62,6 +62,7 @@ import { useProjectRemove } from './projectRemove'
 import { usePublishFailureFlash } from './RecordsPublish'
 import { hasVisibleManuscriptEditor, isSection, manuscriptPdfTab, retargetNoteTabs, showBeside, tabKey, toggleSplit, useLayout, useWorkspaceDragging, workspaceVisibility, Workspace, type Tab, type TabRenderContext, type WorkspaceOpenRequest } from './Workspace'
 import { t } from './i18n'
+import { CrashScreen } from './CrashScreen'
 
 export type { FlashAction } from './flash'
 
@@ -492,7 +493,7 @@ export function App() {
           </>}
         </aside>}
 
-        {globalPageOf(route.page) ? (
+        <CrashScreen inside resetKey={location.hash}>{globalPageOf(route.page) ? (
           globalPageOf(route.page)!.render({ route, version, library, onLibraryChanged: libraryChanged, ui, onUi: changeUi, onSaved: flash, rightOpen: globalRightAble && globalRight, sideOpen: showSide, onSide: () => setSideOpen(true) })
         ) : route.page === 'home' ? (
           researches ? <HomePage researches={researches} issues={issues.counts} judgeTasks={issues.tasks} agentEdits={issues.edits} askRecords={issues.records} flowTurns={issues.problems} onReordered={(list) => setResearches(list)} onRegister={() => setDialog('register')} onSaved={flash} /> : <main className="stage full"><section className="pane"><div className="page-body"><p className="muted">{error ?? t('불러오는 중…', 'Loading…')}</p></div></section></main>
@@ -516,8 +517,8 @@ export function App() {
             openRequest={recordOpenRequest} onOpened={() => setRecordOpenRequest(null)} onCloseFailed={flash}
             titleOf={(t) => tabTitle(t, summary, manuscripts, library, topics)}
             uiTitleOf={(t) => tabTitle(t, summary, manuscripts, library, topics, true)}
-            renderTab={renderTab}
-            home={renderTab({ k: isSection(route.page) ? route.page : 'overview' })}
+            renderTab={(t, c) => <CrashScreen inside>{renderTab(t, c)}</CrashScreen>}
+            home={<CrashScreen inside resetKey={route.page}>{renderTab({ k: isSection(route.page) ? route.page : 'overview' })}</CrashScreen>}
             context={(() => {
               // 오른쪽 사이드바 (10/5 시안): 지금 칸에서 보고 있는 노트(편집이든 결과 PDF든)에 대해 정보 | 적기
               const p = layout.panes[layout.split ? layout.focus : 0]
@@ -541,7 +542,7 @@ export function App() {
                   firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} />} />
             })()} />
           {agentPanel && agentPlace === 'bottom' && <AgentDock>{agentPanelOf(`${rid}-dock`)}</AgentDock>}</div>
-        )}
+        )}</CrashScreen>
         {agentSideShown && <aside className="agent-side" data-ui="에이전트 사이드바"><AgentSideBody onSaved={flash} terminalOnly={route.page === 'agent'} chatId={route.page === 'agent' ? route.id : undefined} /></aside>}
       </div>
 
