@@ -166,6 +166,14 @@ button.a { text-align: inherit; }
 .rail-proj.lifted { opacity: .25; }
 .rail-proj.add { background: transparent; color: var(--text-3); border: 1.5px dashed var(--line-strong); font-weight: var(--fw-normal); font-size: var(--fs-lg); opacity: 1; }
 .rail-proj.add:hover { color: var(--text); border-color: var(--text-3); }
+/* 넘친 프로젝트 「+n」 (11/20): 등록 ＋처럼 비운 네모, 누르면 띠 오른쪽에 메뉴. 메뉴는 띠 칸이 자르지 않게 화면에 고정 */
+.rail-more { flex: none; }
+.rail-proj.more { background: transparent; color: var(--text-2); border: 1.5px solid var(--line-strong); font-weight: var(--fw-strong); opacity: 1; }
+.rail-proj.more:hover, .rail-proj.more.on { color: var(--text); border-color: var(--text-3); background: var(--bg-hover); }
+.menu.rail-more-menu { position: fixed; left: 60px; max-height: calc(100vh - 16px); overflow-y: auto; min-width: 200px; }
+.rail-more-menu .rail-more-mark { flex: none; width: 22px; height: 22px; border-radius: var(--r-sm); display: grid; place-items: center; background: var(--pc); color: var(--on-color); font-size: var(--fs-2xs); font-weight: var(--fw-title); }
+.rail-more-menu .rail-more-mark.add { background: transparent; color: var(--text-3); border: 1px dashed var(--line-strong); font-weight: var(--fw-normal); }
+.rail-more-menu .rail-more-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rail-proj[data-tip]:hover::after { position: fixed; left: 60px; top: auto; margin-top: 17px; transform: translateY(-50%); font-weight: var(--fw-medium); padding: 3px var(--sp-2); }
 
 /* 작업 화면: 두 칸 + 탭 + 맥락 칸 */

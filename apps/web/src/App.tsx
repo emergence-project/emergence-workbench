@@ -13,7 +13,7 @@ import { ConceptNoteView, ConceptSidePanel } from './ConceptNotes'
 import { ConceptRecordsPanel } from './ConceptRecords'
 import { GLOBAL_PAGES, globalPageOf, PhoneTabs } from './globalPages'
 import { RegisterDialog } from './RegisterDialog'
-import { initials, projectColor, setProjectColors } from './format'
+import { projectColor, setProjectColors } from './format'
 import { Icon } from './icons'
 import { HomePage } from './HomePage'
 import { WorkPage } from './LogPage'
@@ -40,11 +40,12 @@ import { OverviewPage, partNumber } from './OverviewPage'
 import { AgentsPage, ProjectInfoPage, StatusPage } from './ProjectInfoPage'
 import { ChangesPage } from './ChangesPage'
 import { FilesPage } from './FilesPage'
-import { ProjectRailCount, useProjectIssues } from './projectIssues'
+import { useProjectIssues } from './projectIssues'
+import { RailProjects } from './RailProjects'
 import { SearchOverlay } from './Search'
 import { TopicPage } from './Topics'
 import { ProblemsPage } from './Problems'
-import { moveId, PROJECT_KIND_LABEL, railProjects } from './projectProfile'
+import { moveId, railProjects } from './projectProfile'
 import { railDragImage, useRailSlide } from './railDrag'
 import { setFeedbackNote } from './feedbackNote'
 import type { ProfilePatch } from './ProjectProfileFields'
@@ -468,15 +469,8 @@ export function App() {
         <nav className="rail" aria-label={t('공간', 'Spaces')} data-ui="왼쪽 띠">
           <button className={`rail-btn tip-right${route.page === 'home' ? ' on' : ''}`} aria-current={route.page === 'home' ? 'page' : undefined} data-ui="홈" data-tip={t('홈 — 모든 프로젝트', 'Home: all projects')} aria-label={t('홈', 'Home')} onClick={() => go({ page: 'home' })}>{Icon.home}</button>
           {GLOBAL_PAGES.filter((g) => g.rail === 'home').map(railPage)}<span className="rail-hr" />
-          <div ref={railBox} className="rail-projects" data-ui="프로젝트 버튼들" {...railDropProps}>
-            {railShown.map((id) => researches!.find((x) => x.id === id)!).map((r) => (
-              <button key={r.id} data-rid={r.id} className={`rail-proj${r.id === rid ? ' on' : ''}${r.available ? '' : ' off'}${railDrag.from === r.id && railDrag.over ? ' lifted' : ''}`} aria-current={r.id === rid ? 'true' : undefined} style={{ ['--pc' as string]: projectColor(r.id) }}
-                {...railDragProps(r.id)}
-                data-ui="프로젝트 버튼" data-ui-item={r.title} data-tip={`${r.title}  ${PROJECT_KIND_LABEL[r.kind]}${r.fields.length ? ` ${r.fields.map((t) => `#${t}`).join(' ')}` : ''}`} aria-label={r.title}
-                onClick={() => go({ page: 'overview', rid: r.id })}>{initials(r.title)}<ProjectRailCount n={issues.counts[r.id]} tasks={issues.tasks[r.id]} edits={issues.edits[r.id]} records={issues.records[r.id]} problems={issues.problems[r.id]} /></button>
-            ))}
-            <button className="rail-proj add" data-ui="프로젝트 등록" data-tip={t('프로젝트 등록', 'Register project')} aria-label={t('프로젝트 등록', 'Register project')} onClick={() => setDialog('register')}>＋</button>
-          </div>
+          {researches && <RailProjects box={railBox} ids={railIds} order={railShown} researches={researches} rid={rid} issues={issues} dragging={railDrag.over ? railDrag.from : null}
+            dragProps={railDragProps} dropProps={railDropProps} onOpen={(id) => go({ page: 'overview', rid: id })} onRegister={() => setDialog('register')} />}
           <span className="rail-hr" />
           {GLOBAL_PAGES.filter((g) => g.rail === 'top').map(railPage)}
           <span className="sp" />
