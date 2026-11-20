@@ -39,7 +39,6 @@
 .aux.blocked .t { color: var(--text); }
 .main-chapters .hint { margin: var(--sp-2) 0 0; font-size: var(--fs-xs); }
 .main-empty { display: flex; flex-direction: column; gap: var(--sp-3); align-items: flex-start; }
-.main-empty h2 { font-size: var(--fs-lg); margin: 0; }
 .main-empty p { margin: 0; color: var(--text-2); max-width: 60ch; }
 .main-pick { display: flex; flex-direction: column; gap: var(--sp-3); width: 100%; }
 .main-pick-list { display: flex; flex-direction: column; max-height: 260px; overflow: auto; border: 1px solid var(--line); border-radius: var(--r-sm); }

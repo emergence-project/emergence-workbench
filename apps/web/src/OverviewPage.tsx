@@ -314,7 +314,6 @@ export function MainNotePicker({ rapi, more, open, onClose, onDone }: { rapi: Re
   return (
     <section ref={picker} className={`main-empty${more ? ' more' : ''}`} id="main-pick" data-ui="메인 노트 정하기">
       {!more && <>
-        <h2>{t('원고', 'Manuscript')}</h2>
         <p>{t('이 프로젝트의 원고가 아직 없습니다. 결과를 모으는 LaTeX 원고를 고르세요. 정하면 여기에 장 목록과 장마다 열린 문제가 보입니다.', 'This project has no manuscript yet. Choose the LaTeX manuscript that collects your results. Its chapters and their open problems will show here.')}</p>
       </>}
       {more && picking && <p>{t('저장소의 다른 LaTeX 원고를 목록에 더합니다. 기존 원고는 그대로입니다.', 'Adds another LaTeX manuscript from the repository to the list. Existing manuscripts stay as they are.')}</p>}
