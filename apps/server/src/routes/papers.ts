@@ -14,6 +14,7 @@ import { searchPapers } from '../paperSearch.js'
 import { peekPaper, peekPdf } from '../paperPeek.js'
 import { cloudOf, libraryBibEntries, markOpened, paperPdfFile, readyPaperPdf, setPaperProjects, detex } from '../papers.js'
 import { WorkbenchError } from '../workbench.js'
+import { otherPdfFolders } from '../meSync.js'
 import type { RouteContext } from './context.js'
 import { t } from '../i18n.js'
 
@@ -75,10 +76,16 @@ export function registerPapers(app: FastifyInstance, ctx: RouteContext): void {
     return reply.type('application/pdf').header('cache-control', 'no-store').send(fs.createReadStream(file))
   })
   /** 설정 › 라이브러리 관리 › 논문. 첫 화면과 같은 cloudOf 분류를 쓴다. */
-  app.get('/api/papers/folders', replies(C.PaperFolders), async (): Promise<C.PaperFolders> => ({ folders: registry.pdfFoldersSet.map((p) => ({ path: p, exists: fs.existsSync(p), cloud: cloudOf(p) })) }))
+  const folders = (): C.PaperFolders => {
+    const set = registry.pdfFoldersSet
+    const fallback = !registry.pdfFoldersSetByUser
+    const dir = [opts.backup?.dir, opts.personalDir].find((d): d is string => !!d && fs.existsSync(path.join(d, '_settings')))
+    return { folders: set.map((p) => ({ path: p, exists: fs.existsSync(p), cloud: cloudOf(p), ...(fallback && { fallback: true }) })), others: otherPdfFolders(dir, set).map((p) => ({ path: p, cloud: cloudOf(p) })) }
+  }
+  app.get('/api/papers/folders', replies(C.PaperFolders), async (): Promise<C.PaperFolders> => folders())
   app.put('/api/papers/folders', replies(C.PaperFolders), async (req): Promise<C.PaperFolders> => {
     registry.setPdfFolders(parseBody(C.SetPdfFoldersBody, req.body).folders)
-    return { folders: registry.pdfFoldersSet.map((p) => ({ path: p, exists: fs.existsSync(p), cloud: cloudOf(p) })) }
+    return folders()
   })
 
   /** 논문의 코멘트 · 질문 · 하이라이트 (shared-library/comments/<키>/<id>.md) */

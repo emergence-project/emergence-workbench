@@ -143,7 +143,7 @@ if (process.env.RW_SANDBOX === '1') {
     cpSample(path.join(extra, 'comments'), path.join(library, 'comments'), { recursive: true })
     fs.writeFileSync(path.join(library, 'papers.yaml'), 'exampleDischarging2022:\n  projects: [sample-research]\ndoeStructurePlanar2004:\n  projects: [sample-research]\n')
   }
-  if (!registry.pdfFoldersSet.length) registry.setPdfFolders([paperPdfs])
+  if (!registry.pdfFoldersSetByUser) registry.setPdfFolders([paperPdfs])
   // 논문 첫 화면 예제: 최근 확인한 논문(이 맥에서 연 때)과 추천 논문(바깥에 묻지 않고 정해 둔 답)
   const openedFile = path.join(configDir, 'papers-opened.json')
   if (!fs.existsSync(openedFile)) cpSample(path.join(repoRoot, 'fixtures/sandbox-papers/opened.json'), openedFile)
