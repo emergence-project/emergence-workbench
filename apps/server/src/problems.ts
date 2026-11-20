@@ -4,11 +4,12 @@
 // 시도의 성립 · 폐기는 작업한 쪽이 아닌 쪽이 판정하고, 주장의 상태는 그 근거에서 계산한다 (problemClaims.ts). 한도나 정체에서는 방향 보고를 내고 사용자가 계속 · 좁히기 · 종료를 정한다.
 import fs from 'node:fs'
 import path from 'node:path'
-import { PROBLEM_LIMIT, PROBLEM_LIMIT_STEP, PROBLEM_STREAK, localDate, stamp } from '@rw/core'
+import { PROBLEM_LIMIT, PROBLEM_LIMIT_STEP, PROBLEM_STREAK, attemptStrength, attemptTrailer, localDate, stamp } from '@rw/core'
 import type { Attempt, AttemptReportBody, RecordAttemptBody, AttemptState, AttemptVerdictBody, Claim, DirectionDecisionBody, DirectionReport, DirectionReportBody, NewAttemptsBody, NewClaimBody, NewProblemBody, Problem, ProblemCloseBody, ProblemList, ProblemPatchBody, ProblemRow, ProblemState, ProblemStop } from '@rw/core/contract/problems'
 import { hashOf, writeAtomic } from './fsutil.js'
 import { changedSince, fingerprints, headCommit } from './problemFiles.js'
 import { logRefusal } from './problemExceptions.js'
+import type { EvidenceFacts } from './problemGit.js'
 import { attemptsOf, basisOf, claimDay, claimStates, claimTree, eligible, targetOf, unconfirmed } from './problemClaims.js'
 import { USER, claimHash, dumpAttempt, dumpClaim, dumpProblem, parseAttempt, parseClaim, parseProblem, type RawAttempt, type RawClaim, type RawProblem } from './problemFormat.js'
 import { t } from './i18n.js'
@@ -372,7 +373,7 @@ export function addAttempts(wb: Workbench, id: string, body: NewAttemptsBody, ac
  * 사용자가 적으면 그대로 판정된 근거다(outcome, 기본 성립). 에이전트가 적으면 판정 대기로 남고 사용자만 확인한다: 그때까지 주장의 상태에 들지 않는다.
  * statement를 적으면 겨눈 주장(없으면 질문) 아래에 새 주장이 생기고 이 기록은 그 근거가 된다 (보고와 같다)
  */
-export function recordAttempt(wb: Workbench, id: string, body: RecordAttemptBody, actor: string): Problem {
+export function recordAttempt(wb: Workbench, id: string, body: RecordAttemptBody, actor: string, facts: EvidenceFacts = {}): Problem {
   const l = load(wb, id)
   needOpen(wb, actor, l)
   const user = isUser(actor)
@@ -392,15 +393,24 @@ export function recordAttempt(wb: Workbench, id: string, body: RecordAttemptBody
   const at = now(), aid = nextAttemptId(new Set(l.attempts.map((x) => x.raw.id)))
   const lesson = clean(body.lesson) ?? (outcome === 'dropped' ? body.result : undefined)
   const files = body.files?.map((f) => f.trim()).filter(Boolean) ?? []
+  if (outcome === 'holds' && attemptStrength({ files }) === 'pointer') refuse(wb, actor, { problem: id }, 'pointer-only', 400, POINTER_ONLY[0], POINTER_ONLY[1])
+  // 한 날을 비우면 근거가 처음 커밋된 날 (11/20 "흐름 근거 공통 기준": 추정이 아니라 git에서 계산한 사실. 고칠 수 있다)
+  const day = body.when ?? facts.firstDay
   const after = aim ? (l.claims.find((x) => x.raw.id === aim)?.raw ?? { statement: statement!, condition }) : undefined
   saveAttempt(l, {
-    id: aid, method: body.method, ...(aim && { claim: aim }), state: outcome ?? 'reported', by: actor, created: at, ...(body.when && { when: body.when }), origin: 'past',
+    id: aid, method: body.method, ...(aim && { claim: aim }), state: outcome ?? 'reported', by: actor, created: at, ...(day && { when: day }), origin: 'past',
     worker: actor, ...(clean(body.did) && { did: clean(body.did) }), result: body.result, files, reported: at,
     ...(outcome && { verdict: { at, by: actor, note: '사용자가 직접 적은 지난 일', ...(outcome === 'holds' && after && { claim: claimHash(after) }) } }),
     ...(lesson && { lesson }), extra: {},
   })
   return readProblem(wb, id)
 }
+
+/** 11/20 결정 "흐름 근거 공통 기준": 가리킴만인 근거는 출처로만 보이고 성립을 주지 않는다 */
+const POINTER_ONLY: [string, string] = [
+  '근거가 가리킴만입니다(PR 번호 · 커밋 · 작업 파일). 성립에는 다시 돌릴 명령(검사 명령)이나 다시 읽을 글(노트 절 · 증명 · bib 키)이 있어야 합니다',
+  'The evidence only points (a PR number, a commit, a task file). Holds needs a command to rerun (a test command) or text to reread (a note section, a proof, a bib key)',
+]
 
 const STOP_TEXT: Record<ProblemStop, [string, string]> = {
   decision: ['방향 보고가 사용자의 결정을 기다립니다. 결정이 날 때까지 새 시도를 시작하지 않습니다', 'A direction report is waiting for the user\'s decision. No new attempt starts until then'],
@@ -431,7 +441,7 @@ export function startAttempt(wb: Workbench, id: string, aid: string, actor: stri
  * 진술(statement)을 적으면 주장이 생긴다: 겨눈 주장(없으면 질문) 아래에 새 주장을 만들고 이 시도는 그 근거가 된다. 겨눈 주장 그대로를 받치면 진술을 비운다.
  * 이 시도가 전에 내놓은 주장이거나 사용자가 이 시도를 돌려보냈으면(수정 요청) 새로 만들지 않고 겨눈 주장의 글을 고친다
  */
-export function reportAttempt(wb: Workbench, id: string, aid: string, body: AttemptReportBody, actor: string): Problem {
+export function reportAttempt(wb: Workbench, id: string, aid: string, body: AttemptReportBody, actor: string, facts: EvidenceFacts = {}): Problem {
   const l = load(wb, id)
   needOpen(wb, actor, l)
   const a = attemptOf(l, aid)
@@ -460,8 +470,11 @@ export function reportAttempt(wb: Workbench, id: string, aid: string, body: Atte
   const files = body.files?.map((f) => f.trim()).filter(Boolean) ?? a.files
   const command = clean(body.run?.command), commit = clean(body.run?.commit) ?? (command || files.length ? headCommit(wb.repo) : undefined)
   const { run: _run, test: _test, claim: _claim, ...base } = a
+  // 커밋 꼬리말 `Attempt: <흐름>/<글자>`이 없으면 경고만 한다 (11/20 결정: 2주 경고, 그 뒤 예외 기록과 함께 다시 본다)
+  const bare = !!commit && facts.trailer === false
+  if (bare) logRefusal(wb, actor, { problem: id, attempt: a.id }, 'no-trailer', `보고 커밋 ${commit}에 꼬리말 "${attemptTrailer(id, a.id)}"이 없습니다`, 'warned')
   saveAttempt(l, { ...base, ...(aim && { claim: aim }), state: 'reported', did: body.did, result: body.result, files, reported: now(),
-    ...((command || commit) && { run: { ...(command && { command }), ...(commit && { commit }) } }), ...(clean(body.test) && { test: clean(body.test) }),
+    ...((command || commit) && { run: { ...(command && { command }), ...(commit && { commit }), ...(bare && { trailer: false as const }) } }), ...(clean(body.test) && { test: clean(body.test) }),
     ...(clean(body.lesson) && { lesson: clean(body.lesson) }), ...(clean(body.reopen) && { reopen: clean(body.reopen) }) })
   return readProblem(wb, id)
 }
@@ -493,6 +506,7 @@ export function verdictAttempt(wb: Workbench, id: string, aid: string, body: Att
   // 검사 명령이 있는 시도: 다시 돌려 실패했으면 성립이 아니고, 에이전트는 돌린 결과(통과)가 있어야 성립을 준다. 사용자는 돌리지 않고도 정할 수 있다
   if (body.result === 'holds' && body.tested === 'fail') throw new WorkbenchError(400, t('검사가 실패했으면 성립이 아닙니다. 폐기하거나, 고친 뒤 다시 보고받습니다', 'A failed test is not a holds verdict. Drop it, or have it reported again after a fix'))
   if (body.result === 'holds' && a.test && !isUser(actor) && body.tested !== 'pass') refuse(wb, actor, here, 'test-not-run', 400, `이 시도에는 검사 명령이 있습니다. 다시 돌려 보고 결과를 적습니다 (tested: pass): ${a.test}`, `This attempt has a test command. Rerun it and record the result (tested: pass): ${a.test}`)
+  if (body.result === 'holds' && attemptStrength(a) === 'pointer') refuse(wb, actor, here, 'pointer-only', 400, POINTER_ONLY[0], POINTER_ONLY[1])
   if (body.result === 'dropped' && !untried && !lesson) throw new WorkbenchError(400, t('폐기에는 폐기 사유 한 줄(lesson)이 있어야 합니다', 'A dropped verdict needs a one-line lesson (lesson)'))
   const { lesson: _l, reopen: _r, returned: _ret, ...base } = a
   // 성립이면 그때의 파일 지문과 주장의 지문을 남긴다: 뒤에 파일이나 진술이 바뀌면 화면과 이어받기 요약이 알린다

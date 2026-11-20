@@ -104,6 +104,7 @@
 }
 /* 판정 후 변경 (11/11): 성립으로 판정한 뒤 파일이 바뀐 시도. 사용자가 볼 것이라 주황 점 */
 .pb-stale { display: inline-flex; align-items: center; gap: var(--sp-1); white-space: nowrap; }
+.pb-pointer { margin-left: var(--sp-2); font-size: var(--fs-xs); color: var(--text-3); }
 .pb-stale-file { display: inline-flex; align-items: center; gap: var(--sp-1); margin-left: var(--sp-2); font-size: var(--fs-xs); color: var(--text-2); }
 .pb-test { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 .pb-test-cmd { min-width: 0; font-size: var(--fs-xs); overflow-wrap: anywhere; }

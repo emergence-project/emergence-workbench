@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest'
 import YAML from 'yaml'
 import { BRIEF_MAX } from '@rw/core'
 import { fingerprint, headCommit } from './problemFiles.js'
-import { nextAttemptId, parseAttempt, parseClaim, parseProblem, problemSlug } from './problems.js'
+import { nextAttemptId, parseAttempt, parseClaim, parseProblem, problemSlug, reportAttempt } from './problems.js'
+import { Workbench } from './workbench.js'
 import { R, app, repo, useSampleApp } from './testkit.js'
 
 useSampleApp()
@@ -361,6 +362,37 @@ describe('flows: question, claims and attempts (workbench/problems/)', () => {
     expect(d.attempts.find((x: { id: string }) => x.id === 'c')).toMatchObject({ state: 'dropped', lesson: 'Did not converge.' })
     expect(d.stop).toBeUndefined()
     expect(c.claims).toHaveLength(1)
+  })
+
+  it('does not let evidence that only points make a holds; a report commit without the trailer is a logged warning (11/20 common rules)', async () => {
+    const { id } = await opened('Do pointers alone make a holds?')
+    await ok('POST', `${P}/${id}/claims`, { statement: 'The fit is stable.', side: 'for_yes' })
+    // 사용자의 지난 일: PR 번호 · 작업 파일만이면 성립으로 적지 못하고, 노트 절이 있으면 된다
+    const bare = await call('POST', `${P}/${id}/attempts/record`, { method: 'Fit', result: 'Stable.', claim: '1', files: ['pr:12', 'workbench/tasks/fit.md'] })
+    expect(bare.statusCode).toBe(400)
+    expect(bare.json().error).toContain('가리킴만')
+    const { problem: r } = await ok('POST', `${P}/${id}/attempts/record`, { method: 'Fit', result: 'Stable.', claim: '1', files: ['pr:12', 'workbench/topics/fit/note.md#stability'] })
+    expect(r.attempts.find((x: { id: string }) => x.id === 'a')).toMatchObject({ state: 'holds' })
+    // 판정: 근거가 가리킴만인 보고는 성립 거절, 폐기는 된다
+    await ok('POST', `${P}/${id}/attempts`, { attempts: [{ method: 'Refit', claim: '1' }] }, CLAUDE)
+    await ok('POST', `${P}/${id}/attempts/b/start`, undefined, CLAUDE)
+    const { problem: rep } = await ok('POST', `${P}/${id}/attempts/b/report`, { did: 'Refit.', result: 'Same.', files: ['commit:3f2a1b9'] }, CLAUDE)
+    expect(rep.attempts.find((x: { id: string }) => x.id === 'b').run?.trailer).toBeUndefined()
+    const no = await call('POST', `${P}/${id}/attempts/b/verdict`, { result: 'holds', note: 'Looked.', check: 'L=6' }, CODEX)
+    expect(no.statusCode).toBe(400)
+    expect((await ok('GET', `${R}/problem-exceptions`)).exceptions.some((e: { rule?: string; by: string }) => e.rule === 'pointer-only' && e.by === 'codex')).toBe(true)
+    // 꼬리말이 없다는 사실을 받으면 보고는 받고 run.trailer: false와 경고 한 줄을 남긴다
+    const wb = new Workbench(path.join(repo, 'workbench'))
+    await ok('POST', `${P}/${id}/attempts`, { attempts: [{ method: 'Third', claim: '1' }] }, CLAUDE)
+    await ok('POST', `${P}/${id}/attempts/c/start`, undefined, CLAUDE)
+    const w = reportAttempt(wb, id, 'c', { did: 'Ran.', result: 'Same.', run: { command: 'python fit.py', commit: 'abc123def456' } }, 'claude-code', { trailer: false })
+    expect(w.attempts.find((x) => x.id === 'c')?.run).toEqual({ command: 'python fit.py', commit: 'abc123def456', trailer: false })
+    expect(YAML.parse(fs.readFileSync(file(id, 'c.yaml'), 'utf8')).run).toMatchObject({ trailer: false })
+    const warned = (await ok('GET', `${R}/problem-exceptions`)).exceptions.find((e: { kind: string }) => e.kind === 'warned')
+    expect(warned).toMatchObject({ rule: 'no-trailer', problem: id, attempt: 'c', by: 'claude-code' })
+    expect(warned.what).toContain(`Attempt: ${id}/c`)
+    // 사용자는 경고를 예외로 적지 못한다 (앱만)
+    expect((await call('POST', `${R}/problem-exceptions`, { kind: 'warned', what: 'x' })).statusCode).toBe(400)
   })
 
   it('reports three dropped verdicts in a row as stuck', async () => {
