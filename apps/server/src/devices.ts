@@ -7,11 +7,20 @@ import path from 'node:path'
 import YAML from 'yaml'
 import type { Device, DeviceAccount } from '@rw/core/contract/devices'
 
-export type DeviceRecord = Omit<Device, 'this' | 'online'>
+export type { DeviceRecord } from '@rw/core/contract/devices'
+import type { DeviceRecord } from '@rw/core/contract/devices'
 
 /** 로그인한 계정을 알려 주는 곳 (계정 · Claude 계정 · 구글 라우트가 자기 것을 등록한다) */
 const sources = new Map<string, () => DeviceAccount[]>()
 export function setDeviceAccounts(key: string, fn: () => DeviceAccount[]): void { sources.set(key, fn) }
+/** 기기 로그아웃 (서버 › 기기 2단계): 계정마다 이 컴퓨터에서 로그아웃하는 일. 서버가 걸어 둔 로그아웃을 받으면 모두 부른다 */
+const logouts = new Map<string, () => Promise<unknown> | unknown>()
+export function setDeviceLogout(key: string, fn: () => Promise<unknown> | unknown): void { logouts.set(key, fn) }
+export async function logoutDevice(): Promise<string[]> {
+  const done: string[] = []
+  for (const [k, fn] of logouts) { try { await fn(); done.push(k) } catch { /* 하나가 실패해도 나머지는 */ } }
+  return done
+}
 const ORDER: DeviceAccount['kind'][] = ['github', 'claude', 'codex', 'google']
 export function deviceAccounts(): DeviceAccount[] {
   const out: DeviceAccount[] = []

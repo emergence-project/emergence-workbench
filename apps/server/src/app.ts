@@ -378,7 +378,8 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerComments(app, ctx)
   registerTopics(app, ctx)
   // 계정으로 맞추기(설치판)는 백업(계정 저장소와 맞추기)을 부른다
-  registerAccount(app, ctx, registerBackup(app, ctx))
+  const runBackup = registerBackup(app, ctx)
+  registerAccount(app, ctx, runBackup)
   const seePhone = (st: { on: boolean; host: string | null; login: string | null }) => { phoneSeen = st.on ? { host: st.host, login: st.login } : { host: null, login: null } }
   registerPhone(app, phone, seePhone)
   // serve 설정은 tailscaled가 기억하므로, 시작할 때 한 번 읽어 폰에서 오는 요청을 받을 준비를 한다
@@ -400,7 +401,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerAgentHooks(app, ctx)
   registerTerminal(app, ctx)
   registerGoogle(app, ctx, opts.google ?? new Google(opts.configDir))
-  registerDevices(app, ctx)
+  registerDevices(app, ctx, { phone, seePhone, runBackup })
 
   return app
 }

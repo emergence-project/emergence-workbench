@@ -1,25 +1,39 @@
-import { useQuery } from '@tanstack/react-query'
-import { devicesApi, type Device, type DeviceAccount } from './api'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { devicesApi, type Device, type DeviceAccount, type Devices, type DeviceServer } from './api'
+import { askConfirm } from './askText'
 import { relativeTime } from './format'
 import { t } from './i18n'
 import { qk } from './queries'
 
 /**
  * 설정 › 기기 관리 (11/20 사용자 "클로드 기기관리처럼", "설정에서 관리", "기기 관리로 하자"): 이 앱을 쓰는 컴퓨터마다 한 줄.
- * 다른 컴퓨터는 개인 저장소에 올린 마지막 값이다 (1시간마다 맞춤, 서버 devices.ts). 로그아웃 · 에이전트가 도는 곳은 다음 단계
+ * 다른 컴퓨터는 개인 저장소에 올린 마지막 값이다 (1시간마다 맞춤, 서버 devices.ts).
+ * 2단계 (11/20 "진행하자"): 한 컴퓨터를 서버로 정하면 다른 컴퓨터가 1분마다 알려 실시간으로 보이고, 기기마다 로그아웃을 건다 (서버 deviceServer.ts)
  *
  * 다음 단계 규칙 (11/20 사용자 "그러면 그렇게하자"): 컴퓨터마다 쓸 계정을 여기서 고르게 되더라도
  * 로그인은 계정 페이지에서만 한다. 여기서는 계정 페이지에 이미 등록된 계정 가운데 고르기만 하고, 로그인 버튼을 두지 않는다
  */
 export function DeviceList() {
-  const q = useQuery({ queryKey: qk.devices, queryFn: devicesApi.get, refetchInterval: 5 * 60_000 })
+  const client = useQueryClient()
+  const q = useQuery({ queryKey: qk.devices, queryFn: devicesApi.get, refetchInterval: (s) => (s.state.data?.server ? 60_000 : 5 * 60_000) })
+  const run = useMutation({ mutationFn: (f: () => Promise<Devices>) => f(), onSuccess: (v) => client.setQueryData(qk.devices, v) })
   const d = q.data
+  const logout = (x: Device) => void askConfirm({
+    title: t(`${x.label ?? x.name}에서 로그아웃할까요?`, `Sign out on ${x.label ?? x.name}?`),
+    hint: t('그 컴퓨터가 다음에 서버에 알릴 때(켜져 있으면 1분 안) GitHub · 구글 로그인과 더한 Claude · Codex 계정을 뺍니다. 그 컴퓨터의 기본 Claude Code · Codex 로그인과 연구 파일은 남습니다.', 'The next time that computer reports to the server (within a minute if it is on), it signs out of GitHub and Google and removes the Claude and Codex accounts you added. Its default Claude Code and Codex sign-in and its research files stay.'),
+    ok: t('로그아웃', 'Sign out'),
+  }).then((y) => { if (y) run.mutate(() => devicesApi.logout(x.name)) })
+  const me = d?.devices.find((x) => x.this)
   return (<>
     <h3 className="set-h3">{t('이 앱을 쓰는 컴퓨터', 'Computers using this app')}</h3>
-    <p className="set-desc">{t('다른 컴퓨터는 개인 저장소에 올린 마지막 값이라 1시간쯤 늦을 수 있습니다. 로그인 열쇠 · 이메일은 올리지 않고 이름 · 시각 · 앱 버전 · 계정 이름만 올립니다.', 'Other computers show what they last uploaded to your personal repository, so it can be up to an hour old. Only names, times, the app version and account names are uploaded, never sign-in keys or emails.')}</p>
+    <p className="set-desc">{d?.server
+      ? t('서버로 정한 컴퓨터에 다른 컴퓨터가 1분마다 알립니다. 로그인 열쇠 · 이메일은 보내지 않고 이름 · 시각 · 앱 버전 · 계정 이름만 보냅니다.', 'Every computer reports to the server once a minute. Only names, times, the app version and account names are sent, never sign-in keys or emails.')
+      : t('다른 컴퓨터는 개인 저장소에 올린 마지막 값이라 1시간쯤 늦을 수 있습니다. 로그인 열쇠 · 이메일은 올리지 않고 이름 · 시각 · 앱 버전 · 계정 이름만 올립니다.', 'Other computers show what they last uploaded to your personal repository, so it can be up to an hour old. Only names, times, the app version and account names are uploaded, never sign-in keys or emails.')}</p>
+    {d && <ServerRow server={d.server} me={me} busy={run.isPending} onMake={() => run.mutate(devicesApi.makeServer)} />}
+    {run.error && <p className="set-desc error-text">{run.error.message}</p>}
     <div className="setup set-rows dev-list" data-ui="기기 목록">
       {!d ? <p className="muted setup-row">{q.error?.message ?? t('읽는 중…', 'Reading…')}</p>
-        : d.devices.map((x) => <DeviceRow key={x.name} d={x} />)}
+        : d.devices.map((x) => <DeviceRow key={x.name} d={x} onLogout={d.server && !x.this && !x.logout ? () => logout(x) : undefined} />)}
     </div>
     {d && !d.shared && <p className="muted set-desc">{t('개인 저장소와 맞추지 않아 이 컴퓨터만 보입니다. 계정에서 GitHub에 로그인하고 개인 저장소를 정하면 다른 컴퓨터도 보입니다.', 'Only this computer is shown because it does not sync with a personal repository. Sign in to GitHub and choose a personal repository under Account to see your other computers.')}</p>}
   </>)
@@ -28,21 +42,47 @@ export function DeviceList() {
 const KIND: Record<DeviceAccount['kind'], string> = { github: 'GitHub', claude: 'Claude', codex: 'Codex', google: t('구글', 'Google') }
 const accountName = (a: DeviceAccount) => [KIND[a.kind], a.name, a.plan].filter(Boolean).join(' · ')
 
-function DeviceRow({ d }: { d: Device }) {
+/** 서버 줄: 어느 컴퓨터가 서버인가, 이 컴퓨터가 서버에 닿았는가, 이 컴퓨터를 서버로 */
+function ServerRow({ server, me, busy, onMake }: { server: DeviceServer | null; me: Device | undefined; busy: boolean; onMake(): void }) {
+  const name = server ? server.label ?? server.machine : null
+  const reach = !server || server.this ? null
+    : server.error ? <span className="error-text">{t(`닿지 못함: ${server.error}`, `Not reached: ${server.error}`)}</span>
+    : server.reached ? <span>{t(`마지막 알림 ${relativeTime(Date.parse(server.reached))}`, `Last report ${relativeTime(Date.parse(server.reached))}`)}</span>
+    : <span>{t('아직 알리지 않음', 'Not reported yet')}</span>
+  return (
+    <div className="setup set-rows dev-server" data-ui="서버 컴퓨터">
+      <div className="setup-row">
+        <div className="setup-main">
+          <div className="set-name">{t('서버', 'Server')}</div>
+          <div className="setup-desc dev-meta">
+            {server ? <span>{name}{server.this && t(' (이 기기)', ' (this device)')}</span> : <span>{t('정하지 않음. 늘 켜 두는 컴퓨터를 서버로 정하면 기기 목록이 실시간이 되고 기기마다 로그아웃할 수 있습니다. Tailscale이 켜져 있어야 합니다.', 'Not set. Make an always-on computer the server to see devices live and sign out per device. Tailscale must be on.')}</span>}
+            {reach}
+          </div>
+        </div>
+        {!server?.this && me && <button className="btn" disabled={busy} onClick={onMake}>{t('이 기기를 서버로', 'Make this device the server')}</button>}
+      </div>
+    </div>
+  )
+}
+
+function DeviceRow({ d, onLogout }: { d: Device; onLogout?: () => void }) {
   const state = d.this ? t('켜짐 · 지금', 'On · now') : d.online ? t(`켜짐 · ${relativeTime(Date.parse(d.seen))}`, `On · ${relativeTime(Date.parse(d.seen))}`) : t(`꺼짐 · ${relativeTime(Date.parse(d.seen))}`, `Off · ${relativeTime(Date.parse(d.seen))}`)
   const name = d.online ? t('켜짐', 'On') : t('꺼짐', 'Off')
   return (
     <div className={`setup-row dev-row${d.online ? '' : ' off'}`} data-ui="기기 줄">
       <span className={`g ${d.online ? 'solved' : 'stopped'}`} role="img" aria-label={name} title={name} />
       <div className="setup-main">
-        <div className="set-name">{d.label ?? d.name}{d.this && <small className="setup-sub">{t('이 기기', 'This device')}</small>}</div>
+        <div className="set-name">{d.label ?? d.name}{d.this && <small className="setup-sub">{t('이 기기', 'This device')}</small>}{d.server && <small className="setup-sub">{t('서버', 'Server')}</small>}</div>
         <div className="setup-desc dev-meta">
           <span>{state}</span>
           {d.version && <span>{t(`앱 ${d.version}`, `App ${d.version}`)}</span>}
           {d.os && <span>{d.os}</span>}
+          {d.logout && <span>{t('로그아웃 대기: 다음 알림 때 합니다', 'Sign-out pending: on its next report')}</span>}
         </div>
         {d.accounts.length > 0 && <div className="dev-accts" data-ui="기기 계정">{d.accounts.map((a, i) => <span key={i} className="tag">{accountName(a)}</span>)}</div>}
       </div>
+      {onLogout && <button className="btn" data-ui="기기 로그아웃" onClick={onLogout}>{t('로그아웃', 'Sign out')}</button>}
+      {onLogout && <button className="btn" data-ui="기기 로그아웃" onClick={onLogout}>{t('로그아웃', 'Sign out')}</button>}
     </div>
   )
 }

@@ -15,6 +15,8 @@ import type { FastifyInstance } from 'fastify'
  */
 export const KEY_HEADER = 'x-rw-key'
 export const OPEN_PATH = '/__open'
+/** 다른 컴퓨터가 서버로 정한 이 컴퓨터에 알리는 경로 (routes/devices.ts의 DEVICE_REMOTE_PATHS와 같게) */
+export const DEVICE_PATHS = ['/api/devices/beat', '/api/devices/remote-logout']
 export const keyCookie = (port: number): string => `rw_k_${port}`
 
 function same(a: string, b: string): boolean {
@@ -53,7 +55,8 @@ export function registerKeyGate(app: FastifyInstance, key: string, port: number)
   app.addHook('onRequest', async (req, reply) => {
     const pathOnly = req.url.split('?')[0] ?? ''
     // Codex · Gemini 대화의 MCP 입구는 주소에 대화마다 만든 긴 열쇠가 들어 있다 (agentMcpHttp.ts)
-    if (pathOnly === OPEN_PATH || pathOnly.startsWith('/api/agent-mcp/') || hasKey(req.headers, key, port)) return
+    // 설정 › 서버: 다른 컴퓨터가 알리는 곳은 개인 저장소의 기기 열쇠를 라우트가 본다 (routes/devices.ts)
+    if (pathOnly === OPEN_PATH || pathOnly.startsWith('/api/agent-mcp/') || DEVICE_PATHS.includes(pathOnly) || hasKey(req.headers, key, port)) return
     const msg = '앱 창에서만 열 수 있습니다 · Open this from the app window'
     return pathOnly === '/api' || pathOnly.startsWith('/api/') ? reply.status(401).send({ error: msg }) : reply.status(401).type('text/plain; charset=utf-8').send(msg)
   })
