@@ -124,6 +124,10 @@ describe('허락 규칙', () => {
   it('명령은 하는 일로 나눠 토글대로: 읽기 · 편집은 맡기는 정도, 실행은 프로그램마다, 삭제 · 외부는 늘 한 번씩', () => {
     expect(judge(ctx(), 'Bash', { command: 'python run.py' })).toMatchObject({ kind: 'ask', key: 'run:python', does: 'run', summary: 'python run.py' })
     expect(judge(ctx({ always: (k) => k === 'run:python' }), 'Bash', { command: 'python other.py' }).kind).toBe('allow')
+    // 「늘」은 줄 안의 실행 프로그램 모두가 허락됐을 때만: python 늘이 뒤에 붙인 다른 프로그램까지 돌리지 않는다
+    const chained = judge(ctx({ always: (k) => k === 'run:python' }), 'Bash', { command: 'python other.py && ./deploy.sh' })
+    expect(chained).toMatchObject({ kind: 'ask', key: 'run:deploy.sh' })
+    expect(judge(ctx({ always: (k) => k === 'run:python' }), 'Bash', { command: 'python other.py | tail -3' }).kind).toBe('allow')
     expect(judge(ctx({ auto: () => ({ read: true, run: true, web: false }) }), 'Bash', { command: 'julia x.jl' }).kind).toBe('allow')
     // 편집 자동 허용: 읽기 · 편집은 묻지 않는다
     expect(judge(ctx(), 'Bash', { command: 'ls workbench | head -3 && git log -1' }).kind).toBe('allow')

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { autoCustom, autoOf, commandKind, presetAuto, runProgram } from './chat-auto.js'
+import { autoCustom, autoOf, commandKind, presetAuto, runProgram, runPrograms } from './chat-auto.js'
 
 const o = { cwd: '/u/p', home: '/u', inside: (a: string) => a === '/u/p' || a.startsWith('/u/p/') || a.startsWith('/u/lib/') }
 const k = (c: string) => commandKind(c, o)
@@ -31,6 +31,19 @@ describe('명령이 하는 일', () => {
     expect(runProgram('cd x && python run.py --n 3')).toBe('python')
     expect(runProgram('pnpm test -- a')).toBe('pnpm test')
     expect(runProgram('A=1 julia x.jl')).toBe('julia')
+  })
+  it('「늘」은 줄 안의 실행 프로그램 모두를 본다', () => {
+    expect(runPrograms('pnpm test && ./deploy.sh')).toEqual(['pnpm test', 'deploy.sh'])
+    expect(runPrograms('cd x && pnpm test | tail -5')).toEqual(['pnpm test'])
+    expect(runPrograms('python a.py; git commit -m x; mv a b')).toEqual(['python', 'git commit', 'mv'])
+    expect(runPrograms('echo $(node x.js)')).toEqual(['node'])
+    expect(runPrograms('GIT_PAGER=less git log')).toEqual(['GIT_PAGER= git log'])
+    expect(runPrograms('ls | wc -l')).toEqual([])
+  })
+  it('셸의 묶음 말 뒤의 명령도 본다', () => {
+    for (const c of ['for f in a b; do rm $f; done', 'if true; then rm x; fi', 'while read l; do rm "$l"; done < list', '( rm x )', '(rm x)', '{ rm x; }', '! rm x']) expect(k(c), c).toBe('delete')
+    for (const c of ['for f in *.md; do wc -l "$f"; done', 'if [ -f a ]; then cat a; else echo none; fi', '(cd workbench && ls)', 'while read l; do echo "$l"; done < a']) expect(k(c), c).toBe('read')
+    for (const c of ['for c in rm; do $c x; done', 'case x in a) rm b;; esac']) expect(k(c), c).not.toBe('read')
   })
 })
 
