@@ -11,8 +11,8 @@ import { href } from './router'
 
 /**
  * 소개 오른쪽 사이드바 (11/20 시안 2 · 3절, 「시안대로 구현하자」): 탭 「이력 · 수정」.
- * 이력은 표 하나: 절 · 업데이트(번호와 날짜) · 바뀐 것 · 맨 오른쪽 ✓ 맞아요 · 말풍선 답하기. 확인은 (절, 업데이트) 줄마다 받는다.
- * 줄을 누르면 본문이 그 절로 가고 그 업데이트가 바꾼 문장에 하이라이트가 붙으며, 줄 아래에 제목 전문과 바꾼 것 요약이 펼쳐진다.
+ * 이력은 (절, 업데이트)마다 카드 하나: 첫 줄 #번호 · 날짜 · 절과 오른쪽 맞아요 · 답하기, 다음 줄 제목 전문 (11/20 시안 3절 안 C: 표가 좁아
+ * 이력을 두 칸의 오른쪽 칸에 띄운다). 카드를 누르면 본문이 그 절로 가고 그 업데이트가 바꾼 문장에 하이라이트가 붙으며, 카드 아래에 바꾼 것 요약이 펼쳐진다.
  * 예전(11/16–11/19)에는 본문 위 「이 쪽의 확인 항목」 상자와 업데이트마다 한 줄인 목록이 같은 업데이트를 두 번 보였다.
  */
 export interface HistoryRow { n: number; sec: number; date: string; title: string; ok?: string; todo: boolean; ask?: string }
@@ -63,7 +63,7 @@ function HistoryTable({ part, picked, onPick }: { part: AboutPart; picked: Picke
   const rows = historyRows(part, checks)
   const secs = part.sections ?? []
   const [error, setError] = useState('')
-  const on = useRef<HTMLTableRowElement>(null)
+  const on = useRef<HTMLLIElement>(null)
   useEffect(() => { on.current?.scrollIntoView({ block: 'nearest' }) }, [picked?.n, picked?.sec])
   if (!rows.length) return <p className="muted">{t('이 쪽을 고친 업데이트가 아직 없습니다', 'No update has changed this page yet')}</p>
   const confirm = async (r: HistoryRow) => {
@@ -90,37 +90,32 @@ function HistoryTable({ part, picked, onPick }: { part: AboutPart; picked: Picke
   return (
     <>
       {error && <p className="muted">{error}</p>}
-      <table className="about-hist" data-ui="이력 표">
-        <thead><tr><th>{t('절', 'Section')}</th><th>{t('업데이트', 'Update')}</th><th>{t('변경사항', 'Changes')}</th><th aria-label={t('확인', 'Review')} /></tr></thead>
-        <tbody>
-          {rows.flatMap((r, k) => {
-            const open = picked?.n === r.n && picked.sec === r.sec
-            const same = k > 0 && rows[k - 1]!.sec === r.sec
-            const out = [
-              <tr key={`${r.n}-${r.sec}`} ref={open ? on : undefined} className={`about-hist-row${r.todo ? ' todo' : ''}${open ? ' on' : ''}`} data-ui="고친 업데이트" data-ui-item={`#${r.n}`}
-                tabIndex={0} aria-expanded={open} onClick={() => pick(r)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(r) } }}>
-                <td className="about-hist-sec">{same ? '' : secs[r.sec]!.title}</td>
-                <td className="about-hist-pr">
-                  <a className="a" href={href({ page: 'settings', part: 'update', pr: r.n })} onClick={(e) => e.stopPropagation()}
-                    title={t('이 업데이트를 설정 › 업데이트 이력에서 봅니다', 'See this update in Settings › Update history')}>#{r.n}</a>
-                  {r.date && <span className="muted">{shortDate(r.date)}</span>}
-                </td>
-                <td className="about-hist-what" title={r.title}>{r.title}</td>
-                <td className="about-hist-act" onClick={(e) => e.stopPropagation()}>
-                  {r.ok !== undefined ? <span className="about-hist-ok" data-ui="확인함"><i className="mark-ico" aria-hidden>{Icon.check}</i>{shortDate(r.ok)}</span>
+      <ol className="about-hist" data-ui="이력 표">
+        {rows.map((r) => {
+          const open = picked?.n === r.n && picked.sec === r.sec
+          return (
+            <li key={`${r.n}-${r.sec}`} ref={open ? on : undefined} className={`about-hist-row${r.todo ? ' todo' : ''}${open ? ' on' : ''}`} data-ui="고친 업데이트" data-ui-item={`#${r.n}`}
+              tabIndex={0} aria-expanded={open} onClick={() => pick(r)} onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pick(r) } }}>
+              <div className="about-hist-top">
+                <a className="a about-hist-pr" href={href({ page: 'settings', part: 'update', pr: r.n })} onClick={(e) => e.stopPropagation()}
+                  title={t('이 업데이트를 설정 › 업데이트 이력에서 봅니다', 'See this update in Settings › Update history')}>#{r.n}</a>
+                <span className="muted">{[shortDate(r.date), secs[r.sec]!.title].filter(Boolean).join(' · ')}</span>
+                <span className="sp" />
+                <span className="about-hist-act" onClick={(e) => e.stopPropagation()}>
+                  {r.ok !== undefined ? <span className="about-hist-ok" data-ui="확인함"><i className="mark-ico" aria-hidden>{Icon.check}</i>{t(`확인함 ${shortDate(r.ok)}`, `Reviewed ${shortDate(r.ok)}`)}</span>
                     : checks.enabled && <>
-                      <button className="icon-btn" data-ui="맞아요" aria-label={t('맞아요', 'That is right')} data-tip={t('맞아요: 이 업데이트를 확인함으로', 'That is right: mark this update reviewed')} onClick={() => void confirm(r)}>{Icon.check}</button>
-                      <button className="icon-btn" data-ui="답하기" aria-label={t('답하기', 'Reply')} data-tip={t('답하기: 고칠 점을 피드백으로', 'Reply: send what to fix as feedback')} onClick={() => void answer(r)}>{Icon.comment}</button>
+                      <button className="btn sm" data-ui="맞아요" data-tip={t('이 업데이트를 확인함으로', 'Mark this update reviewed')} onClick={() => void confirm(r)}>{Icon.check} {t('맞아요', 'Right')}</button>
+                      <button className="btn sm" data-ui="답하기" data-tip={t('고칠 점을 피드백으로', 'Send what to fix as feedback')} onClick={() => void answer(r)}>{Icon.comment} {t('답하기', 'Reply')}</button>
                     </>}
-                </td>
-              </tr>,
-            ]
-            if (r.ask) out.push(<tr key={`${r.n}-${r.sec}-ask`} className="about-hist-ask"><td /><td colSpan={3}>{r.ask}</td></tr>)
-            if (open) out.push(<tr key={`${r.n}-${r.sec}-open`} className="about-hist-more"><td /><td colSpan={3}><ChangeSummary n={r.n} title={r.title} /></td></tr>)
-            return out
-          })}
-        </tbody>
-      </table>
+                </span>
+              </div>
+              <div className="about-hist-what">{r.title}</div>
+              {r.ask && <div className="about-hist-ask">{r.ask}</div>}
+              {open && <div className="about-hist-more"><ChangeSummary n={r.n} title={r.title} /></div>}
+            </li>
+          )
+        })}
+      </ol>
     </>
   )
 }
