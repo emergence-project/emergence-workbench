@@ -82,6 +82,10 @@ button.cb-row:hover { background: var(--bg-hover); }
 .ac-memo-input { width: 100%; resize: vertical; font: inherit; }
 .ac-memo-edit .setup-acts { justify-content: flex-end; }
 /* 계정마다 한도 막대 (11/20 시안 4절): 5시간 · 이번 주, 80%를 넘으면 주황(멈춤 색) */
+/* 계정 줄의 쓰임 (11/20): 이메일 아래 한 줄, 고르기는 설정 › 에이전트 */
+.acct-uses { display: block; margin-top: var(--sp-1); font-size: var(--fs-xs); }
+/* 설정 › 에이전트 › 대화 종류별 계정의 Claude · Codex 소제목 */
+.acct-roles-kind { margin: var(--sp-4) 0 var(--sp-2); font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text-2); }
 .acct-limits { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-3); margin-top: var(--sp-1); font-size: var(--fs-xs); }
 .acct-limit { display: inline-flex; align-items: center; gap: var(--sp-1); white-space: nowrap; }
 .acct-limit-name { color: var(--text-3); }

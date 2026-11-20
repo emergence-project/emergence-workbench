@@ -12,6 +12,7 @@ import { TRUST_NAME } from './ChatComposer'
 import { t, HERE } from './i18n'
 import { Icon } from './icons'
 import { qk } from './queries'
+import { href } from './router'
 import { CopyButton } from './SetupChecklist'
 
 type Kind = NonNullable<ReturnType<typeof useAgentKinds>>[number]
@@ -41,7 +42,7 @@ export function AgentPrefs({ onSaved }: { onSaved(message: string): void }) {
     <h3 className="set-h3">{t('대화를 맡는 에이전트', 'Agents for conversations')}</h3>
     {err && <div className="error-text">{err}</div>}
     {!kinds || !prefs ? <p className="muted">{t('읽는 중…', 'Reading…')}</p>
-      : k ? <AgentDetail k={k} pref={prefs.per[k.id]} onBack={() => setOpen(null)} save={(p) => save({ per: { [k.id]: p } })} onSaved={onSaved} onError={setErr} />
+      : k ? <AgentDetail k={k} pref={prefs.per[k.id]} onBack={() => setOpen(null)} save={(p) => save({ per: { [k.id]: p } })} onSaved={onSaved} />
       : <div className="set-rows ap-list" data-ui="대화 에이전트 묶음">
         {kinds.map((a) => {
           const p = prefs.per[a.id]
@@ -77,38 +78,29 @@ export function AgentPrefs({ onSaved }: { onSaved(message: string): void }) {
 }
 
 /** 한 에이전트의 자세히: 계정 · 새 대화의 시작 권한 · 자동 허용 · 하는 일 */
-function AgentDetail({ k, pref, onBack, save, onSaved, onError }: { k: Kind; pref: AgentPref; onBack(): void; save(p: { trust?: AgentTrust; auto?: AgentPref['auto'] | null; role?: AgentRole }): void; onSaved(m: string): void; onError(m: string): void }) {
-  const client = useQueryClient()
-  const [switching, setSwitching] = useState(false)
+function AgentDetail({ k, pref, onBack, save, onSaved }: { k: Kind; pref: AgentPref; onBack(): void; save(p: { trust?: AgentTrust; auto?: AgentPref['auto'] | null; role?: AgentRole }): void; onSaved(m: string): void }) {
   const auto = autoShown(pref)
   // 목록이 아래에 있으면 들어간 자세히가 화면 밖일 수 있다
   const box = useRef<HTMLDivElement>(null)
   useEffect(() => { box.current?.scrollIntoView?.({ block: 'nearest' }) }, [])
-  const cli = k.id === 'codex' ? 'codex' : k.id === 'gemini' ? 'gemini' : 'claude'
-  const other = async () => {
-    setSwitching(true)
-    try { await api.switchCodex(); await client.invalidateQueries({ queryKey: qk.agentKinds }); onSaved(t('Codex에서 로그아웃했습니다. 열린 브라우저에서 다른 ChatGPT 계정으로 로그인하세요', 'Signed out of Codex. Sign in with another ChatGPT account in the browser that opened')) } catch (e) { onError(msg(e)) } finally { setSwitching(false) }
-  }
   return (
     <div ref={box} className="set-rows ap-detail" data-ui="에이전트 자세히">
       <div className="ap-head">
         <button className="icon-btn sm" data-ui="에이전트 목록으로" aria-label={t('에이전트 목록으로', 'Back to agents')} data-tip={t('에이전트 목록', 'Agents')} onClick={onBack}>{Icon.back}</button>
         <AgentLogo agent={k.id} /><span className="set-name">{AGENT_NAME[k.id]}</span>{k.version && <small className="setup-sub">{k.version}</small>}
       </div>
+      {/* 계정은 읽기만 (11/20 "그러면 그렇게하자": 로그인 · 다른 계정으로는 계정 페이지에서만) */}
       <div className="set-row" data-ui="에이전트 계정">
         <div>
           <div className="set-name">{t('계정', 'Account')}</div>
           <div className="set-desc">
-            {!k.installed && k.bundled ? t('설정 › 에이전트 위 「질문에 답할 AI」에서 「ChatGPT로 연결」을 누르면 Codex를 받고 ChatGPT 계정으로 로그인합니다.', 'Press Connect ChatGPT under AI for questions above to get Codex and sign in with a ChatGPT account.')
-              : !k.installed ? <>{t(`${HERE.ko}에 없습니다. 깔고 터미널에서 ${cli}를 한 번 열어 로그인하세요: `, `Not on ${HERE.en}. Install it and open ${cli} once in the terminal to sign in: `)}<code className="setup-cmd">{k.install}</code></>
-              : k.login === false ? (k.bundled ? t('설정 › 에이전트 위 「질문에 답할 AI」에서 ChatGPT로 연결하면 Codex가 그 계정으로 일합니다.', 'Connect ChatGPT under AI for questions above, and Codex works with that account.') : t(`로그인한 흔적이 없습니다. 터미널에서 ${cli}를 한 번 열어 로그인하세요.`, `No sign-in found. Open ${cli} once in the terminal to sign in.`))
+            {!k.installed ? t(`${HERE.ko}에 없습니다.`, `Not on ${HERE.en}.`)
+              : k.login === false ? (k.id === 'gemini' ? t('로그인 안 됨: 터미널에서 gemini를 한 번 열어 로그인하세요.', 'Not signed in: open gemini once in the terminal to sign in.') : t('로그인 안 됨', 'Not signed in'))
               : <span className="ag-name"><AgentLogo agent={k.id} />{k.id === 'codex' && 'ChatGPT · '}{account(k) || t('로그인됨 (계정 이름을 읽지 못함)', 'Signed in (account name not found)')}</span>}
           </div>
         </div>
-        {!k.installed && k.install ? <CopyButton text={k.install} onSaved={onSaved} />
-          : k.login !== false && (k.id === 'codex'
-            ? <button className="btn sm" data-ui="다른 계정으로" disabled={switching} onClick={() => void other()}>{t('다른 계정으로', 'Switch account')}</button>
-            : <span className="muted ap-hint">{t(`다른 계정: 터미널에서 ${cli} → /login`, `Switch: run ${cli} → /login in the terminal`)}</span>)}
+        {k.id !== 'gemini' ? <a className="a" data-ui="계정에서 관리" href={href({ page: 'account' })}>{t('계정에서 관리 ›', 'Manage in Accounts ›')}</a>
+          : !k.installed && k.install ? <CopyButton text={k.install} onSaved={onSaved} /> : null}
       </div>
       <div className="set-row" data-ui="새 대화의 시작 권한">
         <div>

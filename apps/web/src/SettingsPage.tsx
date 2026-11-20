@@ -39,8 +39,8 @@ export const SETTINGS_PARTS = [
   { key: 'update', label: t('앱 기본정보', 'About this app') },
   { key: 'backup', label: t('백업', 'Backup') },
   { key: 'sync', label: t('동기화', 'Sync') },
-  // 서버 › 기기 (11/20 사용자 "설정에서 관리"): 이 앱을 쓰는 컴퓨터. 다음 단계에서 에이전트가 도는 컴퓨터 · 쓸 계정도 여기
-  { key: 'server', label: t('서버', 'Server') },
+  // 기기 관리 (11/20 사용자 "설정에서 관리", "기기 관리로 하자"): 이 앱을 쓰는 컴퓨터. 옛 주소 #/server · #/settings/server도 여기
+  { key: 'devices', label: t('기기 관리', 'Devices') },
   { key: 'agents', label: t('에이전트', 'Agents') },
   { key: 'phone', label: t('폰에서 보기', 'On your phone') },
   // 아래 줄은 규칙 파일의 절 제목 (RuleSubs)
@@ -157,8 +157,8 @@ export function SettingsPage({ ui, onChange, part, pr, onSaved }: { ui: UiSettin
               <SyncSettings />
             </section>}
 
-            {show('server') && <section data-ui="서버">
-              <div className="sec-head"><h2>{t('서버', 'Server')}</h2></div>
+            {show('devices') && <section data-ui="기기 관리">
+              <div className="sec-head"><h2>{t('기기 관리', 'Devices')}</h2></div>
               <DeviceList />
             </section>}
 

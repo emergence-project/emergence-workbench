@@ -289,10 +289,15 @@ try {
       await page.locator('[data-ui="한 일 달력"]').first().scrollIntoViewIfNeeded({ timeout: 10_000 })
         .catch(() => problems.push(`${name}: 한 일 달력까지 스크롤하지 못함`))
     }
-    // Claude 계정 (11/16)은 설정 › 에이전트의 연결 아래에 있다
+    // Claude 계정 (11/16)은 계정 페이지에 있다
     if (name === 'settings-claude-accounts') {
       await page.locator('[data-ui="Claude 계정"]').first().evaluate((el) => el.scrollIntoView({ block: 'start' }))
         .catch(() => problems.push(`${name}: Claude 계정까지 내리지 못함`))
+    }
+    // 대화 종류별 계정 (11/20): 설정 › 에이전트의 대화 에이전트 아래
+    if (name === 'settings-agent-account-roles') {
+      await page.locator('[data-ui="계정 고르기"]').first().evaluate((el) => el.scrollIntoView({ block: 'center' }))
+        .catch(() => problems.push(`${name}: 계정 고르기까지 내리지 못함`))
     }
     if (name === 'settings-central-memo') {
       await page.locator('[data-ui="중앙 메모"]').first().evaluate((el) => el.scrollIntoView({ block: 'center' }))

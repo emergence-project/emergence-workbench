@@ -13,6 +13,7 @@ import { qk } from './queries'
 import { CopyButton, Row, when } from './SetupChecklist'
 import { AiKeyRow } from './AiKeySettings'
 import { AgentPrefs } from './AgentPrefs'
+import { AgentAccountRoles } from './AgentAccountRoles'
 import { useAdmin } from './admin'
 
 const PICK: Record<FeedbackPick, () => string> = {
@@ -48,6 +49,7 @@ export function AgentSettings({ onSaved }: { onSaved(message: string): void }) {
   return (<>
     <AgentConnections onSaved={onSaved} />
     <AgentPrefs onSaved={onSaved} />
+    <AgentAccountRoles />
     <AgentHooks onSaved={onSaved} />
     <CentralMemoSettings onSaved={onSaved} />
     <h3 className="set-h3">{t(`${HERE.onKo} 하는 일`, `On ${HERE.en}`)}</h3>

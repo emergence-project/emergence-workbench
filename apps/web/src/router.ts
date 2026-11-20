@@ -136,8 +136,8 @@ export function parseRoute(hash: string): Route {
   }
   if (parts[0] === 'about') return parts[1] ? { page: 'about', part: parts[1], ...(parts[2] && { anchor: parts[2] }) } : { page: 'about' }
   // 계정은 설정 밖 한 페이지 (11/19). 옛 주소 설정 › 계정도 여기로
-  // 서버 › 기기는 설정 안의 한 부분 (11/20 사용자 "설정에서 관리")
-  if (parts[0] === 'server') return { page: 'settings', part: 'server' }
+  // 기기 관리는 설정 안의 한 부분 (11/20 사용자 "설정에서 관리", "기기 관리로 하자"). 옛 이름 서버의 주소도 여기로
+  if (parts[0] === 'server' || (parts[0] === 'settings' && parts[1] === 'server')) return { page: 'settings', part: 'devices' }
   if (parts[0] === 'account' || (parts[0] === 'settings' && parts[1] === 'google')) return { page: 'account' }
   if (parts[0] === 'settings') return parts[1] ? { page: 'settings', part: parts[1], ...(Number(parts[2]) > 0 && { pr: Number(parts[2]) }) } : { page: 'settings' }
   if (parts[0] === 'latex') return { page: 'settings', part: 'latex' }
