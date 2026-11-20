@@ -237,6 +237,8 @@ export class DebateChats extends RoomChats {
     step('sum', rounds)
     const votes = now_.flatMap((x): RoomVerdict[] => (x.verdict ? [x.verdict] : []))
     const finals = now_.flatMap((x, i) => (x.text ? [{ label: labels[i]!, text: x.text, changed: changed.has(i) }] : []))
+    // 아무도 답하지 못했으면(연결 안 됨 등) 정리하지 않는다: 답 없이 물으면 정리 모델이 없는 답을 지어 「고른 안」을 적는다
+    if (!finals.length) throw new WorkbenchError(502, t('참가자가 모두 답하지 못해 정리하지 않았습니다. 위 오류를 확인하고 다시 물어 주세요', 'No participant could answer, so there is no summary. Check the errors above and ask again'))
     const sum = await this.say(c, d.judge, 'sum', rounds, undefined, sumPrompt(q, finals, rounds > 0))
     sum.votes = votes
     if (changed.size) sum.changed = changed.size
