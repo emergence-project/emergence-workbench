@@ -18,7 +18,7 @@ const GROUP_LABEL: Record<GroupBy, string> = { 모두: t('모두', 'All'), 기�
  * 맨 위에 나(노트 저자는 내 페이지에서, 10/4 20:49), 그 아래 사람 카드(즐겨찾기 → 가나다순, 기관별·분야별로 묶어 볼 수 있다), 등록 추천.
  */
 export function Authors({ onSaved }: { onSaved(m: string): void }) {
-  const { data: people } = usePeople()
+  const { data: people, error } = usePeople()
   const me = useMe(people)
   const fields = useFields()
   const [by, setBy] = useState<GroupBy>(() => { try { const v = localStorage.getItem(GROUP_KEY) as GroupBy | null; return v && GROUPS.includes(v) ? v : '모두' } catch { return '모두' } })
@@ -61,7 +61,7 @@ export function Authors({ onSaved }: { onSaved(m: string): void }) {
             {GROUPS.map((g) => <button key={g} role="radio" aria-checked={by === g} className={by === g ? 'on' : ''} onClick={() => pick(g)}>{GROUP_LABEL[g]}</button>)}
           </div>
         </div>
-        {!people ? <p className="muted">{t('불러오는 중…', 'Loading…')}</p> : (
+        {!people ? <p className="muted">{error ? t(`사람 목록을 불러오지 못했습니다: ${error.message}`, `Could not load people: ${error.message}`) : t('불러오는 중…', 'Loading…')}</p> : (
           <>
             {/* 10/4 19:20 "분야별로 볼 때 분야 탐색은?": 개념노트 분류의 맨 위 단계별로 분야 차례를 두고, 하나를 고르면 그 분야 사람만 */}
             {by === '분야별' && index.length > 0 && (

@@ -19,12 +19,12 @@ const scholarSearch = (name: string) => `https://scholar.google.com/scholar?q=${
 
 /** 사람 페이지. 사람이 바뀌면 새로 그린다(고치기 창이 닫힌다): NetworkPage가 key로 준다 */
 export function PersonPage({ id, onSaved }: { id: string; onSaved(m: string): void }) {
-  const { data: people } = usePeople()
+  const { data: people, error: peopleError } = usePeople()
   const me = useMe(people)
   const { data, error } = useQuery({ queryKey: qk.person(id), queryFn: () => networkApi.person(id), ...FRESH })
   /** 프로필은 읽기로 보이고, 오른쪽 위 연필을 눌렀을 때만 고치는 칸이 열린다 (10/4 18:55·18:56) */
   const [editing, setEditing] = useState(false)
-  if (error) return <p className="muted">{error.message}</p>
+  if (error ?? peopleError) return <p className="muted">{(error ?? peopleError)!.message}</p>
   if (!data || !people) return <p className="muted">{t('불러오는 중…', 'Loading…')}</p>
   const { person, papers, coauthors, appears } = data
   const isMe = me?.id === person.id

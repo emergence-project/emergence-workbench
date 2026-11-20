@@ -25,14 +25,18 @@ export type ProjectsView = 'topics' | 'records' | 'tasks'
 /** 주제 없는 노트를 모은 자리의 id */
 export const NO_TOPIC = '-'
 
+/** 빈 목록 자리의 글: 받는 중 · 받지 못함(이유) · 정말 없음 (11/21: 받지 못해도 "없습니다"로 보였다) */
+const emptyText = (q: { isPending: boolean; error: Error | null }, none: string): string =>
+  q.isPending ? t('불러오는 중…', 'Loading…') : q.error ? t(`불러오지 못했습니다: ${q.error.message}`, `Could not load: ${q.error.message}`) : none
+
 export function PhoneProjects({ rid, view = 'topics', tid, onSaved }: { rid?: string; view?: ProjectsView; tid?: string; onSaved(m: string): void }) {
   const list = useQuery({ queryKey: qk.researches, queryFn: () => api.researches() })
   const projects = list.data?.researches ?? []
   const project = rid ? projects.find((r) => r.id === rid) : undefined
   return (
     <main className="stage full ph-turns ph-projects" data-ui="폰 프로젝트">
-      {!rid ? <ProjectList projects={projects} loading={list.isPending} />
-        : !project ? <p className="empty ph-empty">{list.isPending ? t('불러오는 중…', 'Loading…') : t('이 프로젝트를 찾지 못했습니다.', 'Project not found.')}</p>
+      {!rid ? <ProjectList projects={projects} empty={emptyText(list, t('프로젝트가 없습니다. 맥에서 프로젝트를 등록하면 여기에 보입니다.', 'No projects. Register one on the Mac and it shows up here.'))} />
+        : !project ? <p className="empty ph-empty">{emptyText(list, t('이 프로젝트를 찾지 못했습니다.', 'Project not found.'))}</p>
         : tid !== undefined ? <TopicNotes project={project} tid={tid} />
         : <ProjectPage project={project} view={view} onSaved={onSaved} />}
     </main>
@@ -54,7 +58,7 @@ function StatusCounts({ notes }: { notes: NoteRow[] }) {
   })}</span>
 }
 
-function ProjectList({ projects, loading }: { projects: ResearchListItem[]; loading: boolean }) {
+function ProjectList({ projects, empty }: { projects: ResearchListItem[]; empty: string }) {
   const { items } = useTurns()
   const shown = projects.filter((r) => r.available)
   const active = shown.filter((r) => r.state === 'active')
@@ -78,7 +82,7 @@ function ProjectList({ projects, loading }: { projects: ResearchListItem[]; load
     <div className="ph-head"><h1>{t('프로젝트', 'Projects')}</h1></div>
     {active.map(card)}
     {others.length > 0 && <section className="ph-group"><h2>{t('멈춘 · 끝난 프로젝트', 'Paused and done')}</h2>{others.map(card)}</section>}
-    {!shown.length && <p className="empty ph-empty">{loading ? t('불러오는 중…', 'Loading…') : t('프로젝트가 없습니다. 맥에서 프로젝트를 등록하면 여기에 보입니다.', 'No projects. Register one on the Mac and it shows up here.')}</p>}
+    {!shown.length && <p className="empty ph-empty">{empty}</p>}
   </>
 }
 
@@ -132,7 +136,7 @@ function Topics({ rid }: { rid: string }) {
   return <div className="ph-list">
     {list.map((x) => row(x.id, x.title, x.description, notes.filter((n) => n.topics[0] === x.id), x.done))}
     {loose.length > 0 && row(NO_TOPIC, t('주제 없는 노트', 'Notes without a topic'), undefined, loose)}
-    {!list.length && !loose.length && <p className="empty ph-empty">{topics.isPending ? t('불러오는 중…', 'Loading…') : t('주제와 노트가 없습니다.', 'No topics or notes.')}</p>}
+    {!list.length && !loose.length && <p className="empty ph-empty">{emptyText(topics, t('주제와 노트가 없습니다.', 'No topics or notes.'))}</p>}
   </div>
 }
 
@@ -152,7 +156,7 @@ function TopicNotes({ project: p, tid }: { project: ResearchListItem; tid: strin
           <span className="ph-chev" aria-hidden>›</span>
         </button>
       ))}
-      {!notes.length && <p className="empty ph-empty">{query.isPending ? t('불러오는 중…', 'Loading…') : t('이 주제에 노트가 없습니다.', 'No notes in this topic.')}</p>}
+      {!notes.length && <p className="empty ph-empty">{emptyText(query, t('이 주제에 노트가 없습니다.', 'No notes in this topic.'))}</p>}
     </div>
   </>
 }
@@ -168,7 +172,7 @@ function Records({ rid }: { rid: string }) {
         <RecordList rid={rid} file={f} filter="전체" work onGo={() => { const r = recordRoute(rid, f, () => undefined); if (r) go(r) }} />
       </section>
     ))}
-    {!files.length && <p className="empty ph-empty">{query.isPending ? t('불러오는 중…', 'Loading…') : t('아직 기록이 없습니다.', 'No records yet.')}</p>}
+    {!files.length && <p className="empty ph-empty">{emptyText(query, t('아직 기록이 없습니다.', 'No records yet.'))}</p>}
   </div>
 }
 
@@ -182,6 +186,6 @@ function Tasks({ rid, onSaved }: { rid: string; onSaved(m: string): void }) {
   return <div className="ph-tasks">
     {tasks.map((x) => <TaskCard key={x.id} rid={rid} task={x} open={open === x.id} onToggle={() => setOpen(open === x.id ? null : x.id)} onSaved={onSaved}
       reload={() => query.refetch()} onEditProposal={() => go({ page: 'projects', project: rid, view: 'records' })} />)}
-    {!tasks.length && <p className="empty ph-empty">{query.isPending ? t('불러오는 중…', 'Loading…') : t('맡긴 일이 없습니다.', 'No delegated tasks.')}</p>}
+    {!tasks.length && <p className="empty ph-empty">{emptyText(query, t('맡긴 일이 없습니다.', 'No delegated tasks.'))}</p>}
   </div>
 }
