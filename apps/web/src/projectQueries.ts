@@ -62,6 +62,6 @@ export function useJournal(rapi: ResearchApi) {
   const q = useQuery({ queryKey: key, queryFn: () => rapi.journal(365) })
   const reload = () => client.invalidateQueries({ queryKey: key })
   const toggle = (e: JournalEntry) => { rapi.setTodo(e, !e.done).then(reload).catch((err: Error) => flash(err.message)) }
-  return { entries: q.data?.entries ?? NONE, loaded: q.isFetched && !q.isFetching, reload, toggle }
+  return { entries: q.data?.entries ?? NONE, loaded: q.isFetched && !q.isFetching, error: q.error?.message ?? null, reload, toggle }
 }
 const NONE: JournalEntry[] = []

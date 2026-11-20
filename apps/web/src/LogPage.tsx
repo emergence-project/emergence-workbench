@@ -52,7 +52,7 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
   /** 파일 알림마다 오른다: 안 올린 기록 줄이 다시 읽는다 */
   version?: number
 }) {
-  const { entries, loaded: journalLoaded, reload, toggle } = useJournal(rapi)
+  const { entries, loaded: journalLoaded, error: journalError, reload, toggle } = useJournal(rapi)
   const edit = useJournalEdit(rapi, reload, onSaved)
   const noteOf = useNoteOf(notes)
   // 할 일의 정본은 기록 파일이다 (2026-10-16). 일지에는 끝낸 일 · 상태 · 메모 (예전 일지의 끝낸 할 일 포함)
@@ -165,6 +165,8 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
         <PendingRecords rid={rid} />
         <div className="memo-list work-page">
           {recordsError && <div className="banner danger" role="alert">{recordsError}</div>}
+          {/* 일지를 받지 못하면 그 줄만 조용히 빠져 기록이 적어 보였다 (11/21) */}
+          {journalError && <div className="banner danger" role="alert">{t(`일지를 읽지 못해 일지의 기록이 빠져 있습니다: ${journalError}`, `The journal could not be read, so its entries are missing: ${journalError}`)}</div>}
           {view === 'mine' && <>
             <TaskWeek rid={rid} tasks={tasks} entries={entries} todos={summary.todos} />
             <div className="tk-list" data-ui="내 차례 목록">

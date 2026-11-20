@@ -100,7 +100,7 @@ export function PapersSide({ filter, list, open = false }: { filter?: PaperFilte
   const nav = (id: PaperFilter, label: ReactNode, n: number, title?: string, ui?: string, cls = '') => (
     <button key={id} className={`nav${cls}${filter === id ? ' on' : ''}`} data-ui="논문 거르기" data-ui-item={ui ?? (typeof label === 'string' ? label : id)} title={title}
       onClick={() => go({ page: 'shelf', filter: id })}>
-      <span className="label">{label}</span><span className="meta">{n}</span>
+      <span className="label">{label}</span>{data && <span className="meta">{n}</span>}
     </button>
   )
   const all = list && (!filter || isShow(filter))
