@@ -232,3 +232,10 @@ button.about-unsure:hover, .about-nav-flag[role=button]:hover { background: colo
   .stage.about-with-side { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
   .stage.about-with-side > .about-rs { border-left: 0; border-top: 1px solid var(--line); max-height: 40vh; }
 }
+/* 폰: 화면 구조 그림의 다섯 칸을 나란히 두면 글이 한 글자씩 세로로 끊긴다. 한 칸씩 위에서 아래로, 레일은 가로 한 줄로 */
+@media (max-width: 600px) {
+  .about-map { grid-template-columns: minmax(0, 1fr); }
+  .about-map .m-rail { flex-direction: row; flex-wrap: wrap; align-items: baseline; padding: var(--sp-2); }
+  .about-map .m-rail .sp { display: none; }
+  .about-map .m-rail i { margin: 0 0 0 auto; }
+}
