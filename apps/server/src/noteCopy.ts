@@ -22,11 +22,11 @@ export type { CreatedNote }
 
 const MAX_FILES = 400
 
-/** 새 Markdown 노트의 첫 글: 절은 ## 제목 (연구노트는 목표부터, 계산 노트는 목표·방법·결과) */
-export const NOTE_TEMPLATE = {
-  note: '## 목표\n\n',
-  calc: '## 목표\n\n## 방법\n\n## 결과\n\n',
-} as const
+/** 새 Markdown 노트의 첫 글: 절은 ## 제목 (연구노트는 목표부터, 계산 노트는 목표·방법·결과). 제목은 화면 언어를 따른다 (앱은 이 제목을 뜻으로 읽지 않는다) */
+export const noteTemplate = (kind: 'note' | 'calc'): string => {
+  const goal = `## ${t('목표', 'Goal')}\n\n`
+  return kind === 'calc' ? `${goal}## ${t('방법', 'Method')}\n\n## ${t('결과', 'Result')}\n\n` : goal
+}
 const GRAPHIC_EXT = ['', '.pdf', '.png', '.jpg', '.jpeg', '.eps']
 
 /** 주석을 뺀 글에서 이 파일이 부르는 파일 (main 폴더 기준 상대 경로, 확장자를 붙여 찾은 것) */
@@ -177,7 +177,7 @@ export function createNote(wb: Workbench, input: { kind?: unknown; name?: unknow
   } else {
     // 빈 노트는 Markdown + KaTeX (10/4 결정: 연구노트·계산 노트는 개념노트와 같은 형식, PDF는 내보낼 때 프로젝트 서식으로)
     fs.mkdirSync(dest, { recursive: true })
-    writeAtomic(path.join(dest, NOTE_MD), NOTE_TEMPLATE[kind])
+    writeAtomic(path.join(dest, NOTE_MD), noteTemplate(kind))
     writeYaml(path.join(dest, 'note.yaml'), { name, ...kindLine })
     return { path: path.relative(repo, path.join(dest, NOTE_MD)), name, kind: dirKind, copied: 1, skipped }
   }
