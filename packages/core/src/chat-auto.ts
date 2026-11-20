@@ -32,7 +32,7 @@ const READS = new Set([
   'ls', 'cat', 'head', 'tail', 'less', 'more', 'grep', 'egrep', 'fgrep', 'rg', 'ag', 'find', 'fd', 'wc', 'sort', 'uniq', 'cut', 'tr', 'nl', 'echo', 'printf',
   'pwd', 'which', 'type', 'file', 'stat', 'du', 'df', 'diff', 'cmp', 'tree', 'jq', 'yq', 'basename', 'dirname', 'realpath', 'readlink', 'date', 'true', 'false',
   'cd', 'column', 'comm', 'md5', 'md5sum', 'shasum', 'sha256sum', 'xxd', 'hexdump', 'od', 'strings', 'env', 'printenv', 'whoami', 'uname', 'test', '[',
-  'pdftotext', 'pdfinfo', 'sed', 'awk',
+  'pdftotext', 'pdfinfo', 'sed', 'awk', 'read',
 ])
 const EDITS = new Set(['mv', 'cp', 'mkdir', 'touch', 'tee', 'ln', 'patch', 'chmod'])
 const DELETES = new Set(['rm', 'rmdir', 'unlink', 'shred', 'trash'])
@@ -116,6 +116,33 @@ export function substitutions(cmd: string, o: { proc?: boolean } = {}): { inner:
 }
 
 /**
+ * 명령 앞의 말을 떼어 낸다: 환경 변수(A=1 cmd), 시간 재기 · env 같은 앞말, 셸의 묶음 말(then · do · ( · { · !).
+ * 묶음 말을 떼지 않으면 `for f in a; do rm $f; done`의 rm이 「실행」으로만 보인다. for <이름> in <낱말> · fi · done은 돌리는 것이 없어 빈 것으로.
+ * env = 다른 프로그램을 돌리게 할 수 있는 환경 변수가 붙었는지 (GIT_PAGER=… · LESSOPEN=… · PATH=…). 글 모양 변수만 그대로 둔다
+ */
+function leading(words: string[]): { rest: string[]; env: boolean } {
+  let w = words
+  let env = false
+  for (;;) {
+    if (w.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0]!)) {
+      if (!/^(LC_[A-Z]+|LANG|LANGUAGE|TZ|NO_COLOR|FORCE_COLOR|CLICOLOR|CLICOLOR_FORCE|COLUMNS|LINES|TERM)=/.test(w[0]!)) env = true
+      w = w.slice(1)
+    }
+    else if (w.length && /^(time|nice|nohup|command|builtin|exec)$/.test(w[0]!)) w = w.slice(1)
+    else if (w.length > 1 && w[0]!.split('/').pop() === 'env') { w = w.slice(1); while (w.length && w[0]!.startsWith('-')) w = w.slice(1) }
+    else if (w.length && /^(if|then|else|elif|do|while|until|!|\{|\()$/.test(w[0]!)) w = w.slice(1)
+    else if (w.length && /^[({]+[^({]/.test(w[0]!)) w = [w[0]!.replace(/^[({]+/, ''), ...w.slice(1)]
+    else break
+  }
+  if (w.length && /^(fi|done|\}|\))$/.test(w[0]!)) return { rest: [], env }
+  if (w[0] === 'for' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(w[1] ?? '') && (w.length === 2 || w[2] === 'in')) return { rest: [], env }
+  // 묶음을 닫는 ) 는 떼어 낸다: (cd x && ls) 의 ls)
+  while (w.length > 1 && /^[)}]+$/.test(w[w.length - 1]!)) w = w.slice(0, -1)
+  if (w.length && /[^)]\)+$/.test(w[w.length - 1]!)) w = [...w.slice(0, -1), w[w.length - 1]!.replace(/\)+$/, '')]
+  return { rest: w, env }
+}
+
+/**
  * 명령이 하는 일. inside(path)는 그 절대 경로가 프로젝트나 등록한 폴더 안인지 (cwd는 프로젝트 폴더).
  * 폴더 밖 경로를 건드리면 외부, 모르는 프로그램은 실행으로 본다
  */
@@ -134,17 +161,9 @@ export function commandKind(cmd: string, o: { cwd: string; inside(abs: string): 
       bump(touchesOutside(target, o) ? 'outside' : 'edit')
     }
     let w = words(seg.replace(/(?:\d|&)?>>?\|?&?\s*[^\s<>]+/g, ' ').replace(/<\s*\S+/g, ' '))
-    // 앞의 환경 변수 (A=1 cmd)와 시간 재기 같은 앞말. env도 뒤 명령을 돌리는 앞말이다 (env sh -c … 가 읽기로 보이지 않게)
-    for (;;) {
-      if (w.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0]!)) {
-        // 환경 변수로 다른 프로그램을 돌리게 할 수 있다 (GIT_PAGER=… · LESSOPEN=… · PATH=…). 글 모양 변수만 그대로 둔다
-        if (!/^(LC_[A-Z]+|LANG|LANGUAGE|TZ|NO_COLOR|FORCE_COLOR|CLICOLOR|CLICOLOR_FORCE|COLUMNS|LINES|TERM)=/.test(w[0]!)) bump('run')
-        w = w.slice(1)
-      }
-      else if (w.length && /^(time|nice|nohup|command|builtin|exec)$/.test(w[0]!)) w = w.slice(1)
-      else if (w.length > 1 && w[0]!.split('/').pop() === 'env') { w = w.slice(1); while (w.length && w[0]!.startsWith('-')) w = w.slice(1) }
-      else break
-    }
+    const lead = leading(w)
+    if (lead.env) bump('run')
+    w = lead.rest
     if (!w.length) continue
     const prog = w[0]!.split('/').pop()!
     const args = w.slice(1)
@@ -241,17 +260,37 @@ function normalize(abs: string): string {
   return `/${out.join('/')}`
 }
 
-/** 실행의 「늘」은 프로그램마다: 명령 줄에서 첫 실행 프로그램 이름 (pnpm test면 pnpm test) */
-export function runProgram(cmd: string): string {
-  for (const seg of segments(cmd)) {
-    let w = words(seg)
-    while (w.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0]!)) w = w.slice(1)
+/** 실행 프로그램의 이름: 꾸러미 관리자 · 스크립트 도구는 하위 명령까지 (pnpm test · npm run build), git은 하위 명령까지 */
+function programName(w: string[]): string {
+  const prog = w[0]!.split('/').pop()!
+  if (/^(npm|pnpm|yarn|bun|uv|make|cargo|go)$/.test(prog)) return [prog, ...w.slice(1).filter((a) => !a.startsWith('-')).slice(0, prog === 'npm' && w[1] === 'run' ? 2 : 1)].join(' ')
+  if (prog === 'git') return ['git', w.slice(1).find((a) => !a.startsWith('-')) ?? ''].join(' ').trim()
+  return prog
+}
+
+/**
+ * 명령 줄에서 읽기가 아닌 것을 하는 프로그램 모두 ($( ) 안도). 「늘」은 이 모두가 허락됐을 때만 묻지 않는다:
+ * 첫 프로그램만 보면 「pnpm test 늘」이 `pnpm test && ./deploy.sh`도 묻지 않고 돌린다
+ */
+export function runPrograms(cmd: string): string[] {
+  const out: string[] = []
+  const sub = substitutions(cmd, { proc: true })
+  for (const part of sub.inner) for (const p of runPrograms(part)) if (!out.includes(p)) out.push(p)
+  for (const seg of segments(sub.flat)) {
+    const all = words(seg.replace(/(?:\d|&)?>>?\|?&?\s*[^\s<>]+/g, ' ').replace(/<\s*\S+/g, ' '))
+    const { rest: w, env } = leading(all)
     if (!w.length) continue
     const prog = w[0]!.split('/').pop()!
-    if (READS.has(prog) || prog === 'git') continue
-    // 꾸러미 관리자 · 스크립트 도구는 하위 명령까지 (pnpm test · npm run build)
-    if (/^(npm|pnpm|yarn|bun|uv|make|cargo|go)$/.test(prog)) return [prog, ...w.slice(1).filter((a) => !a.startsWith('-')).slice(0, prog === 'npm' && w[1] === 'run' ? 2 : 1)].join(' ')
-    return prog
+    const reads = kindOf(prog, w.slice(1)) === 'read'
+    if (!env && reads) continue
+    // 환경 변수를 붙여 돌리는 것은 그 변수 이름까지가 이름이다 (GIT_PAGER= git log)
+    const name = env && reads ? `${all.filter((x) => /^[A-Za-z_][A-Za-z0-9_]*=/.test(x)).map((x) => x.slice(0, x.indexOf('=') + 1)).join(' ')} ${programName(w)}` : programName(w)
+    if (!out.includes(name)) out.push(name)
   }
-  return words(cmd)[0] ?? cmd
+  return out
+}
+
+/** 실행의 「늘」은 프로그램마다: 명령 줄에서 첫 실행 프로그램 이름 (pnpm test면 pnpm test) */
+export function runProgram(cmd: string): string {
+  return runPrograms(cmd)[0] ?? words(cmd)[0] ?? cmd
 }

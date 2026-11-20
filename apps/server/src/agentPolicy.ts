@@ -6,7 +6,7 @@ import crypto from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import { CENTRAL_RID, type ChatMode, type ChatScope, type ChatWrite } from '@rw/core/contract/agentChats'
-import { autoOf, commandKind, LIBRARY_RID, neverBypass, runProgram, stateOnlyCommand, type ChatAutoValues, type ChatKind, type NeverBypass } from '@rw/core'
+import { autoOf, commandKind, LIBRARY_RID, neverBypass, runProgram, runPrograms, stateOnlyCommand, type ChatAutoValues, type ChatKind, type NeverBypass } from '@rw/core'
 import { isInside } from './fsutil.js'
 import { t } from './i18n.js'
 
@@ -364,8 +364,11 @@ function judgeCommand(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
     return { kind: 'ask', summary, key: 'edit', label: t('편집', 'Edit'), does, turnOn: 'edit' }
   }
   if (does === 'run') {
-    const prog = runProgram(cmd)
-    if (auto.run || ctx.always?.(`run:${prog}`)) return { kind: 'allow' }
+    // 「늘」은 줄 안의 실행 프로그램이 모두 허락됐을 때만 (pnpm test 늘이 `pnpm test && ./deploy.sh`를 묻지 않고 돌리지 않게)
+    const progs = runPrograms(cmd)
+    const missing = progs.filter((p) => !ctx.always?.(`run:${p}`))
+    if (auto.run || (progs.length > 0 && !missing.length)) return { kind: 'allow' }
+    const prog = missing[0] ?? runProgram(cmd)
     return { kind: 'ask', summary, key: `run:${prog}`, label: t(`실행 · ${prog}`, `Run · ${prog}`), does }
   }
   return { kind: 'ask', summary, key: `${does}:${cmd}`, label: t(`외부 · ${what}`, `Outside · ${what}`), does: 'outside', once: true }
