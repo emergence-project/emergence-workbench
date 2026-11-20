@@ -5,7 +5,7 @@ import { agentChatsApi, api, APP_RID, CENTRAL_RID, DEBATE_RID, type AskAnswer, t
 import { askConfirm } from './askText'
 import { isSendKey } from './cmdEnter'
 import { relativeTime } from './format'
-import { t } from './i18n'
+import { HERE, t } from './i18n'
 import { Icon } from './icons'
 import { AppLinkProvider, MemoText } from './memo'
 import { Mockups } from './Mockups'
@@ -130,7 +130,7 @@ export function ChatLine({ c, on, onOpen, actions = false, pick, where }: { c: C
       <span className="ac-line-top">{pick && <span className={`ac-pick${pick.on ? ' on' : ''}`} aria-hidden />}<span className="ac-line-dot">{isUnseen(c) ? <span className="turn-dot" role="img" aria-label={t('확인하지 않음', 'Not checked')} title={t('끝났는데 아직 열어 보지 않은 대화', 'Finished and not opened yet')} /> : <ChatStateMark state={shownState(c)} name={stateName(c)} />}</span>
         <span className={`label${editing ? ' hide' : ''}`}>{c.title}</span></span>
       <span className="ac-line-meta">
-        {c.local && <><span className="tag ac-here" data-ui="이 맥 태그" title={t('서버가 아닌 이 컴퓨터에서 도는 대화', 'Runs on this computer, not on the server')}>{t('이 맥', 'This Mac')}</span> </>}{!isClaude(c.agent) && <><AgentChip agent={c.agent} /> · </>}{c.machine ?? stateName(c)}{where && ` · ${where}`}
+        {c.local && <><span className="tag ac-here" data-ui="이 맥 태그" title={t('서버가 아닌 이 컴퓨터에서 도는 대화', 'Runs on this computer, not on the server')}>{t(HERE.ko, HERE.En)}</span> </>}{!isClaude(c.agent) && <><AgentChip agent={c.agent} /> · </>}{c.machine ?? stateName(c)}{where && ` · ${where}`}
         {(c.added > 0 || c.removed > 0) && <> · <Delta added={c.added} removed={c.removed} /></>}
         {` · ${relativeTime(Date.parse(c.updated))}`}
       </span>{c.archived && c.summary && <span className="ac-line-sum" data-ui="결과 요약">{c.summary.split('\n')[0]}</span>}

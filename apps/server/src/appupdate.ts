@@ -5,7 +5,7 @@ import { promisify } from 'node:util'
 import YAML from 'yaml'
 import { git as gitAt } from './git.js'
 import { withRepoLock } from './repoLock.js'
-import { t } from './i18n.js'
+import { HERE, t } from './i18n.js'
 
 const exec = promisify(execFile)
 
@@ -130,9 +130,9 @@ async function inspect(root: string, running: string, fetch: boolean): Promise<A
   const changed = outsideFeedback((await git(root, 'diff', '--name-only', 'HEAD')).split('\n'))
   const localCommits = outsideFeedback((await git(root, 'diff', '--name-only', '@{upstream}...HEAD')).split('\n'))
   const blocked = changed.length
-    ? t(`이 맥에서 고친 파일이 있어 자동으로 받지 않습니다: ${changed.slice(0, 3).join(', ')}${changed.length > 3 ? ` 외 ${changed.length - 3}개` : ''}`, `Not pulling automatically because files were edited on this Mac: ${changed.slice(0, 3).join(', ')}${changed.length > 3 ? ` and ${changed.length - 3} more` : ''}`)
+    ? t(`${HERE.ko}에서 고친 파일이 있어 자동으로 받지 않습니다: ${changed.slice(0, 3).join(', ')}${changed.length > 3 ? ` 외 ${changed.length - 3}개` : ''}`, `Not pulling automatically because files were edited on ${HERE.en}: ${changed.slice(0, 3).join(', ')}${changed.length > 3 ? ` and ${changed.length - 3} more` : ''}`)
     : localCommits.length
-      ? t(`이 맥에만 있는 커밋이 코드를 바꿔 자동으로 받지 않습니다 (${localCommits.slice(0, 3).join(', ')}). 터미널에서 git pull로 합쳐 주세요`, `Not pulling automatically because commits only on this Mac change the code (${localCommits.slice(0, 3).join(', ')}). Merge them with git pull in a terminal`)
+      ? t(`${HERE.ko}에만 있는 커밋이 코드를 바꿔 자동으로 받지 않습니다 (${localCommits.slice(0, 3).join(', ')}). 터미널에서 git pull로 합쳐 주세요`, `Not pulling automatically because commits only on ${HERE.en} change the code (${localCommits.slice(0, 3).join(', ')}). Merge them with git pull in a terminal`)
       : null
   const prepared = head !== running && behind === 0 && nextBuildOf(root) === head
   return { running, head, branch, upstream, behind, blocked, fetchError, incoming, resolved, prepared }
