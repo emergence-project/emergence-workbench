@@ -132,7 +132,7 @@ export function LibraryNoteEditor({ kind, id, info, rid, project, onChanged, onS
             : <button className="btn" onClick={() => void setStatus('reviewed')} title={t('사용자가 내용을 검토했을 때만', 'Only when you have reviewed the content')}>{t('확인함으로 표시', 'Mark reviewed')}</button>}
         </div>
         {state === 'conflict' && (
-          <div className="banner danger">{t('다른 곳(에이전트나 다른 편집기)에서 이 파일이 바뀌어 저장을 멈췄습니다. 덮어쓰지 않았습니다.', 'This file changed elsewhere (an agent or another editor), so saving stopped. Nothing was overwritten.')}
+          <div className="banner danger">{t('다른 곳(에이전트나 다른 편집기)에서 이 파일이 바뀌어 저장을 멈췄습니다. 덮어쓰지 않았습니다. 이 화면에서 고친 것 가운데 남길 것은 복사해 두고 「파일 다시 읽기」를 누르세요.', 'This file changed elsewhere (an agent or another editor), so saving stopped. Nothing was overwritten. Copy any edits you want to keep, then press Reload file.')}
             <span className="sp" /><button className="btn" onClick={() => void load(t('파일을 다시 읽었습니다. 이 화면에서 고친 내용은 버렸습니다.', 'Reloaded the file. Edits on this screen were discarded.'))}>{t('파일 다시 읽기', 'Reload file')}</button></div>
         )}
         {notice && <div className="banner">{notice}<span className="sp" /><button className="btn ghost" onClick={() => setNotice(null)}>{t('닫기', 'Close')}</button></div>}

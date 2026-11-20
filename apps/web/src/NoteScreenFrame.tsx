@@ -54,7 +54,7 @@ export function NoteScreen({ ui, className, paneUi, toolbar, head, conflictUi, b
         {head}
         {toolbar.save === 'conflict' && (
           <div className="banner danger" data-ui={conflictUi}>
-            {t('다른 곳(에이전트나 다른 편집기)에서 이 파일이 바뀌어 저장을 멈췄습니다. 덮어쓰지 않았습니다.', 'Saving stopped because this file changed elsewhere (an agent or another editor). Nothing was overwritten.')}
+            {t('다른 곳(에이전트나 다른 편집기)에서 이 파일이 바뀌어 저장을 멈췄습니다. 덮어쓰지 않았습니다. 이 화면에서 고친 것 가운데 남길 것은 복사해 두고 「파일 다시 읽기」를 누르세요.', 'Saving stopped because this file changed elsewhere (an agent or another editor). Nothing was overwritten. Copy any edits you want to keep, then press Reload file.')}
           </div>
         )}
         {banner}
