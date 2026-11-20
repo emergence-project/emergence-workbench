@@ -106,3 +106,12 @@ function InlineHunk({ h, busy, render, onAct }: { h: EditHunk; busy: boolean; re
     </div>
   )
 }
+
+/** 에이전트 대화의 「변경사항 보기」: 변경사항 패널에서 이 파일로 옮기고 잠깐 테두리로 표시한다. 패널이 이미 열려 있어도 (11/20 피드백: 열린 채로 누르면 아무 변화가 없었다) (패널을 막 열었으면 그려질 때까지 몇 번 다시 찾는다) */
+export function showChangeFile(file: string, tries = 10) {
+  const hit = [...document.querySelectorAll<HTMLElement>('.ac-change-file')].find((el) => el.dataset.file === file)
+  if (!hit) { if (tries > 0) setTimeout(() => showChangeFile(file, tries - 1), 50); return }
+  hit.scrollIntoView({ block: 'nearest' })
+  hit.classList.add('ac-flash')
+  setTimeout(() => hit.classList.remove('ac-flash'), 1600)
+}

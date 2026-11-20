@@ -178,6 +178,7 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-usage { margin-top: auto; }
 .ac-changes { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
 .ac-change-file { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.ac-change-file.ac-flash { outline: 2px solid var(--focus-line); outline-offset: 3px; border-radius: var(--r-xs); }
 .ac-diff-part { border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; gap: 0; background: var(--bg); }
 .ac-diff-part.on { border-color: var(--line-strong); }
 .ac-diff-hit { display: flex; flex-direction: column; padding: 0; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }

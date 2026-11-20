@@ -22,7 +22,7 @@ import { openRecordComposer } from './RecordContext'
 import { useRecords } from './projectQueries'
 import { AGENT_PANEL_OPEN, agentPanelKey } from './agentPanelOpen'
 import { ForeignBar } from './AgentForeign'
-import { InlineEdits } from './InlineEdits'
+import { InlineEdits, showChangeFile } from './InlineEdits'
 import { PermTable } from './AgentPermTable'
 import { ProjectPick, RecentChats } from './AgentProjectPick'
 import { ChatHerePick, useChatHere } from './ChatHere'
@@ -360,7 +360,7 @@ function TodoBar({ todos }: { todos: Todo[] }) {
 const reviewOf = (rid: string, file: string) => go({ page: 'review', key: `note:${rid}:${file}` })
 
 /** 노트 고침: 대화 안에는 한 줄(무엇을 · +n −n), 바뀐 곳은 오른쪽 칸과 수정 검토에서 */
-function EditLine({ chat, it, onChanges }: { chat: Chat; it: Extract<ChatItem, { kind: 'edit' }>; onChanges?(): void }) {
+function EditLine({ chat, it, onChanges }: { chat: Chat; it: Extract<ChatItem, { kind: 'edit' }>; onChanges?(file: string): void }) {
   // 오른쪽 사이드바의 대화에서는 고친 곳을 이 줄 아래에 펼쳐 그 자리에서 검토한다 (10/28 사용자 정정: 페이지를 옮기지 않고)
   const [open, setOpen] = useState(false)
   const inline = !onChanges && chat.rid !== APP_RID
@@ -369,7 +369,7 @@ function EditLine({ chat, it, onChanges }: { chat: Chat; it: Extract<ChatItem, {
       <span className="ac-edit-what">{it.via === 'command' ? t('명령으로 고침', 'Changed by a command') : chat.rid === APP_RID ? t('파일 고침', 'Edited file') : t('노트 고침', 'Edited')}</span>
       <span className="mono ac-file" title={it.file}>{it.file}</span>
       <Delta added={it.added} removed={it.removed} />
-      {onChanges && <button className="a ac-edit-go" data-ui="바뀐 곳 보기" onClick={onChanges}>{t('변경사항 보기', 'View changes')}</button>}
+      {onChanges && <button className="a ac-edit-go" data-ui="바뀐 곳 보기" onClick={() => onChanges(it.file)}>{t('변경사항 보기', 'View changes')}</button>}
       {inline && <button className="a ac-edit-go" data-ui="바뀐 곳 보기" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? t('고친 곳 접기', 'Hide changes') : t('고친 곳 검토 ›', 'Review changes ›')}</button>}
       {it.reason && <span className="muted ac-hint ac-edit-why">{it.reason}</span>}
       {inline && open && <div className="ac-edit-inline"><InlineEdits rid={chat.rid} files={[it.file]} /></div>}
@@ -387,7 +387,7 @@ function AttachChips({ attach, images }: { attach?: Attach[]; images?: number })
   )
 }
 
-function ItemView({ chat, it, who, onError, onChanges, onRewind, onPass }: { chat: Chat; it: Exclude<ChatItem, { kind: 'step' | 'think' }>; who?: boolean; onError(m: string): void; onChanges?(): void; onRewind?(point: string): void; onPass?(text: string): void }) {
+function ItemView({ chat, it, who, onError, onChanges, onRewind, onPass }: { chat: Chat; it: Exclude<ChatItem, { kind: 'step' | 'think' }>; who?: boolean; onError(m: string): void; onChanges?(file: string): void; onRewind?(point: string): void; onPass?(text: string): void }) {
   const when = new Date(it.at).toLocaleString()
   switch (it.kind) {
     // 중앙을 저절로 깨운 알림은 옅은 한 줄 (11/19: 진행은 작업 현황에서 보고, 대화에는 짧게)
@@ -635,7 +635,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, o
       : live ? t('보내면 다음 차례에 읽습니다', 'Sent now, read next turn')
         : chat.rid === APP_RID ? t('이어서 쓰기 · 그림 붙여넣기', 'Continue · paste images') : t('이어서 쓰기 · / 명령 · @ 붙이기', 'Continue · / commands · @ attach')
   const showTodos = chat.todos.length > 0 && (live || chat.todos.some((x) => x.state !== 'completed'))
-  const openChanges = onPane ? () => { if (!pane) onPane() } : undefined
+  const openChanges = onPane ? (file: string) => { if (!pane) onPane(); showChangeFile(file) } : undefined
   return (
     <AppLinkProvider feedback={chat.rid === CENTRAL_RID || chat.rid === APP_RID}><div className="ac-chat" data-ui="에이전트 대화">
       {head && <ChatHead chat={chat} pane={pane} onPane={onPane} tools={tools} onBack={onBack} onDeleted={onDeleted} onSaved={onSaved} onError={setFail} />}{head && chat.rid === CENTRAL_RID && <RoomStrip />}
@@ -741,7 +741,7 @@ function Changes({ chat, onSaved }: { chat: Chat; onSaved(m: string): void }) {
       {files.map((f) => {
         const mine = edits.map((e, ei) => ({ e, ei })).filter((x) => x.e.file === f)
         return (
-          <div key={f} className="ac-change-file">
+          <div key={f} className="ac-change-file" data-file={f}>
             <div className="ac-work-row">
               <span className="mono ac-file" title={f}>{f}</span>
               <Delta added={mine.reduce((s, x) => s + x.e.added, 0)} removed={mine.reduce((s, x) => s + x.e.removed, 0)} />
