@@ -22,6 +22,13 @@
 
   /* 상단바: 위치 표시가 버튼을 밀어내지 않게 */
   .titlebar { gap: var(--sp-1); }
+  /* 가운데 칸이 남는 폭만 쓴다: 양쪽을 같은 폭으로 두면 버튼이 더 많은 오른쪽이 위치 글자 위로 넘친다 (11/21) */
+  .titlebar.bar3 { grid-template-columns: auto minmax(0, 1fr) auto; }
+  /* 위치가 길면 앞 단계(프로젝트 이름)를 …로 줄이고 지금 화면 이름은 남긴다 */
+  .tb-where { justify-content: center; margin-left: 0; }
+  .tb-where > .tb-c { flex: 0 1 auto; min-width: 0; }
+  .tb-where > .tb-c:last-child { flex: 0 0 auto; max-width: 70%; }
+  .tb-where .tb-crumb { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .tb-left { padding-left: var(--sp-2); }
   .tb-right { padding-right: var(--sp-2); }
   .sandbox-bar { font-size: var(--fs-2xs); }
