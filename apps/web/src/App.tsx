@@ -138,15 +138,14 @@ export function App() {
   onGlobalPage.current = route.page === 'home' || !!globalPageOf(route.page)
   const [quickMemo, setQuickMemo] = useState(false); const [feedback, setFeedback] = useState(false)
   const closeFeedback = useCallback(() => setFeedback(false), [])
-  const [toast, setToast] = useState<{ message: string; action?: FlashAction } | null>(null); const toastTimer = useRef<number | undefined>(undefined)
-  const flash = useCallback((message: string, action?: FlashAction) => {
-    setToast({ message, action })
+  const [toast, setToast] = useState<FlashMessage | null>(null); const toastTimer = useRef<number | undefined>(undefined)
+  const flash = useCallback((message: string, action?: FlashAction, error?: boolean) => {
+    setToast({ message, action, error })
     window.clearTimeout(toastTimer.current)
-    toastTimer.current = window.setTimeout(() => setToast(null), action ? 8000 : 2200)
-  }, [])
-  useEffect(() => () => window.clearTimeout(toastTimer.current), [])
+    if (!error) toastTimer.current = window.setTimeout(() => setToast(null), action ? 8000 : 2200)
+  }, []); useEffect(() => () => window.clearTimeout(toastTimer.current), [])
   useEffect(() => {
-    const show = (event: Event) => { const { message, action } = (event as CustomEvent<FlashMessage>).detail; flash(message, action) }
+    const show = (event: Event) => { const { message, action, error } = (event as CustomEvent<FlashMessage>).detail; flash(message, action, error) }
     window.addEventListener(FLASH_EVENT, show)
     return () => window.removeEventListener(FLASH_EVENT, show)
   }, [flash])
@@ -565,13 +564,14 @@ export function App() {
       {feedback && <FeedbackMode onClose={closeFeedback} onSaved={flash} />}
       {search && <SearchOverlay rid={rid} onClose={closeSearch} />}
       <AskTextHost />
-      <div className={`toast${toast ? ' show' : ''}`} role="status" data-feedback-ui>
+      <div className={`toast${toast ? ' show' : ''}${toast?.error ? ' error' : ''}`} role={toast?.error ? 'alert' : 'status'} data-feedback-ui>
         {toast?.message}
         {toast?.action && <> · <button type="button" className="a toast-action" data-ui="되돌리기 버튼" onClick={() => {
           window.clearTimeout(toastTimer.current)
           setToast(null)
           toast.action?.run()
         }}>{toast.action.label}</button></>}
+        {toast?.error && <button type="button" className="icon-btn toast-close" aria-label={t('알림 닫기', 'Close notice')} onClick={() => setToast(null)}>{Icon.x}</button>}
       </div>
       {dialog === 'register' && (
         <RegisterDialog sandbox={sandbox} all={researches ?? []} onClose={() => setDialog(null)} onRegistered={(id) => {
