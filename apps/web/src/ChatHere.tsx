@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { devicesApi } from './api'
-import { t } from './i18n'
+import { HERE, t } from './i18n'
 import { qk } from './queries'
 import { store } from './store'
 
@@ -28,7 +28,7 @@ export function ChatHerePick({ h }: { h: ReturnType<typeof useChatHere> }) {
       </div>
       <span className={`muted${h.down ? ' error-text' : ''}`}>{h.down
         ? t(`서버(${h.server})에 닿지 않아 이 맥에서 돌립니다`, `Cannot reach the server (${h.server}), so it runs on this Mac`)
-        : h.here ? t('이 맥의 계정 · 폴더로 일하고, 이 맥에서만 이어 씁니다', 'Uses this Mac’s accounts and folders; continue it on this Mac only')
+        : h.here ? t(`${HERE.ko}의 계정 · 폴더로 일하고, ${HERE.ko}에서만 이어 씁니다`, `Uses the accounts and folders of ${HERE.en}; continue it on ${HERE.en} only`)
           : t(`${h.server}에서 돌아 어느 맥에서든 이어 씁니다`, `Runs on ${h.server}; continue it from any Mac`)}</span>
     </div>
   )

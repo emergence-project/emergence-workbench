@@ -1,4 +1,4 @@
-import { lang, t } from '../i18n'
+import { lang, onWindows, t } from '../i18n'
 /** 서버 호출의 공통 도우미 (api/*.ts가 함께 쓴다) */
 
 export class ConflictError extends Error {
@@ -16,6 +16,8 @@ export async function req(input: string, init?: RequestInit): Promise<Response> 
     headers.set('x-rw-lang', lang)
     return await fetch(input, { ...init, headers })
   } catch {
+    // Windows has no .command launcher or terminal habit: the installed app starts its own server
+    if (onWindows) throw new Error(t('앱 서버에 연결할 수 없습니다. 서버가 꺼져 있을 수 있습니다 — 앱을 닫았다가 다시 열어 주세요. 적던 내용은 그대로 남아 있습니다.', 'Cannot reach the app server. It may be stopped: close the app and open it again. What you were writing is kept.'))
     throw new Error(t('앱 서버에 연결할 수 없습니다. 서버가 꺼져 있을 수 있습니다 — scripts/연구 작업대 열기.command를 실행하거나 터미널에서 pnpm start. 적던 내용은 그대로 남아 있습니다.', 'Cannot reach the app server. It may be stopped: run scripts/연구 작업대 열기.command or `pnpm start` in a terminal. What you were writing is kept.'))
   }
 }

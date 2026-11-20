@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { api, type ProjectInfo, type RepoTree, type ResearchApi } from './api'
 import { FileTree, meaningOf } from './FileTree'
 import { flash } from './flash'
-import { t } from './i18n'
+import { openAppLabel, t } from './i18n'
 import { takeRepoWant, useRepoPage, useRepoWant, useSideShown } from './noteScreen'
 import { RepoBrief, RepoDetails, useRepoState } from './ProjectInfoPage'
 import { useProjectInfo } from './projectQueries'
@@ -112,7 +112,7 @@ function PreviewFile({ rid, path, size, sources }: { rid: string; path: string; 
         <span className="sp" />
         {target && <button className="btn sm" onClick={() => go(target.to!)}>{t(`${target.label}에서 보기`, `View in ${target.label}`)}</button>}
         <button className="btn sm" onClick={() => go({ page: 'file', rid, path })}>{t('탭으로 열기', 'Open in a tab')}</button>
-        <button className="btn sm" onClick={() => { api.research(rid).openRepoFile(path).catch((e: Error) => flash(e.message)) }}>{t('맥 앱으로 열기', 'Open in Mac app')}</button>
+        <button className="btn sm" onClick={() => { api.research(rid).openRepoFile(path).catch((e: Error) => flash(e.message)) }}>{openAppLabel()}</button>
       </div>
       <div className="scroll fv-content">
         {file.error ? <p className="empty center">{(file.error as Error).message}</p>

@@ -12,7 +12,7 @@ import { Icon } from './icons'
 import { CITE_EVENT, citeKeys } from './citeKeys'
 import { LIBRARY_SOURCE, loadCitedBib } from './citedBib'
 import { store } from './store'
-import { t, HERE } from './i18n'
+import { t, HERE, onWindows } from './i18n'
 
 /**
  * 사이드바의 "논문·파일": 실제로 가진 PDF·파일(workbench/materials/)만.
@@ -47,7 +47,7 @@ export function MaterialsNav({ rid, rapi, route, onSaved, library, onLibraryChan
   const on = (name: string) => route.page === 'doc' && route.name === name
   const openFile = (f: MaterialFile) => {
     if (f.kind === 'pdf' || f.kind === 'image' || isHtml(f.name)) return openDoc(f.name)
-    rapi.openMaterial(f.name).then(() => onSaved(t(`맥 앱으로 열었습니다 — ${f.name}`, `Opened in the Mac app: ${f.name}`))).catch((err: Error) => onSaved(err.message))
+    rapi.openMaterial(f.name).then(() => onSaved(onWindows ? t(`기본 앱으로 열었습니다 — ${f.name}`, `Opened in the default app: ${f.name}`) : t(`맥 앱으로 열었습니다 — ${f.name}`, `Opened in the Mac app: ${f.name}`))).catch((err: Error) => onSaved(err.message))
   }
   const drop = async (e: React.DragEvent) => {
     e.preventDefault()

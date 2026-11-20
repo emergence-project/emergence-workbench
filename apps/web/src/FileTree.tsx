@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { api, type ProjectInfo, type RepoTree } from './api'
 import { FileIcon, FolderIcon } from './fileIcons'
 import { Icon } from './icons'
-import { plural, t } from './i18n'
+import { openAppLabel, plural, t } from './i18n'
 import { useProjectInfo } from './projectQueries'
 import { qk } from './queries'
 import { type Route } from './router'
@@ -126,7 +126,7 @@ export function FileTree({ rid, current, onOpen }: { rid: string; current: strin
           {changed.has(f.path) && <span className="fv-mod" role="img" aria-label={t('커밋 안 한 변경', 'Uncommitted change')} />}
           {said ? <span className="fv-mean">{said}</span> : m && <span className="fv-mean">{m.label}</span>}
         </button>
-        <button className="fv-more icon-btn" data-ui="파일 줄 메뉴" aria-label={t('더 보기', 'More')} aria-haspopup="menu" title={t('경로 복사 · 맥 앱으로 열기', 'Copy path · Open in Mac app')}
+        <button className="fv-more icon-btn" data-ui="파일 줄 메뉴" aria-label={t('더 보기', 'More')} aria-haspopup="menu" title={`${t('경로 복사', 'Copy path')} · ${openAppLabel()}`}
           onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); openMenu(f.path, r.right - 180, r.bottom + 2) }}>{Icon.more}</button>
       </div>
     )
@@ -164,7 +164,7 @@ export function FileTree({ rid, current, onOpen }: { rid: string; current: strin
         {repoRoot && <button role="menuitem" onClick={() => copy(menu.path, `${repoRoot.replace(/\/$/, '')}/${menu.path}`)}>{t('경로 복사', 'Copy path')}</button>}
         <button role="menuitem" onClick={() => copy(menu.path, menu.path)}>{t('저장소 안 경로 복사', 'Copy path in repository')}</button>
         <button role="menuitem" onClick={() => copy(menu.path, menu.path.split('/').pop() ?? menu.path)}>{t('이름 복사', 'Copy name')}</button>
-        <button role="menuitem" onClick={() => { const p = menu.path; setMenu(null); api.research(rid).openRepoFile(p).catch((e: Error) => setNote({ path: p, text: e.message })) }}>{t('맥 앱으로 열기', 'Open in Mac app')}</button>
+        <button role="menuitem" onClick={() => { const p = menu.path; setMenu(null); api.research(rid).openRepoFile(p).catch((e: Error) => setNote({ path: p, text: e.message })) }}>{openAppLabel()}</button>
       </div>}
       {data && <p className="fv-count muted">{data.source === 'git'
         ? t(`git이 추적하는 파일과 새 파일 ${data.files.length}개`, `${plural(data.files.length, 'file')} tracked by git or new`)

@@ -36,6 +36,9 @@ export const revealLabel = (): string => (onWindows ? t('탐색기에서 보기'
 /** "Finder에서 고르기" (윈도우: 폴더 고르기) */
 export const pickFolderLabel = (): string => (onWindows ? t('폴더 고르기', 'Choose folder') : t('Finder에서 고르기', 'Choose in Finder'))
 
+/** "맥 앱으로 열기" (윈도우: 기본 앱으로 열기): 파일을 그 종류에 연결된 앱으로 연다 */
+export const openAppLabel = (): string => (onWindows ? t('기본 앱으로 열기', 'Open in default app') : t('맥 앱으로 열기', 'Open in Mac app'))
+
 /** English plural helper: `plural(n, 'note')` → "1 note" / "3 notes". */
 export const plural = (n: number, one: string, many = `${one}s`): string => `${n} ${n === 1 ? one : many}`
 
