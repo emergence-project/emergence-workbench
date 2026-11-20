@@ -579,7 +579,7 @@ export class CentralChats extends FeedbackChats {
     }
     const m = await w.merge(c.worktree, c.branch)
     c.merged = m.sha || 'merged'
-    c.items.push({ kind: 'text', at: new Date().toISOString(), text: t(`PR #${m.number}을 합쳤습니다. 앱이 새 버전을 받아 쓰지 않는 틈에 다시 시작합니다.`, `Merged PR #${m.number}. The app picks up the new version and restarts when idle.`) })
+    c.items.push({ kind: 'text', at: new Date().toISOString(), text: t(`PR을 합쳤습니다(#${m.number}). 앱이 새 버전을 받아 쓰지 않는 틈에 다시 시작합니다.`, `Merged PR #${m.number}. The app picks up the new version and restarts when idle.`) })
     this.touch(c)
     return m
   }
