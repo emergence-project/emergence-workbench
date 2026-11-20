@@ -180,7 +180,7 @@ function useChatActions(id: string) {
   return { rename, remove }
 }
 
-/** 고른 대화 여러 개를 보관 · 꺼내기 · 지우기 (지우기는 보관한 것만, 한 번 묻고) */
+/** 고른 대화 여러 개를 보관 · 복원 · 지우기 (지우기는 보관한 것만, 한 번 묻고) */
 export function useBulkChats() {
   const client = useQueryClient()
   const [busy, setBusy] = useState(false)
@@ -513,7 +513,7 @@ function HeadMore({ live, archived, onRename, onArchive, onRemove, onRecord }: {
         <div className="menu ac-head-menu" role="menu" data-ui="대화 더 보기 항목">
           <button role="menuitem" data-ui="대화 제목 바꾸기" onClick={() => { setOpen(false); onRename() }}>{t('제목 바꾸기', 'Rename')}</button>
           {onRecord && <button role="menuitem" data-ui="기록으로 남기기" onClick={() => { setOpen(false); onRecord() }}>{t('기록으로 남기기', 'Keep as a record')}</button>}
-          <button role="menuitem" disabled={live && !archived} title={live ? t('도는 대화는 멈춘 뒤 보관합니다', 'Stop it before archiving') : undefined} onClick={() => { setOpen(false); onArchive(!archived) }}>{archived ? t('보관함에서 꺼내기', 'Unarchive') : t('보관함에 넣기', 'Archive')}</button>
+          <button role="menuitem" disabled={live && !archived} title={live ? t('도는 대화는 멈춘 뒤 보관합니다', 'Stop it before archiving') : undefined} onClick={() => { setOpen(false); onArchive(!archived) }}>{archived ? t('보관함에서 복원', 'Restore') : t('보관함에 넣기', 'Archive')}</button>
           <button role="menuitem" className="danger" data-ui="대화 지우기" disabled={live || !archived} title={!archived ? t('보관함에 넣은 대화만 지웁니다', 'Only archived conversations can be deleted') : undefined} onClick={() => { setOpen(false); onRemove() }}>{t('삭제', 'Delete')}</button>
         </div>
       )}
