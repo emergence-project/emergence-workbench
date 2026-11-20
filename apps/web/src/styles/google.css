@@ -10,7 +10,6 @@
 .g-mrow { display: flex; align-items: center; gap: var(--sp-3); }
 .g-mt { font-weight: var(--fw-strong); }
 .g-mr { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); }
-.g-msg { margin-top: var(--sp-2); color: var(--text-2); font-size: var(--fs-sm); }
 .g-err { color: var(--danger); font-size: var(--fs-sm); }
 p.g-err { margin-top: var(--sp-2); }
 .g-help { margin-top: var(--sp-3); font-size: var(--fs-sm); color: var(--text-2); }

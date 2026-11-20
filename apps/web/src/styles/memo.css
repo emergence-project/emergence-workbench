@@ -77,6 +77,10 @@ button.memo-chip:hover { border-color: var(--line-strong); color: var(--text); }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 .toast .toast-action { color: inherit; white-space: nowrap; pointer-events: auto; }
 .toast .toast-action:hover { color: inherit; }
+/* 실패 알림 (11/20 시안 2절): 위험 색, 닫을 때까지 남고 × 로 닫는다 */
+.toast.error { display: flex; align-items: center; gap: var(--sp-2); max-width: min(640px, calc(100vw - 32px)); background: var(--danger); color: var(--bg); }
+.toast .toast-close { pointer-events: auto; color: inherit; width: 22px; height: 22px; flex: none; }
+.toast .toast-close:hover { background: color-mix(in srgb, var(--bg) 20%, transparent); color: inherit; }
 .mi-actions.icons { gap: 0; }
 .mi-actions.icons .icon-btn { width: 22px; height: 18px; color: var(--text-3); }
 .mi-actions.icons .icon-btn svg { width: 14px; height: 14px; }
