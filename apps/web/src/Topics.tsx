@@ -237,7 +237,10 @@ export function TopicPage({ rid, rapi, tid, notes, manuscripts, project, pc, ver
  */
 export async function createNoteAsk(rapi: ResearchApi, rid: string, topic: { id: string; title: string } | null,
   onChanged: () => void, onSaved: (m: string) => void, fail: (e: unknown) => void) {
-  const name = (await askText({ title: tr('새 노트', 'New note'), label: tr('이름', 'Name'), placeholder: tr('예: 근사적으로 붙이기', 'e.g. Asymptotic matching'), hint: topic ? tr(`주제 "${topic.title}"에 만듭니다. 빈 Markdown 노트로 시작합니다.`, `Creates it in topic "${topic.title}". Starts as an empty Markdown note.`) : tr(`주제 없이 "${LOOSE_NOTES_LABEL}"에 만듭니다. 주제는 노트의 오른쪽 사이드바에서 고릅니다.`, `Creates it in "${LOOSE_NOTES_LABEL}" without a topic. Pick a topic in the note's right sidebar.`), ok: tr('만들기', 'Create') }))?.trim()
+  // 같은 이름의 노트가 있으면 적는 동안 알린다 (막지는 않는다: 폴더 이름은 따로 붙는다)
+  const taken = new Set((await notesApi(rid).list().catch(() => [])).map((x) => x.title.trim()))
+  const note = (v: string) => (taken.has(v.trim()) ? tr('같은 이름의 노트가 이미 있습니다. 만들면 이름이 같은 노트가 둘이 됩니다.', 'A note with this name already exists. Creating it makes two notes with the same name.') : undefined)
+  const name = (await askText({ note, title: tr('새 노트', 'New note'), label: tr('이름', 'Name'), placeholder: tr('예: 근사적으로 붙이기', 'e.g. Asymptotic matching'), hint: topic ? tr(`주제 "${topic.title}"에 만듭니다. 빈 Markdown 노트로 시작합니다.`, `Creates it in topic "${topic.title}". Starts as an empty Markdown note.`) : tr(`주제 없이 "${LOOSE_NOTES_LABEL}"에 만듭니다. 주제는 노트의 오른쪽 사이드바에서 고릅니다.`, `Creates it in "${LOOSE_NOTES_LABEL}" without a topic. Pick a topic in the note's right sidebar.`), ok: tr('만들기', 'Create') }))?.trim()
   if (!name) return
   try {
     const r = await rapi.createNote('note', name)
