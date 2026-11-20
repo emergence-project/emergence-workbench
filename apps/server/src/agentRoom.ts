@@ -105,7 +105,7 @@ export class RoomChats extends CentralChats {
     if (r.members.some((x) => x.agent === agent)) throw new WorkbenchError(409, t(`${nameOf(agent)}는 이미 방에 있습니다`, `${nameOf(agent)} is already in the room`))
     if (r.members.length >= ROOM_MAX) throw new WorkbenchError(409, t(`방에는 ${ROOM_MAX}명까지 둡니다`, `The room holds at most ${ROOM_MAX}`))
     const p = perm ?? r.rules.defaultPerm
-    if (p === 'edit') throw new WorkbenchError(409, by === 'host' ? t('방장은 읽기만 · 발언까지만 줄 수 있습니다', 'The host can give only read-only or talk') : t('수정 넘기기는 다음 단계입니다. 지금은 방장(Claude)만 수정합니다', 'Handing over edit comes next. For now only the host (Claude) edits'))
+    if (p === 'edit') throw new WorkbenchError(409, by === 'host' ? t('방장은 읽기 · 답변까지만 줄 수 있습니다', 'The host can give only read or answer') : t('수정 넘기기는 다음 단계입니다. 지금은 방장(Claude)만 수정합니다', 'Handing over edit comes next. For now only the host (Claude) edits'))
     if (by === 'host' && !reason?.trim()) throw new WorkbenchError(400, t('방장이 초대할 때는 까닭 한 줄을 적습니다', 'The host gives a one-line reason when inviting'))
     r.members.push({ agent, perm: p, by, ...(reason?.trim() && { reason: clip(reason.trim(), 200) }), at: now() })
     return this.changed({ act: 'invite', agent, perm: p, by, ...(reason?.trim() && { reason: clip(reason.trim(), 200) }) })
