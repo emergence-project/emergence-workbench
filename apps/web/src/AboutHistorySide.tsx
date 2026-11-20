@@ -11,7 +11,7 @@ import { href } from './router'
 
 /**
  * 소개 오른쪽 사이드바 (11/20 시안 2 · 3절, 「시안대로 구현하자」): 탭 「이력 · 수정」.
- * 이력은 (절, 업데이트)마다 카드 하나: 첫 줄 #번호 · 날짜 · 절과 오른쪽 맞아요 · 답하기, 다음 줄 제목 전문 (11/20 시안 3절 안 C: 표가 좁아
+ * 이력은 (절, 업데이트)마다 카드 하나: 첫 줄 #번호 · 날짜 · 절과 오른쪽 맞아요 · 고칠 점(11/20, 예전 「답하기」), 다음 줄 제목 전문 (11/20 시안 3절 안 C: 표가 좁아
  * 이력을 두 칸의 오른쪽 칸에 띄운다). 카드를 누르면 본문이 그 절로 가고 그 업데이트가 바꾼 문장에 하이라이트가 붙으며, 카드 아래에 바꾼 것 요약이 펼쳐진다.
  * 예전(11/16–11/19)에는 본문 위 「이 쪽의 확인 항목」 상자와 업데이트마다 한 줄인 목록이 같은 업데이트를 두 번 보였다.
  */
@@ -76,7 +76,7 @@ function HistoryTable({ part, picked, onPick }: { part: AboutPart; picked: Picke
   }
   const answer = async (r: HistoryRow) => {
     const sec = secs[r.sec]!
-    const v = await askText({ title: t(`답하기 · #${r.n}`, `Reply · #${r.n}`), label: r.ask ?? t('이 업데이트가 바꾼 것에서 고칠 점', 'What to fix in what this update changed'), multiline: true, ok: t('보내기', 'Send') })
+    const v = await askText({ title: t(`고칠 점 · #${r.n}`, `To fix · #${r.n}`), label: r.ask ?? t('이 업데이트가 바꾼 것에서 고칠 점', 'What to fix in what this update changed'), multiline: true, ok: t('보내기', 'Send') })
     if (!v?.trim()) return
     setError('')
     try {
@@ -105,7 +105,7 @@ function HistoryTable({ part, picked, onPick }: { part: AboutPart; picked: Picke
                   {r.ok !== undefined ? <span className="about-hist-ok" data-ui="확인함"><i className="mark-ico" aria-hidden>{Icon.check}</i>{t(`확인함 ${shortDate(r.ok)}`, `Reviewed ${shortDate(r.ok)}`)}</span>
                     : checks.enabled && <>
                       <button className="btn sm" data-ui="맞아요" data-tip={t('이 업데이트를 확인함으로', 'Mark this update reviewed')} onClick={() => void confirm(r)}>{Icon.check} {t('맞아요', 'Right')}</button>
-                      <button className="btn sm" data-ui="답하기" data-tip={t('고칠 점을 피드백으로', 'Send what to fix as feedback')} onClick={() => void answer(r)}>{Icon.comment} {t('답하기', 'Reply')}</button>
+                      <button className="btn sm" data-ui="고칠 점" data-tip={t('이 업데이트에서 고칠 점을 피드백으로', 'Send what to fix in this update as feedback')} onClick={() => void answer(r)}>{Icon.comment} {t('고칠 점', 'To fix')}</button>
                     </>}
                 </span>
               </div>
