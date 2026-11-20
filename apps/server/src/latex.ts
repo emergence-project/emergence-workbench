@@ -52,6 +52,11 @@ export function compileLibraryNote(library: string, preambles: string[], note: s
   return next
 }
 
+/** latexmk를 띄우지 못했을 때의 글: 대개 TeX가 없는 컴퓨터라서, 무엇을 깔고 어디서 확인하는지까지 적는다 */
+export const noLatexmk = (): string => (process.platform === 'win32'
+  ? t('latexmk를 실행하지 못했습니다. PDF를 만들려면 TeX가 있어야 합니다: MiKTeX나 TeX Live를 설치한 뒤 계정 › TeX에서 「다시 확인」을 눌러 주세요.', 'Could not run latexmk. Making PDFs needs TeX: install MiKTeX or TeX Live, then press "Check again" under Account › TeX.')
+  : t('latexmk를 실행하지 못했습니다. PDF를 만들려면 TeX가 있어야 합니다: MacTeX를 설치한 뒤 계정 › TeX에서 「다시 확인」을 눌러 주세요.', 'Could not run latexmk. Making PDFs needs TeX: install MacTeX, then press "Check again" under Account › TeX.'))
+
 /**
  * 컴파일 성공 판단.
  * - latexmk의 실패 코드만으로는 판단하지 않는다: 한 번만 돌리게(max_repeat=1) 했기 때문에, 첫 컴파일처럼
@@ -62,7 +67,7 @@ export function compileLibraryNote(library: string, preambles: string[], note: s
 export function judgeCompile(r: { hasPdf: boolean; fresh: boolean; exitCode: number; problems: CompileResult['problems'] }): { ok: boolean; problems: CompileResult['problems'] } {
   const upToDate = r.hasPdf && !r.fresh && r.exitCode === 0
   if (r.fresh || upToDate || r.problems.length > 0) return { ok: r.problems.length === 0, problems: r.problems }
-  const message = r.exitCode === -1 ? t('latexmk를 실행하지 못했습니다.', 'Could not run latexmk.') : t('PDF를 새로 만들지 못했습니다. 로그를 확인하세요.', 'Could not build a new PDF. Check the log.')
+  const message = r.exitCode === -1 ? noLatexmk() : t('PDF를 새로 만들지 못했습니다. 로그를 확인하세요.', 'Could not build a new PDF. Check the log.')
   return { ok: false, problems: [{ file: 'main.tex', line: 0, message, inBlock: false }] }
 }
 
