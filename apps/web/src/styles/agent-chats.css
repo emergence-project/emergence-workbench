@@ -31,6 +31,26 @@
 .ac-tool { flex: none; font-size: var(--fs-2xs); color: var(--text-2); white-space: nowrap; }
 .ac-sum { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ac-step .tag { flex: none; white-space: nowrap; }
+/* 작업 로그 (WorkLog.tsx): 대화에는 「과정 n」 한 줄, 생각 · 도구는 세부 패널의 로그에 시간순으로 */
+.ac-proc { display: flex; flex-direction: column; gap: 2px; min-width: 0; border-radius: var(--r-sm); }
+.ac-proc-toggle { align-self: flex-start; font-size: var(--fs-xs); color: var(--text-3); }
+.ac-proc-toggle:hover { color: var(--text-2); }
+.ac-proc-now { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; font-size: var(--fs-xs); color: var(--text-3); }
+.ac-proc.hit { animation: ac-proc-flash 1.6s ease-out; }
+@keyframes ac-proc-flash { from { background: var(--hl-bg); } to { background: transparent; } }
+.ac-log { flex: none; }
+.ac-log .side-sec-h { display: flex; align-items: baseline; gap: var(--sp-2); }
+.ac-log-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); max-height: 38vh; overflow-y: auto; overscroll-behavior: contain; }
+.ac-log-list.inline { max-height: none; overflow: visible; padding-left: var(--sp-3); border-left: 2px solid var(--line); }
+.ac-log-line { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 2px var(--sp-1); border-radius: var(--r-sm); font-size: var(--fs-xs); }
+.ac-log-line.hit { background: var(--hl-bg); }
+.ac-log-row { display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; }
+.ac-log-at { flex: none; font-size: var(--fs-2xs); color: var(--text-3); }
+.ac-log-n { flex: none; min-width: 1.5em; font-size: var(--fs-2xs); color: var(--text-3); text-align: right; }
+.ac-log-row .ac-steps-toggle { min-width: 0; text-align: left; }
+.ac-log-hint { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; padding-left: var(--sp-4); color: var(--text-3); }
+.ac-log-body { display: flex; flex-direction: column; gap: 2px; padding-left: var(--sp-4); }
+.ac-log-body.ac-think .memo-text { margin-top: 0; }
 
 .ac-note { display: flex; align-items: baseline; gap: var(--sp-2); font-size: var(--fs-xs); color: var(--text-2); }
 .ac-hint { font-size: var(--fs-xs); min-width: 0; }
