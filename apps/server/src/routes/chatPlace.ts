@@ -97,6 +97,7 @@ export function registerChatPlace(app: FastifyInstance, ctx: Pick<RouteContext, 
     const body = req.method === 'GET' || req.method === 'HEAD' || req.body === undefined ? undefined
       : Buffer.isBuffer(req.body) ? new Uint8Array(req.body) : typeof req.body === 'string' ? req.body : JSON.stringify(req.body)
     try {
+      const started = performance.now()
       const r = await doFetch(`${cfg.url}${req.url}`, { method: req.method, headers, body, signal: AbortSignal.timeout(60_000) })
       let buf = Buffer.from(await r.arrayBuffer())
       error = undefined
@@ -108,6 +109,8 @@ export function registerChatPlace(app: FastifyInstance, ctx: Pick<RouteContext, 
       }
       const type = r.headers.get('content-type')
       if (type) void reply.header('content-type', type)
+      // 넘기는 데 든 시간(서버까지 오가기 + 서버 처리). 브라우저 개발 도구 › Network › Timing에 relay로 보인다
+      void reply.header('server-timing', `relay;dur=${(performance.now() - started).toFixed(1)}`)
       return reply.status(r.status).send(buf)
     } catch (e) {
       error = e instanceof Error ? e.message : String(e)

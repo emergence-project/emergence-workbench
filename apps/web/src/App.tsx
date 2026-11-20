@@ -51,7 +51,7 @@ import { setFeedbackNote } from './feedbackNote'
 import type { ProfilePatch } from './ProjectProfileFields'
 import { go, useRoute, type Route } from './router'
 import { useProjectData } from './projectData'
-import { batchInvalidation, invalidationKeys, qk } from './queries'
+import { batchInvalidation, invalidationKeys, qk, slowInvalidationKeys } from './queries'
 import { recordWrites } from './useRecordActions'
 import { noteOfRoute, ResearchNav } from './Sidebar'
 import { store } from './store'
@@ -180,6 +180,8 @@ export function App() {
   // 화면 캐시는 알림이 바꾸는 자료만 잠깐(0.4초) 모아 한 번 다시 받는다. 옮기지 않은 화면은 version을 같은 식으로 모아 올린다
   const invalidation = useMemo(() => batchInvalidation(client), [client])
   useEffect(() => () => invalidation.cancel(), [invalidation])
+  const slowInvalidation = useMemo(() => batchInvalidation(client, 15_000), [client])
+  useEffect(() => () => slowInvalidation.cancel(), [slowInvalidation])
   const changeTimer = useRef<number | undefined>(undefined)
   const changedSoon = useCallback(() => {
     window.clearTimeout(changeTimer.current)
@@ -225,6 +227,7 @@ export function App() {
     figuresMaybeChanged()
     // 화면 캐시: 알림이 바꾸는 자료만 (어느 프로젝트의 것이든. 홈의 프로젝트별 자료도 이것으로 새로워진다)
     invalidation.add(invalidationKeys(e))
+    slowInvalidation.add(slowInvalidationKeys(e))
     // 공용 라이브러리(개념노트·그림·논문)는 어느 프로젝트의 것도 아니다: 지금 화면을 잠깐 모았다가 다시 읽는다
     if (e.type === 'library') {
       // 개념노트 기록 파일(workbench/comments/concept-<id>.md)이 바뀌면 열린 기록 패널 · 본문 칠도 다시 읽는다
