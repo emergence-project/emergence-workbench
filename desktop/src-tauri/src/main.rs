@@ -406,6 +406,9 @@ fn main() {
                 .title("Emergence Workbench")
                 .inner_size(1440.0, 900.0)
                 .min_inner_size(900.0, 600.0)
+                // 창 밖에서 끌어 온 파일(Finder · 스크린샷 썸네일)을 Tauri가 가로채지 않고 웹 화면의 drop으로 넘긴다.
+                // 켜 두면 웹 화면의 dataTransfer.files가 비어 대화 입력란 · 그림 · 자료 · 논문에 끌어 놓기가 되지 않았다 (11/20)
+                .disable_drag_drop_handler()
                 .on_navigation(|url| {
                     if stays_inside(url, server_port()) {
                         return true;

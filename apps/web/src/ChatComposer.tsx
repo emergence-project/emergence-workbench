@@ -130,10 +130,14 @@ export function menuAt(text: string, caret: number): Menu | null {
 }
 
 const MAX_IMAGE = 5 * 1024 * 1024
+// Finder에서 끌어 온 파일은 종류(type)가 비어 올 때가 있어 확장자로도 본다
+const EXT_TYPE: Record<string, ImageIn['type']> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' }
+const imageType = (f: { type: string; name: string }): ImageIn['type'] | undefined =>
+  /^image\/(png|jpeg|gif|webp)$/.test(f.type) ? f.type as ImageIn['type'] : f.type ? undefined : EXT_TYPE[f.name.split('.').pop()?.toLowerCase() ?? '']
 function readImage(f: File): Promise<ImageIn & { name: string }> {
   return new Promise((resolve, reject) => {
     const r = new FileReader()
-    r.onload = () => resolve({ type: f.type as ImageIn['type'], data: String(r.result).split(',')[1] ?? '', name: f.name || t('붙여 넣은 그림', 'Pasted image') })
+    r.onload = () => resolve({ type: imageType(f)!, data: String(r.result).split(',')[1] ?? '', name: f.name || t('붙여 넣은 그림', 'Pasted image') })
     r.onerror = () => reject(r.error)
     r.readAsDataURL(f)
   })
@@ -235,7 +239,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
     if (fill.text !== undefined) { setText(fill.text); setCaret(fill.text.length) }
     // 기다리던 지시를 고칠 때 붙인 것 · 그림도 함께 돌아온다
     if (fill.attach?.length) setAttach((a) => [...a, ...fill.attach!.filter((x) => !a.some((y) => y.kind === x.kind && y.ref === x.ref && y.text === x.text))])
-    if (fill.images?.length) setImages((xs) => [...xs, ...fill.images!.map((im, i) => ({ ...im, name: t(`그림 ${i + 1}`, `Image ${i + 1}`) }))].slice(0, 4))
+    if (fill.images?.length) setImages((xs) => [...xs, ...fill.images!.map((im, i) => ({ ...im, name: im.name || t(`그림 ${i + 1}`, `Image ${i + 1}`) }))].slice(0, 4))
     box.current?.focus()
   }, [fill?.n]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -303,7 +307,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
   useEffect(() => setHi(0), [menu?.kind, menu?.query])
 
   const addImages = async (files: File[]) => {
-    const ok = files.filter((f) => /^image\/(png|jpeg|gif|webp)$/.test(f.type))
+    const ok = files.filter((f) => imageType(f))
     if (!ok.length) return false
     if (ok.some((f) => f.size > MAX_IMAGE)) { setFail(t('그림은 한 장에 5MB까지입니다', 'Images can be up to 5 MB each')); return true }
     const read = await Promise.all(ok.map(readImage))
@@ -328,7 +332,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
     if (!v || busy) return
     setBusy(true); setFail(null)
     try {
-      const ok = await onSubmit({ text: v, view: screenLine(), ...(all.length && { attach: all }), ...(images.length && { images: images.map(({ type, data }) => ({ type, data })) }) })
+      const ok = await onSubmit({ text: v, view: screenLine(), ...(all.length && { attach: all }), ...(images.length && { images: images.map(({ type, data, name }) => ({ type, data, name: name.slice(0, 200) })) }) })
       if (ok) { setText(''); setCaret(0); setAttach([]); setImages([]) }
     } catch (e) { setFail((e as Error).message) } finally { setBusy(false) }
   }

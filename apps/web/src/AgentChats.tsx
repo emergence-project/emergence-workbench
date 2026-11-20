@@ -377,12 +377,12 @@ function EditLine({ chat, it, onChanges }: { chat: Chat; it: Extract<ChatItem, {
   )
 }
 
-function AttachChips({ attach, images }: { attach?: Attach[]; images?: number }) {
+function AttachChips({ attach, images, names }: { attach?: Attach[]; images?: number; names?: string[] }) { // 그림은 파일 이름으로 (11/20: 「그림 1」이 이름처럼 읽혔다), 이름 없던 지시는 장수로
   if (!attach?.length && !images) return null
   return (
     <div className="ac-chips">
       {attach?.map((a, i) => <span key={i} className="tag" title={a.text ?? a.ref}>{ATTACH_NAME[a.kind]} · {a.label}</span>)}
-      {!!images && <span className="tag">{t(`그림 ${images}`, `${images} image${images > 1 ? 's' : ''}`)}</span>}
+      {names?.length ? names.map((n, i) => <span key={`i${i}`} className="tag" title={n}>{t('그림', 'Image')} · {n || i + 1}</span>) : !!images && <span className="tag">{t(`그림 ${images}장`, `${images} image${images > 1 ? 's' : ''}`)}</span>}
     </div>
   )
 }
@@ -394,7 +394,7 @@ function ItemView({ chat, it, who, onError, onChanges, onRewind, onPass }: { cha
     case 'user': return it.auto ? <li className="ac-note muted ac-auto" data-ui="자동 알림" title={`${when}\n${it.text}`}><span className="ac-auto-text">{it.text}</span></li> : (
       <li className="ac-me" data-ui="내 지시" title={when}>
         <MemoText text={it.text} />
-        <AttachChips attach={it.attach} images={it.images} /><Mockups text={it.text} chat={chat.id} /><CopyButton text={it.text} />
+        <AttachChips attach={it.attach} images={it.images} names={it.imageNames} /><Mockups text={it.text} chat={chat.id} /><CopyButton text={it.text} />
         {it.point && onRewind && !isLive(chat.state) && (
           <button className="icon-btn sm ac-rewind" data-ui="여기로 되돌리기" data-tip={t('여기로 되돌리기', 'Rewind to here')} aria-label={t('여기로 되돌리기', 'Rewind to here')} onClick={() => onRewind(it.point!)}>{Icon.revert}</button>
         )}

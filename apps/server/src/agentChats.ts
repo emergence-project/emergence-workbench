@@ -1090,7 +1090,7 @@ export function appEnv(id: string): Record<string, string> {
 const userItem = (m: ChatMessageBody, queued?: boolean, point?: string): ChatItem => ({
   kind: 'user', at: now(), text: m.text, ...(point && { point }),
   ...(m.attach?.length && { attach: m.attach.map((a) => ({ ...a, ...(a.text && { text: clip(a.text, 600) }) })) }),
-  ...(m.images?.length && { images: m.images.length }),
+  ...(m.images?.length && { images: m.images.length, ...(m.images.some((i) => i.name) && { imageNames: m.images.map((i) => i.name ?? '') }) }),
   ...(queued && { queued: true }),
 })
 export const rowOf = (c: Stored): ChatRow => {

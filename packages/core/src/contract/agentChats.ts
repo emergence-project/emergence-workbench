@@ -85,7 +85,7 @@ export const EditPart = z.object({ old: z.string(), new: z.string() }).strict()
 /** 대화의 한 줄 */
 export const ChatItem = z.discriminatedUnion('kind', [
   /** queued = 일하는 중에 보내 다음 차례에 읽을 지시, auto = 사용자가 아니라 앱이 중앙 대화를 깨운 알림 (하위 대화가 끝남 · CI 실패 · PR 합쳐짐, 11/18) */
-  z.object({ kind: z.literal('user'), at: z.string(), text: z.string(), attach: z.array(Attach).optional(), images: z.number().optional(), queued: z.boolean().optional(), point: z.string().optional(), auto: z.boolean().optional() }).strict(),
+  z.object({ kind: z.literal('user'), at: z.string(), text: z.string(), attach: z.array(Attach).optional(), images: z.number().optional(), imageNames: z.array(z.string()).optional(), queued: z.boolean().optional(), point: z.string().optional(), auto: z.boolean().optional() }).strict(),
   z.object({ kind: z.literal('text'), at: z.string(), text: z.string(), sub: z.boolean().optional() }).strict(),
   /** 에이전트가 쓴 도구 한 번. outside = 범위 밖을 읽음, sub = 서브에이전트가 씀 */
   z.object({ kind: z.literal('step'), at: z.string(), tool: z.string(), summary: z.string(), outside: z.boolean().optional(), sub: z.boolean().optional() }).strict(),
@@ -241,8 +241,8 @@ export const WorkState = z.object({
 
 // ---------- 요청 ----------
 
-/** 붙여 넣은 그림 (base64, 한 장 5MB까지) */
-export const ImageIn = z.object({ type: z.enum(IMAGE_TYPES), data: z.string().max(7_000_000) }).strict()
+/** 붙여 넣은 그림 (base64, 한 장 5MB까지). name은 파일 이름으로 보낸 지시의 칩에 보인다 */
+export const ImageIn = z.object({ type: z.enum(IMAGE_TYPES), data: z.string().max(7_000_000), name: z.string().max(200).optional() }).strict()
 const message = {
   text: z.string().trim().min(1).max(20000),
   attach: z.array(Attach).max(20).optional(),
