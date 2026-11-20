@@ -20,10 +20,17 @@ export async function req(input: string, init?: RequestInit): Promise<Response> 
   }
 }
 
+/**
+ * 응답 몸을 읽는다. 실패한 응답은 서버가 적은 까닭으로 던진다.
+ * 성공한 응답인데 몸을 읽지 못하면(받는 중에 서버가 다시 시작하거나 연결이 끊김) 빈 값을 돌려주지 않고 던진다:
+ * 빈 값은 화면이 없는 칸을 읽다가 죽게 한다 (11/21).
+ */
 export async function json<T>(res: Response): Promise<T> {
-  const body = await res.json().catch(() => ({}))
-  if (res.status === 409 && 'currentHash' in body) throw new ConflictError((body as { currentHash: string }).currentHash)
-  if (!res.ok) throw new Error((body as { error?: string }).error ?? t(`요청 실패 (${res.status})`, `Request failed (${res.status})`))
+  const body: unknown = await res.json().catch(() => undefined)
+  const got = typeof body === 'object' && body !== null ? body as { currentHash?: string; error?: string } : {}
+  if (res.status === 409 && got.currentHash !== undefined) throw new ConflictError(got.currentHash)
+  if (!res.ok) throw new Error(got.error ?? t(`요청 실패 (${res.status})`, `Request failed (${res.status})`))
+  if (body === undefined) throw new Error(t('서버의 답을 끝까지 받지 못했습니다. 다시 해 보세요.', 'The server\'s answer did not arrive in full. Try again.'))
   return body as T
 }
 
