@@ -97,5 +97,6 @@ const SAMPLE_MODELS: ModelChoice[] = [
 export const sampleAgentRunner: AgentRunner = Object.assign(sampleRun, {
   models: async () => SAMPLE_MODELS,
   side: async (o: { prompt: string }) => o.prompt.includes('three short lines') ? t('켐페 확인 계산을 차수 5까지 다시 돌렸습니다\n결과는 켐페 노트의 확인 절에 있습니다\n남은 일 없음', 'Reran the Kempe check up to degree 5\nThe result is in the check section of the Kempe note\nNothing left') : t('예제 모드라 정해진 답입니다. 맥의 앱에서는 작은 모델이 이 대화의 요약만 보고 답합니다.', 'Sample mode gives a fixed answer. In the app on the Mac, a small model answers from a summary of this conversation.'),
-  review: async () => t('고칠 것: 예제 모드라 정해진 검토입니다. 맥의 앱에서는 Codex가 고친 곳을 읽고 씁니다. (예제)\n볼 것: 「Claude에게 넘기기」를 누르면 이 글이 입력란에 들어갑니다.', 'Fix: Sample mode gives a fixed review. In the app on the Mac, Codex reads the changes and writes it. (sample)\nCheck: Press Pass to Claude to put this text in the input.'),
+  // 중앙 방 사람의 답 (agentRoom.ts memberPrompt, 11/20)
+  review: async (o: { prompt: string }) => o.prompt.includes('member of a group conversation') ? t('파일 이름에 한글이 있을 때만 경로를 인코딩합니다. 영어 이름 그림은 그대로라 괜찮습니다. 시험에 공백이 든 이름도 하나 넣으면 좋겠습니다. (예제)', 'It encodes the path only when the file name has Korean letters; English names stay as they are, which is fine. A test with a space in the name would help. (sample)') : t('고칠 것: 예제 모드라 정해진 검토입니다. 맥의 앱에서는 Codex가 고친 곳을 읽고 씁니다. (예제)\n볼 것: 「Claude에게 넘기기」를 누르면 이 글이 입력란에 들어갑니다.', 'Fix: Sample mode gives a fixed review. In the app on the Mac, Codex reads the changes and writes it. (sample)\nCheck: Press Pass to Claude to put this text in the input.'),
 })

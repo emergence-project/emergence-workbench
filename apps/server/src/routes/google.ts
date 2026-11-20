@@ -10,6 +10,7 @@ import { fillFromGoogle } from '../googleProfile.js'
 import { WorkbenchError } from '../workbench.js'
 import { git, GIT_TIMEOUT } from '../git.js'
 import type { RouteContext } from './context.js'
+import { setDeviceAccounts } from '../devices.js'
 import { t } from '../i18n.js'
 
 /** 이 컴퓨터 안에서 온 주소만 로그인 돌아올 곳으로 쓴다 */
@@ -28,6 +29,7 @@ export async function remoteOf(repoPath: string): Promise<string | null> {
 export const sameRepo = (a: string | null, b: string | null) => !!a && !!b && (parseGitHubRepo(a)?.url ?? a).toLowerCase() === (parseGitHubRepo(b)?.url ?? b).toLowerCase()
 
 export function registerGoogle(app: FastifyInstance, ctx: RouteContext, google: Google): void {
+  setDeviceAccounts('google', () => { const s = google.status(); return s.connected && !s.mock ? [{ kind: 'google' }] : [] })
   const { registry } = ctx
 
   const snapshot = async (): Promise<SyncedSettings> => ({

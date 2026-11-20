@@ -12,6 +12,7 @@ import { SharedChats } from '../agentShare.js'
 import { setAppIdentity } from '../git.js'
 import { WorkbenchError } from '../workbench.js'
 import type { RouteContext } from './context.js'
+import { deviceForBackup } from './devices.js'
 import { t } from '../i18n.js'
 
 /** 맞추기를 한 번 돌리는 함수를 돌려준다 (계정으로 맞추기가 부른다). 백업을 쓰지 않으면 null */
@@ -28,7 +29,7 @@ export function registerBackup(app: FastifyInstance, ctx: RouteContext): (() => 
     if (running) return running
     const list = registry.list()
     running = Promise.all(list.map(async (r) => ({ id: r.id, title: r.title, remote: await remoteOf(r.path), folder: path.basename(r.path), tags: r.tags, state: r.state, ...registry.sharedProfile(r.id) })))
-      .then((projects) => backupWorkbenches({ dir: cfg.dir, remote, targets: list.map((r) => ({ id: r.id, path: r.path })), settings: cfg.settings, projects,
+      .then((projects) => backupWorkbenches({ dir: cfg.dir, remote, targets: list.map((r) => ({ id: r.id, path: r.path })), settings: cfg.settings, projects, device: deviceForBackup(ctx),
         // 에이전트 대화도 올려 다른 컴퓨터 보관함에 보이게 한다 (agentShare.ts, 11/20)
         ...(ctx.agentChats instanceof SharedChats && { chats: ctx.agentChats.sharedFiles() }) }))
       .then(async (r) => {

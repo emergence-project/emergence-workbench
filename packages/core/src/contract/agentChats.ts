@@ -124,6 +124,13 @@ export const ChatItem = z.discriminatedUnion('kind', [
    * edits = 본 고친 곳 수, text가 없고 error도 없으면 검토하는 중. auto = 저절로 검토. 넘기기 전에는 대화 에이전트의 맥락에 들지 않는다
    */
   z.object({ kind: z.literal('review'), at: z.string(), by: z.enum(AGENT_KINDS), edits: z.number(), text: z.string().optional(), error: z.string().optional(), seconds: z.number().optional(), auto: z.boolean().optional() }).strict(),
+  /**
+   * 중앙 방 사람의 답 (11/20 사용자 결정 "중앙 = 여럿이 말하는 방"): 사용자가 @이름 · @모두로 부르거나 방장이 room_ask로 물었을 때.
+   * q = 방장이 물은 말 (from host), fold = 읽기만 사람의 접힌 요약. text가 없고 error도 없으면 답하는 중
+   */
+  z.object({ kind: z.literal('member'), at: z.string(), by: z.enum(AGENT_KINDS), q: z.string().optional(), from: z.literal('host').optional(), fold: z.boolean().optional(), text: z.string().optional(), error: z.string().optional(), seconds: z.number().optional() }).strict(),
+  /** 방이 바뀜: 초대 · 내보내기 · 권한 · 방 규칙. by = 사용자 · 방장, reason = 방장이 초대한 까닭 한 줄 */
+  z.object({ kind: z.literal('room'), at: z.string(), act: z.enum(['invite', 'remove', 'perm', 'rules']), agent: z.enum(AGENT_KINDS).optional(), perm: z.enum(['read', 'talk', 'edit']).optional(), prev: z.enum(['read', 'talk', 'edit']).optional(), by: z.enum(['user', 'host']), reason: z.string().optional() }).strict(),
 ])
 
 export const ChatRow = z.object({
@@ -382,6 +389,28 @@ export const CentralKid = z.object({
   /** 지금 오류가 비정상 종료면 이 대화가 비정상 종료된 횟수 (11/20) */
   crashes: z.number().optional(),
 }).strict()
+// ---------- 중앙 방 (11/20 사용자 결정, 시안 https://claude.ai/artifact/1e4G2p1cQjgVNSSAZ9RFHr) ----------
+
+/** 방의 권한: read 읽기만(부르면 접힌 요약) · talk 발언(부르면 답함) · edit 수정(하위 대화 · 파일 · PR, 한 명 = 방장) */
+export const ROOM_PERMS = ['read', 'talk', 'edit'] as const
+export const RoomMember = z.object({ agent: z.enum(AGENT_KINDS), perm: z.enum(ROOM_PERMS), by: z.enum(['user', 'host']), reason: z.string().optional(), at: z.string() }).strict()
+/** 방 규칙: hostInvite = 방장이 초대해도 됨(읽기만 · 발언까지), defaultPerm = 새로 들어올 때 권한, callMax = 방장이 한 번에 부르는 수 */
+export const RoomRules = z.object({ hostInvite: z.boolean(), defaultPerm: z.enum(['read', 'talk']), callMax: z.number().int().min(1).max(3) }).strict()
+/** 방: host = 방장(수정을 가진 사람), members = 방장 포함 (사용자 말고 4명까지), asking = 지금 답하는 사람 */
+export const RoomState = z.object({ host: z.enum(AGENT_KINDS), members: z.array(RoomMember), rules: RoomRules, asking: z.array(z.enum(AGENT_KINDS)) }).strict()
+export const RoomInviteBody = z.object({ agent: z.enum(AGENT_KINDS), perm: z.enum(ROOM_PERMS).optional(), reason: z.string().trim().max(200).optional() }).strict()
+export const RoomPermBody = z.object({ agent: z.enum(AGENT_KINDS), perm: z.enum(ROOM_PERMS) }).strict()
+export const RoomAgentBody = z.object({ agent: z.enum(AGENT_KINDS) }).strict()
+export const RoomRulesBody = RoomRules.partial().strict()
+/** POST /agent-room/host/ask: 방장이 방 사람 하나에게 묻는다 (room_ask) */
+export const RoomAskBody = z.object({ agent: z.enum(AGENT_KINDS), question: z.string().trim().min(1).max(8000) }).strict()
+export const RoomAnswer = z.object({ answer: z.string() }).strict()
+export type RoomPerm = (typeof ROOM_PERMS)[number]
+export type RoomMember = z.infer<typeof RoomMember>
+export type RoomRules = z.infer<typeof RoomRules>
+export type RoomState = z.infer<typeof RoomState>
+export type RoomAnswer = z.infer<typeof RoomAnswer>
+
 /**
  * GET /agent-central: 중앙 대화 id (아직 없으면 없음)와 하위 대화.
  * held = 자리를 기다리는 앱 고치기 (at = 맡긴 때), feedback = 사용자가 답할 피드백 가운데 하위 대화가 맡지 않은 것 (작업 현황의 「내 차례」, 11/19)
@@ -392,6 +421,8 @@ export const CentralState = z.object({
   feedback: z.array(z.object({ key: z.string(), target: z.string(), text: z.string(), at: z.string() }).strict()).optional(),
   /** 중앙의 하위 대화가 아닌 대화 가운데 비정상 종료로 멈춘 것 (작업 현황의 「내 차례」, 11/20). count = 그 대화의 비정상 종료 횟수 */
   crashed: z.array(z.object({ id: z.string(), rid: z.string(), title: z.string(), at: z.string(), text: z.string(), count: z.number() }).strict()).optional(),
+  /** 중앙 방 (11/20) */
+  room: RoomState.optional(),
 }).strict()
 /** POST /agent-central/messages: 중앙에게 말하기 (중앙이 없으면 연다) */
 export const CentralMessageBody = z.object({ text: message.text, attach: message.attach, view: message.view }).strict()
