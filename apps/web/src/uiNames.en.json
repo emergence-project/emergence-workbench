@@ -1032,6 +1032,8 @@
   "판정 후 변경": "Changed after verdict",
   "한 일 추가": "Add past work",
   "한 일 결과": "Past work verdict",
+  "한 일 근거": "Past work evidence",
+  "꼬리말 없음": "No trailer",
   "한 일 창": "Past work dialog",
   "확인 전": "Not reviewed",
   "검사 결과": "Test result",
@@ -1153,8 +1155,8 @@
   "방장 초대 빼기": "Remove host's invite",
   "받는 이": "Recipients",
   "에이전트 관리": "Agents",
+  "방 답하는 방식": "Answer mode",
   "서버": "Server",
-  "기기": "Devices",
   "기기 목록": "Device list",
   "기기 줄": "Device row",
   "기기 계정": "Device accounts"

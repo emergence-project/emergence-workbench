@@ -18,7 +18,7 @@ const usage = [
   '        pnpm agent:problem <폴더> add <흐름> "<방법>"… [--claim <주장 번호>]       (후보 늘어놓기. --claim이 없으면 질문을 겨눈다)',
   '        pnpm agent:problem <폴더> start <흐름> [시도]                           (시도가 없으면 다음 후보)',
   '        pnpm agent:problem <폴더> report <흐름> <시도> --did "…" --result "…" [--statement "<겨눈 주장과 다른, 판단할 수 있는 한 문장>" [--side for_yes|for_no|neither] [--condition "…"]] [--file <경로>]… [--command "<결과를 낸 명령>"] [--commit <커밋>] [--test "<검사 명령>"] [--lesson "…"] [--reopen "…"]',
-  '        pnpm agent:problem <폴더> record <흐름> "<한 일>" --result "…" [--when YYYY-MM-DD] [--claim <주장 번호>] [--statement "…" [--side …] [--condition "…"]] [--did "…"] [--file <경로>]…   (지난 일 적기. 사용자가 확인해야 근거가 된다)',
+  '        pnpm agent:problem <폴더> record <흐름> "<한 일>" --result "…" [--when YYYY-MM-DD, 비우면 근거의 첫 커밋 날] [--claim <주장 번호>] [--statement "…" [--side …] [--condition "…"]] [--did "…"] [--file <경로>]…   (지난 일 적기. 사용자가 확인해야 근거가 된다)',
   '        pnpm agent:problem <폴더> verdict <흐름> <시도> holds|dropped --note "…" [--check "…"] [--tested pass|fail] [--lesson "…"] [--reopen "…"]   (검사 명령이 있으면 다시 돌리고 --tested)',
   '        pnpm agent:problem <폴더> direction <흐름> [--for-yes "…"] [--for-no "…"] [--neither "…"]   (방향 보고: 사실만)',
   '        pnpm agent:problem <폴더> exception "<무슨 일이 있었나>" --kind no-claim|no-verdict|needs-user|workaround|other [--instead "<대처>"] [--flow <흐름>] [--attempt <시도>]   (규칙대로 되지 않은 일 한 줄)',
@@ -61,6 +61,7 @@ const opts = { parentURL: import.meta.url, tsconfig: false }
 const { Workbench } = await tsImport('../apps/server/src/workbench.ts', opts)
 const P = await tsImport('../apps/server/src/problems.ts', opts)
 const X = await tsImport('../apps/server/src/problemExceptions.ts', opts)
+const G = await tsImport('../apps/server/src/problemGit.ts', opts)
 const { briefOf } = await tsImport('../apps/server/src/problemBrief.ts', opts)
 const wb = new Workbench(root)
 
@@ -79,7 +80,7 @@ const now = (p) => [
   p.stop ? `멈춤: ${STOP[p.stop]}` : p.next ? `다음: ${p.next.label} ${p.next.method}` : '',
 ].filter(Boolean).join(' ')
 const SIDES = ['for_yes', 'for_no', 'neither']
-const KINDS = { refused: '거절', 'no-claim': '진술 불가', 'no-verdict': '판정 불가', 'needs-user': '결정 필요', workaround: '우회', other: '기타' }
+const KINDS = { refused: '거절', warned: '경고', 'no-claim': '진술 불가', 'no-verdict': '판정 불가', 'needs-user': '결정 필요', workaround: '우회', other: '기타' }
 const need = (x, what) => x ?? fail(`${what}이(가) 빠졌습니다.\n${usage}`)
 const aidOf = (s) => String(s).toLowerCase()
 
@@ -137,21 +138,25 @@ try {
     console.log(`시작했습니다: ${a.label} ${a.method} (${by}). 끝나면 report로 보고합니다. ${now(p)}`)
   } else if (cmd === 'report') {
     const [id, aid] = rest
+    const facts = await G.reportFacts(wb.repo, need(id, '흐름 id'), aidOf(need(aid, '시도 id')), v.commit)
     const p = P.reportAttempt(wb, need(id, '흐름 id'), aidOf(need(aid, '시도 id')), {
       did: need(v.did, '--did (한 일)'), result: need(v.result, '--result (결과, 사실로)'),
       ...(v.statement && { statement: v.statement }), ...(v.condition && { condition: v.condition }), ...(v.side && { side: SIDES.includes(v.side) ? v.side : fail(`--side는 for_yes(예) · for_no(아니오) · neither(어느 쪽도 아님)입니다.\n${usage}`) }),
       ...(v.file?.length && { files: v.file }), ...((v.command || v.commit) && { run: { ...(v.command && { command: v.command }), ...(v.commit && { commit: v.commit }) } }), ...(v.test && { test: v.test }),
       ...(v.lesson && { lesson: v.lesson }), ...(v.reopen && { reopen: v.reopen }),
-    }, by)
+    }, by, facts)
+    const warn = p.attempts.find((x) => x.id === aidOf(aid))?.run?.trailer === false
     console.log(`보고했습니다: ${aidOf(aid).toUpperCase()}. 성립 · 폐기는 작업한 쪽이 아닌 쪽이 정합니다. ${now(p)}`)
+    if (warn) console.log(`경고: 보고 커밋에 꼬리말 "Attempt: ${id}/${aidOf(aid)}"이 없습니다. 근거를 커밋할 때 메시지 끝에 이 한 줄을 붙입니다 (예외 기록에 남았습니다).`)
   } else if (cmd === 'record') {
     const [id, method] = rest
+    const facts = await G.recordFacts(wb.repo, v.when, v.file)
     const p = P.recordAttempt(wb, need(id, '흐름 id'), {
       method: need(method, '한 일 (방법 한 줄)'), result: need(v.result, '--result (결과, 사실로)'),
       ...(v.when && { when: /^\d{4}-\d{2}-\d{2}$/.test(v.when) ? v.when : fail(`--when은 YYYY-MM-DD입니다.\n${usage}`) }), ...(v.claim && { claim: v.claim }), ...(v.did && { did: v.did }),
       ...(v.statement && { statement: v.statement }), ...(v.condition && { condition: v.condition }), ...(v.side && { side: SIDES.includes(v.side) ? v.side : fail(`--side는 for_yes(예) · for_no(아니오) · neither(어느 쪽도 아님)입니다.\n${usage}`) }),
       ...(v.file?.length && { files: v.file }),
-    }, by)
+    }, by, facts)
     const a = p.attempts.at(-1)
     console.log(`지난 일을 적었습니다: ${a ? `${a.label} ${a.method}` : ''}. 사용자가 확인하기 전에는 주장의 근거로 세지 않습니다. ${now(p)}`)
   } else if (cmd === 'verdict') {
@@ -170,7 +175,7 @@ try {
     console.log(`방향 보고를 냈습니다. 사용자가 계속 · 좁히기 · 종료를 정할 때까지 이 흐름에서 새 시도를 시작하지 않습니다. ${now(p)}`)
   } else if (cmd === 'exception') {
     const kind = need(v.kind, '--kind')
-    if (kind === 'refused' || !(kind in KINDS)) fail(`--kind는 no-claim(진술 불가) · no-verdict(판정 불가) · needs-user(결정 필요) · workaround(우회) · other(기타)입니다.\n${usage}`)
+    if (kind === 'refused' || kind === 'warned' || !(kind in KINDS)) fail(`--kind는 no-claim(진술 불가) · no-verdict(판정 불가) · needs-user(결정 필요) · workaround(우회) · other(기타)입니다.\n${usage}`)
     const e = X.addException(wb, { kind, what: need(rest[0], '무슨 일이 있었나'), ...(v.instead && { instead: v.instead }), ...(v.flow && { problem: v.flow }), ...(v.attempt && { attempt: v.attempt }) }, by)
     console.log(`예외를 적었습니다: workbench/problems/_exceptions/${e.id}.yaml (${KINDS[e.kind]}). 사용자가 흐름 화면에서 봅니다.`)
   } else if (cmd === 'exceptions') {

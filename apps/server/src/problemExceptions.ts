@@ -61,13 +61,13 @@ export function addException(wb: Workbench, body: NewExceptionBody, actor: strin
 }
 
 /**
- * 앱이 규칙으로 거절한 일을 적는다. 같은 쪽이 같은 날 같은 자리에서 같은 규칙에 다시 걸린 것은 한 번만 적는다(다시 해 보는 것이 줄을 늘리지 않게).
- * 거절을 알리는 길을 막지 않도록 적다 난 오류는 삼킨다
+ * 앱이 규칙으로 거절한(refused) · 경고한(warned) 일을 적는다. 같은 쪽이 같은 날 같은 자리에서 같은 규칙에 다시 걸린 것은 한 번만 적는다(다시 해 보는 것이 줄을 늘리지 않게).
+ * 거절 · 경고를 알리는 길을 막지 않도록 적다 난 오류는 삼킨다
  */
-export function logRefusal(wb: Workbench, actor: string, where: { problem?: string; attempt?: string }, rule: string, what: string): void {
+export function logRefusal(wb: Workbench, actor: string, where: { problem?: string; attempt?: string }, rule: string, what: string, kind: 'refused' | 'warned' = 'refused'): void {
   try {
     const today = localDate()
-    const dup = listExceptions(wb).some((e) => e.kind === 'refused' && e.rule === rule && e.by === actor && e.problem === where.problem && e.attempt === where.attempt && e.at.startsWith(today))
-    if (!dup) write(wb, { at: stamp('t'), by: actor, kind: 'refused', rule, ...(where.problem && { problem: where.problem }), ...(where.attempt && { attempt: where.attempt }), what })
+    const dup = listExceptions(wb).some((e) => e.kind === kind && e.rule === rule && e.by === actor && e.problem === where.problem && e.attempt === where.attempt && e.at.startsWith(today))
+    if (!dup) write(wb, { at: stamp('t'), by: actor, kind, rule, ...(where.problem && { problem: where.problem }), ...(where.attempt && { attempt: where.attempt }), what })
   } catch { /* 기록하지 못해도 거절은 그대로 알린다 */ }
 }

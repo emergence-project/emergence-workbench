@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { attemptStrength } from '@rw/core'
 import { problemsApi, PROBLEM_LIMIT, type Attempt, type BasisReview, type ClaimSide, type FlowAnswer, type ProblemDoc } from './api'
 import { Dialog } from './dialogs'
 import { t } from './i18n'
@@ -194,19 +195,23 @@ export function RecordDialog({ rid, problem, under, onClose, onDone }: { rid: st
   const [method, setMethod] = useState('')
   const [day, setDay] = useState('')
   const [result, setResult] = useState('')
+  const [evidence, setEvidence] = useState('')
   const [statement, setStatement] = useState('')
   const [side, setSide] = useState<ClaimSide | ''>('')
   const [outcome, setOutcome] = useState<'holds' | 'dropped'>('holds')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fresh = !!statement.trim()
+  const files = evidence.split('\n').map((f) => f.trim()).filter(Boolean)
+  // 11/20 "흐름 근거 공통 기준": 가리킴만인 근거(PR 번호 · 커밋 · 작업 파일)로는 성립이 되지 않는다
+  const pointerOnly = outcome === 'holds' && attemptStrength({ files }) === 'pointer'
   // 성립에는 주장이 있어야 한다 (겨눈 주장이나 새 주장). 질문 바로 아래의 새 주장에는 쪽
-  const ready = !!method.trim() && !!result.trim() && (outcome === 'dropped' || !!to || fresh) && (!fresh || !!to || !!side)
+  const ready = !!method.trim() && !!result.trim() && !pointerOnly && (outcome === 'dropped' || !!to || fresh) && (!fresh || !!to || !!side)
   const save = async () => {
     setBusy(true); setError(null)
     try {
       onDone(await problemsApi(rid).record(problem.id, {
-        method: method.trim(), result: result.trim(), outcome, ...(to && { claim: to }), ...(day && { when: day }),
+        method: method.trim(), result: result.trim(), outcome, ...(to && { claim: to }), ...(day && { when: day }), ...(files.length && { files }),
         ...(fresh && { statement: statement.trim(), ...(!to && side && { side }) }),
       }))
     } catch (e) { setError(errorOf(e)); setBusy(false) }
@@ -220,7 +225,9 @@ export function RecordDialog({ rid, problem, under, onClose, onDone }: { rid: st
       <div className="field pb-field"><span>{t('겨눈 곳', 'Aimed at')}</span><TargetSelect claims={problem.claims} value={to} onChange={setTo} /></div>
       <label className="field pb-field"><span>{t('한 일', 'What was done')}</span>
         <input autoFocus placeholder={t('방법 한 줄', 'Method, one line')} value={method} onChange={(e) => setMethod(e.target.value)} /></label>
-      <label className="field pb-field pb-day"><span>{t('한 날', 'Done on')} <em>{t('선택', 'Optional')}</em></span>
+      <label className="field pb-field"><span>{t('근거', 'Evidence')} <em>{t('선택', 'Optional')}</em></span>
+        <textarea rows={2} data-ui="한 일 근거" placeholder={t('줄마다 하나: 노트 절 · 코드 · 데이터 경로, bib:키, pr:번호', 'One per line: note section, code or data path, bib:key, pr:number')} value={evidence} onChange={(e) => setEvidence(e.target.value)} /></label>
+      <label className="field pb-field pb-day"><span>{t('한 날', 'Done on')} <em>{files.length ? t('비우면 근거의 첫 커밋 날', 'Empty: first commit of the evidence') : t('선택', 'Optional')}</em></span>
         <input type="date" value={day} onChange={(e) => setDay(e.target.value)} /></label>
       <label className="field pb-field"><span>{t('결과', 'Result')}</span>
         <textarea rows={2} placeholder={t('사실로: 값 · 크기 · 어디서 막혔나', 'As facts: values, sizes, where it stopped')} value={result} onChange={(e) => setResult(e.target.value)} /></label>
@@ -235,6 +242,7 @@ export function RecordDialog({ rid, problem, under, onClose, onDone }: { rid: st
         <div className="segmented small" role="group" aria-label={t('쪽', 'Side')}>
           {SIDES.map((k) => <button key={k} type="button" className={side === k ? 'on' : ''} aria-pressed={side === k} onClick={() => setSide(k)}>{SIDE_NAME[k]}</button>)}
         </div></div>}
+      {pointerOnly && <p className="pb-close-note">{t('근거가 가리킴만입니다(PR 번호 · 커밋 · 작업 파일). 성립에는 노트 절 · 코드 같은 다시 읽을 근거가 있어야 합니다.', 'The evidence only points (PR numbers, commits, task files). Holds needs evidence to reread, such as a note section or code.')}</p>}
       {outcome === 'holds' && !to && !fresh && <p className="pb-close-note">{t('성립한 일에는 주장이 있어야 합니다. 겨눌 주장을 고르거나 새 주장을 적습니다.', 'Work that holds needs a claim. Pick one to aim at, or write a new one.')}</p>}
     </Dialog>
   )

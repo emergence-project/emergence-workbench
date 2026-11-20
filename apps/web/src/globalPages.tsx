@@ -21,7 +21,6 @@ import { ReposPage, ReposRailCount } from './ReposPage'
 import { FiguresPage, FiguresSide, figureListFilter } from './FiguresPage'
 import { NetworkPage, NetworkRailCount, NetworkSide } from './NetworkPage'
 import { SettingsPage, SettingsSide } from './SettingsPage'
-import { ServerPage } from './ServerPage'
 import { AgentScreen } from './phone/PhoneChats'
 import { PhoneProjects } from './phone/PhoneProjects'
 import { PhoneTurns } from './phone/PhoneTurns'
@@ -137,9 +136,6 @@ export const GLOBAL_PAGES: {
   { page: 'about', label: '소개', name: t('소개', 'About'), aria: t('이 앱 소개', 'About'), tip: t('이 앱 소개', 'About'), icon: Icon.info, rail: 'bottom', render: (p) => <AboutPage part={p.route.page === 'about' ? p.route.part : undefined} anchor={p.route.page === 'about' ? p.route.anchor : undefined} />,
     side: (p) => <AboutSidebar part={p.route.page === 'about' ? p.route.part : undefined} anchor={p.route.page === 'about' ? p.route.anchor : undefined} />,
     badge: () => <AboutRailCount />, railTo: aboutRailRoute },
-  // 서버 (11/20 사용자 "클로드 기기관리처럼 · 서버 아이콘을 두어서", 시안 1단계): 계정 위. 이 앱을 쓰는 컴퓨터 목록
-  { page: 'server', label: '서버', name: t('서버', 'Server'), aria: t('서버', 'Server'), tip: t('서버 — 이 앱을 쓰는 기기', 'Server: devices that use this app'), icon: Icon.server, rail: 'bottom',
-    render: () => <ServerPage /> },
   // 계정 (11/19 사용자 "설정 톱니 위에 두고, 계정 페이지는 유일한 페이지로"): GitHub · 동기화 · 구글 · Claude 계정을 한 페이지에서
   { page: 'account', label: '계정', name: t('계정', 'Account'), aria: t('계정', 'Account'), tip: t('계정 — GitHub · Claude · 구글 연결', 'Account: GitHub, Claude and Google'), icon: <AccountRailIcon />, rail: 'bottom',
     render: (p) => <AccountPage onUi={p.onUi} onSaved={p.onSaved} /> },

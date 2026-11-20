@@ -717,6 +717,7 @@ files: [workbench/topics/coloring/kempe-chains/note.md]                   # 원�
 run:                                                                     # 실행 (선택): 결과를 낸 명령과 그때의 커밋
   command: python code/kempe_chains.py --graph icosahedron
   commit: 3f2a1b9c0d4e                                                   # 비우면 보고할 때의 HEAD를 앱이 적는다
+  trailer: false                                                         # 그 커밋에 꼬리말 Attempt: <흐름>/<글자>가 없을 때만 앱이 적는다 (경고)
 test: python code/kempe_chains.py --self-test                            # 검사 (선택): 판정하는 쪽이 다시 돌리는 명령
 reported: 2026-11-11T17:10
 verdict:
@@ -727,7 +728,7 @@ verdict:
   tested: pass                                                           # 검사 명령을 다시 돌린 결과 (pass · fail)
   files: { workbench/topics/coloring/kempe-chains/note.md: 5c1d0e9a77b2 }  # 성립일 때 앱이 적는 파일 지문
   claim: 9a41c07be2d3                                                    # 성립일 때 앱이 적는, 겨눈 주장의 지문 (진술 + 조건)
-when: 2026-10-12         # 한 날 (선택): 지난 일을 적을 때 그 일을 한 날
+when: 2026-10-12         # 한 날 (선택): 지난 일을 적을 때 그 일을 한 날. 비우면 근거 파일이 처음 커밋된 날을 앱이 적는다
 origin: past             # 지난 일을 나중에 적은 것 (「＋ 한 일」, 앱만 쓴다)
 returned: { at: 2026-11-12T20:00, by: user, note: … } # 수정 요청: 사용자가 그 주장을 돌려보냄. 다시 보고하고 판정받으면 없어진다 (앱만 쓴다)
 lesson: …                # 폐기일 때: 다음 시도가 되풀이하지 않을 것 한 줄
@@ -750,11 +751,12 @@ reopen: …                # 고르기: 다시 열 조건
 | 판정 | 됨 | 자기가 작업한 시도와 지난 일(`origin: past`)은 거절 |
 | 지난 일 적기 | 곧바로 판정된 근거 | 확인 대기로만 (`outcome` 거절) |
 | 방향 보고 | 됨 | 됨 |
-| 예외 기록 한 줄 | 됨 | 됨 (`refused`는 앱만) |
+| 예외 기록 한 줄 | 됨 | 됨 (`refused` · `warned`는 앱만) |
 
 - **보고와 주장** (`POST …/attempts/:aid/report`): 몸의 `statement`가 없으면 겨눈 주장을 그대로 받친다(질문을 바로 겨눈 시도는 근거 없는 보고로 남고 성립이 되지 못한다). `statement`가 겨눈 주장의 진술과 다르면 그 진술로 새 주장을 겨눈 주장 아래에 만들고(`from`에 이 시도), 시도의 `claim`을 새 주장으로 바꾼다. 질문을 바로 겨눈 시도면 새 주장은 질문 바로 아래에 생기고 `side`가 있어야 한다. 겨눈 주장이 이 시도의 보고에서 생긴 것이거나 이 시도가 돌려보내진 것(`returned`)이면 새로 만들지 않고 그 주장의 진술 · 조건을 고친다.
 - **답과 승인** (`POST …/problems/:id/close`, 11/11 "흐름 시험판 1", 11/13부터 주장에): 몸은 `{ baseHash, reason?, answer?: yes|no, reviews?: [{ id: <주장 번호>, verdict: approve|return|reject, note? }] }`다. 답 없이 닫으면 사유(`reason`)가 있어야 한다. 답과 함께 닫으면 그 답이 기대는 주장(응답의 `basis.yes` · `basis.no`: 쪽이 그 답인 질문 바로 아래의 성립 주장과, 그 아래의 성립 주장)마다 검토가 있어야 하고, 기대는 주장이 하나도 없으면 거절한다. 수정(`return`)과 기각(`reject`)은 사유가 있어야 한다. 수정이면 그 주장을 겨눈 성립 시도가 진행(`active`)으로 돌아가 `returned`가 붙고 판정 · 보고 시각은 지워진다(작업한 쪽이 다시 보고하고 다른 쪽이 다시 판정). 기각이면 주장에 `rejected`가 적혀 그 주장이 폐기가 된다(시도의 판정은 그대로 남고, 그 주장과 아래 주장을 겨눈 후보는 시작하지 못한다). 하나라도 수정 · 기각이면 흐름은 닫히지 않고 그 처리만 저장된다. 모두 승인이면 주장마다 `accepted`를 적고 `closed`에 `answer`와 `basis`를 남긴다. 결정을 기다리던 방향 보고에는 종료 결정이 적힌다.
 - **지난 일** (`POST …/attempts/record`, 11/14 "추천대로 시작"): 흐름을 열기 전이나 흐름 밖에서 한 일을 그 한 날(`when`)과 함께 적는다(화면 "＋ 한 일", MCP `attempt_record`, `pnpm agent:problem … record`). 몸은 `{ method, result, when?, claim?, did?, statement?, condition?, side?, files?, outcome?, lesson? }`이고 시도 파일에 `origin: past`가 붙는다. 한도와 정체(폐기 연속)에 세지 않는다. 사용자가 적으면 `outcome`(기본 성립)으로 곧바로 판정된 근거가 된다. 에이전트가 적으면 판정 대기로 남고, 그 판정(확인)은 사용자만 한다(에이전트는 `user-only`로 거절, `outcome`도 거절). 확인 전의 기록은 주장의 상태 계산에 들지 않고(주장 응답의 `unconfirmed`, 시도 응답의 `turn`, 목록 줄의 `confirm` 수), 화면은 사용자 차례로 주황을 붙인다. 사용자가 성립으로 확인할 때는 교차 검증을 묻지 않는다.
+- **근거 공통 기준** (11/20 결정 "흐름 근거 공통 기준", 프로젝트와 상관없이 같다): ① 지난 일의 `when`을 비우면 `files`의 저장소 안 경로(절 표시 `#…`를 뗀 것) 가운데 가장 먼저 커밋된 날을 앱이 적는다(git에서 계산한 사실, 고칠 수 있다). ② 근거의 세기는 셋이다(`attemptStrength`, `packages/core/src/problems.ts`): 다시 돌림(실행 명령 `run.command`이나 검사 명령 `test`) · 다시 읽음(노트 절 · 증명 · `bib:` 키 등 그 밖의 경로) · 가리킴만(`pr:` · `commit:` · `issue:` · `#번호` · 커밋 해시 · GitHub PR · 커밋 주소 · `workbench/tasks/` · `workbench/log/`). 근거가 가리킴만이면 성립 판정과 성립으로 적는 지난 일을 `pointer-only`로 거절한다(출처로만 보인다). ③ 한 시도의 근거는 한 커밋에 닫고 그 커밋 메시지 끝에 꼬리말 `Attempt: <흐름>/<글자>`(예: `Attempt: kempe-degree-five/b`)를 붙인다. 보고할 때 그 커밋(`run.commit`, 비우면 HEAD)에 꼬리말이 없으면 보고는 받고 `run.trailer: false`를 적고 예외 기록에 `warned`(`no-trailer`)를 남긴다(2주 경고, 그 뒤 예외 기록과 함께 오류로 바꿀지 다시 본다). 꼬리말이 없던 지난 일은 근거에 커밋 해시를 적는 것으로 대신한다.
 - **날과 순서:** 주장 응답의 `when`은 그 주장을 겨눈 시도 가운데 가장 이른 날(`when`, 없으면 `started`, 없으면 `created`), 시도가 없으면 주장을 세운 날이다. 형제 주장(같은 위 주장 아래)은 이 날 순으로 놓이고, 같은 날이면 번호 순이다.
 - **주장이 바뀜:** 성립으로 판정할 때 앱이 겨눈 주장의 진술과 조건의 지문을 그 시도의 `verdict.claim`에 적는다. 뒤에 진술이나 조건이 바뀌면 그 시도 응답의 `restated`와 주장 응답의 `stale`이 참이 되고 화면은 파일이 바뀐 것과 같이 "판정 후 변경"으로 알린다.
 - **예외 기록** (`problemExceptions.ts`, `GET · POST …/:rid/problem-exceptions`): 파일 하나가 한 줄이다.
@@ -764,8 +766,8 @@ reopen: …                # 고르기: 다시 열 조건
 format: 1
 at: 2026-11-11T14:32
 by: claude-code          # user 또는 에이전트 이름
-kind: refused            # refused 거절(앱만) · no-claim 진술 불가 · no-verdict 판정 불가 · needs-user 결정 필요 · workaround 우회 · other 기타
-rule: self-verdict       # 거절일 때: user-only · not-open · order · not-yours · self-verdict · no-claim · test-not-run · no-basis
+kind: refused            # refused 거절(앱만) · warned 경고(앱만) · no-claim 진술 불가 · no-verdict 판정 불가 · needs-user 결정 필요 · workaround 우회 · other 기타
+rule: self-verdict       # 거절일 때: user-only · not-open · order · not-yours · self-verdict · no-claim · test-not-run · no-basis · pointer-only, 경고일 때: no-trailer
 problem: kempe-degree-five   # 선택
 attempt: b1                  # 선택
 what: 작업한 쪽은 판정하지 않습니다. 다른 에이전트나 사용자가 원자료로 판정합니다

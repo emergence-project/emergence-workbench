@@ -394,8 +394,10 @@ export const CentralKid = z.object({
 /** 방의 권한: read 읽기만(부르면 접힌 요약) · talk 발언(부르면 답함) · edit 수정(하위 대화 · 파일 · PR, 한 명 = 방장) */
 export const ROOM_PERMS = ['read', 'talk', 'edit'] as const
 export const RoomMember = z.object({ agent: z.enum(AGENT_KINDS), perm: z.enum(ROOM_PERMS), by: z.enum(['user', 'host']), reason: z.string().optional(), at: z.string() }).strict()
-/** 방 규칙: hostInvite = 방장이 초대해도 됨(읽기만 · 발언까지), defaultPerm = 새로 들어올 때 권한, callMax = 방장이 한 번에 부르는 수 */
-export const RoomRules = z.object({ hostInvite: z.boolean(), defaultPerm: z.enum(['read', 'talk']), callMax: z.number().int().min(1).max(3) }).strict()
+/** 방 규칙: hostInvite = 방장이 초대해도 됨(읽기만 · 발언까지), defaultPerm = 새로 들어올 때 권한, callMax = 방장이 한 번에 부르는 수,
+ *  mode = 여럿을 부를 때 답하는 방식(11/20 사용자 제안 "모드 전환"): independent 서로의 답을 가린 채 동시에 · debate 앞사람의 답을 보고 차례로 */
+export const ROOM_MODES = ['independent', 'debate'] as const
+export const RoomRules = z.object({ hostInvite: z.boolean(), defaultPerm: z.enum(['read', 'talk']), callMax: z.number().int().min(1).max(3), mode: z.enum(ROOM_MODES).default('independent') }).strict()
 /** 방: host = 방장(수정을 가진 사람), members = 방장 포함 (사용자 말고 4명까지), asking = 지금 답하는 사람 */
 export const RoomState = z.object({ host: z.enum(AGENT_KINDS), members: z.array(RoomMember), rules: RoomRules, asking: z.array(z.enum(AGENT_KINDS)) }).strict()
 export const RoomInviteBody = z.object({ agent: z.enum(AGENT_KINDS), perm: z.enum(ROOM_PERMS).optional(), reason: z.string().trim().max(200).optional() }).strict()

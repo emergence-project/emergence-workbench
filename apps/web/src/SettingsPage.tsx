@@ -1,4 +1,5 @@
 import { UI_OPTIONS, DEFAULT_UI, type UiSettings } from '@rw/core'
+import { DeviceList } from './DeviceList'
 import type { ReactNode } from 'react'
 import { AppInfo } from './AppInfo'
 import { AppUpdate, useBundledApp } from './AppUpdate'
@@ -38,6 +39,8 @@ export const SETTINGS_PARTS = [
   { key: 'update', label: t('앱 기본정보', 'About this app') },
   { key: 'backup', label: t('백업', 'Backup') },
   { key: 'sync', label: t('동기화', 'Sync') },
+  // 서버 › 기기 (11/20 사용자 "설정에서 관리"): 이 앱을 쓰는 컴퓨터. 다음 단계에서 에이전트가 도는 컴퓨터 · 쓸 계정도 여기
+  { key: 'server', label: t('서버', 'Server') },
   { key: 'agents', label: t('에이전트', 'Agents') },
   { key: 'phone', label: t('폰에서 보기', 'On your phone') },
   // 아래 줄은 규칙 파일의 절 제목 (RuleSubs)
@@ -152,6 +155,11 @@ export function SettingsPage({ ui, onChange, part, pr, onSaved }: { ui: UiSettin
             {show('sync') && <section data-ui="동기화 묶음">
               <div className="sec-head"><h2>{t('동기화', 'Sync')}</h2></div>
               <SyncSettings />
+            </section>}
+
+            {show('server') && <section data-ui="서버">
+              <div className="sec-head"><h2>{t('서버', 'Server')}</h2></div>
+              <DeviceList />
             </section>}
 
             {show('agents') && <section data-ui="에이전트 묶음">
