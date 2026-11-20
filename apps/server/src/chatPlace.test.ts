@@ -19,6 +19,9 @@ describe('대화를 서버에서', () => {
   it('넘기는 경로와 다시 알리는 알림', () => {
     expect(isChatPath('/api/agent-chats?project=x')).toBe(true)
     expect(isChatPath('/api/agent-central/send')).toBe(true)
+    // 토론 열기 · 설정 · 끝내기도 서버로 (빠져 있어 서버의 토론을 이 컴퓨터가 받아 404였다)
+    expect(isChatPath('/api/agent-debate')).toBe(true)
+    expect(isChatPath('/api/agent-debate/2026-11-20-ab12cd34/end')).toBe(true)
     expect(isChatPath('/api/agent-chatsx')).toBe(false)
     expect(isChatPath('/api/claude-accounts')).toBe(false)
     // 피드백을 에이전트에게 맡기기도 서버에서 (11/20)

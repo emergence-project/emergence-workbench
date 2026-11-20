@@ -15,8 +15,8 @@ import { repeat } from '../scheduler.js'
 import type { WorkbenchEvent } from '../watcher.js'
 import type { RouteContext } from './context.js'
 
-/** 서버로 넘기는 경로: 에이전트 대화 · 중앙 · 방 · 지금 도는 일 · 대화가 만든 시안 */
-export const CHAT_PREFIXES = ['/api/agent-chats', '/api/agent-central', '/api/agent-room', '/api/agent-work', '/api/agent-mockups']
+/** 서버로 넘기는 경로: 에이전트 대화 · 중앙 · 방 · 토론 · 지금 도는 일 · 대화가 만든 시안 (토론이 빠져 있어 서버의 토론을 끝내거나 설정하면 이 컴퓨터가 받아 「대화가 없음」이 됐다, 11/21) */
+export const CHAT_PREFIXES = ['/api/agent-chats', '/api/agent-central', '/api/agent-room', '/api/agent-debate', '/api/agent-work', '/api/agent-mockups']
 /** 서버로 넘기는 낱 경로: 피드백을 에이전트에게 맡기기 (맡기는 것은 서버 한 곳에서, 11/20) */
 export const CHAT_PATHS = ['/api/feedback/hand-off']
 /** 서버 알림 가운데 대화 알림만 모양을 확인해 꺼낸다 */
@@ -43,11 +43,11 @@ export interface LocalChats { has(id: string): boolean; list(rid?: string): Chat
 const locals = new WeakMap<FastifyInstance, LocalChats>()
 export function setLocalChats(app: FastifyInstance, l: LocalChats): void { locals.set(app, l) }
 
-/** 경로의 대화 id (/api/agent-chats/<id>/… · /api/agent-mockups/<id>/…) */
+/** 경로의 대화 id (/api/agent-chats/<id>/… · /api/agent-mockups/<id>/… · /api/agent-debate/<id>/…) */
 function chatIdOf(url: string): string | null {
-  const m = /^\/api\/agent-(?:chats|mockups)\/([^/?]+)/.exec(url)
+  const m = /^\/api\/agent-(?:chats|mockups|debate)\/([^/?]+)/.exec(url)
   const id = m?.[1] ? decodeURIComponent(m[1]) : null
-  return id && !['agents', 'models', 'extras'].includes(id) ? id : null
+  return id && !['agents', 'models', 'extras', 'host'].includes(id) ? id : null
 }
 
 /** 서버 목록에 이 컴퓨터의 대화를 「이 맥」으로 더한다. 서버가 개인 저장소로 받은 이 컴퓨터의 대화(읽기만)는 빼서 두 번 보이지 않게 */

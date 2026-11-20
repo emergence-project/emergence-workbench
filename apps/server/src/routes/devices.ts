@@ -5,7 +5,7 @@ import * as C from '@rw/core/contract/devices'
 import { parseBody, replies } from '../contract.js'
 import { machineName } from '../backup.js'
 import { logoutDevice, otherDevices, setDeviceAccounts, setDeviceLogout, thisDevice } from '../devices.js'
-import { BEAT_MS, DEVICE_KEY_HEADER, DeviceHub, mergeDevices, readServerConfig, writeServerConfig, type ServerConfig } from '../deviceServer.js'
+import { BEAT_MS, DEVICE_KEY_HEADER, DeviceHub, deviceKeyOk, mergeDevices, readServerConfig, writeServerConfig, type ServerConfig } from '../deviceServer.js'
 import { t } from '../i18n.js'
 import type { PhoneStatus } from '@rw/core/contract/phone'
 import type { Phone } from '../phone.js'
@@ -105,9 +105,9 @@ export function registerDevices(app: FastifyInstance, ctx: RouteContext, deps: D
   // ── 서버 쪽: 다른 컴퓨터가 열쇠를 붙여 부르는 곳 ──
   const checkKey = (req: FastifyRequest): void => {
     const cfg = config()
-    const k = req.headers[DEVICE_KEY_HEADER]
     if (!cfg || cfg.machine !== machineName()) throw new WorkbenchError(409, t('이 컴퓨터는 서버가 아닙니다', 'This computer is not the server'))
-    if (typeof k !== 'string' || k !== cfg.secret) throw new WorkbenchError(401, t('열쇠가 맞지 않습니다', 'Wrong key'))
+    // 열쇠 비교는 대화 넘기기(appKey.ts)와 같은 곳에서: 걸린 시간으로 열쇠가 새지 않게
+    if (!deviceKeyOk(req.headers, dirs(), machineName())) throw new WorkbenchError(401, t('열쇠가 맞지 않습니다', 'Wrong key'))
   }
   app.post('/api/devices/beat', replies(C.DeviceBeatReply), async (req): Promise<C.DeviceBeatReply> => {
     checkKey(req)

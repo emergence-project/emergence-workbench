@@ -200,8 +200,11 @@ export class SharedChats extends AgentChats {
         const c = this.chats.get(a.id)
         if (a.machine !== machine || !c || c.archived === !a.undo || LIVE.has(c.state) || c.updated > a.at) continue
         const text = a.undo ? t(`자동: ${d}의 중앙이 보관함에서 꺼냈습니다 · ${a.reason}`, `Automatic: restored from the archive by the central conversation on ${d} · ${a.reason}`) : t(`자동: ${d}의 중앙이 보관함에 넣었습니다 · ${a.reason}`, `Automatic: archived by the central conversation on ${d} · ${a.reason}`)
-        c.items.push({ kind: 'text', at: new Date().toISOString(), text })
-        this.archive(a.id, !a.undo)
+        // 꺼낼 때는 먼저 꺼낸다(압축한 줄을 푼다): 빈 줄 목록에 적으면 풀 때 이 줄이 덮여 사라진다
+        if (a.undo) this.archive(a.id, false)
+        this.must(a.id).items.push({ kind: 'text', at: new Date().toISOString(), text })
+        if (a.undo) this.touch(c)
+        else this.archive(a.id, true)
         done.push(a.id)
       }
     }

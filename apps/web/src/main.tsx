@@ -3,6 +3,7 @@ import { StrictMode } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
+import { CrashScreen } from './CrashScreen'
 import { queryClient } from './queries'
 import { applyUi, cachedUi } from './ui'
 import { phoneStart } from './phoneLayout'
@@ -98,7 +99,7 @@ watchPageSelection()
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <App />
+      <CrashScreen><App /></CrashScreen>
     </QueryClientProvider>
   </StrictMode>,
 )
