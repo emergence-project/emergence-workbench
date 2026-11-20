@@ -285,20 +285,32 @@ export type TaskDraft = Partial<NewTask> & { mode?: 'new' | 'proposal' | 'next';
  * 맡기기 창: 제목 · 주제 · 맡을 에이전트 · 작업 내용 · 종결 조건(직접 적기 / 에이전트가 먼저 제안) · 참고 자료 · 하지 말 것.
  * 다음 지시를 고쳐 맡길 때와 종결 조건 제안을 고쳐 승인할 때도 같은 창을 쓴다.
  */
-export function TaskDialog({ rid, topics, draft, onClose, onSaved, reload }: {
+/** 새로 맡기는 창을 Esc · 바깥 누르기로 닫아도 적던 것이 남게: 프로젝트마다 하나, 맡기면 지운다 (화면을 새로 열면 없어진다) */
+const keptTasks = new Map<string, TaskDraft & { endMode?: 'self' | 'agent' }>()
+
+export function TaskDialog({ rid, topics, draft: given, onClose, onSaved, reload }: {
   rid: string; topics: Topic[]; draft: TaskDraft; onClose(): void; onSaved: Saved; reload(): unknown
 }) {
+  // 빈 창으로 연 때만 되살린다 (다음 지시 · 종결 조건 고치기는 그 내용으로 연다)
+  const blank = Object.keys(given).every((k) => k === 'mode') && (given.mode ?? 'new') === 'new'
+  const kept = blank ? keptTasks.get(rid) : undefined
+  const draft = kept ?? given
   const mode = draft.mode ?? 'new'
   const [title, setTitle] = useState(draft.title ?? '')
   const [topic, setTopic] = useState(draft.topic ?? '')
   const [agent, setAgent] = useState(draft.agent ?? 'claude-code')
   const [task, setTask] = useState(draft.task ?? '')
-  const [endMode, setEndMode] = useState<'self' | 'agent'>(draft.endCondition || mode !== 'new' ? 'self' : 'agent')
+  const [endMode, setEndMode] = useState<'self' | 'agent'>(kept?.endMode ?? (draft.endCondition || mode !== 'new' ? 'self' : 'agent'))
   const [end, setEnd] = useState(draft.endCondition ?? '')
   const [refs, setRefs] = useState((draft.references ?? []).join('\n'))
   const [avoid, setAvoid] = useState(draft.avoid ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    if (!blank) return
+    if ([title, task, end, refs, avoid].some((x) => x.trim())) keptTasks.set(rid, { title, topic, agent, task, endCondition: end, endMode, references: refs.split('\n'), avoid })
+    else keptTasks.delete(rid)
+  }, [blank, rid, title, topic, agent, task, end, endMode, refs, avoid])
   const proposal = mode === 'proposal'
   const ready = proposal ? !!end.trim() : !!title.trim() && !!task.trim() && (endMode === 'agent' || !!end.trim())
   const submit = async () => {
@@ -318,6 +330,7 @@ export function TaskDialog({ rid, topics, draft, onClose, onSaved, reload }: {
         onSaved(t('고쳐서 맡겼습니다', 'Edited and delegated'), started && agentAction(started.file, onSaved))
       } else {
         const made = await tasksApi(rid).create(input)
+        if (blank) keptTasks.delete(rid)
         onSaved(t('맡겼습니다', 'Delegated'), agentAction(made.file, onSaved))
       }
       await reload()
