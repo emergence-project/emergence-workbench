@@ -38,9 +38,8 @@ describe('중앙 방', () => {
     yield { type: 'text', text: '방장 답' }
     yield { type: 'result', ok: true }
   } as (input: RunInput) => AsyncIterable<RunEvent>, { side: async (o: { prompt: string }) => { asked.push(o.prompt); return '곁 답' } })
-  const make = () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-room-'))
-    dirs.push(dir)
+  const make = (dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-room-'))) => {
+    if (!dirs.includes(dir)) dirs.push(dir)
     const review = vi.fn(async (o: { prompt: string }) => { asked.push(o.prompt); return 'Codex 답' })
     const chats = new RoomChats({ dir: path.join(dir, 'chats'), runner: fake, limit: 4, project: (rid) => ({ repo: dir, title: rid }), readable: () => [], extraDirs: () => [], notify: () => {}, review })
     return { chats, dir, review }
@@ -73,6 +72,47 @@ describe('중앙 방', () => {
     await vi.waitFor(() => expect(turns).toHaveLength(2))
     expect(turns[1]).toContain('[Codex answered in the room:]\nCodex 답')
     expect(turns[1]).toContain('[The user writes:]\n그럼 고쳐')
+  })
+
+  it('앱이 다시 켜진 뒤에는 방장이 아직 못 본 답만 붙인다 (이미 본 답을 처음부터 다시 붙이지 않는다)', async () => {
+    const first = make()
+    const c = first.chats.talk('시작')
+    await vi.waitFor(() => expect(first.chats.get(c.id).state).toBe('idle'))
+    first.review.mockResolvedValueOnce('본 답')
+    first.chats.send(c.id, { text: '@Codex 하나' })
+    await vi.waitFor(() => expect(first.chats.get(c.id).items.some((x) => x.kind === 'member' && x.text === '본 답')).toBe(true))
+    first.chats.send(c.id, { text: '고쳐' })
+    await vi.waitFor(() => expect(first.chats.get(c.id).state).toBe('idle'))
+    first.review.mockResolvedValueOnce('못 본 답')
+    first.chats.send(c.id, { text: '@Codex 둘' })
+    await vi.waitFor(() => expect(first.chats.get(c.id).items.some((x) => x.kind === 'member' && x.text === '못 본 답')).toBe(true))
+    const { chats } = make(first.dir)
+    chats.send(c.id, { text: '이어서' })
+    await vi.waitFor(() => expect(turns).toHaveLength(3))
+    expect(turns[2]).toContain('[Codex answered in the room:]\n못 본 답')
+    expect(turns[2]).not.toContain('본 답\n[')
+    expect(turns[2]).not.toContain('[Codex answered in the room:]\n본 답')
+    expect(turns[2]).toContain('[Room members:')
+  })
+
+  it('대화가 길어 앞 줄을 잘라 낸 뒤에도(400줄) 방 사람의 답이 방장에게 간다', async () => {
+    const first = make()
+    const c = first.chats.talk('시작')
+    await vi.waitFor(() => expect(first.chats.get(c.id).state).toBe('idle'))
+    // 긴 대화를 만든다: 대화 파일에 하위 에이전트 줄을 채워 다시 읽는다
+    const file = path.join(first.dir, 'chats', `${c.id}.json`)
+    const saved: { items: unknown[] } = JSON.parse(fs.readFileSync(file, 'utf8'))
+    saved.items = [...Array.from({ length: 420 }, () => ({ kind: 'text', at: '2026-11-20T00:00:00.000Z', text: '채움', sub: true })), ...saved.items]
+    fs.writeFileSync(file, JSON.stringify(saved))
+    const { chats } = make(first.dir)
+    chats.send(c.id, { text: '하나' })
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    expect(chats.get(c.id).items).toHaveLength(400)
+    chats.send(c.id, { text: '@Codex 봐 줘' })
+    await vi.waitFor(() => expect(chats.get(c.id).items.some((x) => x.kind === 'member' && x.text === 'Codex 답')).toBe(true))
+    chats.send(c.id, { text: '그럼 고쳐' })
+    await vi.waitFor(() => expect(turns).toHaveLength(3))
+    expect(turns[2]).toContain('[Codex answered in the room:]\nCodex 답')
   })
 
   it('@모두는 다른 사람이 먼저 답하고 방장이 마지막에 정리한다. 사용자의 말은 한 번, 답들 앞에', async () => {

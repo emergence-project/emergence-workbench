@@ -18,12 +18,12 @@ describe('토론', () => {
     yield { type: 'result', ok: true }
   }
   /** codex = review, gemini · 정리 = side. 단계는 물음 머리로 가린다 */
-  const make = (codex: (p: string) => string, side: (p: string) => string) => {
+  const make = (codex: (p: string) => string, side: (p: string) => string, wait: () => Promise<void> = async () => {}) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-debate-'))
     dirs.push(dir)
     const asked: { who: 'codex' | 'side'; o: Ask }[] = []
-    const runner = Object.assign(fake, { side: async (o: Ask) => { asked.push({ who: 'side', o }); return side(o.prompt) } })
-    const review = vi.fn(async (o: Ask) => { asked.push({ who: 'codex', o }); return codex(o.prompt) })
+    const runner = Object.assign(fake, { side: async (o: Ask) => { asked.push({ who: 'side', o }); await wait(); return side(o.prompt) } })
+    const review = vi.fn(async (o: Ask) => { asked.push({ who: 'codex', o }); await wait(); return codex(o.prompt) })
     const chats = new DebateChats({ dir: path.join(dir, 'chats'), runner, limit: 4, project: (rid) => ({ repo: dir, title: rid }), readable: () => [], extraDirs: () => [], notify: () => {}, review })
     return { chats, dir, asked }
   }
@@ -126,8 +126,34 @@ describe('토론', () => {
     await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
     expect(() => chats.send(c.id, { text: '/토론 맞아?' })).toThrow(/둘 이상/)
     expect(() => chats.send(c.id, { text: '/토론 @codex @gemini' })).toThrow(/물음/)
+    // 열지 못한 말은 중앙에 남지 않는다 (입력란에 그대로 있어 다시 보내면 두 번 남았다)
+    expect(chats.get(c.id).items.filter((x) => x.kind === 'user').map((x) => x.kind === 'user' && x.text)).toEqual(['시작'])
     chats.invite('gemini', 'user', 'talk')
     expect(chats.openDebate('맞아?', 'host').debate?.seats.map((s) => s.agent)).toEqual(['codex', 'gemini'])
+  })
+
+  it('멈춘 바로 뒤 더 물어도 앞 차례는 되살아나지 않는다: 정리는 한 번만', async () => {
+    const gates: (() => void)[] = []
+    let gate = Promise.resolve()
+    const hold = () => { gate = new Promise<void>((r) => { gates.push(r) }) }
+    const { chats, asked } = make(() => '판정: 맞음 — 됨', (p) => (stageOf(p) === 'sum' ? SUM : '판정: 맞음 — 그렇다'), () => gate)
+    const c = chats.talk('시작')
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    hold()
+    chats.send(c.id, { text: '/토론 맞아? @codex @gemini' })
+    const line = chats.get(c.id).items.find((x) => x.kind === 'debate')
+    if (line?.kind !== 'debate') throw new Error('토론 줄이 없다')
+    chats.stop(line.chat)
+    expect(chats.get(line.chat).state).toBe('stopped')
+    hold()
+    chats.send(line.chat, { text: '다시 맞아?' })
+    gates[0]!() // 앞 차례의 답이 이제야 온다
+    await new Promise((r) => setTimeout(r, 20))
+    expect(asked.filter((a) => stageOf(a.o.prompt) === 'sum')).toHaveLength(0)
+    gates[1]!()
+    await vi.waitFor(() => expect(chats.get(line.chat).state).toBe('idle'))
+    expect(asked.filter((a) => stageOf(a.o.prompt) === 'sum')).toHaveLength(1)
+    expect(chats.get(line.chat).items.filter((x) => x.kind === 'member' && x.stage === 'sum')).toHaveLength(1)
   })
 
   it('정리의 고른 안 줄을 뽑는다', () => {

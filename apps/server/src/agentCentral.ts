@@ -245,7 +245,7 @@ export class CentralChats extends FeedbackChats {
     if (c.parent !== central.id || c.archived) return
     const a = c.state === 'waiting' ? openAsk(c) : undefined
     if (a) this.note(c.id, { kind: 'ask' }, `ask:${a.id}`)
-    else if (ended) this.note(c.id, { kind: 'end' }, `end:${c.id}:${c.items.length}`)
+    else if (ended) this.note(c.id, { kind: 'end' }, `end:${c.id}:${(c.trimmed ?? 0) + c.items.length}`)
   }
 
   /** 깨울 까닭 하나를 적는다 (같은 것은 한 번만. 중재 요청은 쌓는다) */

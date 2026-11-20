@@ -83,8 +83,8 @@ const unanimous = (xs: Member[]): boolean => {
 }
 
 export class DebateChats extends RoomChats {
-  /** 끊은 토론 (다음 단계로 가지 않는다) */
-  private readonly halted = new Set<string>()
+  /** 토론마다 지금 도는 차례의 번호. 멈추거나 다시 돌리면 올려서, 앞 차례는 다음 단계로 가지 않는다 (멈춘 바로 뒤 더 물으면 앞 차례가 되살아나 두 차례가 함께 돌았다) */
+  private readonly runs = new Map<string, number>()
 
   constructor(...a: ConstructorParameters<typeof RoomChats>) {
     super(...a)
@@ -124,8 +124,21 @@ export class DebateChats extends RoomChats {
     this.chats.set(c.id, c)
     if (central) { central.items.push({ kind: 'debate', at, chat: c.id, q: clip(q, 300), by, state: 'running' }); this.touch(central) }
     this.touch(c)
-    void this.runDebate(c, q).catch(() => undefined)
+    this.go(c, q)
     return this.get(c.id)
+  }
+
+  /** 네 단계를 돌린다. 도중에 실패하면(대화 파일을 못 씀 등) 「도는 중」으로 남기지 않고 오류로 멈춘다 */
+  private go(c: DStored, q: string): void {
+    const run = (this.runs.get(c.id) ?? 0) + 1
+    this.runs.set(c.id, run)
+    const live = () => this.runs.get(c.id) === run && this.chats.get(c.id) === c
+    void this.runDebate(c, q, live).catch((e: unknown) => {
+      if (!live()) return
+      c.state = 'error'; c.debate.step = 'done'
+      c.items.push({ kind: 'error', at: now(), text: clip(e instanceof Error ? e.message : String(e), 500) })
+      try { this.line(c, { state: 'done' }); this.touch(c) } catch { /* 쓰지 못해도 상태는 고쳤다 */ }
+    })
   }
 
   /** 받는 이: 중앙의 /토론은 토론을 열고, 토론 대화의 말은 1단계부터 다시 돈다 */
@@ -136,8 +149,10 @@ export class DebateChats extends RoomChats {
       const q = m.text.replace(OPEN, '').replace(/(^|\s)@\S+/g, ' ').replace(/[ \t]+/g, ' ').trim()
       if (!q) throw new WorkbenchError(400, t('/토론 뒤에 물음을 적어 주세요', 'Write the question after /토론'))
       const agents = mentionsOf(m.text).filter((a): a is AgentKind => a !== 'all')
-      c.items.push({ kind: 'user', at: now(), text: m.text })
-      this.openDebate(q, 'user', agents.length ? agents : undefined, m.attach)
+      const mine: ChatItem = { kind: 'user', at: now(), text: m.text }
+      c.items.push(mine)
+      // 열지 못하면(참가자가 모자람 등) 보낸 말을 남기지 않는다: 입력란에 그대로 있어 다시 보내면 두 번 남았다
+      try { this.openDebate(q, 'user', agents.length ? agents : undefined, m.attach) } catch (e) { c.items.splice(c.items.lastIndexOf(mine), 1); throw e }
       return this.get(id)
     }
     return super.send(id, m, prompt)
@@ -152,7 +167,7 @@ export class DebateChats extends RoomChats {
     c.state = 'running'
     this.line(c, { state: 'running' })
     this.touch(c)
-    void this.runDebate(c, m.text).catch(() => undefined)
+    this.go(c, m.text)
     return this.get(c.id)
   }
 
@@ -190,10 +205,8 @@ export class DebateChats extends RoomChats {
   }
 
   /** 네 단계 (사회 = 앱) */
-  private async runDebate(c: DStored, q: string): Promise<void> {
+  private async runDebate(c: DStored, q: string, live: () => boolean): Promise<void> {
     const d = c.debate, seats = d.seats.map((s) => ({ ...s })), labels = seats.map((_, i) => LABELS[i]!)
-    this.halted.delete(c.id)
-    const live = () => !this.halted.has(c.id) && this.chats.get(c.id) === c
     const ctx = this.context(c)
     const step = (s: typeof d.step, round = d.round) => { d.step = s; d.round = round; this.touch(c) }
     step('answer', 0)
@@ -284,7 +297,7 @@ export class DebateChats extends RoomChats {
     const c = this.must(id)
     if (!isDebate(c)) return super.stop(id)
     if (c.state === 'running') {
-      this.halted.add(id)
+      this.runs.set(id, (this.runs.get(id) ?? 0) + 1)
       c.state = 'stopped'
       c.debate.step = 'done'
       c.items.push({ kind: 'error', at: now(), text: t('토론을 멈췄습니다. 더 물으면 1단계부터 다시 돕니다', 'Stopped the debate. Ask more to start again from step 1') })

@@ -66,7 +66,7 @@ export function memberPrompt(c: Pick<Stored, 'items'>, me: RoomMember, host: Age
 export class RoomChats extends CentralChats {
   protected saved: Saved
   protected readonly asking = new Map<AgentKind, number>()
-  /** 중앙 대화마다 방장에게 넘긴 마지막 항목 수 (그 뒤의 방 사람 답 · 방 소식을 다음 차례 앞에 붙인다) */
+  /** 중앙 대화마다 방장에게 넘긴 마지막 항목 수 (그 뒤의 방 사람 답 · 방 소식을 다음 차례 앞에 붙인다). 오래된 줄을 잘라 낸 수(trimmed)까지 센 값이다 */
   private readonly fed = new Map<string, number>()
   /** 이번 차례에 방장에게 덧붙일 말 (@모두: 마지막에 정리) */
   private hostLine = ''
@@ -204,8 +204,11 @@ export class RoomChats extends CentralChats {
 
   /** 방장이 아직 못 본 방 사람의 답 · 방 소식 (agentCentral.ts의 send가 다음 차례 앞에 붙인다) */
   protected override roomNote(c: Stored): string {
-    const from = this.fed.get(c.id) ?? 0
-    this.fed.set(c.id, c.items.length)
+    // 줄 번호는 잘라 낸 줄까지 센다: 대화가 길어 앞을 잘라 내면(400줄) 그냥 센 자리는 늘 끝이라 방 사람의 답이 방장에게 가지 않았다
+    const cut = c.trimmed ?? 0, first = !this.fed.has(c.id)
+    // 앱이 다시 켜진 뒤 처음: 방장의 마지막 글 뒤의 것만 (그 앞의 답은 방장이 이미 봤다. 처음부터 다시 붙이면 토큰만 쓴다)
+    const from = Math.max(0, first ? c.items.map((it) => it.kind === 'text' && !it.sub).lastIndexOf(true) + 1 : this.fed.get(c.id)! - cut)
+    this.fed.set(c.id, cut + c.items.length)
     const lines: string[] = []
     for (const it of c.items.slice(from)) {
       if (it.kind === 'member' && it.text && it.from !== 'host') lines.push(`[${nameOf(it.by)} answered in the room:]\n${clip(it.text, 3000)}`)
@@ -213,7 +216,7 @@ export class RoomChats extends CentralChats {
     }
     const r = this.saved
     const roster = `[Room members: ${r.members.map((m) => `${nameOf(m.agent)} ${PERM_EN[m.perm]}${m.agent === r.host ? ', you' : ''}`).join(' · ')}. Rules: you ${r.rules.hostInvite ? 'may invite (read-only or talk, with a reason)' : 'may not invite'}, ask at most ${r.rules.callMax} at once. When the user calls several, they answer independently, without seeing each other.]`
-    const head = from === 0 || lines.some((l) => l.startsWith('[Room:')) ? [roster] : []
+    const head = first || lines.some((l) => l.startsWith('[Room:')) ? [roster] : []
     const line = this.hostLine, news = this.news.splice(0)
     this.hostLine = ''
     return [...head, ...lines, ...news, ...(line ? [line] : [])].join('\n')

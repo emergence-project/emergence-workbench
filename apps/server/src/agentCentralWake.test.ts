@@ -69,6 +69,28 @@ describe('중앙을 저절로 깨우기', () => {
     chats.stopAll()
   })
 
+  it('하위 대화가 길어 앞 줄을 잘라 낸 뒤에도(400줄) 차례가 끝날 때마다 중앙을 깨운다', async () => {
+    const { chats, c } = await make(5)
+    const kid = await chats.openKid({ role: 'project', project: 'chiral', title: '긴 일', task: '시작' })
+    await vi.waitFor(() => expect(centralPrompts()).toHaveLength(2))
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    chats.stopAll()
+    // 긴 대화를 만든다: 대화 파일에 줄을 채워 다시 읽는다 (앱이 다시 켜진 것처럼)
+    const dir = dirs.at(-1)!, file = path.join(dir, `${kid.id}.json`)
+    const saved: { items: unknown[] } = JSON.parse(fs.readFileSync(file, 'utf8'))
+    saved.items = [...Array.from({ length: 420 }, () => ({ kind: 'text', at: '2026-11-20T00:00:00.000Z', text: '채움', sub: true })), ...saved.items]
+    fs.writeFileSync(file, JSON.stringify(saved))
+    const again = new CentralChats({ dir, runner: fake, limit: 5, project: (rid) => ({ repo: dir, title: rid }), readable: () => [], extraDirs: () => [], notify: () => {} })
+    again.wakeMs = 5
+    for (const [n, text] of [[3, '하나 더'], [4, '또 하나']] as const) {
+      again.send(kid.id, { text })
+      await vi.waitFor(() => expect(centralPrompts()).toHaveLength(n))
+      await vi.waitFor(() => expect(again.get(c.id).state).toBe('idle'))
+      expect(again.get(kid.id).items).toHaveLength(400)
+    }
+    again.stopAll()
+  })
+
   it('비정상 종료(11/20): 하위 대화든 아니든 오류 · 하던 일 · 이력을 중앙에게 알리고, 이력은 대화 기록에 남는다', async () => {
     const { chats, c } = await make(5)
     const kid = await chats.openKid({ role: 'project', project: 'chiral', title: '2절', task: '[crash] 다듬어' })
