@@ -12,7 +12,9 @@ import { PROJECT_KIND_LABEL } from './projectProfile'
 import { locale, plural, t } from './i18n'
 import { ObsidianMarkdown } from './ObsidianMarkdown'
 import { splitStatus, statusBody } from './statusBody'
-import { useAgentStatus, useJournal, useProjectInfo, useTaskScan, useTopicsOverview } from './projectQueries'
+import { useAgentStatus, useJournal, useProjectInfo, useRecords, useTaskScan, useTopicsOverview } from './projectQueries'
+import { useProblems } from './Problems'
+import { recordLine, userTurnRecords } from './workRecords'
 import { StatusDot } from './StatusDot'
 import { StarIcon } from './marks'
 import { judgeOrder, taskLine, TASK_DOT, TASK_GROUPS, TASK_STATE_LABEL } from './taskView'
@@ -149,6 +151,14 @@ export function StatusPage({ rid, rapi }: { rid: string; rapi: ResearchApi }) {
   const { entries, loaded } = useJournal(rapi)
   const text = useStatusText(rid, rapi)
   const turn = tasks ? judgeOrder(tasks) : []
+  // 사이드바 기록 줄의 수와 같게: 판단할 맡긴 일 + 결정을 기다리는 흐름 + 에이전트가 물은 기록 (11/21: 맡긴 일만 세어 수가 달랐다)
+  const flows = useProblems(rid).data?.problems.filter((p) => p.waiting) ?? []
+  const asks = userTurnRecords(useRecords(rid).data?.files ?? [])
+  const turnRows: { key: string; dot: ReactNode; title: string; meta: string; open(): void }[] = [
+    ...turn.map((x) => ({ key: `t:${x.id}`, dot: <StatusDot s={TASK_DOT[x.state]} name={TASK_STATE_LABEL[x.state]} />, title: x.title, meta: taskLine(x), open: () => go({ page: 'task', rid, task: x.id }) })),
+    ...flows.map((p) => ({ key: `f:${p.id}`, dot: <span className="turn-dot" aria-hidden />, title: p.question, meta: t('흐름 · 방향 보고 결정 대기', 'Flow · direction report awaits your decision'), open: () => go({ page: 'problems', rid, id: p.id }) })),
+    ...asks.map((r) => ({ key: `r:${r.file.target}:${r.entry.id}`, dot: <span className="turn-dot" aria-hidden />, title: recordLine(r.entry), meta: t('에이전트의 질문', 'Agent question'), open: () => go({ page: 'records', rid }) })),
+  ]
   const since = new Date(Date.now() - RECENT_DAYS * 86_400_000)
   const sinceDay = isoDay(since)
   const recent = entries.filter((e) => e.date >= sinceDay).sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)).slice(0, TURN_ROWS)
@@ -160,15 +170,15 @@ export function StatusPage({ rid, rapi }: { rid: string; rapi: ResearchApi }) {
       <SyncLine rid={rid} rapi={rapi} />
 
       <section className="info-sec" data-ui="내 차례">
-        <h2>{t('내 차례', 'Your turn')} <span className="muted">{tasks ? turn.length : '…'}</span>{turn.length > 0 && toWork}</h2>
-        {!tasks ? <p className="muted">{t('읽는 중…', 'Loading…')}</p> : !turn.length ? <p className="muted">{t('판단을 기다리는 맡긴 일이 없습니다', 'No delegated work is waiting for your decision')}</p> : (
+        <h2>{t('내 차례', 'Your turn')} <span className="muted">{tasks ? turnRows.length : '…'}</span>{turnRows.length > 0 && toWork}</h2>
+        {!tasks ? <p className="muted">{t('읽는 중…', 'Loading…')}</p> : !turnRows.length ? <p className="muted">{t('판단을 기다리는 맡긴 일 · 흐름 · 에이전트의 질문이 없습니다', 'No delegated work, flow or agent question is waiting for you')}</p> : (
           <ul className="info-list">
-            {turn.slice(0, TURN_ROWS).map((x) => (
-              <li key={x.id}><button className="info-row" onClick={() => go({ page: 'task', rid, task: x.id })}>
-                <StatusDot s={TASK_DOT[x.state]} name={TASK_STATE_LABEL[x.state]} /><span className="info-row-title">{x.title}</span><span className="muted info-row-meta">{taskLine(x)}</span>
+            {turnRows.slice(0, TURN_ROWS).map((x) => (
+              <li key={x.key}><button className="info-row" onClick={x.open}>
+                {x.dot}<span className="info-row-title">{x.title}</span><span className="muted info-row-meta">{x.meta}</span>
               </button></li>
             ))}
-            {turn.length > TURN_ROWS && <li className="muted info-list-more">{t(`외 ${turn.length - TURN_ROWS}개`, `${turn.length - TURN_ROWS} more`)}</li>}
+            {turnRows.length > TURN_ROWS && <li className="muted info-list-more">{t(`외 ${turnRows.length - TURN_ROWS}개`, `${turnRows.length - TURN_ROWS} more`)}</li>}
           </ul>
         )}
       </section>
