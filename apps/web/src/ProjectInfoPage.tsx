@@ -69,6 +69,8 @@ export function ProjectInfoPage({ rid, rapi, summary, notes, manuscripts, projec
   const { research, statements } = summary
   const [editing, setEditing] = useState(false)
   const topics = useTopicsOverview(rid).data?.topics
+  /** 원고 줄에는 원고만: 목록에는 연구노트 · 계산 노트도 함께 온다 (그것들은 아래 노트 줄이 센다) */
+  const papers = manuscripts.filter((m) => m.kind === 'paper')
   const n = (s: string) => notes.filter((b) => statusOf(b.status) === s).length
 
   return (
@@ -102,7 +104,7 @@ export function ProjectInfoPage({ rid, rapi, summary, notes, manuscripts, projec
         <dl>
           <dt>{t('주제', 'Topics')}</dt><dd>{topics === undefined ? <span className="muted">…</span> : topics.length || <span className="muted">{t('없음', 'None')}</span>}</dd>
           <dt>{t('원고', 'Manuscript')}</dt>
-          <dd>{manuscripts.length ? manuscripts.map((m) => (
+          <dd>{papers.length ? papers.map((m) => (
             <div key={m.key}><button className="a info-manuscript" onClick={() => m.parts[0] && go({ page: 'part', rid, file: m.parts[0].file })}>{Icon.manuscript} {m.name}</button> <PathName path={m.main} /> <span className="muted">· {t(`${m.parts.length}장`, plural(m.parts.length, 'chapter'))}{m.hasPdf ? t(' · PDF 있음', ' · has PDF') : ''}</span></div>
           )) : <span className="muted">{t('없음 — 첫 화면에서 정합니다', 'None. Set it on the first screen')}</span>}</dd>
           <dt>{t('노트', 'Notes')}</dt>
