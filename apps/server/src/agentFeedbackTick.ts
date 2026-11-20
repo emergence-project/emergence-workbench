@@ -198,7 +198,8 @@ export class FeedbackChats extends SharedChats {
 
   /** 목표를 이루고 확인을 받은 대화를 보관한다 (한 번만: 사용자가 꺼내면 다시 넣지 않는다) */
   protected closeDone(c: Stored): void {
-    if (c.closed || c.archived || LIVE.has(c.state)) return
+    // 마지막 차례가 오류로 끝난 대화는 목표를 이룬 것이 아니다 (11/20: 크레딧 오류로 멈춘 대화가 보관된 적이 있다)
+    if (c.closed || c.archived || LIVE.has(c.state) || c.state === 'error') return
     c.closed = true
     c.items.push({ kind: 'text', at: now(), text: t('목표를 이루고 확인을 받아 이 대화를 보관했습니다. 보관함에서 다시 꺼낼 수 있습니다.', 'The goal is met and confirmed, so this conversation was archived. You can take it out of the archive again.') })
     this.archive(c.id, true)

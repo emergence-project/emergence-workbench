@@ -117,6 +117,8 @@ function modelLister(): () => Promise<ModelChoice[]> {
   }
 }
 
+/** 「기본 모델」로 둔 대화가 실제로 쓰는 모델 (계정 기본값에 맡기지 않는다) */
+export const DEFAULT_CLAUDE_MODEL = 'opus'
 /** 곁 질문에 쓰는 작은 모델 */
 export const SIDE_MODEL = 'haiku'
 
@@ -189,7 +191,8 @@ export function claudeAgentRunner(mcpFor: (appChat?: string, central?: boolean, 
         systemPrompt: { type: 'preset', preset: 'claude_code', append: input.brief },
         // 계획 먼저: SDK의 계획 모드로 시작하고, ExitPlanMode(계획 카드)를 허락하면 SDK가 보통 모드로 돌아온다. 고치기 허락은 늘 앱이 정한다
         permissionMode: input.mode === 'plan' && input.write !== 'read' ? 'plan' : 'default',
-        ...(input.model !== 'default' && { model: input.model }),
+        // 「기본 모델」도 Opus로 넘긴다: 넘기지 않으면 계정마다 기본값이 달라 크레딧이 드는 모델로 풀린 적이 있다 (11/20)
+        model: input.model === 'default' ? DEFAULT_CLAUDE_MODEL : input.model,
         effort: input.effort,
         includePartialMessages: true,
         canUseTool: async (tool, toolInput) => {
