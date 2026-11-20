@@ -440,6 +440,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
           data-tip={settings.custom ? t('직접 정한 권한입니다. 세부 패널 「이 대화의 권한」에서 봅니다', 'Custom permissions; see "Permissions here" in the detail pane') : (rid === APP_RID ? APP_HINT : rid === CENTRAL_RID ? CENTRAL_HINT : TRUST_HINT)[settings.trust]}>{Icon.help}</a>
         </>}
         {/* 모델과 생각 깊이는 따로 (11/9 11:07): 왼쪽에서 모델을 고르고, 그 모델이 받는 깊이를 오른쪽에서 */}
+        <span className="ac-compose-model">
         <PopButton ui="모델 고르기" tip={t('에이전트 · 모델', 'Agent · model')} label={<>{!isClaude(settings.agent) && <><AgentChip agent={settings.agent} /> </>}{familyName(settings.model, models)} ▾</>}>
           {(close) => <>
             <AgentChoices agent={settings.agent} fixed={agentFixed} onPick={(a) => { close(); if (a !== settings.agent) onSettings(agentSwitch(a, settings.trust)) }} />
@@ -462,6 +463,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
             {(close) => thinking.map((o) => <button key={o.key} role="menuitemradio" aria-checked={o.on} className={o.on ? 'on' : ''} onClick={() => { close(); onSettings(o.pick) }}><span className="ac-pop-check" aria-hidden>{o.on ? Icon.check : null}</span>{o.name}</button>)}
           </PopButton>
         )}
+        </span>
         </>}
         <span className="sp" />
         {stopping

@@ -136,8 +136,10 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-menu-label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ac-menu-meta { margin-left: auto; flex: none; font-size: var(--fs-xs); white-space: nowrap; }
 .ac-menu-none { padding: var(--sp-1) var(--sp-2); font-size: var(--fs-xs); }
-.ac-compose-row { display: flex; align-items: center; gap: 2px; min-width: 0; }
+/* 좁은 패널에서는 모델 · 생각 단추가 잘리지 않고 함께 다음 줄로 내려간다 (11/21) */
+.ac-compose-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; min-width: 0; }
 .ac-compose-row .sp { flex: 1; }
+.ac-compose-model { display: inline-flex; align-items: center; gap: 2px; flex: none; }
 /* 권한 이름은 다 보이고 ?가 바로 옆에 붙는다. 좁으면 모델 단추가 줄어든다 (10/31 시안 6절) */
 .ac-pop:has(> [data-ui="맡기는 정도"]), .ac-help { flex: none; }
 .ac-help { color: var(--text-3); }
