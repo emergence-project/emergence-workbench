@@ -14,7 +14,7 @@ import { go, href } from './router'
 import { StatusDot } from './StatusDot'
 import { store } from './store'
 import { useSideColumn, WorkAside } from './WorkAside'
-import { chatLog, isAgentStep, ProcLine, secondsName, WorkLog, type Step } from './WorkLog'
+import { chatLog, isAgentStep, ProcLine, secondsName, type Step } from './WorkLog'
 import { isUnseen, myTurn, useMarkSeen, useSeen } from './agentSeen'
 import { useDismiss } from './useDismiss'
 import { flash } from './flash'
@@ -198,7 +198,7 @@ export function useBulkChats() {
 }
 
 // ---------- 대화 줄들 ----------
-// 생각 · 도구 묶음은 오른쪽 세부 패널의 작업 로그로 (WorkLog.tsx). 대화에는 「과정 n」 한 줄만
+// 생각 · 도구 묶음은 대화에 「과정 n」 한 줄로 접어 두고, 누르면 그 자리에서 펼친다 (WorkLog.tsx, 11/20)
 
 // ---------- 계획 · 허락: 번호 붙은 세 답 ----------
 
@@ -642,7 +642,7 @@ export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, o
       {chat.record && <RecordBanner rid={chat.rid} record={chat.record} />}
       <ol ref={listRef} className="ac-items" data-ui="대화 줄들" role="log" onScroll={onScroll}>
         {!!chat.trimmed && <li className="ac-note muted">{t(`오래된 앞 줄 ${chat.trimmed}개는 지웠습니다 (대화는 마지막 400줄만 둡니다)`, `${chat.trimmed} older lines were removed (a conversation keeps its last 400)`)}</li>}
-        {blocks.map((b, i) => b.kind === 'proc' ? <ProcLine key={i} chat={chat.id} from={b.from} to={b.to} log={log} live={live && i === blocks.length - 1} pane={pane} onPane={onPane} /> : <ItemView key={i} chat={chat} it={b.item} who={chat.rid === CENTRAL_RID && hostWhoAt(blocks, i)} onError={setFail} onChanges={openChanges} onRewind={(p) => void rewind(p)} onPass={(text) => setFill({ text, n: Date.now() })} />)}
+        {blocks.map((b, i) => b.kind === 'proc' ? <ProcLine key={i} from={b.from} to={b.to} log={log} live={live && i === blocks.length - 1} /> : <ItemView key={i} chat={chat} it={b.item} who={chat.rid === CENTRAL_RID && hostWhoAt(blocks, i)} onError={setFail} onChanges={openChanges} onRewind={(p) => void rewind(p)} onPass={(text) => setFill({ text, n: Date.now() })} />)}
         {!!chat.draft && <li className="ac-text ac-draft" data-ui="쓰는 중인 글"><MemoText text={chat.draft} /></li>}
         {chat.state === 'running' && <li className="ac-note muted ac-working" aria-live="polite"><StatusDot s="in-progress" name={chat.compacting ? t('앞 내용을 요약하는 중', 'Summarizing earlier messages') : t('작업 중', 'Working')} label /></li>}
         {!!chat.tasks && chat.state !== 'running' && <li className="ac-note muted ac-working" data-ui="뒤에서 도는 명령" aria-live="polite"><StatusDot s="in-progress" name={t(`뒤에서 명령 ${chat.tasks}개가 도는 중 · 끝나면 이어서 합니다`, `${chat.tasks} background command${chat.tasks > 1 ? 's' : ''} running · continues when done`)} label /></li>}
@@ -829,13 +829,12 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
   // 중앙은 파일을 고치지 않으므로 이 칸을 작업 현황에 쓰고, 「이 대화」는 그 아래 접어 둔다
   if (chat.rid === CENTRAL_RID) return (
     <WorkAside>
-      <WorkLog chat={chat} /><CentralBoard /><RoomManage />
+      <CentralBoard /><RoomManage />
       <details className="ac-info-fold" data-ui="이 대화 접기"><summary>{t('이 대화', 'This conversation')} <span className="muted">{t('모델 · 토큰 · 권한 ›', 'model · tokens · permissions ›')}</span></summary><ChatInfo chat={chat} /></details>
     </WorkAside>
   )
   return (
     <WorkAside>
-      <WorkLog chat={chat} />
       <ChatInfo chat={chat} />
       {hasEdits && !chat.machine && <><h3>{t('변경사항', 'Changes')}</h3><Changes chat={chat} onSaved={onSaved} /></>}
       <section data-ui="잡은 파일">
@@ -899,26 +898,6 @@ export function newChatIn(rid: string): void {
   store.set('rw-agent-project', rid)
   window.dispatchEvent(new CustomEvent(PICK_EVENT, { detail: rid }))
   go({ page: 'agent' })
-}
-
-const SHIPPED_SEEN = 'rw-feedback-shipped-seen'
-/**
- * 상단바 "#n 반영됨" (2단계 다, 10/21): 피드백을 맡은 대화의 PR을 앱이 합쳤고, 그 커밋이 지금 도는 앱에 들어왔을 때.
- * 누르면 피드백 화면으로, ×로 닫으면 이 브라우저에서 다시 보이지 않는다.
- */
-export function ShippedNotice() {
-  const list = useChatList().data?.chats
-  const [seen, setSeen] = useState<string[]>(() => store.get<string[]>(SHIPPED_SEEN, []))
-  const fresh = (list ?? []).filter((c) => c.shipped && c.pr && !seen.includes(c.id))
-  if (!fresh.length) return null
-  const names = fresh.map((c) => `#${c.pr!.number}`).join(' · ')
-  const close = () => { const next = [...seen, ...fresh.map((c) => c.id)].slice(-200); store.set(SHIPPED_SEEN, next); setSeen(next) }
-  return (
-    <span className="tb-shipped" data-ui="반영됨 알림">
-      <button type="button" className="a" title={t('피드백 화면에서 보기', 'See it on the Feedback screen')} onClick={() => go({ page: 'feedback', ...(fresh.length === 1 && fresh[0]!.feedback && { key: fresh[0]!.feedback }) })}>{t(`${names} 반영됨`, `${names} shipped`)}</button>
-      <button type="button" className="icon-btn sm" data-tip={t('닫기', 'Close')} aria-label={t('닫기', 'Close')} onClick={close}>{Icon.x}</button>
-    </span>
-  )
 }
 
 /** 레일 배지: 답을 기다리는 대화 수 (사용자 차례) */

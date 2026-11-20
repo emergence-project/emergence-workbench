@@ -13,7 +13,7 @@
  *   앱이 다시 켜지면 아직 보내지 않은 깨우기는 사라진다 (CI · 합쳐짐은 1분마다 tickCentral이 다시 찾는다).
  */
 import { agentTurnReasons, agentTurns, userTurn } from '@rw/core'
-import { APP_RID, CENTRAL_RID, type AppMerged, type CentralAnswerBody, type CentralFeedback, type CentralMemo, type CentralKid, type CentralOpenBody, type CentralOpened, type CentralState, type Chat, type ChatItem, type ChatMessageBody, type ChatMode } from '@rw/core/contract/agentChats'
+import { APP_RID, CENTRAL_RID, type AppMerged, type CentralAnswerBody, type CentralFeedback, type CentralMemo, type CentralKid, type CentralOpenBody, type CentralOpened, type CentralState, type Chat, type CentralMessageBody, type ChatItem, type ChatMessageBody, type ChatMode } from '@rw/core/contract/agentChats'
 import { APP_CHECKS, APP_SUBMIT, LIVE, handedAt, lastTouched, promptOf, rowOf, type AgentChatsDeps, type Stored } from './agentChats.js'
 import { endSummaryPrompt } from './agentPrompts.js'
 import { due, memoBlock, pack, readMemo, TIDY_SUMMARIES, writeMemo, type CentralMemoDeps } from './agentTidy.js'
@@ -187,12 +187,12 @@ export class CentralChats extends FeedbackChats {
   }
 
   /** 사용자가 중앙에게 말한다: 중앙이 없으면 연다 (Opus, 읽기만). 붙인 것 · 지금 화면 한 줄도 함께 */
-  talk(body: string | ChatMessageBody): Chat {
-    const m = typeof body === 'string' ? { text: body } : body
+  talk(body: string | CentralMessageBody): Chat {
+    const { start, ...m } = typeof body === 'string' ? { text: body } : body
     const c = this.central()
     if (c) return this.send(c.id, m)
     const digest = `${digestOf([])}${this.feedbackLine()}`
-    const made = this.create({ rid: CENTRAL_RID, ...m, title: t('중앙', 'Central'), scope: { kind: 'all' }, write: 'read', mode: 'edit', model: 'opus', effort: 'medium' }, {}, `${CENTRAL_BRIEF}${memoBlock(this.memo().text)}\n\n${digest}\n\n${promptOf(m.text, m.attach)}`)
+    const made = this.create({ rid: CENTRAL_RID, ...m, title: t('중앙', 'Central'), scope: { kind: 'all' }, write: 'read', mode: 'edit', model: start?.model ?? 'opus', effort: start?.effort ?? 'medium', ...(start?.account && { account: start.account }) }, {}, `${CENTRAL_BRIEF}${memoBlock(this.memo().text)}\n\n${digest}\n\n${promptOf(m.text, m.attach)}`)
     this.memoSent.set(made.id, this.memo().text)
     return made
   }

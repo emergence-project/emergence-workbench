@@ -435,7 +435,11 @@ export const CentralState = z.object({
   room: RoomState.optional(),
 }).strict()
 /** POST /agent-central/messages: 중앙에게 말하기 (중앙이 없으면 연다) */
-export const CentralMessageBody = z.object({ text: message.text, attach: message.attach, view: message.view }).strict()
+export const CentralMessageBody = z.object({
+  text: message.text, attach: message.attach, view: message.view,
+  /** 중앙을 처음 열 때만: 모델 · 생각 깊이 · 계정 (11/20 시안 5절). 열린 뒤에는 입력란 메뉴로 바꾼다 */
+  start: z.object({ model: ChatModel, effort: z.enum(CHAT_EFFORTS), account: z.string().min(1).max(40) }).partial().strict().optional(),
+}).strict()
 /** POST /agent-central/open: 중앙이 하위 대화를 연다. project = 프로젝트 작성, feedback = 피드백 키, task = 맡길 일 (사용자 원문을 그대로 붙인다) */
 export const CentralOpenBody = z.object({
   role: z.enum(CENTRAL_ROLES), title: z.string().trim().min(1).max(60), task: z.string().trim().min(1).max(20000),
@@ -466,6 +470,7 @@ export type CentralFeedback = z.infer<typeof CentralFeedback>
 export type CentralKid = z.infer<typeof CentralKid>
 export type CentralState = z.infer<typeof CentralState>
 export type CentralOpenBody = z.infer<typeof CentralOpenBody>
+export type CentralMessageBody = z.infer<typeof CentralMessageBody>
 export type CentralKidOne = z.infer<typeof CentralKidOne>
 export type CentralHelped = z.infer<typeof CentralHelped>
 export type CentralOpened = z.infer<typeof CentralOpened>

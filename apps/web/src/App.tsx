@@ -57,7 +57,7 @@ import { noteOfRoute, ResearchNav } from './Sidebar'
 import { store } from './store'
 import { usePhone, usePhoneCloses, useLeftSide, useStoredFlag } from './phoneLayout'
 import { applyUi, cachedUi } from './ui'
-import { FLASH_EVENT, type FlashAction, type FlashMessage } from './flash'
+import { FLASH_EVENT, noteError, type FlashAction, type FlashMessage } from './flash'
 import { useProjectRemove } from './projectRemove'
 import { usePublishFailureFlash } from './RecordsPublish'
 import { hasVisibleManuscriptEditor, isSection, manuscriptPdfTab, retargetNoteTabs, showBeside, tabKey, toggleSplit, useLayout, useWorkspaceDragging, workspaceVisibility, Workspace, type Tab, type TabRenderContext, type WorkspaceOpenRequest } from './Workspace'
@@ -140,7 +140,7 @@ export function App() {
   const closeFeedback = useCallback(() => setFeedback(false), [])
   const [toast, setToast] = useState<FlashMessage | null>(null); const toastTimer = useRef<number | undefined>(undefined)
   const flash = useCallback((message: string, action?: FlashAction, error?: boolean) => {
-    setToast({ message, action, error })
+    setToast({ message, action, error }); if (error) noteError(message)
     window.clearTimeout(toastTimer.current)
     if (!error) toastTimer.current = window.setTimeout(() => setToast(null), action ? 8000 : 2200)
   }, []); useEffect(() => () => window.clearTimeout(toastTimer.current), [])
