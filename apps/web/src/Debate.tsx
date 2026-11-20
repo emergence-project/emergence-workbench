@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { ROOM_NAME } from '@rw/core'
 import type { DebateSeat, DebateStage } from '@rw/core/contract/agentChats'
-import { agentChatsApi, type AgentKind, type Chat, type ChatItem, type ChatModel } from './api'
+import { agentChatsApi, type Chat, type ChatEffort, type ChatItem } from './api'
 import { AGENT_KINDS, effortsOf, isClaude, modelFamilies, useModels } from './AgentPick'
 import { EFFORT_NAME, effortLabel } from './ChatComposer'
 import { Seg, tallyText, V_NAME, Who, type ComposerRoom } from './CentralRoom'
@@ -96,12 +96,16 @@ export function DebateEnd({ chat, onError }: { chat: Chat; onError(m: string): v
     onClick={() => void change(() => agentChatsApi.debateEnd(chat.id))}>{t('토론 끝내기', 'End debate')}</button>
 }
 
+/** 생각 깊이 값 (계약의 CHAT_EFFORTS와 같은 차례) */
+const EFFORT_KEYS: ChatEffort[] = ['low', 'medium', 'high', 'xhigh', 'max']
+const effortName = (x: string) => { const k = EFFORT_KEYS.find((y) => y === x); return k ? EFFORT_NAME[k] : effortLabel(x) }
+
 /** 자리 한 줄: 에이전트 · 모델 · 생각 (× 빼기) */
 function SeatRow({ seat, role, onPick, onRemove, disabled }: { seat: DebateSeat; role?: string; onPick(s: DebateSeat): void; onRemove?(): void; disabled?: string }) {
   const list = useModels(seat.agent)
   const fams = modelFamilies(list).filter((f) => f.base !== 'default')
   const fam = fams.find((f) => f.base === seat.model)
-  const efforts: string[] = isClaude(seat.agent) ? effortsOf((seat.model ?? 'default') as ChatModel, list) : (fam ?? fams[0])?.variants.map((v) => v.suffix) ?? []
+  const efforts: string[] = isClaude(seat.agent) ? effortsOf(seat.model ?? 'default', list) : (fam ?? fams[0])?.variants.map((v) => v.suffix) ?? []
   return (
     <div className="debate-seat" data-ui="토론 자리" data-ui-item={ROOM_NAME[seat.agent]}>
       <Who agent={seat.agent} />{role && <span className="muted">{role}</span>}
@@ -109,9 +113,9 @@ function SeatRow({ seat, role, onPick, onRemove, disabled }: { seat: DebateSeat;
         <option value="">{t('기본 모델', 'Default model')}</option>
         {fams.map((f) => <option key={f.base} value={f.base}>{f.name}</option>)}
       </select>
-      {efforts.length > 0 ? <select className="mini-select" aria-label={t('생각 깊이', 'Thinking')} data-ui="토론 생각" value={seat.effort ?? ''} onChange={(e) => { const { effort: _e, ...rest } = seat; onPick(e.target.value ? { ...rest, effort: e.target.value as DebateSeat['effort'] & string } : rest) }}>
+      {efforts.length > 0 ? <select className="mini-select" aria-label={t('생각 깊이', 'Thinking')} data-ui="토론 생각" value={seat.effort ?? ''} onChange={(e) => { const { effort: _e, ...rest } = seat; onPick(e.target.value ? { ...rest, effort: EFFORT_KEYS.find((k) => k === e.target.value) } : rest) }}>
         <option value="">{t('생각 기본', 'Default thinking')}</option>
-        {efforts.map((x) => <option key={x} value={x}>{x in EFFORT_NAME ? EFFORT_NAME[x as keyof typeof EFFORT_NAME] : effortLabel(x)}</option>)}
+        {efforts.map((x) => <option key={x} value={x}>{effortName(x)}</option>)}
       </select> : <span />}
       {onRemove ? <button className="icon-btn sm" data-ui="토론 참가자 빼기" aria-label={t('참가자 제거', 'Remove participant')} data-tip={disabled ?? t('참가자 제거', 'Remove participant')} disabled={!!disabled} onClick={onRemove}>{Icon.x}</button> : <span />}
     </div>
@@ -133,7 +137,7 @@ export function DebatePanel({ chat }: { chat: Chat }) {
       <label className="room-rule"><span>{t('모두 같은 판정이면 비판 건너뛰기', 'Skip critique when all agree')}</span><input type="checkbox" data-ui="토론 건너뛰기" checked={d.skip} onChange={(e) => void change(() => agentChatsApi.debateSettings(chat.id, { skip: e.target.checked }))} /></label>
       <div className="debate-seats">
         {d.seats.map((s, i) => <SeatRow key={s.agent} seat={s} onPick={(n) => seats(d.seats.map((x, j) => (j === i ? n : x)))} onRemove={d.seats.length > 2 ? () => seats(d.seats.filter((_, j) => j !== i)) : undefined} disabled={running} />)}
-        {free.length > 0 && !running && <div className="debate-add">{free.map((a) => <button key={a} className="a" data-ui="토론 참가자 더하기" onClick={() => seats([...d.seats, { agent: a as AgentKind }])}>＋ {ROOM_NAME[a]}</button>)}</div>}
+        {free.length > 0 && !running && <div className="debate-add">{free.map((a) => <button key={a} className="a" data-ui="토론 참가자 더하기" onClick={() => seats([...d.seats, { agent: a }])}>＋ {ROOM_NAME[a]}</button>)}</div>}
         <SeatRow seat={d.judge} role={t('정리 · 투표 안 함', 'Sums up · no vote')} onPick={(j) => void change(() => agentChatsApi.debateSettings(chat.id, { judge: j }))} />
       </div>
       <span className="muted ac-hint">{t('참가자는 다음 물음부터 바뀝니다. 더 물으면 1단계부터 다시 돕니다', 'Participant changes apply from the next question. Asking more starts again from step 1')}</span>

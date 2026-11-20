@@ -21,6 +21,7 @@ type Member = Extract<ChatItem, { kind: 'member' }>
 type DStored = Stored & { debate: Debate }
 type Line = Extract<ChatItem, { kind: 'debate' }>
 const now = () => new Date().toISOString()
+const isDebate = (c: Stored): c is DStored => !!c.debate
 /** 이름을 가린 이름: 자리 차례대로 A · B · C · D */
 const LABELS = ['A', 'B', 'C', 'D']
 /** 중앙에서 토론을 여는 명령 */
@@ -98,8 +99,8 @@ export class DebateChats extends RoomChats {
 
   private debateOf(id: string): DStored {
     const c = this.must(id)
-    if (!c.debate) throw new WorkbenchError(400, t('토론 대화가 아닙니다', 'Not a debate conversation'))
-    return c as DStored
+    if (!isDebate(c)) throw new WorkbenchError(400, t('토론 대화가 아닙니다', 'Not a debate conversation'))
+    return c
   }
 
   /** 자리: 그 에이전트의 마지막 모델 · 생각 (없으면 기본) */
@@ -130,7 +131,7 @@ export class DebateChats extends RoomChats {
   /** 받는 이: 중앙의 /토론은 토론을 열고, 토론 대화의 말은 1단계부터 다시 돈다 */
   override send(id: string, m: ChatMessageBody, prompt?: string): Chat {
     const c = this.must(id)
-    if (c.debate) return this.more(c as DStored, m)
+    if (isDebate(c)) return this.more(c, m)
     if (c.rid === CENTRAL_RID && prompt === undefined && OPEN.test(m.text)) {
       const q = m.text.replace(OPEN, '').replace(/(^|\s)@\S+/g, ' ').replace(/[ \t]+/g, ' ').trim()
       if (!q) throw new WorkbenchError(400, t('/토론 뒤에 물음을 적어 주세요', 'Write the question after /토론'))
@@ -221,7 +222,7 @@ export class DebateChats extends RoomChats {
     }
     if (!live()) return
     step('sum', rounds)
-    const votes = now_.flatMap((x) => (x.verdict ? [x.verdict] : [])) as RoomVerdict[]
+    const votes = now_.flatMap((x): RoomVerdict[] => (x.verdict ? [x.verdict] : []))
     const finals = now_.flatMap((x, i) => (x.text ? [{ label: labels[i]!, text: x.text, changed: changed.has(i) }] : []))
     const sum = await this.say(c, d.judge, 'sum', rounds, undefined, sumPrompt(q, finals, rounds > 0))
     sum.votes = votes
@@ -281,13 +282,13 @@ export class DebateChats extends RoomChats {
 
   override stop(id: string): Chat {
     const c = this.must(id)
-    if (!c.debate) return super.stop(id)
+    if (!isDebate(c)) return super.stop(id)
     if (c.state === 'running') {
       this.halted.add(id)
       c.state = 'stopped'
       c.debate.step = 'done'
       c.items.push({ kind: 'error', at: now(), text: t('토론을 멈췄습니다. 더 물으면 1단계부터 다시 돕니다', 'Stopped the debate. Ask more to start again from step 1') })
-      this.line(c as DStored, { state: 'done' })
+      this.line(c, { state: 'done' })
       this.touch(c)
     }
     return this.get(id)
