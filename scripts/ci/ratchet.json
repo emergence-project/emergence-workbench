@@ -86,7 +86,7 @@
     "apps/web/src/AgentChats.tsx": 15,
     "apps/web/src/AgentEditsPage.tsx": 8,
     "apps/web/src/api/comments.ts": 2,
-    "apps/web/src/api/http.ts": 3,
+    "apps/web/src/api/http.ts": 2,
     "apps/web/src/api/library.ts": 1,
     "apps/web/src/api/research.ts": 3,
     "apps/web/src/App.tsx": 9,
