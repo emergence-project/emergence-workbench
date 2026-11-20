@@ -7,3 +7,5 @@
 .dev-server { margin-bottom: var(--sp-3); }
 /* 대화가 서버에서 돌면 에이전트 패널 맨 위 한 줄 (AgentSide.tsx, 3단계) */
 .ac-place { margin: 0 0 var(--sp-2); font-size: var(--fs-sm); color: var(--text-3); }
+/* 앱 버전이 이 기기와 다름 (사용자가 볼 것: 주황) */
+.dev-differs, .ac-skew { color: var(--s-blocked); }
