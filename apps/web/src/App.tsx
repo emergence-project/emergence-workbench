@@ -585,7 +585,7 @@ export function App() {
 }
 
 const PAGE_LABEL: Partial<Record<Route['page'], string>> = {
-  home: t('홈', 'Home'), overview: t('첫 화면', 'Start'), info: t('프로젝트 정보', 'Project info'), agents: t('규칙', 'Rules'), status: t('현황', 'Status'), changes: t('변경사항', 'Changes'), repo: t('저장소', 'Repository'), files: t('파일', 'Files'), notes: t('원고', 'Manuscript'), concepts: t('개념노트', 'Concept notes'), papers: t('문헌노트', 'Literature notes'), todo: t('작업', 'Work'), records: t('기록', 'Records'), log: t('작업', 'Work'), map: t('지도', 'Map'), edits: t('수정 검토', 'Edit review'), problems: t('흐름', 'Flow'),
+  home: t('홈', 'Home'), overview: t('첫 화면', 'Start'), info: t('프로젝트 정보', 'Project info'), agents: t('규칙', 'Rules'), status: t('현황', 'Status'), changes: t('변경사항', 'Changes'), repo: t('저장소', 'Repository'), files: t('파일', 'Files'), notes: t('원고', 'Manuscript'), concepts: t('개념노트', 'Concept notes'), papers: t('문헌노트', 'Literature notes'), todo: t('기록', 'Records'), records: t('기록', 'Records'), log: t('기록', 'Records'), map: t('지도', 'Map'), edits: t('수정 검토', 'Edit review'), problems: t('흐름', 'Flow'),
   ...Object.fromEntries(GLOBAL_PAGES.map((g) => [g.page, g.name])),
 }
 
