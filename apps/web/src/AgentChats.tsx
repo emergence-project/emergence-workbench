@@ -25,6 +25,7 @@ import { ForeignBar } from './AgentForeign'
 import { InlineEdits } from './InlineEdits'
 import { PermTable } from './AgentPermTable'
 import { ProjectPick, RecentChats } from './AgentProjectPick'
+import { ChatHerePick, useChatHere } from './ChatHere'
 import { AgentChip, agentOf, effortsOf, familyName, familyOf, fitEffort, isClaude, useChatSettings, useModels } from './AgentPick'
 import { isReviewCommand, ReviewButton, ReviewCard } from './AgentReview'
 import { CENTRAL_PAGE, CentralBoard, CentralBoardButton, CentralLine, CentralStart } from './CentralChat'
@@ -136,7 +137,7 @@ export function ChatLine({ c, on, onOpen, actions = false, pick, where }: { c: C
       <span className="ac-line-top">{pick && <span className={`ac-pick${pick.on ? ' on' : ''}`} aria-hidden />}<span className="ac-line-dot">{isUnseen(c) ? <span className="turn-dot" role="img" aria-label={t('확인하지 않음', 'Not checked')} title={t('끝났는데 아직 열어 보지 않은 대화', 'Finished and not opened yet')} /> : <ChatStateMark state={c.state} name={stateName(c)} />}</span>
         <span className={`label${editing ? ' hide' : ''}`}>{c.title}</span></span>
       <span className="ac-line-meta">
-        {!isClaude(c.agent) && <><AgentChip agent={c.agent} /> · </>}{c.machine ?? stateName(c)}{where && ` · ${where}`}
+        {c.local && <><span className="tag ac-here" data-ui="이 맥 태그" title={t('서버가 아닌 이 컴퓨터에서 도는 대화', 'Runs on this computer, not on the server')}>{t('이 맥', 'This Mac')}</span> </>}{!isClaude(c.agent) && <><AgentChip agent={c.agent} /> · </>}{c.machine ?? stateName(c)}{where && ` · ${where}`}
         {(c.added > 0 || c.removed > 0) && <> · <Delta added={c.added} removed={c.removed} /></>}
         {` · ${relativeTime(Date.parse(c.updated))}`}
       </span>{c.archived && c.summary && <span className="ac-line-sum" data-ui="결과 요약">{c.summary.split('\n')[0]}</span>}
@@ -678,12 +679,12 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
   const app = rid === APP_RID
   // 고른 프로젝트만 고치고 다른 프로젝트 · 개념노트는 읽기만 (11/19 사용자 결정, '전체' 범위는 없앰). 함께 고칠 프로젝트는 also
   const [also, setAlso] = useState(() => store.get<string[]>('rw-agent-also', []))
-  const [settings, change] = useChatSettings()
+  const [settings, change] = useChatSettings(), here = useChatHere()
   const more = fixed || app ? [] : also.filter((r) => r !== rid && projects?.some((p) => p.id === r)), scope: ChatScope = app ? { kind: 'app' } : { kind: 'project', ...(more.length && { also: more }) }
   const start = async (m: ChatMessageBody) => {
     if (!rid) return false
     askNotify()
-    const c = await agentChatsApi.create({ rid, ...m, scope, ...settingsOf(settings.trust), model: settings.model, effort: settings.effort, ...(settings.auto && { auto: settings.auto }), ...(!isClaude(settings.agent) && { agent: agentOf(settings.agent) }) })
+    const c = await agentChatsApi.create({ rid, ...m, ...(here.here && { here: true }), scope, ...settingsOf(settings.trust), model: settings.model, effort: settings.effort, ...(settings.auto && { auto: settings.auto }), ...(!isClaude(settings.agent) && { agent: agentOf(settings.agent) }) })
     void client.invalidateQueries({ queryKey: qk.agentChats })
     onCreated(c)
     return true
@@ -698,7 +699,7 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
     <div className="ac-new" data-ui="새 대화">
       {rid && <Composer key={rid} rid={rid} lead={lead} auto={note ? { kind: 'note', ref: note.file, label: note.title } : undefined} settings={settings} onSettings={change} onSubmit={start}
         placeholder={app ? t('고칠 것을 쓰세요 · 그림 붙여넣기', 'What should change in the app? · paste images') : t('맡길 일을 쓰세요 · / 명령 · @ 노트 붙이기 · 그림 붙여넣기', 'What should the agent do? · / commands · @ attach · paste images')} />}
-      {app && <span className="muted ac-hint">{t('앱 저장소의 따로 둔 폴더에서 고치고 시험합니다. 커밋 · PR은 앱이 하고, GitHub CI가 한 번 더 봅니다. 연구 프로젝트는 읽기만 합니다', 'Edits and tests in a separate folder of the app repository. The app commits and opens the PR, and GitHub CI checks again. Research projects are read-only')}</span>}
+      {rid && <ChatHerePick h={here} />}{app && <span className="muted ac-hint">{t('앱 저장소의 따로 둔 폴더에서 고치고 시험합니다. 커밋 · PR은 앱이 하고, GitHub CI가 한 번 더 봅니다. 연구 프로젝트는 읽기만 합니다', 'Edits and tests in a separate folder of the app repository. The app commits and opens the PR, and GitHub CI checks again. Research projects are read-only')}</span>}
     </div>
   )
 }
@@ -1002,7 +1003,7 @@ export function AgentPanel({ rid, note, onSaved, place = 'right', onPlace, onBes
     window.addEventListener(AGENT_PANEL_OPEN, take)
     return () => window.removeEventListener(AGENT_PANEL_OPEN, take)
   }, [rid])
-  const list = useChatList(rid).data?.chats, centralRow = useChatList().data?.chats.find((c) => c.rid === CENTRAL_RID && !c.archived)
+  const list = useChatList(rid).data?.chats, centralRow = useChatList().data?.chats.find((c) => c.rid === CENTRAL_RID && !c.archived && !c.local)
   const known = open && (list?.some((c) => c.id === open) || open === centralRow?.id)
   const current = open && (known || !list) ? open : null
   const auto: Attach | undefined = note ? { kind: 'note', ref: note.file, label: note.title } : undefined

@@ -101,7 +101,7 @@ export function AgentSide({ id }: { id?: string }) {
 
   return (
     <div className="set-side ac-list" data-ui="대화 목록">
-      {(listed?.app || listed?.chats.some((c) => c.rid === CENTRAL_RID)) && <CentralLine row={listed?.chats.find((c) => c.rid === CENTRAL_RID && !c.archived)} on={id === CENTRAL_PAGE || listed?.chats.some((c) => c.id === id && c.rid === CENTRAL_RID) === true} />}
+      {(listed?.app || listed?.chats.some((c) => c.rid === CENTRAL_RID)) && <CentralLine row={listed?.chats.find((c) => c.rid === CENTRAL_RID && !c.archived && !c.local)} on={id === CENTRAL_PAGE || listed?.chats.some((c) => c.id === id && c.rid === CENTRAL_RID) === true} />}
       <div className="ac-target-line">
         <div className="ac-target-box" ref={box}>
           <button className="ac-target" data-ui="대화 대상" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((v) => !v)}>

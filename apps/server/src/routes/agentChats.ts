@@ -31,6 +31,7 @@ import { publishFeedback } from '../feedback.js'
 import { claimedElsewhere, claimFeedback } from '../feedbackClaims.js'
 import { agentAnswer } from '../ask.js'
 import { t } from '../i18n.js'
+import { setLocalChats } from './chatPlace.js'
 import type { RouteContext } from './context.js'
 
 /** 동시에 도는 대화 수: 예제 · 시험 (맥에서는 컴퓨터 크기와 남은 메모리로, appMemory.ts의 chatCap · chatRoom, 11/19) */
@@ -129,6 +130,8 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   resumeTimer.unref()
   app.addHook('onClose', async () => clearTimeout(resumeTimer))
 
+  // 대화를 서버에서 (chatPlace.ts): 이 컴퓨터의 대화는 서버로 넘기지 않고, 서버 목록에 「이 맥」으로 더한다
+  setLocalChats(app, { has: (id) => { try { chats.get(id); return true } catch { return false } }, list: (rid) => chats.list(rid) })
   app.get<{ Querystring: { rid?: string } }>('/api/agent-chats', replies(C.ChatList), async (req): Promise<C.ChatList> => ({ chats: chats.listAll(req.query.rid || undefined), limit: chats.limit, app: chats.app, handOff: chats.handOffOk }))
 
   /** 고를 수 있는 모델 (맥의 Claude Code에게 물어 30분 기억, 못 띄우면 빈 목록) */
@@ -142,6 +145,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     // 예제 모드 · 시험(실행기를 넣은 앱)은 이 컴퓨터의 실제 계정을 보이지 않는다: 그림 · CI 산출물에 남지 않게 예제 계정으로
     return { agents: runner ? agents.map(({ email: _e, plan: _p, ...a }) => (a.id === 'claude-code' && a.installed ? { ...a, email: 'name@example.com', plan: 'Max' } : a)) : agents }
   })
+
 
   app.post('/api/agent-chats', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.create(parseBody(C.NewChatBody, req.body)) }))
 

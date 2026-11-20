@@ -190,6 +190,8 @@ export const ChatRow = z.object({
   queue: z.number().int().positive().optional(),
   /** 다른 컴퓨터에서 돌린 대화면 그 컴퓨터 이름 (개인 저장소로 받아 읽기만, 「이 맥에서 이어 하기」로 이 컴퓨터의 새 대화가 된다, 11/20) */
   machine: z.string().optional(),
+  /** 서버(설정 › 기기 관리)가 있는 컴퓨터에서, 서버가 아니라 이 컴퓨터에서 도는 대화 (목록의 「이 맥」 태그, 11/20) */
+  local: z.boolean().optional(),
   created: z.string(),
   updated: z.string(),
 }).strict()
@@ -252,6 +254,8 @@ export const NewChatBody = z.object({
   ...message,
   title: z.string().trim().max(120).optional(),
   scope: ChatScope.optional(),
+  /** 서버가 있어도 이 컴퓨터에서 돌린다 (새 대화의 「이 맥」, 11/20) */
+  here: z.boolean().optional(),
   ...ChatSettings.shape,
 }).strict()
 /** 이어서 지시. 일하는 중이면 다음 차례에 읽는다 */
