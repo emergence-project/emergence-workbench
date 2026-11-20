@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { noteKindChoices } from './noteKinds'
-import { attentionOf, filterProjects, issueTip, lastWorkMs, moveId, railProjects, stateCounts } from './projectProfile'
+import { attentionOf, filterProjects, issueTip, lastWorkMs, moveId, railFit, railProjects, stateCounts } from './projectProfile'
 
 const P = (id: string, kind: 'research' | 'work', state: 'active' | 'paused' | 'done') => ({ id, kind, state })
 const list = [P('alpha', 'research', 'active'), P('ops', 'work', 'active'), P('ns', 'research', 'paused'), P('old', 'research', 'done')]
@@ -65,5 +65,24 @@ describe('railProjects', () => {
     ]
     expect(railProjects(list).map((r) => r.id)).toEqual(['a', 'c'])
     expect(railProjects(list, 'd').map((r) => r.id)).toEqual(['a', 'c', 'd'])
+  })
+})
+
+describe('railFit', () => {
+  const ids = ['a', 'b', 'c', 'd', 'e']
+  it('keeps every project when they fit with the add button', () => {
+    expect(railFit(ids, 6)).toEqual({ shown: ids, hidden: [], add: true })
+    expect(railFit(ids, Infinity)).toEqual({ shown: ids, hidden: [], add: true })
+  })
+  it('leaves one slot for "more" when they overflow', () => {
+    expect(railFit(ids, 5)).toEqual({ shown: ['a', 'b', 'c'], hidden: ['d', 'e'], add: true })
+  })
+  it('never hides the open project while there is room for one', () => {
+    expect(railFit(ids, 5, 'e')).toEqual({ shown: ['a', 'b', 'e'], hidden: ['c', 'd'], add: true })
+    expect(railFit(ids, 5, 'b').shown).toEqual(['a', 'b', 'c'])
+  })
+  it('moves the add button into "more" on a very short screen', () => {
+    expect(railFit(ids, 2, 'c')).toEqual({ shown: ['c'], hidden: ['a', 'b', 'd', 'e'], add: false })
+    expect(railFit(ids, 1)).toEqual({ shown: [], hidden: ids, add: false })
   })
 })

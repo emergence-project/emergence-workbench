@@ -4,7 +4,7 @@
     "apps/server/src/comments.ts": 643,
     "apps/server/src/feedback.ts": 634,
     "apps/web/src/AgentChats.tsx": 1210,
-    "apps/web/src/App.tsx": 633,
+    "apps/web/src/App.tsx": 627,
     "apps/web/src/Workspace.tsx": 641
   },
   "casts": {
@@ -89,7 +89,7 @@
     "apps/web/src/api/http.ts": 3,
     "apps/web/src/api/library.ts": 1,
     "apps/web/src/api/research.ts": 3,
-    "apps/web/src/App.tsx": 10,
+    "apps/web/src/App.tsx": 9,
     "apps/web/src/AppUpdate.tsx": 2,
     "apps/web/src/autosave.ts": 2,
     "apps/web/src/CardEditDialog.tsx": 2,
