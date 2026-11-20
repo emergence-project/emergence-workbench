@@ -13,3 +13,9 @@
 .tb-bell-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
 .tb-bell-item.unread .tb-bell-text { color: var(--text); font-weight: var(--fw-strong); }
 .tb-bell-none { padding: 6px 10px; font-size: var(--fs-sm); }
+/* 폰: 종이 상단바 가운데쯤이라 340px 메뉴를 종 오른쪽 끝에 맞추면 왼쪽이 화면 밖으로 나간다. 상단바 폭에 맞춰 편다 */
+@media (max-width: 600px) {
+  .titlebar { position: relative; }
+  .tb-bell { position: static; }
+  .tb-bell-menu { left: var(--sp-3); right: var(--sp-3); width: auto; max-width: none; }
+}
