@@ -1,4 +1,5 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
+import { attemptStrength, fileStrength } from '@rw/core'
 import type { Attempt, AttemptState, Claim } from './api'
 import { Author } from './Author'
 import { Icon } from './icons'
@@ -96,6 +97,8 @@ export function Detail({ a, locked, busy, onVerdict }: { a: Attempt; locked: boo
   // 해 보지 않고 폐기한 후보는 사유 하나만 적는다 (근거와 같은 글)
   const sameReason = !!a.lesson && a.lesson === a.verdict?.note
   const judging = !locked && (a.state === 'reported' || a.state === 'candidate')
+  // 11/20 "흐름 근거 공통 기준": 가리킴만인 근거로는 성립을 주지 않는다
+  const pointerOnly = attemptStrength(a) === 'pointer'
   return (
     <div className="pb-detail">
       <Steps a={a} />
@@ -103,8 +106,8 @@ export function Detail({ a, locked, busy, onVerdict }: { a: Attempt; locked: boo
       <dl className="pb-facts">
         {row(t('결과', 'Result'), a.result, 'pb-result')}
         {row(t('작업 내용', 'Work done'), a.did)}
-        {row(t('파일', 'Files'), a.files.length > 0 && <span className="pb-files">{a.files.map((f) => <span key={f}><CodeText text={f} />{a.changed?.includes(f) && <span className="pb-stale-file"><span className="turn-dot" aria-hidden />{t('판정 후 변경', 'changed after verdict')}</span>}</span>)}</span>)}
-        {row(t('실행', 'Run'), a.run && <span className="pb-files">{a.run.command && <code>{a.run.command}</code>}{a.run.commit && <span className="muted">{t(`커밋 ${a.run.commit}`, `commit ${a.run.commit}`)}</span>}</span>)}
+        {row(t('파일', 'Files'), a.files.length > 0 && <span className="pb-files">{a.files.map((f) => <span key={f}><CodeText text={f} />{fileStrength(f) === 'pointer' && <span className="pb-pointer" title={t('무엇이 있었는지만 알려 주는 근거라 성립을 주지 않습니다', 'This only points to what existed, so it cannot make a holds')}>{t('가리킴만', 'Pointer only')}</span>}{a.changed?.includes(f) && <span className="pb-stale-file"><span className="turn-dot" aria-hidden />{t('판정 후 변경', 'changed after verdict')}</span>}</span>)}</span>)}
+        {row(t('실행', 'Run'), a.run && <span className="pb-files">{a.run.command && <code>{a.run.command}</code>}{a.run.commit && <span className="muted">{t(`커밋 ${a.run.commit}`, `commit ${a.run.commit}`)}{a.run.trailer === false && <span className="pb-pointer" data-ui="꼬리말 없음" title={t('이 커밋 메시지에 Attempt 꼬리말이 없습니다 (경고, 예외 기록에 남음)', 'This commit message has no Attempt trailer (a warning, logged)')}>{t('꼬리말 없음', 'No trailer')}</span>}</span>}</span>)}
         {row(t('검사', 'Test'), a.test && <span className="pb-files"><code>{a.test}</code>{a.verdict && (tested === 'pass' ? <span className="pb-tested"><span className="ico" aria-hidden>{Icon.check}</span>{t('통과', 'Passed')}</span> : tested === 'fail' ? <span className="error-text">{t('실패', 'Failed')}</span> : <span className="muted">{t('미실행', 'Not run')}</span>)}</span>)}
       </dl>
       {(a.verdict?.note || a.verdict?.check || a.lesson || a.reopen) && <dl className="pb-facts pb-verdict" data-ui="판정 내용">
@@ -114,7 +117,7 @@ export function Detail({ a, locked, busy, onVerdict }: { a: Attempt; locked: boo
         {row(t('다시 열 조건', 'Reopen if'), a.reopen)}
       </dl>}
       {judging && <div className="pb-acts">
-        {a.state === 'reported' && <button className="btn sm" data-ui="성립" disabled={busy || !a.claim} title={a.claim ? undefined : t('주장이 없는 시도는 성립으로 판정할 수 없습니다', 'An attempt without a claim cannot hold')} onClick={() => onVerdict(a, 'holds')}>{t('성립', 'Holds')}</button>}
+        {a.state === 'reported' && <button className="btn sm" data-ui="성립" disabled={busy || !a.claim || pointerOnly} title={!a.claim ? t('주장이 없는 시도는 성립으로 판정할 수 없습니다', 'An attempt without a claim cannot hold') : pointerOnly ? t('근거가 가리킴만입니다. 다시 돌릴 명령이나 다시 읽을 글이 있어야 성립입니다', 'The evidence only points. Holds needs a command to rerun or text to reread') : undefined} onClick={() => onVerdict(a, 'holds')}>{t('성립', 'Holds')}</button>}
         <button className="btn sm" data-ui="폐기" disabled={busy} title={a.state === 'candidate' ? t('해 보지 않고 폐기합니다', 'Drop without trying') : undefined} onClick={() => onVerdict(a, 'dropped')}>{t('폐기', 'Drop')}</button>
       </div>}
     </div>

@@ -5,6 +5,7 @@ import { parseBody, replies } from '../contract.js'
 import { problemBrief } from '../problemBrief.js'
 import { addException, listExceptions } from '../problemExceptions.js'
 import { USER, addAttempts, addClaim, closeProblem, createProblem, decideDirection, directionReport, openProblem, patchProblem, readProblem, recordAttempt, removeProblem, reportAttempt, scanProblems, startAttempt, verdictAttempt } from '../problems.js'
+import { recordFacts, reportFacts } from '../problemGit.js'
 import type { RouteContext } from './context.js'
 
 /** 누가 불렀나: MCP 입구가 붙이는 에이전트 이름(x-rw-agent), 없으면 화면의 사용자 */
@@ -44,12 +45,16 @@ export function registerProblems(app: FastifyInstance, ctx: RouteContext): void 
   app.post<P>(`${R}/:id/attempts`, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> =>
     ({ problem: addAttempts(wbOf(req.params.rid), req.params.id, parseBody(C.NewAttemptsBody, req.body), actorOf(req)) }))
   /** 지난 일 적기 (「＋ 한 일」): 사용자가 적으면 판정된 근거, 에이전트가 적으면 사용자의 확인을 기다린다 */
-  app.post<P>(`${R}/:id/attempts/record`, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> =>
-    ({ problem: recordAttempt(wbOf(req.params.rid), req.params.id, parseBody(C.RecordAttemptBody, req.body), actorOf(req)) }))
+  app.post<P>(`${R}/:id/attempts/record`, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> => {
+    const wb = wbOf(req.params.rid), body = parseBody(C.RecordAttemptBody, req.body)
+    return { problem: recordAttempt(wb, req.params.id, body, actorOf(req), await recordFacts(wb.repo, body.when, body.files)) }
+  })
   app.post<A>(`${R}/:id/attempts/:aid/start`, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> =>
     ({ problem: startAttempt(wbOf(req.params.rid), req.params.id, req.params.aid, actorOf(req)) }))
-  app.post<A>(`${R}/:id/attempts/:aid/report`, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> =>
-    ({ problem: reportAttempt(wbOf(req.params.rid), req.params.id, req.params.aid, parseBody(C.AttemptReportBody, req.body), actorOf(req)) }))
+  app.post<A>(`${R}/:id/attempts/:aid/report`, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> => {
+    const wb = wbOf(req.params.rid), body = parseBody(C.AttemptReportBody, req.body)
+    return { problem: reportAttempt(wb, req.params.id, req.params.aid, body, actorOf(req), await reportFacts(wb.repo, req.params.id, req.params.aid, body.run?.commit)) }
+  })
   /** 판정: 작업한 쪽이 아닌 쪽만 */
   app.post<A>(`${R}/:id/attempts/:aid/verdict`, replies(C.ProblemOne), async (req): Promise<C.ProblemOne> =>
     ({ problem: verdictAttempt(wbOf(req.params.rid), req.params.id, req.params.aid, parseBody(C.AttemptVerdictBody, req.body), actorOf(req)) }))

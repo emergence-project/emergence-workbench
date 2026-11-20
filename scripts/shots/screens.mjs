@@ -201,6 +201,8 @@ export const DEFAULT_SCREENS = [
   ['problem-chart', '#/r/{rid}/problems/kempe-degree-five', '점 미리보기', '[data-ui="점"][data-ui-item^="2 "]'],
   // 주장 화면: 미리보기의 「열기」가 여는 화면. 경로 차트(질문 ─ 1 ─ 2)와 주장의 근거(시도 D · E). 판정 대기 시도 E를 펼친 모습
   ['problem-claim', '#/r/{rid}/problems/kempe-degree-five/e', '시도 단계'],
+  // 「＋ 한 일」 창 (11/14, 근거 칸과 한 날 기본값 11/20)
+  ['problem-record', '#/r/{rid}/problems/kempe-degree-five/2', '한 일 창', '[data-ui="한 일 추가"]'],
   // 아래는 목록 보기 (주소에 view=list)
   ['problems', '#/r/{rid}/problems?view=list', '흐름 줄'],
   // 예외 기록 (11/11 "해 보면서 판단"): 목록 아래 접힌 줄을 펼친 모습. 앱이 거절하며 적은 줄과 에이전트가 적은 줄. 파일은 fixtures/sandbox-extra/workbench/problems/_exceptions

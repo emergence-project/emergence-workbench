@@ -26,7 +26,8 @@ export const DirectionReport = z.object({
   decision: z.object({ at: z.string(), verdict: z.enum(DIRECTION_VERDICTS), note: z.string().optional(), limit: z.number().optional() }).strict().optional(),
 }).strict()
 
-export const AttemptRun = z.object({ command: z.string().optional(), commit: z.string().optional() }).strict()
+/** trailer false = 보고 커밋에 `Attempt: <흐름>/<글자>` 꼬리말이 없다 (경고, 11/20 결정 "흐름 근거 공통 기준". 앱이 적는다) */
+export const AttemptRun = z.object({ command: z.string().optional(), commit: z.string().optional(), trailer: z.literal(false).optional() }).strict()
 
 /**
  * 주장 하나 (차트의 점, 11/13 결정 "점 = 주장, 시도는 근거"): 판단할 수 있는 한 문장과 그것이 성립하는 조건.
@@ -200,13 +201,14 @@ export const NewAttemptsBody = z.object({ attempts: z.array(z.object({ method: l
 export const NewClaimBody = z.object({ statement: line, condition: z.string().optional(), under: z.string().optional(), side: ClaimSide.optional() }).strict()
 /** run: 결과를 낸 명령(과 커밋), test: 판정하는 쪽이 다시 돌릴 검사 명령 */
 /** statement · condition · side: 이 시도가 내놓는 주장. 겨눈 주장 그대로를 받치면 비운다. 적으면 겨눈 주장(없으면 질문) 아래에 새 주장이 생기고 이 시도는 그 근거가 된다 (side는 질문 바로 아래일 때) */
-export const AttemptReportBody = z.object({ did: line, result: line, statement: z.string().optional(), condition: z.string().optional(), side: ClaimSide.optional(), files: z.array(z.string()).optional(), run: AttemptRun.optional(), test: z.string().optional(), lesson: z.string().optional(), reopen: z.string().optional() }).strict()
+export const AttemptReportBody = z.object({ did: line, result: line, statement: z.string().optional(), condition: z.string().optional(), side: ClaimSide.optional(), files: z.array(z.string()).optional(), run: AttemptRun.omit({ trailer: true }).optional(), test: z.string().optional(), lesson: z.string().optional(), reopen: z.string().optional() }).strict()
 /** tested: 시도에 검사 명령이 있으면 다시 돌린 결과 (에이전트의 성립에는 pass가 있어야 한다) */
 export const AttemptVerdictBody = z.object({ result: z.enum(ATTEMPT_VERDICTS), note: line, check: z.string().optional(), tested: z.enum(TEST_RESULTS).optional(), lesson: z.string().optional(), reopen: z.string().optional() }).strict()
 const DAY = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'when: YYYY-MM-DD')
 /**
  * POST …/problems/:id/attempts/record: 지난 일 하나를 적는다 (「＋ 한 일」). claim = 겨눈 주장(없으면 질문), statement를 적으면 그 아래 새 주장이 생긴다 (보고와 같다).
- * 사용자가 적으면 outcome(기본 성립)으로 곧바로 판정된 근거가 되고, 에이전트가 적으면 판정 대기로 남아 사용자가 확인한다 (outcome은 사용자만)
+ * 사용자가 적으면 outcome(기본 성립)으로 곧바로 판정된 근거가 되고, 에이전트가 적으면 판정 대기로 남아 사용자가 확인한다 (outcome은 사용자만).
+ * when을 비우면 근거(files)가 처음 커밋된 날로 채운다. 성립은 가리킴만인 근거(PR 번호 · 커밋 · 작업 파일)로는 주지 않는다
  */
 export const RecordAttemptBody = z.object({
   method: line, claim: z.string().optional(), when: DAY.optional(), did: z.string().optional(), result: line,
@@ -218,7 +220,7 @@ export const DirectionDecisionBody = z.object({ baseHash: hash, verdict: z.enum(
 
 // ---------- 예외 기록 (workbench/problems/_exceptions/) ----------
 
-/** 규칙대로 되지 않은 일 하나. kind refused는 앱이 거절하며 적은 것(rule = 어느 규칙) */
+/** 규칙대로 되지 않은 일 하나. kind refused는 앱이 거절하며, warned는 앱이 경고하며 적은 것(rule = 어느 규칙) */
 export const FlowException = z.object({
   id: z.string(),
   at: z.string(),
@@ -232,8 +234,8 @@ export const FlowException = z.object({
 }).strict()
 export const FlowExceptionList = z.object({ exceptions: z.array(FlowException) }).strict()
 export const FlowExceptionOne = z.object({ exception: FlowException }).strict()
-/** POST …/problem-exceptions: 사용자나 에이전트가 한 줄 적는다 (refused는 앱만) */
-export const NewExceptionBody = z.object({ kind: z.enum(EXCEPTION_KINDS).exclude(['refused']), what: line, instead: z.string().optional(), problem: z.string().optional(), attempt: z.string().optional() }).strict()
+/** POST …/problem-exceptions: 사용자나 에이전트가 한 줄 적는다 (refused · warned는 앱만) */
+export const NewExceptionBody = z.object({ kind: z.enum(EXCEPTION_KINDS).exclude(['refused', 'warned']), what: line, instead: z.string().optional(), problem: z.string().optional(), attempt: z.string().optional() }).strict()
 
 export type ProblemState = z.infer<typeof ProblemState>
 export type ClaimSide = z.infer<typeof ClaimSide>

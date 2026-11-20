@@ -29,7 +29,7 @@ export interface RawClaim {
 export interface RawAttempt {
   id: string; method: string; claim?: string; state: AttemptState; by: string; created?: string
   worker?: string; started?: string; did?: string; result?: string
-  files: string[]; run?: { command?: string; commit?: string }; test?: string; reported?: string
+  files: string[]; run?: { command?: string; commit?: string; trailer?: false }; test?: string; reported?: string
   verdict?: { at: string; by: string; note?: string; check?: string; tested?: 'pass' | 'fail'; files?: Record<string, string>; claim?: string }; lesson?: string; reopen?: string
   /** 사용자가 돌려보냄 (수정) */
   returned?: { at: string; by: string; note: string }
@@ -117,7 +117,7 @@ export function parseAttempt(id: string, text: string): RawAttempt | null {
   if (!method) return null
   const v = rec(o.verdict)
   const vat = str(v.at), vby = str(v.by)
-  const run = rec(o.run), command = str(run.command), commit = str(run.commit)
+  const run = rec(o.run), command = str(run.command), commit = str(run.commit), noTrailer = run.trailer === false
   const tested = oneOf(TEST_RESULTS, v.tested)
   const marks = Object.fromEntries(Object.entries(rec(v.files)).flatMap(([f, h]) => { const s = str(h); return s ? [[f, s]] : [] }))
   const ret = rec(o.returned)
@@ -127,7 +127,7 @@ export function parseAttempt(id: string, text: string): RawAttempt | null {
     ...(str(o.worker) && { worker: str(o.worker) }), ...(str(o.started) && { started: str(o.started) }),
     ...(str(o.did) && { did: str(o.did) }), ...(str(o.result) && { result: str(o.result) }),
     files: some(arr(o.files).map(str)),
-    ...((command || commit) && { run: { ...(command && { command }), ...(commit && { commit }) } }), ...(str(o.test) && { test: str(o.test) }),
+    ...((command || commit) && { run: { ...(command && { command }), ...(commit && { commit }), ...(commit && noTrailer && { trailer: false as const }) } }), ...(str(o.test) && { test: str(o.test) }),
     ...(str(o.reported) && { reported: str(o.reported) }),
     ...(vat && vby && { verdict: { at: vat, by: vby, ...(str(v.note) && { note: str(v.note) }), ...(str(v.check) && { check: str(v.check) }), ...(tested && { tested }), ...(Object.keys(marks).length && { files: marks }), ...(str(v.claim) && { claim: str(v.claim) }) } }),
     ...(str(o.lesson) && { lesson: str(o.lesson) }), ...(str(o.reopen) && { reopen: str(o.reopen) }),

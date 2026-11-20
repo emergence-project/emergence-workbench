@@ -25,10 +25,10 @@ export const FLOW_ANSWERS = ['yes', 'no'] as const
 /** 닫을 때 답이 기대는 주장마다 사용자가 고르는 것: 승인 · 수정(돌려보냄) · 기각(폐기) */
 export const BASIS_REVIEWS = ['approve', 'return', 'reject'] as const
 /**
- * 예외 기록의 종류 (11/11 "해 보면서 판단": 2주 뒤 평가에 쓴다). refused 앱이 규칙으로 거절함(앱이 적는다) ·
+ * 예외 기록의 종류 (11/11 "해 보면서 판단": 2주 뒤 평가에 쓴다). refused 앱이 규칙으로 거절함(앱이 적는다) · warned 앱이 경고만 함(앱이 적는다, 11/20 커밋 꼬리말) ·
  * no-claim 판단할 수 있는 한 문장으로 적지 못함 · no-verdict 판정하지 못함 · needs-user 사용자 차례가 아닌데 결정이 필요함 · workaround 규칙을 돌아서 함 · other
  */
-export const EXCEPTION_KINDS = ['refused', 'no-claim', 'no-verdict', 'needs-user', 'workaround', 'other'] as const
+export const EXCEPTION_KINDS = ['refused', 'warned', 'no-claim', 'no-verdict', 'needs-user', 'workaround', 'other'] as const
 /** 시작한 시도 수의 기본 한도와, 사용자가 "계속"할 때 더하는 기본 수 */
 export const PROBLEM_LIMIT = 6
 export const PROBLEM_LIMIT_STEP = 3
@@ -36,3 +36,32 @@ export const PROBLEM_LIMIT_STEP = 3
 export const PROBLEM_STREAK = 3
 /** 이어받기 한 장의 상한 (바이트) */
 export const BRIEF_MAX = 3072
+
+/**
+ * 근거의 세기 (11/20 결정 "흐름 근거 공통 기준", 프로젝트와 상관없이 같다).
+ * rerun 다시 돌림: 명령을 돌려 같은 결과가 나온다(실행 명령 · 검사 명령) · reread 다시 읽음: 글을 따라가면 같은 결론이 나온다(노트 절 · 증명 · bib 키) ·
+ * pointer 가리킴만: 무엇이 있었는지만 알려 준다(PR 번호 · 커밋 · 작업 파일 · 일지). 가리킴만으로는 성립을 주지 않고 출처로만 보인다
+ */
+export const EVIDENCE_STRENGTHS = ['rerun', 'reread', 'pointer'] as const
+export type EvidenceStrength = (typeof EVIDENCE_STRENGTHS)[number]
+const POINTER = [
+  /^(pr|commit|issue):/i,
+  /^#\d+$/,
+  /^[0-9a-f]{7,40}$/i,
+  /^https?:\/\/github\.com\/[^/]+\/[^/]+\/(pull|commit|issues)\//i,
+  /^(workbench\/)?(tasks|log)\//,
+]
+/** 근거 한 줄(시도의 파일 칸)의 세기: 가리킴만이거나 다시 읽음 */
+export const fileStrength = (f: string): 'reread' | 'pointer' => (POINTER.some((r) => r.test(f.trim())) ? 'pointer' : 'reread')
+/** 시도 하나가 가진 가장 센 근거. 근거가 하나도 없으면 undefined */
+export function attemptStrength(a: { files: string[]; run?: { command?: string }; test?: string }): EvidenceStrength | undefined {
+  if (a.run?.command || a.test) return 'rerun'
+  if (!a.files.length) return undefined
+  return a.files.some((f) => fileStrength(f) === 'reread') ? 'reread' : 'pointer'
+}
+/** 근거가 있는 경로(PR 번호 · 커밋이 아닌 저장소 안 경로)만: 절 표시(#…)를 뗀다 */
+export const evidencePaths = (files: string[]): string[] => [...new Set(files.filter((f) => !/^(pr|commit|issue|bib):|^#|^https?:/i.test(f) && !/^[0-9a-f]{7,40}$/i.test(f)).map((f) => f.split('#')[0]!.trim()).filter(Boolean))]
+/** 커밋 꼬리말: 이 커밋이 어느 시도의 근거인가 (`Attempt: <흐름>/<글자>`) */
+export const attemptTrailer = (flow: string, label: string): string => `Attempt: ${flow}/${label.toLowerCase()}`
+export const hasAttemptTrailer = (message: string, flow: string, label: string): boolean =>
+  new RegExp(`^Attempt:\\s*${flow.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/${label.toLowerCase()}\\s*$`, 'im').test(message)
