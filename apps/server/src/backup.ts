@@ -10,6 +10,7 @@ import { git as gitAt, gitBuffer, gitRun, GIT_TIMEOUT } from './git.js'
 import { HERE, t } from './i18n.js'
 import type { ProjectProfile } from './registry.js'
 import { writeDevice, type DeviceRecord } from './devices.js'
+import { SERVER_FILE } from './deviceServer.js'
 
 /**
  * 맥에만 있던 작업대 정보(workbench/)와 앱 설정을 사용자의 비공개 개인 저장소(personalRepo.ts)에 두고, 그것을 정본으로 맞춘다
@@ -260,6 +261,8 @@ export async function backupWorkbenches(opts: {
     paths.push(rel)
   }
   if (opts.device && writeDevice(opts.dir, opts.device, now) && !paths.includes(path.dirname(SETTINGS))) paths.push(path.dirname(SETTINGS))
+  // 서버로 정한 컴퓨터(설정 › 기기 관리)는 이 사본에 _settings/server.yaml을 쓴다. 함께 올려야 다른 컴퓨터가 받아 서버에 알린다 (11/20 맥북에서 안 보임)
+  if (fs.existsSync(path.join(opts.dir, SERVER_FILE))) paths.push(SERVER_FILE)
   const extra = { pulled, conflicts, settingsPulled }
   const what = [pulled.length && t(`GitHub에서 ${pulled.length}개 받음`, `pulled ${pulled.length} from GitHub`), conflicts.length && t(`양쪽에서 고친 ${conflicts.length}개는 GitHub 것을 옆에 받아 둠`, `${conflicts.length} edited on both sides: the GitHub copy was saved alongside`)].filter(Boolean).join(', ')
   try {
