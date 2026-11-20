@@ -4,3 +4,4 @@
 .dev-meta { display: flex; flex-wrap: wrap; gap: 0 var(--sp-3); }
 .dev-accts { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-1); }
 .dev-accts .tag { margin-right: 0; }
+.dev-server { margin-bottom: var(--sp-3); }

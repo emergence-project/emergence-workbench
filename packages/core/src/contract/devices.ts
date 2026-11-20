@@ -9,27 +9,56 @@ export const DeviceAccount = z.object({
   name: z.string().optional(),
   plan: z.string().optional(),
 }).strict()
-export const Device = z.object({
+/** 컴퓨터가 올리는 기기 정보 (개인 저장소의 device.yaml, 서버에 1분마다 보내는 것) */
+export const DeviceRecord = z.object({
   /** 개인 저장소의 컴퓨터 폴더 이름 (호스트 이름) */
-  name: z.string(),
+  name: z.string().min(1).max(100),
   /** 보일 이름 (맥의 컴퓨터 이름) */
-  label: z.string().optional(),
+  label: z.string().max(200).optional(),
+  /** 마지막으로 본 때 */
+  seen: z.string().max(40),
+  version: z.string().max(40).optional(),
+  os: z.string().max(100).optional(),
+  accounts: z.array(DeviceAccount).max(30),
+}).strict()
+export const Device = DeviceRecord.extend({
   /** 지금 이 화면을 연 컴퓨터 */
   this: z.boolean(),
-  /** 최근(2시간 안)에 개인 저장소와 맞췄나. 이 컴퓨터는 늘 true */
+  /** 켜져 있나: 서버에 3분 안에 알렸거나, 서버가 없으면 2시간 안에 개인 저장소와 맞췄나. 이 컴퓨터는 늘 true */
   online: z.boolean(),
-  /** 마지막으로 맞춘 때 (이 컴퓨터는 지금) */
-  seen: z.string(),
-  version: z.string().optional(),
-  os: z.string().optional(),
-  accounts: z.array(DeviceAccount),
+  /** 서버가 실시간으로 본 값인가 (아니면 개인 저장소에 올린 마지막 값) */
+  live: z.boolean().optional(),
+  /** 서버 컴퓨터 */
+  server: z.boolean().optional(),
+  /** 로그아웃을 걸어 두었고 그 컴퓨터가 아직 서버에 닿지 않았다 */
+  logout: z.boolean().optional(),
+}).strict()
+/** 서버 (11/20 2단계): 개인 저장소의 _settings/server.yaml에 적힌 컴퓨터. 다른 컴퓨터는 Tailscale 주소로 1분마다 알린다 */
+export const DeviceServer = z.object({
+  machine: z.string(),
+  label: z.string().optional(),
+  /** 이 컴퓨터가 서버 */
+  this: z.boolean(),
+  /** 이 컴퓨터가 서버에 마지막으로 닿은 때 (서버면 없음) */
+  reached: z.string().optional(),
+  /** 마지막으로 닿지 못한 까닭 */
+  error: z.string().optional(),
 }).strict()
 export const Devices = z.object({
   devices: z.array(Device),
   /** 개인 저장소와 맞추는 중인가 (아니면 다른 컴퓨터가 보이지 않는다) */
   shared: z.boolean(),
+  server: DeviceServer.nullable(),
 }).strict()
+/** 서버가 받은 알림의 답: 서버가 본 기기 목록과, 이 컴퓨터를 로그아웃할지 */
+export const DeviceBeatReply = z.object({ devices: z.array(Device), logout: z.boolean() }).strict()
+export const DeviceLogoutBody = z.object({ name: z.string().min(1).max(100) }).strict()
+export const DeviceOk = z.object({ ok: z.literal(true) }).strict()
 
 export type DeviceAccount = z.infer<typeof DeviceAccount>
 export type Device = z.infer<typeof Device>
 export type Devices = z.infer<typeof Devices>
+export type DeviceRecord = z.infer<typeof DeviceRecord>
+export type DeviceServer = z.infer<typeof DeviceServer>
+export type DeviceBeatReply = z.infer<typeof DeviceBeatReply>
+export type DeviceOk = z.infer<typeof DeviceOk>
