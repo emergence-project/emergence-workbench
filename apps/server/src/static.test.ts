@@ -46,6 +46,11 @@ describe('빌드한 화면 내보내기', () => {
     expect(zipped.headers['cache-control']).toContain('immutable')
     expect(zipped.rawPayload.length).toBeLessThan(BIG.length / 4)
     expect(zlib.gunzipSync(zipped.rawPayload).toString()).toBe(BIG)
+    expect(zipped.headers['content-length']).toBe(String(zipped.rawPayload.length))
+    // 파일이 바뀌면 줄인 것도 다시 만든다
+    fs.writeFileSync(path.join(tmp, 'dist/assets/big-abc.js'), BIG + 'changed()\n')
+    const again = await app.inject({ url: '/assets/big-abc.js', headers: { 'accept-encoding': 'gzip' } })
+    expect(zlib.gunzipSync(again.rawPayload).toString()).toBe(BIG + 'changed()\n')
     // 작은 파일과 그림은 그대로
     expect((await app.inject({ url: '/assets/app-abc.js', headers: { 'accept-encoding': 'gzip' } })).headers['content-encoding']).toBeUndefined()
     expect((await app.inject({ url: '/assets/pic-abc.png', headers: { 'accept-encoding': 'gzip' } })).headers['content-encoding']).toBeUndefined()
