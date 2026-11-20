@@ -15,7 +15,7 @@ import { PROJECT_COLORS, type ProjectColor, type ProjectKind, type ProjectState,
  * 연구 저장소 경로는 기기마다 다르므로 git 저장소가 아니라 여기에 둔다.
  */
 /** load()가 읽어 AppConfig로 옮기는 키. latex는 예전 서식 하나(latexTemplates로 옮김). 이 밖의 키는 저장할 때 그대로 둔다 */
-const CONFIG_KEYS = new Set(['engine', 'library', 'study', 'reviews', 'pdfFolders', 'personalRepo', 'researches', 'ui', 'latexTemplates', 'latexDefault', 'latexBuiltins', 'authors', 'people', 'latex', 'agents', 'sync', 'gitIdentity', 'meAt'])
+const CONFIG_KEYS = new Set(['engine', 'library', 'study', 'reviews', 'pdfFolders', 'personalRepo', 'researches', 'ui', 'latexTemplates', 'latexDefault', 'latexBuiltins', 'authors', 'people', 'latex', 'agents', 'sync', 'gitIdentity', 'meAt', 'peopleAt'])
 
 export interface AppConfig {
   engine: Engine
@@ -48,8 +48,8 @@ export interface AppConfig {
   latexBuiltins: string[]
   /** 저자와 소속. 내보낼 때 \author·\affiliation 줄로 넣는다 */
   authors: Author[]
-  /** 네트워킹에 따로 더한 사람 (저자와 소속에 있는 사람은 저절로 들어간다) */
-  people: Person[]
+  /** 네트워킹에 따로 더한 사람 (저자와 소속에 있는 사람은 저절로 들어간다). peopleAt은 마지막으로 고친 때: 컴퓨터 사이에 더 늦게 고친 쪽을 따른다 (meSync.ts, 11/20) */
+  people: Person[]; peopleAt?: string
 }
 
 export interface Inspection {
@@ -120,7 +120,6 @@ export function profileOf(r: RegisteredResearch): ProjectProfile {
 }
 
 const isColor = (v: unknown): v is ProjectColor => PROJECT_COLORS.includes(v as ProjectColor)
-
 /** 예전 태그 하나 목록 모양 (구글 동기화 · 검색이 아직 쓴다): 업무면 "업무"를 앞에, 그 뒤에 분야 */
 const legacyTags = (p: ProjectProfile) => [...(p.kind === 'work' ? [LEGACY_WORK_TAG] : []), ...p.fields.filter((f) => f !== LEGACY_WORK_TAG)]
 
@@ -188,9 +187,10 @@ export class Registry {
     this.save()
   }
   get meAt(): string | undefined { return this.config.meAt }
-  /** 다른 컴퓨터의 내 정보를 그대로 적는다 (meSync.ts). 고친 때는 그쪽 것 */
-  adoptMe(me: { authors?: Author[]; gitIdentity?: { name: string; email: string }; meAt?: string }): void {
-    Object.assign(this.config, me.authors && { authors: normalizeAuthors(me.authors) }, me.gitIdentity && { gitIdentity: me.gitIdentity }, me.meAt && { meAt: me.meAt })
+  get peopleAt(): string | undefined { return this.config.peopleAt }
+  /** 다른 컴퓨터의 내 정보 · 네트워킹 사람 목록을 그대로 적는다 (meSync.ts). 고친 때는 그쪽 것 */
+  adoptMe(me: { authors?: Author[]; gitIdentity?: { name: string; email: string }; meAt?: string; people?: Person[]; peopleAt?: string }): void {
+    Object.assign(this.config, me.authors && { authors: normalizeAuthors(me.authors) }, me.gitIdentity && { gitIdentity: me.gitIdentity }, me.meAt && { meAt: me.meAt }, me.people && { people: normalizePeople(me.people) }, me.peopleAt && { peopleAt: me.peopleAt })
     this.save()
   }
 
@@ -319,7 +319,7 @@ export class Registry {
   /** 네트워킹에 더한 사람 목록 전체를 바꾼다 */
   setPeople(list: unknown): Person[] {
     if (!Array.isArray(list)) throw new WorkbenchError(400, tl('사람 목록이 아닙니다.', 'Not a list of people.'))
-    this.config.people = normalizePeople(list)
+    Object.assign(this.config, { people: normalizePeople(list), peopleAt: new Date().toISOString() })
     this.save()
     return this.config.people
   }
@@ -341,7 +341,7 @@ export class Registry {
     const reviews = typeof raw.reviews === 'string' ? raw.reviews : undefined
     const personalRepo = typeof raw.personalRepo === 'string' && raw.personalRepo.trim() ? raw.personalRepo : undefined
     const gitIdentity = identityOf(raw.gitIdentity)
-    const meAt = typeof raw.meAt === 'string' && Number.isFinite(Date.parse(raw.meAt)) ? raw.meAt : undefined
+    const [meAt, peopleAt] = [raw.meAt, raw.peopleAt].map((v: unknown) => (typeof v === 'string' && Number.isFinite(Date.parse(v)) ? v : undefined))
     const pdfFolders = Array.isArray(raw.pdfFolders) ? raw.pdfFolders.filter((p: unknown): p is string => typeof p === 'string' && path.isAbsolute(p)) : []
     const researches: RegisteredResearch[] = Array.isArray(raw.researches)
       ? raw.researches
@@ -366,7 +366,7 @@ export class Registry {
     // 예전 설정의 latex:(서식 하나)는 PRL 서식으로 옮긴다
     const latexTemplates = normalizeTemplates(raw.latexTemplates, raw.latex, raw.latexBuiltins)
     const latexBuiltins = BUILTIN_TEMPLATES.map((t) => t.id)
-    return { engine, library, ...(study && { study }), ...(reviews && { reviews }), ...(pdfFolders.length && { pdfFolders }), ...(personalRepo && { personalRepo }), ...(gitIdentity && { gitIdentity }), ...(meAt && { meAt }), researches, ui: normalizeUi(withLanguage(raw.ui, researches.length > 0)), agents: normalizeAgentSettings(raw.agents), sync: normalizeSyncSettings(raw.sync), latexTemplates, latexDefault: defaultOf(latexTemplates, raw.latexDefault), latexBuiltins, authors: normalizeAuthors(raw.authors, []), people: normalizePeople(raw.people) }
+    return { engine, library, ...(study && { study }), ...(reviews && { reviews }), ...(pdfFolders.length && { pdfFolders }), ...(personalRepo && { personalRepo }), ...(gitIdentity && { gitIdentity }), ...(meAt && { meAt }), ...(peopleAt && { peopleAt }), researches, ui: normalizeUi(withLanguage(raw.ui, researches.length > 0)), agents: normalizeAgentSettings(raw.agents), sync: normalizeSyncSettings(raw.sync), latexTemplates, latexDefault: defaultOf(latexTemplates, raw.latexDefault), latexBuiltins, authors: normalizeAuthors(raw.authors, []), people: normalizePeople(raw.people) }
   }
 
   private save(): void {

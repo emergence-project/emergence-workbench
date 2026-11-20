@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
-import { normalizeAuthors, type Author } from '@rw/core'
+import { normalizeAuthors, normalizePeople, type Author, type Person } from '@rw/core'
 import { machineName } from './backup.js'
 import type { Registry } from './registry.js'
 
@@ -13,9 +13,10 @@ import type { Registry } from './registry.js'
  * - 고칠 때마다 고친 때(meAt)를 적는다(registry.ts setAuthors · setGitIdentity).
  * - 맞추기가 끝나면 다른 컴퓨터들의 설정에서 더 늦게 고친 내 정보를 이 컴퓨터에 적는다.
  * - 고친 때가 없는 예전 설정끼리는 이 컴퓨터에 비어 있는 칸만 채운다(적어 둔 값은 바꾸지 않는다).
+ * 네트워킹의 사람 목록도 같은 방식으로 맞춘다(11/20 피드백 02:28 「진행」): 고친 때는 따로 peopleAt. 목록 하나를 통째로 따른다.
  * 컴퓨터마다 다른 것(폴더 경로)은 맞추지 않는다. 논문 PDF 폴더는 설정 화면이 다른 컴퓨터의 폴더를 보이고 고르게 한다(otherPdfFolders).
  */
-export interface OtherMe { machine: string; authors: Author[]; gitIdentity?: { name: string; email: string }; meAt?: string; pdfFolders: string[] }
+export interface OtherMe { machine: string; authors: Author[]; gitIdentity?: { name: string; email: string }; meAt?: string; people: Person[]; peopleAt?: string; pdfFolders: string[] }
 
 /** 설정 파일의 커밋 이름 (이름 · 이메일 둘 다 있어야) */
 export function identityOf(v: unknown): { name: string; email: string } | undefined {
@@ -41,19 +42,27 @@ export function otherMachineMe(dir: string, machine = machineName()): OtherMe[] 
       machine: m, authors: normalizeAuthors(raw.authors, []),
       ...(gitIdentity && { gitIdentity }),
       ...(typeof raw.meAt === 'string' && time(raw.meAt) > 0 && { meAt: raw.meAt }),
+      people: normalizePeople(raw.people),
+      ...(typeof raw.peopleAt === 'string' && time(raw.peopleAt) > 0 && { peopleAt: raw.peopleAt }),
       pdfFolders: Array.isArray(raw.pdfFolders) ? raw.pdfFolders.filter((p): p is string => typeof p === 'string' && path.isAbsolute(p)) : [],
     })
   }
   return out
 }
 
-/** 다른 컴퓨터의 내 정보를 이 컴퓨터에 적는다. 바꾼 칸 (없으면 빈 목록) */
-export function adoptOtherMe(registry: Registry, dir: string, machine = machineName()): ('authors' | 'gitIdentity')[] {
+type MeField = 'authors' | 'gitIdentity' | 'people'
+
+/** 다른 컴퓨터의 내 정보 · 사람 목록을 이 컴퓨터에 적는다. 바꾼 칸 (없으면 빈 목록) */
+export function adoptOtherMe(registry: Registry, dir: string, machine = machineName()): MeField[] {
   const others = otherMachineMe(dir, machine)
   if (!others.length) return []
+  return [...adoptMe(registry, others), ...adoptPeople(registry, others)]
+}
+
+function adoptMe(registry: Registry, others: OtherMe[]): MeField[] {
   const newest = others.filter((o) => o.meAt).sort((a, b) => time(b.meAt) - time(a.meAt))[0]
   if (newest && time(newest.meAt) > time(registry.meAt)) {
-    const changed: ('authors' | 'gitIdentity')[] = []
+    const changed: MeField[] = []
     if (newest.authors.length && JSON.stringify(newest.authors) !== JSON.stringify(registry.authors)) changed.push('authors')
     if (newest.gitIdentity && JSON.stringify(newest.gitIdentity) !== JSON.stringify(registry.gitIdentity)) changed.push('gitIdentity')
     registry.adoptMe({ ...(newest.authors.length && { authors: newest.authors }), ...(newest.gitIdentity && { gitIdentity: newest.gitIdentity }), meAt: newest.meAt })
@@ -66,6 +75,25 @@ export function adoptOtherMe(registry: Registry, dir: string, machine = machineN
   if (!authors && !gitIdentity) return []
   registry.adoptMe({ ...(authors && { authors }), ...(gitIdentity && { gitIdentity }) })
   return [...(authors ? ['authors' as const] : []), ...(gitIdentity ? ['gitIdentity' as const] : [])]
+}
+
+/**
+ * 사람 목록: 더 늦게 고친 컴퓨터의 목록을 통째로 따른다(지운 사람도 지워진다).
+ * 이 컴퓨터가 한 번도 고친 때를 적지 않았으면(예전 설정) 이 컴퓨터에만 있던 사람은 남긴다(합치기).
+ * 고친 때가 없는 예전 설정끼리는 서로의 목록을 합친다.
+ */
+function adoptPeople(registry: Registry, others: OtherMe[]): MeField[] {
+  const mine = registry.people
+  const merge = (...lists: Person[][]) => normalizePeople(lists.flat())
+  const newest = others.filter((o) => o.peopleAt).sort((a, b) => time(b.peopleAt) - time(a.peopleAt))[0]
+  let next: Person[] | undefined, at: string | undefined
+  if (newest && time(newest.peopleAt) > time(registry.peopleAt)) [next, at] = [registry.peopleAt ? newest.people : merge(newest.people, mine), newest.peopleAt]
+  else if (!registry.peopleAt) next = merge(mine, ...others.filter((o) => !o.peopleAt).map((o) => o.people))
+  if (!next) return []
+  const same = JSON.stringify(next) === JSON.stringify(mine)
+  if (same && !at) return []
+  registry.adoptMe({ people: next, ...(at && { peopleAt: at }) })
+  return same ? [] : ['people']
 }
 
 /** 다른 컴퓨터에 적어 둔 논문 PDF 폴더 가운데 이 컴퓨터에도 있고 아직 더하지 않은 것 (설정 › 라이브러리가 「＋ 추가」로 보인다) */

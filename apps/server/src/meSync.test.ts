@@ -72,3 +72,38 @@ describe('내 정보 맞추기', () => {
     expect(fs.existsSync(path.join(lib, 'pdfs'))).toBe(true)
   })
 })
+
+// 11/20 피드백 02:28 진행: 네트워킹에 등록한 사람이 다른 맥에서 보이지 않았다(「사람들 0」)
+describe('네트워킹 사람 목록 맞추기', () => {
+  const A = { name: 'Ada E. Example' }, B = { name: 'Gus Grey' }, C = { name: 'Cy Sample' }
+
+  it('예전 설정끼리는 서로의 목록을 합친다', () => {
+    const { registry, personal, config } = setup({ people: [C] }, { people: [A, B] })
+    expect(adoptOtherMe(registry, personal, 'Macmini')).toEqual(['people'])
+    expect(registry.people.map((p) => p.name)).toEqual(['Cy Sample', 'Ada E. Example', 'Gus Grey'])
+    expect(new Registry(config).people).toHaveLength(3)
+  })
+
+  it('더 늦게 고친 컴퓨터의 목록을 통째로 따르고(지운 사람도), 이 컴퓨터에서 고치면 그것이 새것이 된다', () => {
+    const { registry, personal } = setup({ people: [A, B], peopleAt: '2026-11-19T10:00:00Z' }, { people: [A], peopleAt: '2026-11-19T12:00:00Z' })
+    expect(adoptOtherMe(registry, personal, 'Macmini')).toEqual(['people'])
+    expect(registry.people).toEqual([A])
+    expect(registry.peopleAt).toBe('2026-11-19T12:00:00Z')
+    registry.setPeople([A, C])
+    expect(adoptOtherMe(registry, personal, 'Macmini')).toEqual([])
+    expect(registry.people).toEqual([A, C])
+  })
+
+  it('고친 때를 적은 적 없는 컴퓨터는 처음 따를 때 자기에게만 있던 사람을 남긴다', () => {
+    const { registry, personal } = setup({ people: [C] }, { people: [A], peopleAt: '2026-11-20T01:00:00Z' })
+    expect(adoptOtherMe(registry, personal, 'Macmini')).toEqual(['people'])
+    expect(registry.people.map((p) => p.name)).toEqual(['Ada E. Example', 'Cy Sample'])
+    expect(registry.peopleAt).toBe('2026-11-20T01:00:00Z')
+  })
+
+  it('내 정보와 사람 목록은 고친 때가 따로다', () => {
+    const { registry, personal } = setup({ authors: [{ name: 'Me Here' }], meAt: '2026-11-20T02:00:00Z' }, { authors: [ME], meAt: '2026-11-19T00:00:00Z', people: [A], peopleAt: '2026-11-20T01:00:00Z' })
+    expect(adoptOtherMe(registry, personal, 'Macmini')).toEqual(['people'])
+    expect(registry.authors.map((a) => a.name)).toEqual(['Me Here'])
+  })
+})
