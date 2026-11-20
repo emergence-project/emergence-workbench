@@ -146,8 +146,13 @@
 .pr-abstract { line-height: 1.7; font-size: var(--fs-sm); }
 .pr-hint { font-size: var(--fs-xs); }
 .pr-none { display: grid; place-items: center; padding: var(--sp-6); }
-/* 폰: 정보 · 기록 창을 옆에 두면 본문(PDF · 목록)이 몇 px만 남는다. 본문을 위에, 창을 아래에 쌓는다 */
+/* 좁은 창: 정보 · 기록 창을 옆에 두면 본문(PDF · 목록)이 몇 px만 남는다. 본문을 위에, 창을 아래에 쌓는다.
+   연 논문은 창이 380px라 태블릿 폭(1000px 아래)부터, 목록은 폰 폭부터 */
+@media (max-width: 1000px) {
+  .stage.pl.pl-open { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .stage.pl.pl-open > .pl-rs { border-left: 0; border-top: 1px solid var(--line); max-height: 40vh; }
+}
 @media (max-width: 600px) {
-  .stage.pl.with-side, .stage.pl.pl-open { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .stage.pl.with-side { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
   .stage.pl.with-side > .pl-rs { border-left: 0; border-top: 1px solid var(--line); max-height: 40vh; }
 }
