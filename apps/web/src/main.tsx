@@ -8,6 +8,7 @@ import { queryClient } from './queries'
 import { applyUi, cachedUi } from './ui'
 import { phoneStart } from './phoneLayout'
 import { watchPageSelection } from './RecordContext'
+import { watchTips } from './tipPlace'
 import './i18n'
 import './tokens.css'
 // 화면별 스타일. 순서가 곧 우선순위다: 새 화면은 자기 파일을 만들어 맨 아래에 한 줄 더한다
@@ -95,6 +96,7 @@ import './styles/notice-bell.css'
 applyUi(cachedUi())
 phoneStart()
 watchPageSelection()
+watchTips()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
