@@ -146,7 +146,8 @@ export class FeedbackChats extends SharedChats {
       return this.send(earlier.id, { text: feedbackAgainPrompt(e, reasons, merged) })
     }
     const p = handOffPlan(listAllFeedback(fb.dir), fb.dir, list, busyOf)
-    return this.create({ rid: APP_RID, text: p.text, title: p.title, mode: 'edit', ...(p.images.length && { images: p.images }) }, { feedback: p.keys[0], bundle: p.keys, ...(parent && { parent }) })
+    // 모델은 Opus로 정한다: 계정 기본값은 계정마다 달라 크레딧이 드는 모델로 풀린 적이 있다 (11/20, 중앙과 같게)
+    return this.create({ rid: APP_RID, text: p.text, title: p.title, mode: 'edit', model: 'opus', ...(p.images.length && { images: p.images }) }, { feedback: p.keys[0], bundle: p.keys, ...(parent && { parent }) })
   }
 
   /**
