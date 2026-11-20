@@ -394,7 +394,8 @@ function ProjectCards({ rid, rapi, notes, project, pc, onChanged, onSaved }: {
 }) {
   const api = notesApi(rid)
   const client = useQueryClient()
-  const data = useTopicsOverview(rid).data ?? null
+  const overview = useTopicsOverview(rid)
+  const data = overview.data ?? null
   const refresh = () => client.invalidateQueries({ queryKey: qk.topicsOverview(rid) })
   const [topicSort, setTopicSort] = useStored<NoteSort>('rw-overview-topic-sort', 'recent')
   const [period, setPeriod] = useStored<NotePeriod>('rw-overview-note-period', 'week')
@@ -444,6 +445,8 @@ function ProjectCards({ rid, rapi, notes, project, pc, onChanged, onSaved }: {
           <span className="sp" />
           <SortBar ui="주제 정렬" label={t('주제 정렬', 'Sort topics')} list={SORTS} value={topicSort} onPick={setTopicSort} />
         </div>
+        {/* 주제를 받지 못했으면 빈 목록(주제 만들기만)으로 보이지 않게 이유를 적는다 (11/21) */}
+        {overview.error && !data ? <p className="muted">{t(`주제를 읽지 못했습니다: ${overview.error.message}`, `Could not read the topics: ${overview.error.message}`)}</p> : (
         <div className="kc-grid" data-ui="주제 카드 목록">
           <NewCard shape="topic" label={t('주제 만들기', 'New topic')} ui="새 주제" onClick={() => void createTopic()} />
           {sortTopics(topics, topicSort).map((t) => (
@@ -452,7 +455,7 @@ function ProjectCards({ rid, rapi, notes, project, pc, onChanged, onSaved }: {
               preview: { text: t.preview?.text, image: t.preview?.image, imageUrl: t.preview?.image ? api.topicImageUrl(t.id, data!.hash) : undefined, color: t.preview?.color },
             }} />
           ))}
-        </div>
+        </div>)}
       </section>
 
       <section className="ov-sec" data-ui="노트 섹션">
