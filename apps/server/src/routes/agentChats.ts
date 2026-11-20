@@ -28,6 +28,7 @@ import { repeat } from '../scheduler.js'
 import { chatCap, chatRoom, MemoryGauge } from '../appMemory.js'
 import { machineName } from '../backup.js'
 import { publishFeedback } from '../feedback.js'
+import { remoteServer } from '../serverRelay.js'
 import { claimedElsewhere, claimFeedback } from '../feedbackClaims.js'
 import { agentAnswer } from '../ask.js'
 import { t } from '../i18n.js'
@@ -98,7 +99,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     notify: (c) => broadcast({ type: 'agent-chat', research: c.rid, id: c.id }),
     draft: (c, text) => broadcast({ type: 'agent-draft', research: c.rid, id: c.id, text }),
     ...(appWork && { app: appWork }),
-    ...(ctx.opts.feedbackDir && { feedback: { dir: ctx.opts.feedbackDir, written: () => ctx.feedbackWritten?.(), ...(claims && { claims }) } }),
+    ...(ctx.opts.feedbackDir && { feedback: { dir: ctx.opts.feedbackDir, written: () => ctx.feedbackWritten?.(), ...(claims && { claims }), elsewhere: () => !!remoteServer(ctx.opts) } }),
     settings: () => registry.agents,
     accounts: { claude: accounts, codex: codexAccounts },
     // Codex 검토 (11/9): 묻기와 같은 codex exec, 읽기 전용. 예제 · 시험은 실행기의 것

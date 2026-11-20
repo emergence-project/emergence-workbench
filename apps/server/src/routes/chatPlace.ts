@@ -9,6 +9,7 @@ import * as C from '@rw/core/contract/devices'
 import { replies } from '../contract.js'
 import { machineName } from '../backup.js'
 import { DEVICE_KEY_HEADER, readServerConfig, type ServerConfig } from '../deviceServer.js'
+import { remoteServer } from '../serverRelay.js'
 import { t } from '../i18n.js'
 import { repeat } from '../scheduler.js'
 import type { WorkbenchEvent } from '../watcher.js'
@@ -16,6 +17,8 @@ import type { RouteContext } from './context.js'
 
 /** 서버로 넘기는 경로: 에이전트 대화 · 중앙 · 방 · 지금 도는 일 · 대화가 만든 시안 */
 export const CHAT_PREFIXES = ['/api/agent-chats', '/api/agent-central', '/api/agent-room', '/api/agent-work', '/api/agent-mockups']
+/** 서버로 넘기는 낱 경로: 피드백을 에이전트에게 맡기기 (맡기는 것은 서버 한 곳에서, 11/20) */
+export const CHAT_PATHS = ['/api/feedback/hand-off']
 /** 서버 알림 가운데 대화 알림만 모양을 확인해 꺼낸다 */
 export function relayed(v: unknown): WorkbenchEvent | null {
   if (!v || typeof v !== 'object') return null
@@ -32,7 +35,7 @@ const PASS_HEADERS = ['content-type', 'x-rw-lang', 'accept']
 
 export const isChatPath = (url: string): boolean => {
   const p = url.split('?')[0] ?? ''
-  return CHAT_PREFIXES.some((x) => p === x || p.startsWith(`${x}/`))
+  return CHAT_PATHS.includes(p) || CHAT_PREFIXES.some((x) => p === x || p.startsWith(`${x}/`))
 }
 
 /** 이 컴퓨터의 대화 (routes/agentChats.ts가 알린다): 그 대화의 요청은 넘기지 않는다 */
@@ -73,11 +76,7 @@ export function registerChatPlace(app: FastifyInstance, ctx: Pick<RouteContext, 
   let error: string | undefined
 
   /** 지금 넘길 서버 (없으면 이 컴퓨터에서) */
-  const remote = (): ServerConfig | null => {
-    if (opts.sandbox) return null
-    const cfg = readServerConfig(dirs())
-    return cfg && cfg.machine !== machineName() ? cfg : null
-  }
+  const remote = (): ServerConfig | null => remoteServer(opts)
 
   app.addHook('preHandler', async (req: FastifyRequest, reply: FastifyReply) => {
     if (!isChatPath(req.url)) return

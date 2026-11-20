@@ -116,6 +116,8 @@ export class FeedbackChats extends SharedChats {
     const s = this.deps.settings?.()
     if (!this.deps.app || !fb || !s) return false
     // 클라우드에서 처리가 켜져 있어도 쉬지 않는다: 클라우드 루틴이 맡은(handoff.yaml) 항목만 건너뛴다 (11/20 사용자 "클라우드가 잡은 것 외에는 로컬이")
+    // 서버로 정한 컴퓨터가 따로 있으면 저절로 맡기는 것은 그 서버만 (11/20: 여러 맥이 저마다 맡지 않게)
+    if (this.deps.feedback?.elsewhere?.()) return false
     if (s.feedback !== 'instant' || this.running() + this.queue.length >= this.deps.limit) return false
     const chats = [...this.chats.values()]
     const waiting = listAllFeedback(fb.dir)

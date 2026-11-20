@@ -42,7 +42,7 @@ code:
 | server | `apps/server/src/appWorktree.ts` | 작업 폴더 만들기 · 치우기, `submit`(커밋 · 빠른 검사 · 올리기 · PR), `checks`(gh pr checks), `merge`(squash, 제목 "<PR 제목> (#n)"), `conflicted`, `diff`(명령으로 고친 파일 찾기), 되감기 찍기 · 되돌리기 |
 | server | `apps/server/src/agentPolicy.ts` (`judgeApp` · `APP_OWNED`) | 앱 고치기 대화의 허락 판정: 작업 폴더 밖 · 다른 PR이 고친 파일 · 앱이 맡는 명령은 막고, 권한 이름대로 묻는다 |
 | server | `apps/server/src/agentChats.ts` (`appSubmit` · `appChecks`) · `agentCentral.ts` (`appMerge`) | 도구 셋의 몸통. 합치기는 CI · 충돌을 다시 보고 거절할 까닭을 돌려준다 |
-| server | `apps/server/src/agentFeedbackTick.ts` | 1분마다: CI 빨강이면 다시 보내기(두 번), 설정대로 합치기, 반영됨 표시, 끝난 대화 보관, 저절로 맡기기(자리가 남는 만큼 한 번에, 저장 · 자동 켜기 바로 뒤에도) |
+| server | `apps/server/src/agentFeedbackTick.ts` | 1분마다: CI 빨강이면 다시 보내기(두 번), 설정대로 합치기, 반영됨 표시, 끝난 대화 보관, 저절로 맡기기(자리가 남는 만큼 한 번에, 저장 · 자동 켜기 바로 뒤에도. 서버로 정한 컴퓨터가 따로 있으면 맡지 않는다: `serverRelay.ts`) |
 | server | `apps/server/src/feedbackClaims.ts` | 맡음 표시(`feedback/handoff.yaml`) 쓰기 · 읽기 · 세 시간 뒤 풀기 |
 | server | `apps/server/src/feedbackGroups.ts` | 같은 화면의 수정끼리, 질문 · 제안끼리 묶어 한 대화에(5개까지) |
 | core | `packages/core/src/agent-settings.ts` | 설정 값: 맡기기(끔 · 누를 때 · 자동) · 합치기(CI 초록이면 · 승인한 뒤 · 늘 내가) · 한 차례 한도 |
@@ -60,7 +60,7 @@ code:
 ## 이 앱에만 있는 것
 
 - 중앙 대화가 하위 앱 고치기를 열기 · 급한 앱 고치기 · 작업 현황(`agentCentral.ts`), 중앙 방(`agentRoom.ts`)
-- 기기 서버에서 대화 돌리기(`routes/chatPlace.ts`, 11/20): 한 컴퓨터만 대화를 돌리면 이 앱의 여러 맥 문제가 없다
+- 기기 서버에서 대화 돌리기(`routes/chatPlace.ts`, 11/20): 한 컴퓨터만 대화를 돌리면 이 앱의 여러 맥 문제가 없다. 피드백 맡기기 · 자동 처리 설정도 서버 한 곳에서(`serverRelay.ts` · `routes/settings.ts`): 다른 맥은 맡기기를 서버로 넘기고 설정을 서버에 읽고 쓴다
 - 소개 1대1 검사와 소개 PR 번호 조각(`aboutFragment`), 구조 래칫 — 그 앱에 같은 규칙이 있을 때만
 - Codex 검토(`agentReview`), 시안 그림 보이기(`agentMockups`)
 - 컴퓨터 크기에 맞춘 동시 대화 수(`appMemory.ts`): 대화를 한두 개만 돌리는 앱은 고정 수로 충분하다
