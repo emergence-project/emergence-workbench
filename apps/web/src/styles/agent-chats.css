@@ -376,3 +376,6 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-mockup-pic img { display: block; max-width: 100%; max-height: 240px; object-fit: contain; }
 .ac-mockup figcaption { display: flex; gap: var(--sp-2); align-items: baseline; font-size: var(--fs-xs); min-width: 0; }
 .ac-mockup-name { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 새 대화를 돌릴 곳 (서버 | 이 맥, 11/20) */
+.ac-here-pick { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); font-size: var(--fs-sm); flex-wrap: wrap; }
+.ac-here-pick .muted { min-width: 0; }

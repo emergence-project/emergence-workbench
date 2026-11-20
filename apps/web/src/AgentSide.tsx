@@ -25,7 +25,7 @@ export function GlobalAgentPanel({ onSaved }: { onSaved(m: string): void }) {
   const [open, setOpenState] = useState<string | null>(() => store.get<string | null>(KEY, null))
   const setOpen = (v: string | null) => { setOpenState(v); store.set(KEY, v) }
   const list = useChatList().data?.chats
-  const central = list?.find((c) => c.rid === CENTRAL_RID && !c.archived)
+  const central = list?.find((c) => c.rid === CENTRAL_RID && !c.archived && !c.local)
   const current = open && (!list || list.some((c) => c.id === open)) ? open : null
   const wide = (id: string) => (
     <button className="icon-btn sm" data-ui="넓게 보기" data-tip={t('에이전트 화면에서 넓게 보기', 'Open wide in the agent page')} aria-label={t('넓게 보기', 'Open wide')} onClick={() => go({ page: 'agent', id })}>{Icon.openNote}</button>

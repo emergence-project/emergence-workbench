@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { devicesApi, type ChatPlaceKind, type Device, type DeviceAccount, type Devices, type DeviceServer } from './api'
+import { devicesApi, type Device, type DeviceAccount, type Devices, type DeviceServer } from './api'
 import { askConfirm } from './askText'
 import { relativeTime } from './format'
 import { t } from './i18n'
@@ -31,7 +31,6 @@ export function DeviceList() {
       : t('다른 컴퓨터는 개인 저장소에 올린 마지막 값이라 1시간쯤 늦을 수 있습니다. 로그인 열쇠 · 이메일은 올리지 않고 이름 · 시각 · 앱 버전 · 계정 이름만 올립니다.', 'Other computers show what they last uploaded to your personal repository, so it can be up to an hour old. Only names, times, the app version and account names are uploaded, never sign-in keys or emails.')}</p>
     {d && <ServerRow server={d.server} me={me} busy={run.isPending} onMake={() => run.mutate(devicesApi.makeServer)} />}
     {run.error && <p className="set-desc error-text">{withLink(run.error.message)}</p>}
-    {d?.server && !d.server.this && <ChatPlaceRow />}
     <div className="setup set-rows dev-list" data-ui="기기 목록">
       {!d ? <p className="muted setup-row">{q.error?.message ?? t('읽는 중…', 'Reading…')}</p>
         : d.devices.map((x) => <DeviceRow key={x.name} d={x} onLogout={d.server && !x.this && !x.logout ? () => logout(x) : undefined} />)}
@@ -75,38 +74,6 @@ function ServerRow({ server, me, busy, onMake }: { server: DeviceServer | null; 
   )
 }
 
-/** 대화가 도는 곳 (3단계, 11/20 「A 서버에서 돌리기」): 서버면 이 컴퓨터의 대화 화면이 서버에서 도는 같은 대화를 본다 */
-function ChatPlaceRow() {
-  const client = useQueryClient()
-  const q = useQuery({ queryKey: qk.chatPlace, queryFn: devicesApi.chatPlace, refetchInterval: 60_000 })
-  const set = useMutation({
-    mutationFn: devicesApi.setChatPlace,
-    onSuccess: (v) => { client.setQueryData(qk.chatPlace, v); void client.invalidateQueries({ queryKey: qk.agentChats }) },
-  })
-  const p = q.data
-  if (!p) return null
-  const name = p.server?.label ?? p.server?.machine ?? ''
-  const opts: [ChatPlaceKind, string][] = [['server', t('서버', 'Server')], ['local', t('이 컴퓨터', 'This computer')]]
-  return (
-    <div className="setup set-rows dev-server" data-ui="대화가 도는 곳">
-      <div className="setup-row">
-        <span aria-hidden />
-        <div className="setup-main">
-          <div className="set-name">{t('대화가 도는 곳', 'Where chats run')}</div>
-          <div className="setup-desc dev-meta">
-            {p.place === 'server'
-              ? <span>{t(`${name}에서 돕니다. 어느 맥에서 열든 같은 대화(중앙 포함)를 보고 이어 씁니다`, `On ${name}. Every Mac sees and continues the same chats, the central one included`)}</span>
-              : <span>{t('이 컴퓨터에서 돕니다. 다른 맥의 대화는 보관함에 읽기만 보입니다', 'On this computer. Other Macs’ chats show read-only in the archive')}</span>}
-            {p.remote && (p.error ? <span className="error-text">{t(`닿지 못함: ${p.error}`, `Not reached: ${p.error}`)}</span> : p.live ? <span>{t('실시간', 'Live')}</span> : null)}
-          </div>
-        </div>
-        <div className="segmented small" role="radiogroup">
-          {opts.map(([v, label]) => <button key={v} role="radio" aria-checked={p.place === v} className={p.place === v ? 'on' : ''} disabled={set.isPending} onClick={() => set.mutate(v)}>{label}</button>)}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 function DeviceRow({ d, onLogout }: { d: Device; onLogout?: () => void }) {
   const state = d.this ? t('켜짐 · 지금', 'On · now') : d.online ? t(`켜짐 · ${relativeTime(Date.parse(d.seen))}`, `On · ${relativeTime(Date.parse(d.seen))}`) : t(`꺼짐 · ${relativeTime(Date.parse(d.seen))}`, `Off · ${relativeTime(Date.parse(d.seen))}`)
