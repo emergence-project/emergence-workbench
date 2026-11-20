@@ -211,6 +211,8 @@ body.resizing { cursor: col-resize; user-select: none; }
 body.resizing iframe, body.resizing canvas { pointer-events: none; }
 .ws-ctx { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg); }
 .tb-sep { width: 1px; height: 18px; background: var(--line-strong); margin: 0 var(--sp-1); }
+/* 오른쪽 사이드바 갈래 아이콘 (TopBar.tsx, 11/21 안 A): 여닫기 단추 앞에 붙여 둔다 */
+.tb-modes { display: inline-flex; align-items: center; gap: 2px; }
 .pdf-state { font-size: var(--fs-xs); }
 .pdf-state.ok { color: var(--text-2); }
 .pdf-state.bad { color: var(--danger); }
