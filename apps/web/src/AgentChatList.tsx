@@ -35,7 +35,8 @@ const ARCHIVE_KEY = 'rw-agent-filter'
 const targetName = (rid: string, projects?: { id: string; title: string }[]) => (rid === ALL ? t('전체', 'All') : rid === APP_RID ? t('앱 개발', 'App development') : rid === LIBRARY_RID ? t('지식', 'Knowledge') : projectName(rid, projects))
 
 export function AgentSide({ id }: { id?: string }) {
-  const listed = useChatList().data
+  const listQuery = useChatList()
+  const listed = listQuery.data
   const list = useMemo(() => (listed?.chats ?? []).filter((c) => c.rid !== CENTRAL_RID), [listed])
   const projects = useProjects()
   const [target, setTargetState] = useState<string>(() => store.get<string>(TARGET_KEY, ALL))
@@ -130,7 +131,9 @@ export function AgentSide({ id }: { id?: string }) {
             : <button className="btn sm" disabled={!picked.length || bulk.busy} onClick={() => void bulk.archive(picked, true).then(stopPicking)}>{t('보관', 'Archive')}</button>}
           <button className="btn sm" onClick={stopPicking}>{t('취소', 'Cancel')}</button>
         </div>)}
-      {archive
+      {/* 목록을 받지 못했으면 빈 묶음("답할 대화가 없습니다") 대신 이유를 보인다 (11/21) */}
+      {listQuery.error && !listed ? <div className="empty">{t(`대화 목록을 불러오지 못했습니다: ${listQuery.error.message}`, `Could not load conversations: ${listQuery.error.message}`)}</div>
+        : archive
         ? (archiveGroups.length ? archiveGroups.map(([k, name, cs]) => group(k, name, cs, '보관함 묶음')) : <div className="empty">{t('보관한 대화가 없습니다', 'Nothing archived')}</div>)
         : STATES.map((s) => group(s, STATE_GROUP[s], byState(s), '상태 묶음', STATE_EMPTY[s]))}
       {/* 보관함은 맨 아래 아이콘 하나로 열고 닫는다 (11/19 피드백 09:23) */}
