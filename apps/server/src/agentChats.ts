@@ -83,12 +83,12 @@ export type Turn = { prompt: string; images?: ImageIn[] }
 
 export { Inbox } from './agentInbox.js'
 import { Inbox } from './agentInbox.js'
-
 /**
  * 실행기. models = 고를 수 있는 모델 (맥의 Claude Code에게 묻는다, 모르면 없음),
  * side = 곁 질문 하나에 작은 모델이 도구 없이 답한다 (prompt에 대화 요약과 질문이 다 들어 있다)
  */
-export type AgentRunner = ((input: RunInput) => AsyncIterable<RunEvent>) & { models?: () => Promise<ModelChoice[]>; side?: (o: { prompt: string; cwd: string }) => Promise<string>; review?: (o: { prompt: string; cwd: string }) => Promise<string> }
+export type AgentRunner = ((input: RunInput) => AsyncIterable<RunEvent>) & { models?: () => Promise<ModelChoice[]>; side?: (o: OneShot) => Promise<string>; review?: (o: OneShot) => Promise<string> }
+/** 한 번 묻기: model · effort = 토론 자리의 모델 · 생각 수준 (없으면 실행기의 기본) */ export type OneShot = { prompt: string; cwd: string; model?: string; effort?: ChatEffort }
 
 export * from './agentPolicy.js'
 import { clip, describeStep, FILE_WRITE_TOOLS, judge, MCP, pathOf, PLAN_TOOL, posix, str, withAlso, type PolicyCtx } from './agentPolicy.js'
@@ -221,7 +221,7 @@ export interface AgentChatsDeps {
   /** 기록 대화의 차례가 잘 끝나면 마지막 답 글과 이번 차례에 고친 곳을 그 기록에 적는다 (routes/comments.ts) */
   recordAnswer?: (rid: string, record: { target: string; id: string }, text: string, edits: { file: string; added: number; removed: number }[]) => void
   /** 다른 에이전트의 검토 (11/9): 읽기만 하는 Codex에게 묻는다 (codexCli.ts의 codexAsk). 없으면 검토를 쓸 수 없다 */
-  review?: (o: { prompt: string; cwd: string }) => Promise<string>
+  review?: (o: OneShot) => Promise<string>
   /** Claude · Codex 계정 여럿 (claudeAccounts.ts): 대화 종류마다 · 대화마다 계정 폴더 */ accounts?: AccountBook
 }
 
@@ -1106,7 +1106,7 @@ export const rowOf = (c: Stored): ChatRow => {
   return {
     id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state,
     mode: c.mode, model: c.model, effort: c.effort, ...(c.account && { account: c.account }), ...(c.auto && { auto: { ...c.auto } }), claims: [...c.claims], changed: [...c.changed], added, removed,
-    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.handed && { handed: c.handed }), ...(c.bundle && { bundle: [...c.bundle] }), ...(c.record && { record: { ...c.record } }), ...(c.parent && { parent: c.parent }), ...(c.summary && { summary: c.summary }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), created: c.created, updated: c.updated,
+    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.handed && { handed: c.handed }), ...(c.bundle && { bundle: [...c.bundle] }), ...(c.record && { record: { ...c.record } }), ...(c.parent && { parent: c.parent }), ...(c.summary && { summary: c.summary }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), ...(c.debate && { debate: structuredClone(c.debate) }), created: c.created, updated: c.updated,
   }
 }
 const wireOf = (c: Stored): Chat => ({ ...rowOf(c), items: c.items.map((i) => ({ ...i })), always: (c.alwaysKeys ?? []).map((a) => a.label), todos: c.todos.map((x) => ({ ...x })), ...(c.trimmed && { trimmed: c.trimmed }) })

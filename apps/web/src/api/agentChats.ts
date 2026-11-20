@@ -2,7 +2,7 @@
 import { enc, json, req, send } from './http'
 
 // 타입은 서버와 같은 계약에서 (packages/core/src/contract/agentChats.ts)
-import type { AgentKind, AskAnswer, CentralMemo, CentralMessageBody, RoomPerm, RoomRules, RoomState, CentralState, ChatAgents, ChatDeleted, ChatList, ChatMessageBody, ChatMode, ChatExtras, ChatModels, ChatOne, ChatSettings, MockupFiles, NewChatBody, RecordDraft, Rewound, Unqueued, WorkState } from '@rw/core/contract/agentChats'
+import type { AgentKind, AskAnswer, Chat, DebateOpened, DebateSettingsBody, CentralMemo, CentralMessageBody, RoomPerm, RoomRules, RoomState, CentralState, ChatAgents, ChatDeleted, ChatList, ChatMessageBody, ChatMode, ChatExtras, ChatModels, ChatOne, ChatSettings, MockupFiles, NewChatBody, RecordDraft, Rewound, Unqueued, WorkState } from '@rw/core/contract/agentChats'
 export type { AgentKind, CentralKid, RoomMember, RoomPerm, RoomRules, RoomState, CentralMemo, CentralState, AskAnswer, Attach, AttachKind, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatState, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
 
 /** 앱 고치기 대화의 rid (계약의 APP_RID와 같은 값. 값을 가져오면 화면 번들에 zod가 들어가서 여기 다시 적는다) */
@@ -11,6 +11,8 @@ export const APP_RID = '_app'
 export const CLAUDE_START_MODEL = 'opus'
 /** 중앙 대화의 rid (계약의 CENTRAL_RID, 11/16 "중앙 에이전트") */
 export const CENTRAL_RID = '_central'
+/** 토론 대화 (11/20, 서버 agentDebate.ts) */
+export const DEBATE_RID = '_debate'
 
 const base = '/api/agent-chats'
 const one = (r: Response) => json<ChatOne>(r).then((x) => x.chat)
@@ -40,6 +42,11 @@ export const agentChatsApi = {
   roomPerm: (agent: AgentKind, perm: RoomPerm) => req('/api/agent-room/perm', send('POST', { agent, perm })).then((r) => json<RoomState>(r)),
   roomRemove: (agent: AgentKind) => req('/api/agent-room/remove', send('POST', { agent })).then((r) => json<RoomState>(r)),
   roomRules: (rules: Partial<RoomRules>) => req('/api/agent-room/rules', send('POST', rules)).then((r) => json<RoomState>(r)),
+  /** 토론 (11/20): 열기 · 설정(다음 토론의 기본이 됨) · 끝내기(기록 · 중앙 결론 · 보관함) */
+  debateOpen: (q: string, agents?: AgentKind[]) => req('/api/agent-debate', send('POST', { q, ...(agents?.length && { agents }) })).then((r) => json<DebateOpened>(r)),
+  debateSettings: (id: string, body: DebateSettingsBody) => req(`/api/agent-debate/${enc(id)}/settings`, send('POST', body)).then((r) => json<Chat>(r)),
+  debateEnd: (id: string) => req(`/api/agent-debate/${enc(id)}/end`, send('POST', {})).then((r) => json<Chat>(r)),
+  roomVerdictFlip: (at: string, flipped: boolean) => req('/api/agent-room/verdict', send('POST', { at, flipped })).then((r) => json<RoomState>(r)),
   /** 중앙에게 말하기 (중앙이 없으면 연다) */
   talk: (text: string, view?: string, start?: CentralMessageBody['start']) => req('/api/agent-central/messages', send('POST', { text, view, ...(start && { start }) })).then(one),
   /** 이어서 지시 (일하는 중이면 다음 차례에 읽는다) */
