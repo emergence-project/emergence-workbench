@@ -22,6 +22,7 @@ import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
 import { gitIdentityEnv } from './git.js'
 import crypto from 'node:crypto'
 import { Unread } from './agentInbox.js'
+import { noteClaudeLimit } from './agentLimits.js'
 
 /** 묶은 앱이면 이 컴퓨터의 claude를 쓴다 (ask.ts의 claudeExecutable) */
 const executable = (): { pathToClaudeCodeExecutable?: string } => { const p = claudeExecutable(); return p ? { pathToClaudeCodeExecutable: p } : {} }
@@ -42,7 +43,7 @@ type Sdk = {
   type: string; uuid?: string; user_message_uuid?: string; user_message_uuids?: string[]; subtype?: string; session_id?: string; message?: { content?: unknown }; parent_tool_use_id?: string | null; is_error?: boolean
   total_cost_usd?: number; duration_ms?: number; errors?: string[]; result?: string; usage?: Usage; modelUsage?: Record<string, { contextWindow?: number }>
   event?: { type?: string; delta?: { type?: string; text?: string } }
-  status?: string | null; compact_metadata?: { trigger?: string; pre_tokens?: number; post_tokens?: number }; tasks?: { ambient?: boolean }[]
+  rate_limit_info?: unknown; status?: string | null; compact_metadata?: { trigger?: string; pre_tokens?: number; post_tokens?: number }; tasks?: { ambient?: boolean }[]
 }
 
 /** SDK 메시지 하나를 대화 사건으로 (모르는 것은 버린다) */
@@ -215,6 +216,8 @@ export function claudeAgentRunner(mcpFor: (appChat?: string, central?: boolean, 
     try {
       for await (const m of q) {
         const msg = m as Parameters<typeof eventsOf>[0] & { message?: { usage?: Usage } }
+        // 계정마다 한도 (11/20 시안 4절): 이 계정 폴더의 값으로 적어 둔다 (설정 › 계정)
+        if (msg.type === 'rate_limit_event') noteClaudeLimit(input.env?.CLAUDE_CONFIG_DIR, msg.rate_limit_info)
         if (msg.type === 'assistant' && !msg.parent_tool_use_id) unread.read(msg.user_message_uuids ?? (msg.user_message_uuid ? [msg.user_message_uuid] : []))
         if (msg.type === 'assistant' && !msg.parent_tool_use_id && msg.message?.usage) context = inputOf(msg.message.usage) + (msg.message.usage.output_tokens ?? 0)
         for (const e of eventsOf(msg, context)) {

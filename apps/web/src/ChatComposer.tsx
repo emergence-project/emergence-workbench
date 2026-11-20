@@ -13,7 +13,7 @@ import { captureScreen, cropShot } from './screenCapture'
 import { placeOf, screenLine } from './screenView'
 import { lastRecordSelection } from './RecordContext'
 import { uiShown } from './uiNames'
-import { accountLabel, useClaudeAccounts } from './ClaudeAccountsSettings'
+import { accountLabel, useAgentAccounts } from './ClaudeAccountsSettings'
 import { AgentChip, AgentChoices, agentSwitch, effortsOf, familyName, familyOf, fitEffort, isClaude, modelFamilies, modelName, pickFamily, useModels } from './AgentPick'
 
 /**
@@ -349,7 +349,8 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
   const stopping = !!onStop && !text.trim()
   const shownFail = fail ?? outerFail
   const models = useModels(settings.agent)
-  const accounts = useClaudeAccounts().data?.accounts.filter((a) => a.login) ?? []
+  const claudeAccounts = useAgentAccounts('claude').data, codexAccounts = useAgentAccounts('codex').data
+  const accounts = ((settings.agent === 'codex' ? codexAccounts : claudeAccounts)?.accounts ?? []).filter((a) => a.login)
   const efforts = effortsOf(settings.model, models)
   const fam = familyOf(settings.model, models)
   // 생각 깊이 고르기: Claude는 effort 칸, Codex는 모델 id 뒤의 깊이(gpt-…/high). 기본 모델이면 실제로 도는 모델의 깊이를 고르면 그 모델로 바뀐다
@@ -429,7 +430,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
               return <button key={f.base} role="menuitemradio" aria-checked={on} className={on ? 'on' : ''} onClick={() => { close(); onSettings({ model: value, ...fitEffort(settings.effort, effortsOf(value, models)) }) }}><span className="ac-pop-check" aria-hidden>{on ? Icon.check : null}</span>{f.base === 'default' ? modelName('default', models).replace(/ \(.*\)$/, '') : f.name}</button>
             })}
             {/* 계정 (11/16 "계정 전환을 쉽게"): 이 대화만 다른 Claude 계정으로. 다음 차례부터, 일하는 중에는 서버가 막는다 */}
-            {settings.account !== undefined && isClaude(settings.agent) && accounts.length > 1 && <>
+            {settings.account !== undefined && (isClaude(settings.agent) || settings.agent === 'codex') && accounts.length > 1 && <>
               <div className="ac-pop-h">{t('계정', 'Account')}</div>
               {accounts.map((a) => <button key={a.id} role="menuitemradio" aria-checked={settings.account === a.id} className={settings.account === a.id ? 'on' : ''} onClick={() => { close(); if (settings.account !== a.id) onSettings({ account: a.id }) }}><span className="ac-pop-check" aria-hidden>{settings.account === a.id ? Icon.check : null}</span>{accountLabel(a)}</button>)}
             </>}

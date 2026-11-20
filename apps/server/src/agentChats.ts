@@ -21,7 +21,7 @@ import { autoCustom, autoOf, type AgentSettings } from '@rw/core'
 import { HERE, t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
 import { FRESH_MS } from './appMemory.js'
-import { accountForNew, switchAccount, type ClaudeAccounts } from './claudeAccounts.js'
+import { accountEnv, accountForNew, switchAccount, type AccountBook } from './claudeAccounts.js'
 
 // ---------- 에이전트 실행기 (실제는 agentRunner.ts의 Claude Agent SDK, 테스트는 가짜) ----------
 
@@ -222,7 +222,7 @@ export interface AgentChatsDeps {
   recordAnswer?: (rid: string, record: { target: string; id: string }, text: string, edits: { file: string; added: number; removed: number }[]) => void
   /** 다른 에이전트의 검토 (11/9): 읽기만 하는 Codex에게 묻는다 (codexCli.ts의 codexAsk). 없으면 검토를 쓸 수 없다 */
   review?: (o: { prompt: string; cwd: string }) => Promise<string>
-  /** Claude 계정 여럿 (claudeAccounts.ts): 대화 종류마다 · 대화마다 계정 폴더 */ accounts?: ClaudeAccounts
+  /** Claude · Codex 계정 여럿 (claudeAccounts.ts): 대화 종류마다 · 대화마다 계정 폴더 */ accounts?: AccountBook
 }
 
 export class AgentChats {
@@ -958,7 +958,7 @@ export class AgentChats {
           ? appBriefFor({ branch: c.branch ?? '', write: c.write, mode, rules: app.rules, feedback: !!c.feedback, agent: c.agent, parent: !!c.parent })
           : briefFor({ rid: c.rid, title: p.title, scope: c.scope, write: c.write, mode, others: others.map((o) => ({ title: o.title, claims: o.claims })), agent: c.agent, parent: !!c.parent }),
         write: c.write,
-        ...(app ? { appChat: c.id } : c.rid === CENTRAL_RID && { central: true }), ...(c.rid !== CENTRAL_RID && { chat: c.id }), env: { ...(app && appEnv(c.id)), ...this.deps.accounts?.env(c.account) },
+        ...(app ? { appChat: c.id } : c.rid === CENTRAL_RID && { central: true }), ...(c.rid !== CENTRAL_RID && { chat: c.id }), env: { ...(app && appEnv(c.id)), ...accountEnv(this.deps.accounts, c) },
         canUseTool,
         signal: abort.signal,
         inbox,
