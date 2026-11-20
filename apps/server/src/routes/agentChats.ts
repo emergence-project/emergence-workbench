@@ -5,7 +5,8 @@ import * as C from '@rw/core/contract/agentChats'
 import { LIBRARY_RID } from '@rw/core'
 import fs from 'node:fs'
 import { MCP_NAME, type AgentRunner } from '../agentChats.js'
-import { CentralChats } from '../agentCentral.js'
+import { RoomChats } from '../agentRoom.js'
+import { registerAgentRoom } from './agentRoom.js'
 import { publishPaths } from '../pathsync.js'
 import { assertPrivateRemote } from '../personalRepo.js'
 import { registerAgentCentral } from './agentCentral.js'
@@ -54,7 +55,7 @@ function injectFetch(app: FastifyInstance): typeof fetch {
 /** 중앙 메모 파일 (시안 §9 ⑤): 개인 저장소가 있으면 agent/central-memo.md로 두고 써지면 올린다, 없으면 이 컴퓨터 설정 폴더 */
 const MEMO_PATH = 'agent/central-memo.md'
 
-export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runner?: AgentRunner, appWork?: AppWork): CentralChats {
+export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runner?: AgentRunner, appWork?: AppWork): RoomChats {
   const { registry, broadcast, repoPath } = ctx
   const personal = ctx.opts.personalDir
   const centralMemo = () => personal
@@ -84,7 +85,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   // 실제 맥: 상한은 이 컴퓨터 크기로, 그 안에서는 남은 메모리로 연다 (예제 · 시험은 고정 CHAT_LIMIT)
   const gauge = runner ? undefined : new MemoryGauge()
   const cap = runner ? CHAT_LIMIT : chatCap()
-  const chats = new CentralChats({
+  const chats = new RoomChats({
     dir: path.join(registry.configDir, 'agent-chats'),
     runner: runner ?? claudeAgentRunner(mcpFor),
     ...(!runner && { others: { codex: acpAgentRunner(ACP_AGENTS.codex, chatMcp, registry.configDir), gemini: acpAgentRunner(ACP_AGENTS.gemini, chatMcp, registry.configDir) } }),
@@ -204,6 +205,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/feedback/answer', replies(C.FeedbackAnswered), async (req): Promise<C.FeedbackAnswered> => chats.feedbackAnswer(req.params.id, parseBody(C.FeedbackAnswerBody, req.body)))
 
   registerAgentCentral(app, chats)
+  registerAgentRoom(app, chats)
   registerClaudeAccounts(app, accounts, !!runner)
   registerClaudeAccounts(app, codexAccounts, !!runner)
 

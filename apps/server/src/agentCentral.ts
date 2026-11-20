@@ -91,7 +91,7 @@ export class CentralChats extends FeedbackChats {
   }
 
   /** 중앙 대화 (보관하지 않은 것 가운데 가장 최근) */
-  private central(): Stored | undefined {
+  protected central(): Stored | undefined {
     return [...this.chats.values()].filter((c) => c.rid === CENTRAL_RID && !c.archived).sort((a, b) => b.updated.localeCompare(a.updated))[0]
   }
 
@@ -213,10 +213,14 @@ export class CentralChats extends FeedbackChats {
       const memo = this.memo().text, brief = c.sessionId ? '' : CENTRAL_BRIEF
       const head = `${brief}${!brief && this.memoSent.get(id) === memo ? '' : memoBlock(memo, !!brief)}`
       this.memoSent.set(id, memo)
-      return super.send(id, m, `${head ? `${head}\n\n` : ''}${this.digest(c)}\n\n${woke ? `${woke.en}\n\n[The user writes:]\n` : ''}${promptOf(m.text, m.attach)}`)
+      const room = this.roomNote(c)
+      return super.send(id, m, `${head ? `${head}\n\n` : ''}${this.digest(c)}\n\n${woke ? `${woke.en}\n\n` : ''}${room ? `${room}\n\n` : ''}${woke || room ? '[The user writes:]\n' : ''}${promptOf(m.text, m.attach)}`)
     }
     return super.send(id, m, prompt)
   }
+
+  /** 중앙 방 (agentRoom.ts): 방장이 아직 못 본 방 사람의 답 · 방 소식. 없으면 빈 글 */
+  protected roomNote(_c: Stored): string { return '' }
 
   /** 상태가 바뀔 때마다: 중앙의 하위 대화가 끝나거나 기다리면 깨우기를 적고, 앱 고치기 자리가 나면 기다리던 일을 연다 */
   protected override touch(c: Stored): void {

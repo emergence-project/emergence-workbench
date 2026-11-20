@@ -14,6 +14,7 @@ import { placeOf, screenLine } from './screenView'
 import { lastRecordSelection } from './RecordContext'
 import { uiShown } from './uiNames'
 import { accountLabel, useAgentAccounts } from './ClaudeAccountsSettings'
+import type { ComposerRoom } from './CentralRoom'
 import { AgentChip, AgentChoices, agentSwitch, effortsOf, familyName, familyOf, fitEffort, isClaude, modelFamilies, modelName, pickFamily, useModels } from './AgentPick'
 
 /**
@@ -191,7 +192,7 @@ export function PopButton({ label, ui, tip, children, wide, down, icon, pill }: 
  * 아래 줄 ＋ · 맡기는 정도 ▾ · 모델 · 생각 ▾ · 보내기(도는 중이고 글이 없으면 멈추기). ⇧⇥로 맡기는 정도를 바꾼다.
  * 대화 중에 바꾼 설정은 다음 차례부터 (onSettings)
  */
-export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placeholder, fail: outerFail, fill, autoFocus, agentFixed, lead }: {
+export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placeholder, fail: outerFail, fill, autoFocus, agentFixed, lead, room }: {
   rid: string
   /** 아래 줄 ＋ 다음에 둘 것 (새 대화의 프로젝트 고르기) */
   lead?: ReactNode
@@ -208,6 +209,8 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
   autoFocus?: boolean
   /** 이미 시작한 대화: 에이전트를 바꾸지 못한다 */
   agentFixed?: boolean
+  /** 중앙 방 (11/20): @ 메뉴 맨 위의 방 사람 · 모두, 입력란 아래 받는 이 */
+  room?: ComposerRoom
 }) {
   const [text, setText] = useState('')
   const [caret, setCaret] = useState(0)
@@ -282,6 +285,8 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
     }
     const has = (s: string) => s.toLowerCase().includes(q)
     const out: MenuPick[] = []
+    // 방 사람과 「모두」는 맨 위 (시안 §7-6): 고르면 @이름을 글에 넣는다
+    for (const p of room?.people ?? []) if (has(p.label)) out.push({ key: `p:${p.label}`, label: `@${p.label}`, meta: p.meta, run: () => replaceToken(`@${p.label} `) })
     // 커넥터는 몇 개뿐이라 앞에 둔다 (노트가 많아도 묻히지 않게)
     for (const c of extras?.connectors ?? []) if (has(c.name)) out.push({ key: `c:${c.name}`, label: c.name, meta: ATTACH_NAME.connector, run: () => addAttach({ kind: 'connector', ref: c.name, label: c.name }) })
     for (const n of notes ?? []) if (has(n.title) || has(n.file)) out.push({ key: `n:${n.file}`, label: n.title, meta: ATTACH_NAME.note, run: () => addAttach({ kind: 'note', ref: n.file, label: n.title }) })
@@ -386,7 +391,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
           </div>
         )}
       </div>
-      {shownFail && <span className="error-text ac-hint">{shownFail}</span>}
+      {shownFail && <span className="error-text ac-hint">{shownFail}</span>}{room?.hint(text)}
       {picking && <ElementPicker title={t('화면 요소', 'Screen element')} hint={t('대화에 붙일 화면 한 곳을 누르세요 · Esc 취소', 'Click the part of the screen to attach · Esc to cancel')}
         skip=".ac-composer" onPick={(p) => void pickElement(p)} onCancel={() => setPicking(false)} />}
       <div className="ac-compose-row">
