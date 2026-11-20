@@ -101,16 +101,18 @@ export function segments(cmd: string): string[] {
 }
 
 /** $( … ) · ` … ` 를 안쪽부터 하나씩 꺼내 자리표(SUBST)로 바꾼다. left = 다 풀지 못하고 남았는지 (짝이 안 맞거나 너무 깊다) */
-export function substitutions(cmd: string): { inner: string[]; flat: string; left: boolean } {
+export function substitutions(cmd: string, o: { proc?: boolean } = {}): { inner: string[]; flat: string; left: boolean } {
+  const open = o.proc ? /[$<>]\(([^()`]*)\)|`([^`]*)`/ : /\$\(([^()`]*)\)|`([^`]*)`/
   const inner: string[] = []
   let flat = cmd
   for (let n = 0; n < 20; n++) {
-    const m = /\$\(([^()`]*)\)|`([^`]*)`/.exec(flat)
+    // proc: <( … ) · >( … ) 도 안의 명령을 돌린다 (cat <(rm x)가 읽기로 보이지 않게)
+    const m = open.exec(flat)
     if (!m) break
     inner.push(m[1] ?? m[2] ?? '')
     flat = `${flat.slice(0, m.index)}SUBST${flat.slice(m.index + m[0].length)}`
   }
-  return { inner, flat, left: /\$\(|`/.test(flat) }
+  return { inner, flat, left: (o.proc ? /[$<>]\(|`/ : /\$\(|`/).test(flat) }
 }
 
 /**
@@ -121,7 +123,7 @@ export function commandKind(cmd: string, o: { cwd: string; inside(abs: string): 
   let worst: ChatKind = 'read'
   const bump = (k: ChatKind) => { if (WEIGHT[k] > WEIGHT[worst]) worst = k }
   // $( … ) · ` … ` 안의 명령도 본다 (겹친 것은 안쪽부터). 다 풀지 못하면 무엇을 돌리는지 모르니 실행으로
-  const sub = substitutions(cmd)
+  const sub = substitutions(cmd, { proc: true })
   for (const part of sub.inner) bump(commandKind(part, o))
   if (sub.left) bump('run')
   for (const seg of segments(sub.flat)) {
@@ -134,7 +136,11 @@ export function commandKind(cmd: string, o: { cwd: string; inside(abs: string): 
     let w = words(seg.replace(/(?:\d|&)?>>?\|?&?\s*[^\s<>]+/g, ' ').replace(/<\s*\S+/g, ' '))
     // 앞의 환경 변수 (A=1 cmd)와 시간 재기 같은 앞말. env도 뒤 명령을 돌리는 앞말이다 (env sh -c … 가 읽기로 보이지 않게)
     for (;;) {
-      if (w.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0]!)) w = w.slice(1)
+      if (w.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0]!)) {
+        // 환경 변수로 다른 프로그램을 돌리게 할 수 있다 (GIT_PAGER=… · LESSOPEN=… · PATH=…). 글 모양 변수만 그대로 둔다
+        if (!/^(LC_[A-Z]+|LANG|LANGUAGE|TZ|NO_COLOR|FORCE_COLOR|CLICOLOR|CLICOLOR_FORCE|COLUMNS|LINES|TERM)=/.test(w[0]!)) bump('run')
+        w = w.slice(1)
+      }
       else if (w.length && /^(time|nice|nohup|command|builtin|exec)$/.test(w[0]!)) w = w.slice(1)
       else if (w.length > 1 && w[0]!.split('/').pop() === 'env') { w = w.slice(1); while (w.length && w[0]!.startsWith('-')) w = w.slice(1) }
       else break
@@ -162,6 +168,19 @@ function kindOf(prog: string, args: string[]): ChatKind {
       return 'delete'
     }
     if (GIT_EDIT.has(sub)) return 'edit'
+    // 읽는 하위 명령의 쓰는 쓰임: 가지 · 태그 지우기와 만들기, 설정 쓰기, 원격 바꾸기, --output 파일
+    const rest = args.slice(args.indexOf(sub) + 1)
+    const named = rest.filter((a) => !a.startsWith('-'))
+    if (sub === 'branch' || sub === 'tag') {
+      if (rest.some((a) => /^-[a-zA-Z]*[dD]/.test(a) || a === '--delete')) return 'delete'
+      if (rest.some((a) => (sub === 'branch' ? /^-[a-zA-Z]*[mMcCfu]/ : /^-[a-zA-Z]*[asfmuF]/).test(a) || /^--(move|copy|force|set-upstream|unset-upstream|edit-description|annotate|sign)/.test(a))) return 'edit'
+      if (named.length && !rest.some((a) => /^(-l|--list|--contains|--merged|--no-merged|--points-at|-n\d*|--sort)/.test(a))) return 'edit'
+    }
+    if (sub === 'config' && !rest.some((a) => /^(--get|--get-all|--get-regexp|--list|-l|--show-origin|--show-scope)$/.test(a)) && (named.length > 1 || rest.some((a) => /^--(unset|add|replace-all|remove-section|rename-section|edit)|^-e$/.test(a)))) return 'edit'
+    if (sub === 'remote' && /^(add|remove|rm|rename|set-url|set-head|set-branches|prune|update)$/.test(named[0] ?? '')) return 'edit'
+    // 다른 프로그램을 돌리는 옵션: grep -O<명령> · --ext-diff
+    if (rest.some((a) => /^--(open-files-in-pager|ext-diff)(=|$)/.test(a)) || (sub === 'grep' && rest.some((a) => /^-[a-zA-Z]*O/.test(a)))) return 'run'
+    if (rest.some((a) => /^--output(=|$)/.test(a))) return 'edit'
     if (GIT_READ.has(sub)) return 'read'
     return 'run'
   }
@@ -177,6 +196,9 @@ function kindOf(prog: string, args: string[]): ChatKind {
     if (args.some((a) => /^-(exec|execdir|ok|okdir)$/.test(a))) return 'run'
     return args.some((a) => /^-(fprint|fprint0|fprintf|fls)$/.test(a)) ? 'edit' : 'read'
   }
+  // rg --pre는 파일마다 그 명령을 돌린다
+  if (prog === 'rg' && args.some((a) => /^--(pre|hostname-bin)(=|$)/.test(a))) return 'run'
+  if (prog === 'sort' && args.some((a) => /^--compress-program/.test(a))) return 'run'
   if (prog === 'sort' && (shortHas('o') || args.some((a) => /^--output(=|$)/.test(a)))) return 'edit'
   if (prog === 'tree' && args.some((a) => /^-(o|R)/.test(a))) return 'edit'
   if (prog === 'uniq' && positional.length > 1) return 'edit'
@@ -196,12 +218,15 @@ function kindOf(prog: string, args: string[]): ChatKind {
   return 'run'
 }
 
-const looksLikePath = (a: string) => a.startsWith('/') || a.startsWith('~') || a.startsWith('..')
+const looksLikePath = (a: string) => a.startsWith('/') || a.startsWith('~') || a.startsWith('..') || /^"?\$\{?HOME\b/.test(a)
 
 function touchesOutside(p: string, o: { cwd: string; inside(abs: string): boolean; home?: string }): boolean {
   if (p === '/dev/null' || p.startsWith('/dev/std') || p.startsWith('/tmp/') || p === '/tmp') return false
   const home = o.home ?? ''
-  const expanded = p.startsWith('~') ? `${home}${p.slice(1)}` : p
+  const bare = p.replace(/^"/, '').replace(/^\$\{?HOME\}?/, '~')
+  // ~다른사람 은 그 사람의 홈이다
+  if (/^~[^/]/.test(bare)) return true
+  const expanded = bare.startsWith('~') ? `${home}${bare.slice(1)}` : bare
   const abs = expanded.startsWith('/') ? expanded : `${o.cwd.replace(/\/$/, '')}/${expanded}`
   return !o.inside(normalize(abs))
 }
