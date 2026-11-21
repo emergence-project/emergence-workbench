@@ -21,7 +21,11 @@ export const DeviceRecord = z.object({
   os: z.string().max(100).optional(),
   accounts: z.array(DeviceAccount).max(30),
 }).strict()
+/** 앱 버전을 읽는 말로 (서버 deviceBuild.ts): 마지막 업데이트 번호 · 시각, 이 컴퓨터보다 몇 개 뒤 · 앞 */
+export const DeviceBuild = z.object({ pr: z.number().int().optional(), at: z.string().max(40), behind: z.number().int(), ahead: z.number().int() }).strict()
 export const Device = DeviceRecord.extend({
+  /** version(커밋)을 이 컴퓨터의 앱 저장소에서 찾았을 때만. 목록을 볼 때 붙이고, 컴퓨터끼리 주고받지는 않는다 */
+  build: DeviceBuild.optional(),
   /** 지금 이 화면을 연 컴퓨터 */
   this: z.boolean(),
   /** 켜져 있나: 서버에 3분 안에 알렸거나, 서버가 없으면 2시간 안에 개인 저장소와 맞췄나. 이 컴퓨터는 늘 true */
@@ -57,6 +61,7 @@ export const DeviceOk = z.object({ ok: z.literal(true) }).strict()
 
 export type DeviceAccount = z.infer<typeof DeviceAccount>
 export type Device = z.infer<typeof Device>
+export type DeviceBuild = z.infer<typeof DeviceBuild>
 export type Devices = z.infer<typeof Devices>
 export type DeviceRecord = z.infer<typeof DeviceRecord>
 export type DeviceServer = z.infer<typeof DeviceServer>
