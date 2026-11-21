@@ -168,7 +168,9 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       {turn && <span className="record-turn"><span className="turn-dot" aria-hidden />{t('내 차례', 'Your turn')}</span>}
       <div className={`record-actions${work ? ' hover-actions' : ''}`} data-ui="고치기·지우기">
         {/* 그냥 남긴 메모의 「답 요청」 (11/21 안 A3): 누르면 이 메모가 질문이 되고 에이전트가 읽고 답한다. 누르지 않은 메모는 답하지 않는다 */}
-        {kind === '메모' && !c.by && c.src !== 'app' && <button className="icon-btn sm" data-ui="답 요청" data-tip={asking_ ? t('에이전트에게 보내는 중…', 'Sending to the agent…') : t('답 요청', 'Ask for an answer')} aria-label={t('답 요청', 'Ask for an answer')} disabled={busy || asking_} onClick={onAsk}>{Icon.spark}</button>}
+        {kind === '메모' && !c.by && c.src !== 'app' && c.state !== '끝냄' && <button className="icon-btn sm" data-ui="답 요청" data-tip={asking_ ? t('에이전트에게 보내는 중…', 'Sending to the agent…') : t('답 요청', 'Ask for an answer')} aria-label={t('답 요청', 'Ask for an answer')} disabled={busy || asking_} onClick={onAsk}>{Icon.spark}</button>}
+        {/* 메모도 완료한다 (11/21 안 A3): 다 본 메모를 목록 아래 「완료」로 내린다 */}
+        {kind === '메모' && !c.unsorted && <button className="icon-btn sm" data-tip={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} aria-label={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} disabled={busy} onClick={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')}>{c.state === '끝냄' ? Icon.reopen : Icon.check}</button>}
         {(kind === '질문' || kind === '지시') && <>
           {/* 질문 · 지시를 누가 언제 하는지는 설정 › 에이전트 › 질문 처리 · 지시 처리(직접 부탁이면 에이전트 세션이 MCP로 집어 감).
               아직 대화가 없으면 설정과 상관없이 여기서 지금 보낸다 (10/28 23:51 피드백). 대화가 있으면 「답하기」로 이어 쓴다 */}

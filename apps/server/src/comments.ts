@@ -574,9 +574,9 @@ export function updateComment(root: string, target: string, id: string, change: 
     if (text !== undefined && !text.trim() && !entry.quote?.trim() && !(entry.kind === '하이라이트' && entry.page && entry.rects.length)) {
       throw new WorkbenchError(400, t('내용이 필요함', 'Text is required'))
     }
-    if (state !== undefined && (!isAgentKind(entry.kind) && entry.kind !== '할 일' || entry.kind === '할 일' && state === '답함')) {
-      throw new WorkbenchError(400, t('질문·지시는 대기·답함·끝냄, 할 일은 대기·끝냄으로 바꿀 수 있음', 'A question or instruction can be set to 대기, 답함, or 끝냄; a to-do to 대기 or 끝냄'))
-    }
+    // 메모도 완료할 수 있다 (11/21 안 A3): 끝냄만 적고, 다시 열면(대기) 상태 줄을 지워 표시 없는 메모로 돌아간다
+    const memo = entry.kind === '메모' || entry.kind === '코멘트'
+    if (state !== undefined && (!isAgentKind(entry.kind) && entry.kind !== '할 일' && !memo || (entry.kind === '할 일' || memo) && state === '답함')) throw new WorkbenchError(400, t('질문·지시는 대기·답함·끝냄, 할 일·메모는 대기·끝냄으로 바꿀 수 있음', 'A question or instruction can be set to 대기, 답함, or 끝냄; a to-do or memo to 대기 or 끝냄'))
     let out = [...lines]
     const cr = lines[s]!.endsWith('\r') ? '\r' : ''
     if (kind !== undefined && kind !== entry.kind) {
@@ -590,7 +590,7 @@ export function updateComment(root: string, target: string, id: string, change: 
     if (state !== undefined) {
       let last = -1
       for (let i = s; i < e; i++) if (STATE_RE.test(lines[i]!)) last = i
-      if (last >= 0) out[last] = `- 상태: ${state}${lines[last]!.endsWith('\r') ? '\r' : ''}`
+      if (memo && state === '대기') { if (last >= 0) out.splice(last, 1) } else if (last >= 0) out[last] = `- 상태: ${state}${lines[last]!.endsWith('\r') ? '\r' : ''}`
       else {
         let at = e
         while (at > s + 1 && !out[at - 1]!.trim()) at--

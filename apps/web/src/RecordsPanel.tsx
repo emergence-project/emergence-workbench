@@ -8,7 +8,7 @@ import { Icon } from './icons'
 import { onListKey } from './listInput'
 import { go } from './router'
 import { useHighlightColor } from './ui'
-import { classifiedRecordCount, filterByStatus, filterForActiveRecord, filterRecords, recordRoute, statusForActiveRecord, type PanelFilter, type StatusFilter } from './recordsPanelHelpers'
+import { classifiedRecordCount, inSideFilter, isDoneRecord, recordRoute, sortRecords, type PanelFilter, type SideFilter } from './recordsPanelHelpers'
 import { flash } from './flash'
 import { RecordList, type RecordPlaceOf } from './RecordList'
 import { recordWrites, useRecordActions } from './useRecordActions'
@@ -22,9 +22,14 @@ import { kindLabel } from './recordLabels'
 import { useRecords } from './projectQueries'
 
 // 지시는 필터에서 뺐다 (11/21 안 A): 예전 지시는 「전체」에 남는다
-const FILTERS: PanelFilter[] = ['전체', '메모', '할 일', '질문']
-const STATUSES: StatusFilter[] = ['진행 중', '완료']
-const statusName = (s: StatusFilter) => s === '완료' ? t('완료', 'Done') : t('진행 중', 'In progress')
+/**
+ * 필터 한 줄 (11/21 안 A3): 전체 · 할 일 · 대기. 「전체」는 완료까지 모두이고, 완료한 것은 목록 맨 아래 「완료 n」으로 접혀 있다.
+ * 대기 = 내가 에이전트를 불렀고 답을 기다리는 기록. 종류 필터(메모 · 질문)와 진행 중 | 완료 줄은 없앴다
+ */
+const FILTERS: SideFilter[] = ['전체', '할 일', '대기']
+const filterName = (f: SideFilter) => f === '대기' ? t('대기', 'Waiting') : kindLabel(f)
+/** 기록 탭으로 넘어갈 때의 종류 필터 */
+const tabFilter = (f: SideFilter): PanelFilter => f === '대기' ? '질문' : f
 const CLASSIFY_TIP = t('Claude(작은 모델)가 분류 전 기록을 메모 · 할 일 · 질문으로 나눕니다', 'Claude (a small model) sorts unsorted records into memos, to-dos, and questions')
 // Keep a pending target disabled even when its sidebar unmounts and opens again.
 const classifying = new Set<string>()
@@ -50,10 +55,10 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf }: {
   const recordsQuery = useRecords(rid, many)
   const files = recordsQuery.data?.files ?? NO_FILES
   const error = recordsQuery.error?.message ?? null
-  const [filter, setFilter] = useState<PanelFilter>('전체')
-  // 상태는 처음과 대상을 바꿀 때마다 진행 중 (끝낸 기록은 숨김, 10/18 결정)
-  const [status, setStatus] = useState<StatusFilter>('진행 중')
-  useEffect(() => setStatus('진행 중'), [rid, target.target])
+  const [filter, setFilter] = useState<SideFilter>('전체')
+  // 완료한 것은 처음과 대상을 바꿀 때마다 접어 둔다 (끝낸 기록은 숨김, 10/18 결정)
+  const [doneOpen, setDoneOpen] = useState(false)
+  useEffect(() => setDoneOpen(false), [rid, target.target])
   const shown = project ? files : slot.file ? [slot.file] : []
   // 고른 기록이 보이게 필터 · 상태를 맞추는 것은 고른 기록이 바뀔 때 한 번만 (10/20 검토: 할 일을 체크할 때마다 "완료"로 넘어갔다).
   // 저장 바로 뒤에는 새 기록이 아직 목록에 없을 수 있어, 찾을 때까지 기다린다
@@ -63,10 +68,22 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf }: {
     const comments = project ? files.find((file) => file.target === target.target)?.comments ?? [] : slot.file?.comments ?? []
     if (!comments.some((c) => c.id === slot.active)) return
     aligned.current = slot.active
-    setFilter((current) => filterForActiveRecord(current, comments, slot.active))
-    setStatus((current) => statusForActiveRecord(current, comments, slot.active))
+    const entry = comments.find((c) => c.id === slot.active)!
+    if (entry.kind === '하이라이트') return
+    setFilter((current) => inSideFilter(entry, current) ? current : '전체')
+    if (isDoneRecord(entry)) setDoneOpen(true)
   }, [slot.active, slot.file, files, project, target.target])
-  const kindShown = shown.flatMap((file) => filterRecords(file.comments, filter))
+  const groups = shown.map((file) => {
+    const items = sortRecords(file.comments.filter((c) => inSideFilter(c, filter)))
+    return { file, open: items.filter((c) => !isDoneRecord(c)), done: items.filter(isDoneRecord) }
+  })
+  const openCount = groups.reduce((n, g) => n + g.open.length, 0)
+  const doneCount = groups.reduce((n, g) => n + g.done.length, 0)
+  const group = (file: RecordFile, items: CommentEntry[]) => <div key={file.target} className="record-group">
+    {many && <div className="record-group-title">{file.target === 'project' ? <span>{t('이 프로젝트', 'This project')}</span>
+      : <button className="a" title={file.source} onClick={() => open(file)}>{file.title}</button>}</div>}
+    <RecordList rid={rid} file={file} filter="전체" items={items} showSource={project} placeOf={placeOf} onGo={(c) => open(file, c)} />
+  </div>
   const open = (file: RecordFile, c?: CommentEntry) => {
     if (many && !(c?.page && onOpenPdf(file))) {
       const route = recordRoute(rid, file, firstPartOf)
@@ -89,17 +106,13 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf }: {
   }
   return <section className="records-panel" data-ui="적기">
     <div className="records-filters">
-      {/* 종류는 하나만 고르는 선택 칸, 폭에 꽉 참 (10/18 결정) */}
-      <div className="segmented small full" role="group" aria-label={t('기록 필터', 'Record filter')}>
-        {FILTERS.map((f) => <button key={f} className={filter === f ? 'on' : ''} aria-pressed={filter === f} onClick={() => setFilter(f)}>{kindLabel(f)}</button>)}
-      </div>
       <div className="records-subbar">
-        <div className="segmented small" role="group" aria-label={t('기록 상태', 'Record status')} data-ui="기록 상태">
-          {STATUSES.map((s) => <button key={s} className={status === s ? 'on' : ''} aria-pressed={status === s} onClick={() => setStatus(s)}>{statusName(s)} <span className="n">{filterByStatus(kindShown, s).length}</span></button>)}
+        <div className="segmented small full" role="group" aria-label={t('기록 필터', 'Record filter')}>
+          {FILTERS.map((f) => <button key={f} className={filter === f ? 'on' : ''} aria-pressed={filter === f} onClick={() => setFilter(f)}>{filterName(f)}</button>)}
         </div>
         {/* 기록 탭으로 (10/14 13:33 제안). 사이드바가 좁을 때 넓게 보도록 지금 노트를 고른 채로 연다 (10/28 22:25 수정 요청). 지식 라이브러리에는 기록 탭이 없다 */}
         {rid !== LIBRARY_RID && <button className="a records-all" data-ui="모두 보기" data-tip={many ? t('기록 탭에서 이 프로젝트의 기록 보기', 'See this project\'s records in the Records tab') : t('기록 탭에서 이곳의 기록을 넓게 보기', 'See these records in the Records tab')}
-          onClick={() => { chooseRecordFilter(filter); chooseRecordPlace(many ? null : slot.file?.target ?? target.target); go({ page: 'records', rid }) }}>{t('기록 탭에서 보기 ›', 'Open in Records ›')}</button>}
+          onClick={() => { chooseRecordFilter(tabFilter(filter)); chooseRecordPlace(many ? null : slot.file?.target ?? target.target); go({ page: 'records', rid }) }}>{t('기록 탭에서 보기 ›', 'Open in Records ›')}</button>}
       </div>
     </div>
     {(unsorted.length > 0 || classifying_) && <div className="records-classify">
@@ -107,11 +120,13 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf }: {
     </div>}
     <div className="records-list" data-ui="적기 목록">
       {error && <div className="banner danger" role="alert">{error}</div>}
-      {shown.map((file) => <div key={file.target} className="record-group">
-        {many && <div className="record-group-title">{file.target === 'project' ? <span>{t('이 프로젝트', 'This project')}</span>
-          : <button className="a" title={file.source} onClick={() => open(file)}>{file.title}</button>}</div>}
-        <RecordList rid={rid} file={file} filter={filter} status={status} showSource={project} placeOf={placeOf} onGo={(c) => open(file, c)} />
-      </div>)}
+      {groups.filter((g) => g.open.length).map((g) => group(g.file, g.open))}
+      {shown.length > 0 && !openCount && !error && <p className="empty records-empty">{filter === '대기' ? t('답을 기다리는 기록이 없습니다.', 'No records waiting for an answer.') : filter === '할 일' ? t('남은 할 일이 없습니다.', 'No to-dos left.') : doneCount ? t('남은 기록이 없습니다.', 'No open records.') : t('아직 기록이 없습니다. 아래에서 적어 보세요.', 'No records yet. Write one below.')}</p>}
+      {/* 완료한 것은 맨 아래에 접어 둔다: 「전체」가 말 그대로 전체가 되게 (11/21 시안 코멘트) */}
+      {doneCount > 0 && <details className="record-done-fold" data-ui="완료한 기록" open={doneOpen} onToggle={(e) => setDoneOpen(e.currentTarget.open)}>
+        <summary>{t('완료', 'Done')} <span className="n">{doneCount}</span></summary>
+        {doneOpen && groups.filter((g) => g.done.length).map((g) => group(g.file, g.done))}
+      </details>}
       {!shown.length && !error && <p className="empty records-empty">{slot.error ?? t('불러오는 중…', 'Loading…')}</p>}
       {!project && !!slot.file?.highlights.some((h) => h.lost) && <LostHighlights rid={rid} file={slot.file} />}
     </div>
