@@ -257,7 +257,7 @@ export function TaskWeek({ rid, tasks, entries, todos, now = new Date() }: { rid
           return (
             <button key={iso} className={`tk-wd${iso === today ? ' is-today' : ''}${iso > today ? ' future' : ''}${picked === iso ? ' on' : ''}`} data-ui="하루" aria-pressed={picked === iso}
               onClick={() => setPicked(picked === iso ? null : iso)} title={items.map((x) => `${x.time} ${x.text}`).join('\n') || undefined}>
-              <span className="tk-wh"><b>{WEEK_DAYS[i]}</b> {monthDay(iso)}{iso === today && t(' 오늘', ' today')}</span>
+              <span className="tk-wh" aria-label={`${WEEK_DAYS[i]} ${monthDay(iso)}${iso === today ? t(' 오늘', ' today') : ''}`}><span className="tk-wn" aria-hidden>{WEEK_DAYS[i]}</span><b aria-hidden>{i === 0 || iso.endsWith('-01') ? monthDay(iso) : Number(iso.slice(8))}</b></span>
               {items.slice(0, SHOWN).map((x) => <span key={x.key} className={`tk-ev m-${x.mark}`}><Mark m={x.mark} />{x.text}</span>)}
               {items.length > SHOWN && <span className="tk-ev-more">{t(`외 ${items.length - SHOWN}개`, `+${items.length - SHOWN} more`)}</span>}
             </button>
