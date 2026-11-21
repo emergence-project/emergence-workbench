@@ -1,7 +1,8 @@
 import type { PaintColor } from './api'
 import type { RecordDraft } from './RecordContext'
 
-export const RECORD_KINDS = ['자동', '메모', '할 일', '질문', '지시'] as const
+/** 입력란에서 고르는 종류. 지시는 11/21부터 에이전트 입력란에서만 보낸다(시안 「기록과 에이전트의 경계」 안 A). 예전 지시 기록은 그대로 보인다 */
+export const RECORD_KINDS = ['자동', '메모', '할 일', '질문'] as const
 export interface ComposerDraft { text: string; kind: typeof RECORD_KINDS[number]; attachment: RecordDraft; color: PaintColor }
 /** Merely reopening the composer must not remove a quote; only the explicit x does that. */
 export function attachRecordDraft(draft: ComposerDraft, attachment: RecordDraft, defaultColor: PaintColor): ComposerDraft {

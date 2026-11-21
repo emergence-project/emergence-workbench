@@ -71,7 +71,7 @@ export function AgentSettings({ onSaved }: { onSaved(message: string): void }) {
       <div className="set-row" data-ui="지시 처리">
         <div>
           <div className="set-name">{t('지시 처리', 'Instructions')}</div>
-          <div className="set-desc">{t(`기록에 남긴 지시를 ${HERE.ko}의 Claude가 언제 할지 고릅니다. 노트를 고치면 수정 검토에서 승인합니다. 한 번에 하나씩 하고, 하나마다 Claude 사용량이 듭니다.`, `Choose when Claude on ${HERE.en} carries out instructions left in records. Note changes wait for your approval in Edit review. One runs at a time, and each one uses Claude usage.`)}</div>
+          <div className="set-desc">{t(`예전에 기록에 남긴 지시와 에이전트가 이어 쓴 지시를 ${HERE.ko}의 Claude가 언제 할지 고릅니다. 새 지시는 에이전트 탭 입력란에서 바로 보냅니다. 노트를 고치면 수정 검토에서 승인합니다. 한 번에 하나씩 하고, 하나마다 Claude 사용량이 듭니다.`, `Choose when Claude on ${HERE.en} carries out instructions that were left in records earlier. New instructions go straight from the Agent tab input. Note changes wait for your approval in Edit review. One runs at a time, and each one uses Claude usage.`)}</div>
         </div>
         <div className="segmented small" role="radiogroup" data-ui="고르기">
           {INSTRUCTION_MODES.map((m) => (

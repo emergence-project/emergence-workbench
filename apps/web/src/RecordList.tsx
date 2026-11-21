@@ -102,7 +102,9 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
   </>
 }
 
-const EDIT_KINDS = ['메모', '할 일', '질문', '지시'] as const satisfies readonly CommentKind[]
+// 지시로는 바꾸지 않는다 (11/21 안 A: 지시는 에이전트 입력란에서). 예전 지시 기록을 고칠 때만 지시가 보인다
+const EDIT_KINDS = ['메모', '할 일', '질문'] as const satisfies readonly CommentKind[]
+const editKinds = (kind: string): readonly CommentKind[] => kind === '지시' ? [...EDIT_KINDS, '지시'] : EDIT_KINDS
 
 export interface RecordRowProps {
   c: CommentEntry; active: boolean; hash: string; busy: boolean; asking: boolean; onAsk(): void; onGo(): void
@@ -143,7 +145,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
   const live = liveChat(chat)
   const showReply = Boolean(onReply) && talk && c.state !== '끝냄' && !live && (turn || (replying && !unanswered))
   // 고칠 때 종류 바꾸기 (10/21): 내가 쓰고 답이 없는 메모 · 할 일 · 질문 · 지시만. 할 일 · 바뀐 곳에 이은 질문과 일지 줄은 그대로
-  const kindEditable = !journal && !c.by && c.answers.length === 0 && !c.todo && !c.edit && (EDIT_KINDS as readonly string[]).includes(kind)
+  const kindEditable = !journal && !c.by && c.answers.length === 0 && !c.todo && !c.edit && (editKinds(kind) as readonly string[]).includes(kind)
   const [editKind, setEditKind] = useState<CommentKind>(kind as CommentKind)
   useEffect(() => { if (!edit) setEditKind(kind as CommentKind) }, [edit, kind])
   const save = async () => { if (edit && !conflict && edit.text.trim() && await onEdit(edit.text, edit.hash, kindEditable ? editKind : undefined)) setEdit(null) }
@@ -184,7 +186,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
         <textarea autoFocus aria-label={t('기록 수정', 'Edit record')} rows={3} value={edit.text} disabled={busy} onChange={(e) => setEdit({ ...edit, text: e.target.value })}
           onKeyDown={(e) => onListKey(e, (text) => setEdit({ ...edit, text }))} />
         <div className="record-edit-actions">
-          {kindEditable && <div className="segmented small" role="group" aria-label={t('기록 종류', 'Record kind')} data-ui="기록 종류 바꾸기">{EDIT_KINDS.map((k) => <button key={k} type="button" className={editKind === k ? 'on' : ''} aria-pressed={editKind === k} disabled={busy} onClick={() => setEditKind(k)}>{kindLabel(k)}</button>)}</div>}
+          {kindEditable && <div className="segmented small" role="group" aria-label={t('기록 종류', 'Record kind')} data-ui="기록 종류 바꾸기">{editKinds(kind).map((k) => <button key={k} type="button" className={editKind === k ? 'on' : ''} aria-pressed={editKind === k} disabled={busy} onClick={() => setEditKind(k)}>{kindLabel(k)}</button>)}</div>}
           <span className="sp" />
           <button className="btn sm" disabled={busy} onClick={() => setEdit(null)}>{t('취소', 'Cancel')}</button><button className="btn primary sm" disabled={busy || conflict || !edit.text.trim()} onClick={() => void save()}>{t('저장', 'Save')}</button></div>
       </div> : <div className="record-body"><MemoText text={c.body} /></div>}
@@ -279,7 +281,7 @@ function TodoTalk({ records, busy, actions, onSend, onCancel }: { records: Comme
   const lastWord = last?.answers.at(-1)
   const waiting = !!last && last.state === '대기' && !last.by && (!lastWord || lastWord.by === USER_ANSWER_BY)
   const send = async (kind: '질문' | '지시') => { if (text.trim() && !busy && await onSend(kind, text.trim())) setText('') }
-  const label = records.length ? t('이어서 묻거나 덧붙이기', 'Ask more or add to it') : t('이 할 일에 대해 에이전트에게 묻거나 맡기기', 'Ask the agent about this to-do or hand it over')
+  const label = records.length ? t('이어서 묻거나 덧붙이기', 'Ask more or add to it') : t('이 할 일에 대해 에이전트에게 묻기', 'Ask the agent about this to-do')
   return <div className="todo-talk" data-ui="할 일 대화">
     {records.length > 0 && <ul className="fbp-thread">
       {records.flatMap((r) => [
@@ -301,8 +303,8 @@ function TodoTalk({ records, busy, actions, onSend, onCancel }: { records: Comme
           onChange={(e) => setText(e.target.value)} onKeyDown={(e) => onListKey(e, setText)} />
         <div className="fbp-compose-row"><span className="sp" />
           {onCancel && <button className="btn sm" disabled={busy} onClick={onCancel}>{t('취소', 'Cancel')}</button>}
-          <button className="btn sm" disabled={busy || !text.trim()} data-tip={t('질문으로 보내기: 에이전트가 답만 합니다', 'Send as a question: the agent only answers')} onClick={() => void send('질문')}>{t('질문', 'Question')}</button>
-          <button className="btn primary sm tip-end" disabled={busy || !text.trim()} data-tip={t('지시로 보내기: 에이전트가 하고 나서 답합니다', 'Send as an instruction: the agent does it, then answers')} onClick={() => void send('지시')}>{t('지시', 'Instruction')}</button>
+          {/* 지시 버튼은 뺐다 (11/21 안 A): 맡길 일은 에이전트 입력란에서. 예전에 이은 지시는 위 대화에 그대로 보인다 */}
+          <button className="btn primary sm tip-end" disabled={busy || !text.trim()} data-tip={t('에이전트가 읽고 답합니다. 맡길 일은 에이전트 탭에서 보냅니다', 'The agent reads and answers. Hand work over in the Agent tab')} onClick={() => void send(last?.kind === '지시' && last.state !== '끝냄' ? '지시' : '질문')}>{t('보내기', 'Send')}</button>
         </div>
       </div>}
   </div>

@@ -21,10 +21,11 @@ import { RecordPointer, type PointedPart } from './RecordPointer'
 import { kindLabel } from './recordLabels'
 import { useRecords } from './projectQueries'
 
-const FILTERS: PanelFilter[] = ['전체', '메모', '할 일', '질문', '지시']
+// 지시는 필터에서 뺐다 (11/21 안 A): 예전 지시는 「전체」에 남는다
+const FILTERS: PanelFilter[] = ['전체', '메모', '할 일', '질문']
 const STATUSES: StatusFilter[] = ['진행 중', '완료']
 const statusName = (s: StatusFilter) => s === '완료' ? t('완료', 'Done') : t('진행 중', 'In progress')
-const CLASSIFY_TIP = t('Claude(작은 모델)가 분류 전 기록을 메모 · 할 일 · 질문 · 지시로 나눕니다', 'Claude (a small model) sorts unsorted records into memos, to-dos, questions, and instructions')
+const CLASSIFY_TIP = t('Claude(작은 모델)가 분류 전 기록을 메모 · 할 일 · 질문으로 나눕니다', 'Claude (a small model) sorts unsorted records into memos, to-dos, and questions')
 /** 기록 종류의 그림 (10/16 아이콘 검토): 적기 칸의 종류 고르기에 글자 앞에 붙인다(필터는 좁은 폭에서 두 줄이 되지 않게 글자만). 기록 줄 맨 앞과 같은 그림 */
 const KIND_ICON: Record<string, ReactNode> = { 메모: Icon.memo, '할 일': Icon.todo, 질문: Icon.ask, 지시: Icon.send }
 const kindChoice = (k: string) => <>{KIND_ICON[k] && <span className="record-kind-ico" aria-hidden>{KIND_ICON[k]}</span>}{kindLabel(k)}</>
@@ -174,8 +175,8 @@ function RecordComposer({ rid, target }: { rid: string; target: CommentTarget })
   }, [key, defaultColor])
   const cancelPointing = useCallback(() => setPointing(false), [])
   const sendKey = useCmdEnter(() => { if (draft.text.trim() && !busy) void save() })
-  // 질문 · 지시는 에이전트에게 보내는 것이라 「보내기」, 메모 · 할 일은 「저장」 (10/28 피드백 22:18)
-  const sends = draft.kind === '질문' || draft.kind === '지시'
+  // 질문은 에이전트에게 보내는 것이라 「보내기」, 메모 · 할 일은 「저장」 (10/28 피드백 22:18)
+  const sends = draft.kind === '질문'
   const where = target.target === 'project' ? t('이 프로젝트', 'This project') : target.title
   return <div className="record-composer" data-ui="적기 칸" onKeyDown={sendKey.onKeyDown} onCompositionEnd={sendKey.onCompositionEnd}>
     <div className="segmented small" role="group" aria-label={t('기록 종류', 'Record kind')}>{RECORD_KINDS.map((k) => <button key={k} className={draft.kind === k ? 'on' : ''} aria-pressed={draft.kind === k} disabled={busy} onClick={() => setDraft({ ...draft, kind: k })}>{kindChoice(k)}</button>)}</div>
@@ -185,7 +186,7 @@ function RecordComposer({ rid, target }: { rid: string; target: CommentTarget })
       {/* 고른 글과 그 색을 한 줄로: 맨 앞 색 동그라미를 누르면 색을 바꾼다 (10/19 피드백 10:09) */}
       <div className="record-attached"><PaintPicker color={draft.color} disabled={busy} onChange={(color) => setDraft({ ...draft, color })} /><span title={a.quote}>{t('고른 글', 'Selection')}{a.line ? t(` · ${a.line}줄`, ` · line ${a.line}`) : a.page ? t(` · ${a.page}쪽`, ` · p. ${a.page}`) : ''} “{a.quote}”</span><button className="icon-btn sm" aria-label={t('고른 글 제거', 'Remove selection')} title={t('제거', 'Remove')} disabled={busy} onClick={() => setDraft({ ...draft, attachment: {} })}>×</button></div>
     </>}
-    <textarea ref={area} rows={3} aria-label={t('기록 입력란', 'Record input')} placeholder={draft.kind === '질문' ? (/^(note|calc)-/.test(target.target) ? t('무엇이 궁금한가요? 에이전트가 답합니다. 노트를 고치게 하려면 지시로 남기세요.', 'What do you want to know? An agent will answer it. To have the note changed, leave an instruction.') : t('무엇이 궁금한가요? 에이전트가 답합니다.', 'What do you want to know? An agent will answer it.')) : draft.kind === '지시' ? t('에이전트가 할 일을 적으세요. 하고 나서 답을 답니다.', 'What should an agent do? It answers when done.') : (target.target === 'project' ? t('이 프로젝트에 남길 기록', 'A record for this project') : target.target.startsWith('topic-') ? t('이 주제에 남길 기록', 'A record for this topic') : target.target.startsWith('concept-') ? t('이 개념노트에 남길 기록', 'A record for this concept note') : t('이 노트·PDF에 남길 기록', 'A record for this note or PDF'))} value={draft.text} disabled={busy}
+    <textarea ref={area} rows={3} aria-label={t('기록 입력란', 'Record input')} placeholder={draft.kind === '질문' ? (/^(note|calc)-/.test(target.target) ? t('무엇이 궁금한가요? 에이전트가 읽고 답합니다. 노트를 고치게 하려면 에이전트 탭에서 맡기세요.', 'What do you want to know? An agent reads and answers. To have the note changed, ask in the Agent tab.') : t('무엇이 궁금한가요? 에이전트가 답합니다.', 'What do you want to know? An agent will answer it.')) : (target.target === 'project' ? t('이 프로젝트에 남길 기록', 'A record for this project') : target.target.startsWith('topic-') ? t('이 주제에 남길 기록', 'A record for this topic') : target.target.startsWith('concept-') ? t('이 개념노트에 남길 기록', 'A record for this concept note') : t('이 노트·PDF에 남길 기록', 'A record for this note or PDF'))} value={draft.text} disabled={busy}
       onChange={(e) => setDraft({ ...draft, text: e.target.value })} onKeyDown={(e) => onListKey(e, (text) => setDraft({ ...draft, text }))} />
     {error && <div className="banner danger" role="alert">{error}</div>}
     <div className="record-composer-actions">
