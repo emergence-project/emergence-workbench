@@ -16,7 +16,8 @@ import { lastRecordSelection } from './RecordContext'
 import { uiShown } from './uiNames'
 import { accountLabel, useAgentAccounts } from './ClaudeAccountsSettings'
 import type { ComposerRoom } from './CentralRoom'
-import { AgentChip, AgentChoices, agentSwitch, effortsOf, familyName, familyOf, fitEffort, isClaude, modelFamilies, modelName, pickFamily, useModels } from './AgentPick'
+import { AgentLogo } from './agentLogos'
+import { AgentChoices, agentOf, agentSwitch, effortsOf, familyName, familyOf, fitEffort, isClaude, modelFamilies, modelName, pickFamily, useModels } from './AgentPick'
 
 /**
  * 에이전트 입력란 (AgentChats.tsx의 대화 · 새 대화 · 패널이 함께 쓴다): / 명령 · @ 붙이기 · 그림,
@@ -450,7 +451,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
         </>}
         {/* 모델과 생각 깊이는 따로 (11/9 11:07): 왼쪽에서 모델을 고르고, 그 모델이 받는 깊이를 오른쪽에서 */}
         <span className="ac-compose-model">
-        <PopButton ui="모델 고르기" tip={t('에이전트 · 모델', 'Agent · model')} label={<>{!isClaude(settings.agent) && <><AgentChip agent={settings.agent} /> </>}{familyName(settings.model, models)}<span className="ac-pop-text"> ▾</span></>}>
+        <PopButton ui="모델 고르기" tip={t(`에이전트 · 모델: ${familyName(settings.model, models)}`, `Agent · model: ${familyName(settings.model, models)}`)} label={<><AgentLogo agent={agentOf(settings.agent)} /><span className="ac-pop-text">{familyName(settings.model, models)} ▾</span></>}>
           {(close) => <>
             <AgentChoices agent={settings.agent} fixed={agentFixed} onPick={(a) => { close(); if (a !== settings.agent) onSettings(agentSwitch(a, settings.trust)) }} />
             <div className="ac-pop-h">{t('모델', 'Model')}</div>
