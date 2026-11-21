@@ -232,6 +232,17 @@ describe('노트 기록 파일', () => {
     expect(file('note-todo-state')).toBe(before)
   })
 
+  it('메모도 완료하고 다시 연다: 끝냄만 적고, 다시 열면 상태 줄이 없어진다 (11/21)', () => {
+    const { entry, hash } = addComment(root, 'note-memo-state', { kind: '메모', title: '노트', source: 'workbench/notes/state/note.md', text: '다 본 메모' }, at)
+    const before = file('note-memo-state')
+    expect(() => updateComment(root, 'note-memo-state', entry.id, { state: '답함' }, hash)).toThrow(expect.objectContaining({ status: 400 }))
+    const done = updateComment(root, 'note-memo-state', entry.id, { state: '끝냄' }, hash)
+    expect(done.comments[0]).toMatchObject({ kind: '메모', state: '끝냄' })
+    const reopened = updateComment(root, 'note-memo-state', entry.id, { state: '대기' }, done.hash)
+    expect(reopened.comments[0]!.state).toBeNull()
+    expect(file('note-memo-state')).toBe(before)
+  })
+
   it('인용 문법으로 시작하는 할 일 본문도 기록과 완료 일지에서 같은 글로 유지한다', () => {
     const target = 'note-quoted-todo'
     const source = 'workbench/notes/quoted-todo/note.md'

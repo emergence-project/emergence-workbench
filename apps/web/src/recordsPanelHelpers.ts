@@ -33,6 +33,13 @@ export function recordWhen(id: string, now = new Date()): { label: string; title
   return { label: day === localDate(now) ? time : monthDay(day), title: `${day} ${time}` }
 }
 
+/**
+ * 오른쪽 사이드바 기록의 필터 한 줄 (11/21 안 A3): 전체 · 할 일 · 대기. 「전체」는 완료까지 모두(완료는 목록 아래에 접힘),
+ * 대기 = 내가 에이전트를 불렀고(질문 · 지시) 답을 기다리는 기록
+ */
+export type SideFilter = '전체' | '할 일' | '대기'
+export const inSideFilter = (c: Pick<CommentEntry, 'kind' | 'by' | 'state'>, f: SideFilter) => c.kind !== '하이라이트'
+  && (f === '전체' || (f === '할 일' ? recordKind(c) === '할 일' : isTalkKind(c.kind) && !c.by && c.state === '대기'))
 /** 상태 고르기 (10/18 결정): 진행 중(끝내지 않은 기록, 메모 포함) | 완료(끝냄) */
 export type StatusFilter = '진행 중' | '완료'
 export const isDoneRecord = (c: Pick<CommentEntry, 'state'>) => c.state === '끝냄'
@@ -63,15 +70,4 @@ export interface RecordEdit { text: string; original: string; hash: string }
 /** An appended answer can refresh the edit hash; a changed body needs explicit review. */
 export function rebaseRecordEdit(edit: RecordEdit, body: string, hash: string): RecordEdit {
   return edit.hash !== hash && edit.original === body ? { ...edit, hash } : edit
-}
-
-/** Newly written or explicitly revealed records must remain visible after a filter was chosen. */
-export function filterForActiveRecord(filter: PanelFilter, comments: CommentEntry[], active: string | null): PanelFilter {
-  const entry = comments.find((c) => c.id === active)
-  return entry && entry.kind !== '하이라이트' && !filterRecords([entry], filter).length ? '전체' : filter
-}
-/** 고른 기록이 지금 상태 칸에 없으면 그 기록의 상태로 바꿔 보이게 한다 */
-export function statusForActiveRecord(status: StatusFilter, comments: CommentEntry[], active: string | null): StatusFilter {
-  const entry = comments.find((c) => c.id === active)
-  return entry && entry.kind !== '하이라이트' ? (isDoneRecord(entry) ? '완료' : '진행 중') : status
 }

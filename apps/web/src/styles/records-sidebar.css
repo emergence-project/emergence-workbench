@@ -4,7 +4,8 @@
 /* 종류는 폭에 꽉 찬 선택 칸, 그 아래 줄 왼쪽 상태(진행 중 | 완료) · 오른쪽 "모두 보기" (10/18 결정) */
 .records-filters { flex: none; display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); }
 .records-subbar { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
-.records-subbar .records-all { margin-left: auto; font-size: var(--fs-xs); white-space: nowrap; }
+.records-subbar .records-all { flex: none; margin-left: auto; font-size: var(--fs-xs); white-space: nowrap; }
+.records-subbar .segmented { flex: 1; min-width: 0; }
 .records-subbar .segmented button { white-space: nowrap; }
 .records-subbar .segmented .n { color: var(--text-3); font-weight: var(--fw-normal); font-variant-numeric: tabular-nums; }
 .records-classify { flex: none; padding: 0 var(--sp-3) var(--sp-2); font-size: var(--fs-sm); }
@@ -129,3 +130,7 @@ input.record-marker { accent-color: var(--text); }
 /* 입력란의 「할 일」 칩 (11/21 안 A3): 종류 줄 대신 켜고 끄는 버튼 하나. 켜면 선택 표시 */
 .record-todo-chip { flex: none; white-space: nowrap; color: var(--text-2); }
 .record-todo-chip.on { background: var(--bg-hover); border-color: var(--text-3); color: var(--text); font-weight: var(--fw-medium); }
+/* 완료한 기록 접기 (11/21 안 A3): 목록 맨 아래 한 줄, 누르면 펼친다 */
+.record-done-fold > summary { cursor: pointer; padding: var(--sp-1) var(--sp-1); color: var(--text-3); font-size: var(--fs-xs); user-select: none; }
+.record-done-fold > summary .n { font-variant-numeric: tabular-nums; }
+.record-done-fold[open] > summary { margin-bottom: var(--sp-2); }
