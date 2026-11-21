@@ -5,7 +5,7 @@ import { readAiKey } from '../aiKey.js'
 import { agentAnswer, answeredBy, appendAnswer, applyAnswerFixes, askPrompt, claudeClassifierRunner, questionRunner, recordChatPrompt, replyToRecord } from '../ask.js'
 import { repeat } from '../scheduler.js'
 import * as C from '@rw/core/contract/comments'
-import { LIBRARY_RID } from '@rw/core'
+import { calledAgent, LIBRARY_RID } from '@rw/core'
 import { parseBody, replies } from '../contract.js'
 import { addComment, classifyComments, isAgentKind, commentSourceFile, deleteComment, listComments, listRecords, pendingQuestions, readComments, updateComment } from '../comments.js'
 import { materialPath } from '../materials.js'
@@ -34,8 +34,12 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
   app.get<{ Params: { rid: string; target: string } }>('/api/researches/:rid/comments/:target', replies(C.CommentFile), async (req): Promise<C.CommentFile> =>
     readComments(recordsRoot(req.params.rid), req.params.target))
   app.post<{ Params: { rid: string; target: string } }>('/api/researches/:rid/comments/:target', replies(C.CommentAdded), async (req): Promise<C.CommentAdded> => {
-    const added = addComment(recordsRoot(req.params.rid), req.params.target, parseBody(C.NewCommentBody, req.body))
-    if (isAgentKind(added.entry.kind)) instantFor(req.params.rid, req.params.target)
+    const body = parseBody(C.NewCommentBody, req.body)
+    // 메모에 @로 에이전트를 부르면 질문이 되고, 설정의 「질문 처리」와 상관없이 바로 넘긴다 (11/21 안 A3). 부르지 않은 메모는 그대로 남는다
+    const called = (body.kind === '자동' || body.kind === '메모') && !body.by && !!calledAgent(body.text)
+    const added = addComment(recordsRoot(req.params.rid), req.params.target, called ? { ...body, kind: '질문' } : body)
+    if (called) enqueue(req.params.rid, req.params.target, added.entry.id)
+    else if (isAgentKind(added.entry.kind)) instantFor(req.params.rid, req.params.target)
     return added
   })
   app.post<{ Params: { rid: string; target: string } }>('/api/researches/:rid/comments/:target/classify', replies(C.CommentFile), async (req): Promise<C.CommentFile> => {
@@ -66,8 +70,10 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
   /** 질문 · 지시를 맥의 Claude에게 넘기고, 답이 오면 그 아래에 덧붙인다. 답이 올 때까지(몇 분) 기다렸다가 고친 파일을 돌려준다 */
   async function answerWithClaude(rid: string, target: string, id: string): Promise<C.CommentFile> {
     const root = recordsRoot(rid)
-    const f = readComments(root, target)
-    const q = f.comments.find((c) => c.id === id)
+    let f = readComments(root, target)
+    let q = f.comments.find((c) => c.id === id)
+    // 그냥 남긴 메모의 「답 요청」(11/21 안 A3): 사용자가 쓴 메모를 질문으로 바꾸고 넘긴다
+    if (q && q.kind === '메모' && !q.by) { f = updateComment(root, target, id, { kind: '질문' }, f.hash); q = f.comments.find((c) => c.id === id) }
     if (!q || !isAgentKind(q.kind)) throw new WorkbenchError(404, t(`질문이나 지시가 없음: ${id}`, `No such question or instruction: ${id}`))
     // 기록은 그 기록의 에이전트 대화로 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ): 기록에는 결과만, 대화는 에이전트 탭에. 기다리지 않는다.
     // 지식 라이브러리(개념노트)의 기록도 대화로 (11/8 14:17 제안 진행). 시험(opts.ask)은 예전처럼 claude -p 한 번
@@ -77,6 +83,7 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
       const repo = repoPath(rid)
       const source = commentSourceFile(root, f)
       const last = q.answers.at(-1)
+      const called = calledAgent(q.body ?? '')
       chats.forRecord(rid, { target, id }, {
         kind: q.kind as '질문' | '지시',
         title: (q.body || q.quote || f.title).split('\n')[0]!.slice(0, 60),
@@ -84,6 +91,8 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
         first: recordChatPrompt(f, id, source ? path.relative(repo, source) : undefined),
         ...(last?.by === C.USER_ANSWER_BY && { reply: { shown: last.body, prompt: t(`연구자가 기록에 이어 썼습니다:\n${last.body}`, `The researcher wrote more in the record:\n${last.body}`) } }),
         count: q.answers.length,
+        // 글에서 이름으로 부른 에이전트가 답한다. 이름이 없으면 기본 에이전트
+        ...(called && called !== 'default' && { agent: called }),
       })
       return f
     }
@@ -151,6 +160,8 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
   app.post<{ Params: { rid: string; target: string; id: string } }>('/api/researches/:rid/comments/:target/:id/reply', replies(C.CommentFile), async (req): Promise<C.CommentFile> => {
     const { text } = parseBody(C.ReplyBody, req.body)
     const f = replyToRecord(recordsRoot(req.params.rid), req.params.target, req.params.id, text)
+    // @로 부른 기록에 이어 쓰면 설정과 상관없이 바로 넘긴다 (11/21 안 A3)
+    if (calledAgent(f.comments.find((c) => c.id === req.params.id)?.body ?? '')) enqueue(req.params.rid, req.params.target, req.params.id)
     instantFor(req.params.rid, req.params.target)
     return f
   })

@@ -167,6 +167,8 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       <span className={`record-by${c.noAuthor ? ' no-author' : ''}`} title={c.by ? t('쓴 에이전트', 'Written by an agent') : c.noAuthor ? t('앱이나 MCP를 거치지 않고 파일에 직접 쓴 기록입니다', 'Written straight into the file, not through the app or MCP') : c.src === 'app' ? t('앱이 자동으로 남긴 기록', 'Left by the app') : t('사용자가 쓴 기록', 'Written by the user')}>{kindLabel(kind)} · {c.by ? <Author by={c.by} /> : c.noAuthor ? t('작성자 없음', 'No author') : c.src === 'app' ? t('앱', 'App') : t('사용자', 'User')}</span>
       {turn && <span className="record-turn"><span className="turn-dot" aria-hidden />{t('내 차례', 'Your turn')}</span>}
       <div className={`record-actions${work ? ' hover-actions' : ''}`} data-ui="고치기·지우기">
+        {/* 그냥 남긴 메모의 「답 요청」 (11/21 안 A3): 누르면 이 메모가 질문이 되고 에이전트가 읽고 답한다. 누르지 않은 메모는 답하지 않는다 */}
+        {kind === '메모' && !c.by && c.src !== 'app' && <button className="icon-btn sm" data-ui="답 요청" data-tip={asking_ ? t('에이전트에게 보내는 중…', 'Sending to the agent…') : t('답 요청', 'Ask for an answer')} aria-label={t('답 요청', 'Ask for an answer')} disabled={busy || asking_} onClick={onAsk}>{Icon.spark}</button>}
         {(kind === '질문' || kind === '지시') && <>
           {/* 질문 · 지시를 누가 언제 하는지는 설정 › 에이전트 › 질문 처리 · 지시 처리(직접 부탁이면 에이전트 세션이 MCP로 집어 감).
               아직 대화가 없으면 설정과 상관없이 여기서 지금 보낸다 (10/28 23:51 피드백). 대화가 있으면 「답하기」로 이어 쓴다 */}
