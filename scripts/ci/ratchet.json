@@ -161,7 +161,7 @@
     "apps/web/src/RecordsPublish.tsx": 1,
     "apps/web/src/RegisterDialog.tsx": 4,
     "apps/web/src/RepoFileTab.tsx": 2,
-    "apps/web/src/RightSidebar.tsx": 3,
+    "apps/web/src/RightSidebar.tsx": 2,
     "apps/web/src/router.ts": 3,
     "apps/web/src/Search.tsx": 1,
     "apps/web/src/SettingsPage.tsx": 4,

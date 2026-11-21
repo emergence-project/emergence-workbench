@@ -100,16 +100,16 @@ export const DEFAULT_SCREENS = [
   ['agent-new', '#/agent', '대화 프로젝트 고르기 항목', ['대화 프로젝트 고르기']],
   // 사이드바를 닫은 에이전트 화면 (같은 제안 안 A): 새 대화 아래 최근 대화 (shots.mjs가 찍기 전에 닫고 뒤에 되돌린다)
   ['agent-recent', '#/agent', '최근 대화'],
-  ['agent-panel', '#/r/{rid}', '에이전트 패널', '[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)'],
+  ['agent-panel', '#/r/{rid}', '에이전트 패널', '[data-ui="오른쪽 사이드바 갈래"] button[data-mode="agent"]'],
   // 에이전트 고르기 (10/30 Codex · Gemini): 새 대화의 모델 메뉴 맨 위 에이전트 줄 (예제 맥에는 Codex · Gemini가 없어 「설치 안 됨」)
-  ['agent-pick', '#/r/{rid}', '모델 고르기 항목', ['[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)', '모델 고르기']],
+  ['agent-pick', '#/r/{rid}', '모델 고르기 항목', ['[data-ui="오른쪽 사이드바 갈래"] button[data-mode="agent"]', '모델 고르기']],
   // 입력란 ＋ 메뉴 (11/19 지금 화면 · 고른 글 붙이기): 고른 글이 없어 「고른 글 붙이기」는 흐리다
-  ['agent-attach', '#/r/{rid}', '붙이기 버튼 항목', ['[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)', '붙이기 버튼']],
+  ['agent-attach', '#/r/{rid}', '붙이기 버튼 항목', ['[data-ui="오른쪽 사이드바 갈래"] button[data-mode="agent"]', '붙이기 버튼']],
   // 노트 본문에서 글을 끌어 고른 메뉴 (11/19 「? 질문」): 4색 · 코멘트 · 질문 (shots.mjs가 첫 문단을 세 번 눌러 고른다)
   ['note-select', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '고른 글 질문'],
   // 패널 자리 (#233): 작업 화면 아래, 노트 옆 칸에 나란히(끝난 대화를 연 패널에서 자리 › 나란히)
-  ['agent-dock', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '에이전트 아래 자리', ['맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)']],
-  ['agent-beside', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '[data-ui="에이전트 대화"]', ['맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button:nth-of-type(3)', '대화 자리', '[data-ui="대화 자리 항목"] button:nth-of-type(3)']],
+  ['agent-dock', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '에이전트 아래 자리', ['맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button[data-mode="agent"]']],
+  ['agent-beside', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '[data-ui="에이전트 대화"]', ['맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button[data-mode="agent"]', '대화 자리', '[data-ui="대화 자리 항목"] button:nth-of-type(3)']],
   // 중앙 대화 (11/16 "중앙 에이전트"): 처음 말하는 화면, 그리고 하위 대화 둘(앱 고치기 · 프로젝트 작성)을 연 중앙 (shots.mjs, {central})
   ['agent-central-start', '#/agent/central', '중앙 시작'],
   ['agent-central', '#/agent/{central}', '작업 현황'],
@@ -120,9 +120,9 @@ export const DEFAULT_SCREENS = [
   // 어느 화면에서나 오른쪽 사이드바의 에이전트 (11/16): 소개 화면에서 사이드바를 열면 맨 위 「중앙」, 최근 대화, 중앙에게 말하는 입력란
   ['agent-side', '#/about', '에이전트 사이드바', '맥락 칸 켜고 끄기'],
   // 터미널을 한 번 연 뒤 에이전트로 돌아온 모습 (11/19): 열린 셸은 숨어 있고 에이전트만 보인다
-  ['agent-side-back', '#/about', '에이전트 사이드바', ['맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button:text-matches("^(터미널|Terminal)")', '[data-ui="오른쪽 사이드바 갈래"] button:text-matches("^(에이전트|Agents?)")']],
+  ['agent-side-back', '#/about', '에이전트 사이드바', ['맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button[data-mode="terminal"]', '[data-ui="오른쪽 사이드바 갈래"] button[data-mode="agent"]']],
   // 자기 오른쪽 사이드바가 있는 지식 첫 화면: 사이드바 맨 위 「정보 | 에이전트」에서 에이전트
-  ['knowledge-agent', '#/library', '에이전트 사이드바', '[data-ui="오른쪽 사이드바 갈래"] button:text-matches("^(에이전트|Agent)")'],
+  ['knowledge-agent', '#/library', '에이전트 사이드바', '[data-ui="오른쪽 사이드바 갈래"] button[data-mode="agent"]'],
   // 피드백 맡기기 (2단계 나): 수정 요청이 온 항목을 앱 고치기 대화에 맡겨 처리한 뒤, 그 항목의 진행 줄 (shots.mjs가 맡기고 처리 기록을 적는다)
   ['feedback-agent', '#/feedback', '에이전트 진행', ['[data-ui="피드백 줄"][data-ui-item^="2026-10-04 10:15"]']],
   ['about', '#/about', '소개'],

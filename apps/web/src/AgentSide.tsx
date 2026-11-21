@@ -10,7 +10,7 @@ import { CENTRAL_PAGE, CentralLine } from './CentralChat'
 import { t } from './i18n'
 import { screenLine } from './screenView'
 import { Icon } from './icons'
-import { setRightMode, useRightMode, type RightMode } from './noteScreen'
+import { useOfferRightModes, useRightMode, type RightMode } from './noteScreen'
 import { qk } from './queries'
 import { go } from './router'
 import { store } from './store'
@@ -77,15 +77,6 @@ function ServerSkewNote() {
   return <p className="ac-place ac-skew" data-ui="서버 버전 다름">{t(`${skew.name}의 앱(${skew.server})이 이 컴퓨터(${skew.here})와 다릅니다: ${skew.gap}. 대화 화면이 맞지 않으면 두 컴퓨터를 새 버전으로 다시 시작하세요`, `The app on ${skew.name} (${skew.server}) differs from this computer (${skew.here}): ${skew.gap}. If chat screens look wrong, restart both on the new version`)}</p>
 }
 
-/** 맨 위 갈래 단추 (정보 | 에이전트 | 터미널). 터미널은 이 컴퓨터에서 연 화면만 */
-function SideTabs({ modes, mode }: { modes: [RightMode, string][]; mode: RightMode }) {
-  return (
-    <div className="segmented small full" role="tablist" aria-label={t('오른쪽 사이드바 갈래', 'Right sidebar view')} data-ui="오른쪽 사이드바 갈래">
-      {modes.map(([m, label]) => <button key={m} role="tab" aria-selected={mode === m} className={mode === m ? 'on' : ''} onClick={() => setRightMode(m)}>{label}</button>)}
-    </div>
-  )
-}
-
 /** 프로젝트 밖 화면의 터미널: rid의 폴더(중앙은 앱 저장소, 못 찾으면 홈)에서 연다. rid를 아직 모르면(대화 목록을 받는 중) 기다린다.
  *  한 번 열면 다른 갈래 · 다른 대화로 가도 셸을 그대로 둔다 */
 function useSideTerminal(mode: RightMode, rid: string | null = CENTRAL_RID) {
@@ -104,31 +95,31 @@ function useChatRid(id: string | undefined): string | null {
   return list.find((c) => c.id === id)?.rid ?? CENTRAL_RID
 }
 
-/** 자기 오른쪽 사이드바가 있는 화면(지식 · 논문 · 그림 첫 화면)의 사이드바: 맨 위 「정보 | 에이전트 | 터미널」로 그 화면 정보와 에이전트를 오간다.
+/** 자기 오른쪽 사이드바가 있는 화면(지식 · 논문 · 그림 첫 화면)의 사이드바: 상단바의 갈래 아이콘(정보 · 에이전트 · 터미널, 11/21 안 A)으로 그 화면 정보와 에이전트를 오간다.
  *  고른 갈래는 노트 화면의 오른쪽 사이드바 갈래와 같은 기억(noteScreen) */
 export function InfoOrAgent({ ui, onSaved, children }: { ui: string; onSaved(m: string): void; children: ReactNode }) {
   const chosen = useRightMode()
   const term = useSideTerminal(chosen)
   const mode: RightMode = chosen === 'agent' || term.on ? chosen : 'info'
   const side = mode !== 'info'
+  useOfferRightModes(term.able ? ['info', 'agent', 'terminal'] : ['info', 'agent'], mode)
   return (
     <aside className={`kh-side kh-side-tabs${side ? ' kh-side-agent' : ''}`} data-ui={mode === 'agent' ? '에이전트 사이드바' : mode === 'terminal' ? '터미널 사이드바' : ui}>
-      <SideTabs mode={mode} modes={term.able ? [['info', t('정보', 'Info')], ['agent', t('에이전트', 'Agent')], ['terminal', t('터미널', 'Terminal')]] : [['info', t('정보', 'Info')], ['agent', t('에이전트', 'Agent')]]} />
       {mode === 'agent' ? <GlobalAgentPanel onSaved={onSaved} /> : mode === 'info' && children}
       {term.pane}
     </aside>
   )
 }
 
-/** 프로젝트 밖 화면의 에이전트 사이드바 (App.tsx): 이 컴퓨터에서 연 화면이면 맨 위 「에이전트 | 터미널」.
+/** 프로젝트 밖 화면의 에이전트 사이드바 (App.tsx): 이 컴퓨터에서 연 화면이면 상단바 아이콘으로 에이전트 · 터미널을 오간다.
  *  에이전트 화면(terminalOnly: 새 대화 · 중앙)은 터미널만. 대화를 연 화면은 대화 머리 「>_」가 오른쪽 칸을 터미널로 바꾼다(AgentChats.tsx의 AgentPage). 터미널은 그 대화의 프로젝트 폴더, 그 밖은 중앙(앱 저장소)에서 연다 */
 export function AgentSideBody({ onSaved, terminalOnly, chatId }: { onSaved(m: string): void; terminalOnly?: boolean; chatId?: string }) {
   const chosen = useRightMode()
   const chatRid = useChatRid(terminalOnly ? chatId : undefined)
   const term = useSideTerminal(terminalOnly ? 'terminal' : chosen, chatRid)
+  useOfferRightModes(terminalOnly ? ['terminal'] : term.able ? ['agent', 'terminal'] : ['agent'], terminalOnly || term.on ? 'terminal' : 'agent')
   if (terminalOnly) return term.pane
   return <>
-    {term.able && <div className="rs-head side-tabbar"><SideTabs mode={term.on ? 'terminal' : 'agent'} modes={[['agent', t('에이전트', 'Agent')], ['terminal', t('터미널', 'Terminal')]]} /></div>}
     {!term.on && <GlobalAgentPanel onSaved={onSaved} />}
     {term.pane}
   </>

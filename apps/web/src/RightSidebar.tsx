@@ -7,7 +7,7 @@ import { Icon } from './icons'
 import { shortLabel } from './notes'
 import { LOOSE_NOTES_LABEL, NO_KIND_LABEL, NOTE_KIND_LABEL, noteKindChoices } from './noteKinds'
 import { NoteHistorySide, useNoteHistory } from './NoteHistory'
-import { headWriterOf, setRightMode, useRightMode, type RightMode } from './noteScreen'
+import { headWriterOf, useOfferRightModes, useRightMode, type RightMode } from './noteScreen'
 import { go, type Route } from './router'
 import { StatusDot } from './StatusDot'
 import { store } from './store'
@@ -15,7 +15,7 @@ import { josa, t } from './i18n'
 import { TerminalPane, useTerminalAvailable } from './TerminalPane'
 
 /**
- * 오른쪽 사이드바: 정보 | 기록 | 에이전트 (10/22 안 A). 갈래를 바꿔도 적던 내용은 남긴다.
+ * 오른쪽 사이드바: 정보 · 기록 · 에이전트 (10/22 안 A). 갈래는 상단바 아이콘으로 고른다(11/21 안 A, useOfferRightModes). 갈래를 바꿔도 적던 내용은 남긴다.
  * 에이전트 탭은 이 프로젝트의 대화(레일 › 에이전트와 같은 목록)이고, 패널 자리를 작업 화면 아래로 옮겼으면 그 자리를 알린다.
  * 터미널 탭(terminalRid가 있고 이 컴퓨터에서 연 화면일 때)은 그 프로젝트 폴더의 셸. 한 번 열면 다른 탭으로 가도 셸을 그대로 둔다
  */
@@ -26,15 +26,11 @@ export function RightSidebar({ info, records, agent, terminalRid }: { info: Reac
   const mode = (chosen === 'agent' && !agent) || (chosen === 'terminal' && !terminal) ? 'info' : chosen
   const [termOpened, setTermOpened] = useState(false)
   useEffect(() => { if (mode === 'terminal') setTermOpened(true) }, [mode])
-  const modes: [RightMode, string][] = [['info', t('정보', 'Info')], ['records', t('기록', 'Records')], ...(agent ? [['agent', t('에이전트', 'Agent')] as [RightMode, string]] : [])]
-  if (terminal) modes.push(['terminal', t('터미널', 'Terminal')])
+  // 갈래 단추는 상단바에 (11/21 안 A, TopBar.tsx의 RightModeIcons)
+  const modes: RightMode[] = ['info', 'records', ...(agent ? ['agent' as const] : []), ...(terminal ? ['terminal' as const] : [])]
+  useOfferRightModes(modes, mode)
   return (
     <div className="rs" data-ui="오른쪽 사이드바">
-      <div className="rs-head side-tabbar">
-        <div className="segmented small full" role="tablist" aria-label={t('오른쪽 사이드바 갈래', 'Right sidebar view')} data-ui="오른쪽 사이드바 갈래">
-          {modes.map(([m, label]) => <button key={m} role="tab" aria-selected={mode === m} className={mode === m ? 'on' : ''} onClick={() => setRightMode(m)}>{label}</button>)}
-        </div>
-      </div>
       {mode === 'info' && <div className="rs-scroll">{info}</div>}
       <div className="rs-col" hidden={mode !== 'records'}>{records}</div>
       {mode === 'agent' && agent && <div className="rs-col">{agent}</div>}
