@@ -2,8 +2,9 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { isSendKey, useCmdEnter } from './cmdEnter'
 import { Author } from './Author'
 import { LIBRARY_RID, splitNoteFixes } from '@rw/core'
-import { agentChatsApi, type ChatRow, type CommentEntry, type CommentKind, type RecordFile } from './api'
+import { agentChatsApi, commentsApi, type ChatRow, type CommentEntry, type CommentKind, type RecordFile } from './api'
 import { askClaude, askErrors, asking, askKey, useAskTick, useSlot } from './Comments'
+import { flash } from './flash'
 import { useRecordActions, type RecordWrites } from './useRecordActions'
 import { MemoText } from './memo'
 import { RepoPathContext } from './repoPaths'
@@ -225,8 +226,11 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       {(() => {
         const canReply = onReply && talk && c.state !== '끝냄' && !live && !turn && !unanswered && !replying
         if (!canReply && !chat) return null
+        const fixable = chat?.needsEdit && !live && c.state !== '끝냄'
         return <div className="record-follow">
           {canReply && <button className="a" onClick={() => setReplying(true)}>{t('답하기', 'Reply')}</button>}
+          {/* 고치게 하기 (11/21): 부른 에이전트는 읽기만 한다. 고치는 일이라고 답했으면 여기서 눌러야 같은 대화가 노트를 고치고, 고친 것은 수정 검토로 간다 */}
+          {fixable && <button className="btn sm" data-ui="고치게 하기" disabled={busy} data-tip={t('이 대화가 노트를 고칩니다. 고친 것은 수정 검토에서 승인합니다', 'This conversation changes the note. You approve the changes in change review')} onClick={() => void commentsApi(rid).fix(file.target, c.id).catch((e: Error) => flash(e.message))}>{t('고치게 하기', 'Have it changed')}</button>}
           {/* 대화 보기 (10/28 시안): 기록에는 결과만, 풀어 쓴 대화는 에이전트 탭에 */}
           {/* 이 기록의 대화가 노트를 고쳤으면 고친 곳을 이 자리에 펼친다 (10/28 정정: 페이지를 옮기지 않고, 넓게 볼 때만 수정 검토로) */}
           {chat && chat.changed.length > 0 && <button className="a" data-ui="수정 검토에서 보기" aria-expanded={editsOpen} onClick={() => setEditsOpen(!editsOpen)}>{editsOpen ? t('고친 곳 접기', 'Hide changes') : t('고친 곳 검토 ›', 'Review changes ›')}</button>}

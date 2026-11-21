@@ -177,6 +177,8 @@ export const ChatRow = z.object({
   auto: ChatAuto.optional(),
   /** 이 대화가 지금 고치는 중인 파일 (저장소 기준 경로). 다른 대화는 쓰지 못한다 */
   claims: z.array(z.string()),
+  /** 기록에서 부른 대화: 마지막 답이 고치는 일이라고 판단함. 기록의 답 아래에 「고치게 하기」를 보인다 (11/21) */
+  needsEdit: z.boolean().optional(),
   /** 이 대화가 고친 파일 (수정 검토로 간다) */
   changed: z.array(z.string()),
   /** 노트 고침에서 더하고 뺀 줄 수 (목록 · 머리의 +n −n) */

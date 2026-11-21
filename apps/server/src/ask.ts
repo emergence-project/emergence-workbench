@@ -11,6 +11,7 @@ import { commentTargetSlug } from '@rw/core'
 import { hashOf, writeAtomic } from './fsutil.js'
 import { ConflictError, WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
+import { fixMarkRule } from './recordFix.js'
 import type { RuleFile } from './agentRules.js'
 import { apiRunner, readAiKey } from './aiKey.js'
 
@@ -237,6 +238,7 @@ export function recordChatPrompt(f: Omit<CommentFile, 'highlights'>, id: string,
       : q.kind === '지시'
       ? t('- 노트를 고치는 일이면 edit_note로 고칩니다(연구자가 수정 검토에서 문단마다 봅니다). 끝낼 조건과 보고가 필요한 큰 일이면 시작하지 말고 맡긴 일로 옮기자고 적습니다.', '- To change a note, use edit_note (the researcher reviews each paragraph in change review). If it is a large job that needs an end condition and a report, do not start it; suggest making it a delegated task.')
       : t('- 질문에는 답만 합니다. 파일과 노트는 고치지 않습니다.', '- Answer only; do not change files or notes.'),
+    q.kind === '질문' ? fixMarkRule() : null,
     t('- 모르면 모른다고 하고, 논문 · 노트에 없는 추론은 추론이라고 밝힙니다.', '- If you do not know, say so; mark reasoning that is not in the paper or note as your own inference.'),
   ].filter((l) => l !== null).join('\n')
 }

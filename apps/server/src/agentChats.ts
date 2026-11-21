@@ -36,7 +36,7 @@ import { appBriefFor, briefFor, promptFor, recordDraftPrompt, reviewPrompt, side
 
 export { editOf, fileEditOf, partsOfPatch, todosOf } from './agentItems.js'
 import { commandEdits, editOf, fileEditOf, todosOf } from './agentItems.js'
-import { packFile, unpack } from './agentTidy.js'
+import { packFile, unpack } from './agentTidy.js'; import { splitFixMark } from './recordFix.js'
 
 // ---------- 대화들 ----------
 
@@ -72,7 +72,7 @@ export type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archi
   turn?: { prompt: string; images?: ImageIn[] }; urgent?: boolean
   /** 기록 대화: 마지막으로 넘긴 기록 글의 수 (같은 글을 두 번 넘기지 않게), 지금 차례가 기록에서 왔는지 (끝나면 답을 기록에 적는다) */
   recordSent?: number
-  recordTurn?: boolean
+  recordTurn?: boolean; /** 기록 대화: 마지막 답이 고치는 일이라고 표시함 (recordFix.ts) */ needsEdit?: boolean
   /** 중앙 대화: 남은 메모리가 모자라 기다리는 앱 고치기 (appMemory.ts). 메모리가 풀리거나 하나가 끝나면 agentCentral.ts가 차례로 연다 */
   held?: (CentralOpenBody & { at?: string })[]
   ci?: 'pending' | 'failed' | 'passed' // 중앙의 앱 하위 대화: PR 검사 (올리면 pending, tickCentral이 1분마다 고친다)
@@ -1025,13 +1025,13 @@ export class AgentChats {
   /** 기록 대화의 이번 차례(마지막 내 지시 뒤) 답: 주 에이전트의 마지막 글과 고친 곳 */
   private writeRecordAnswer(c: Stored): void {
     if (!c.record || !this.deps.recordAnswer) return
-    let from = c.items.length
-    while (from > 0 && c.items[from - 1]!.kind !== 'user') from--
+    let from = c.items.length; while (from > 0 && c.items[from - 1]!.kind !== 'user') from--
     const turn = c.items.slice(from)
     const text = [...turn].reverse().find((it): it is Extract<ChatItem, { kind: 'text' }> => it.kind === 'text' && !it.sub)?.text.trim()
     const edits = turn.filter((it): it is Extract<ChatItem, { kind: 'edit' }> => it.kind === 'edit').map((it) => ({ file: it.file, added: it.added, removed: it.removed }))
     if (!text && !edits.length) return
-    try { this.deps.recordAnswer(c.rid, c.record, text ?? '', edits) } catch (e) {
+    const fix = splitFixMark(text ?? ''); c.needsEdit = (fix.needs && c.write === 'read') || undefined
+    try { this.deps.recordAnswer(c.rid, c.record, fix.text, edits) } catch (e) {
       c.items.push({ kind: 'error', at: now(), text: t(`답을 기록에 적지 못했습니다: ${(e as Error).message}`, `Could not write the answer to the record: ${(e as Error).message}`).slice(0, MAX_TEXT) })
     }
   }
@@ -1056,7 +1056,7 @@ export const rowOf = (c: Stored): ChatRow => {
   return {
     id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state,
     mode: c.mode, model: c.model, effort: c.effort, ...(c.account && { account: c.account }), ...(c.auto && { auto: { ...c.auto } }), claims: [...c.claims], changed: [...c.changed], added, removed,
-    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.handed && { handed: c.handed }), ...(c.bundle && { bundle: [...c.bundle] }), ...(c.record && { record: { ...c.record } }), ...(c.parent && { parent: c.parent }), ...(c.summary && { summary: c.summary }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), ...(c.debate && { debate: structuredClone(c.debate) }), created: c.created, updated: c.updated,
+    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.handed && { handed: c.handed }), ...(c.bundle && { bundle: [...c.bundle] }), ...(c.record && { record: { ...c.record } }), ...(c.needsEdit && { needsEdit: true }), ...(c.parent && { parent: c.parent }), ...(c.summary && { summary: c.summary }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), ...(c.debate && { debate: structuredClone(c.debate) }), created: c.created, updated: c.updated,
   }
 }
 const wireOf = (c: Stored): Chat => ({ ...rowOf(c), items: c.items.map((i) => ({ ...i })), always: (c.alwaysKeys ?? []).map((a) => a.label), todos: c.todos.map((x) => ({ ...x })), ...(c.trimmed && { trimmed: c.trimmed }) })
