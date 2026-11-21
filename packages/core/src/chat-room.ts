@@ -15,6 +15,17 @@ export function mentionsOf(text: string): (AgentKind | 'all')[] {
   return [...out]
 }
 
+/**
+ * 기록에서 에이전트를 부른 글인가 (11/21 시안 「기록과 에이전트의 경계」 안 A3): 메모에 @claude · @codex · @gemini를 적으면 그 에이전트가,
+ * 이름 없는 @(뒤가 빈칸 · 쌍점 · 끝)나 @모두는 기본 에이전트('default')가 읽고 답한다. 부르지 않은 글은 null (그냥 남기는 메모는 답하지 않는다)
+ */
+export function calledAgent(text: string): AgentKind | 'default' | null {
+  const named = mentionsOf(text)
+  const one = named.find((a): a is AgentKind => a !== 'all')
+  if (one) return one
+  return named.length || /(?:^|\s)@(?=$|[\s:：])/.test(text) ? 'default' : null
+}
+
 /** 받는 이: others = 방장이 아닌 부른 사람(방에 있는 사람만), host = 방장도 받는가. 부른 사람이 방에 없으면 방장이 받는다 */
 export function routeOf(text: string, room: Pick<RoomState, 'host' | 'members'>): { others: AgentKind[]; host: boolean; all: boolean } {
   const named = mentionsOf(text), all = named.includes('all')

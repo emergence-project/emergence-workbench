@@ -9,7 +9,7 @@ describe('record composer across tab changes', () => {
   })
   it('blocks a duplicate submit after remount and keeps another target independent', () => {
     const store = createRecordDraftStore()
-    store.write('r|note-a', { text: 'one', kind: '자동', color: 'blue', attachment: { quote: 'selected', line: 4 } })
+    store.write('r|note-a', { text: 'one', kind: '메모', color: 'blue', attachment: { quote: 'selected', line: 4 } })
     const save = store.begin('r|note-a', 'yellow')!
     expect(store.read('r|note-a', 'yellow').pending).toBe(save.id)
     expect(store.begin('r|note-a', 'yellow')).toBeNull()
@@ -20,7 +20,7 @@ describe('record composer across tab changes', () => {
   })
   it('preserves text and quote after failure and ignores stale completions', () => {
     const store = createRecordDraftStore()
-    const draft = { text: 'keep my text', kind: '질문' as const, color: 'blue' as const, attachment: { quote: 'original quote', line: 12 } }
+    const draft = { text: 'keep my text', kind: '할 일' as const, color: 'blue' as const, attachment: { quote: 'original quote', line: 12 } }
     store.write('a', draft)
     const first = store.begin('a', 'yellow')!
     store.finish('a', first, 'yellow', 'offline')

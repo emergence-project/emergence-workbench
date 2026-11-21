@@ -126,3 +126,6 @@ input.record-marker { accent-color: var(--text); }
 .record-fold { align-self: flex-start; margin-top: var(--sp-1); font-size: var(--fs-xs); }
 .record-clamp { max-height: calc(5 * 1.55em); overflow: hidden; }
 .record-more { align-self: flex-start; font-size: var(--fs-xs); }
+/* 입력란의 「할 일」 칩 (11/21 안 A3): 종류 줄 대신 켜고 끄는 버튼 하나. 켜면 선택 표시 */
+.record-todo-chip { flex: none; white-space: nowrap; color: var(--text-2); }
+.record-todo-chip.on { background: var(--bg-hover); border-color: var(--text-3); color: var(--text); font-weight: var(--fw-medium); }

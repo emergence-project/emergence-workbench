@@ -528,12 +528,12 @@ export class AgentChats {
    * 있으면 사용자가 기록에 이어 쓴 글을 그 대화에 보낸다. count = 지금 기록의 글 수: 이미 넘긴 글이면 아무것도 하지 않는다(null).
    * 차례가 잘 끝나면 마지막 답을 deps.recordAnswer가 기록에 적는다. 멈추면 적지 않고 맥락은 그대로 둔다.
    */
-  forRecord(rid: string, record: { target: string; id: string }, o: { kind: '질문' | '지시'; title: string; shown: string; first: string; reply?: { shown: string; prompt: string }; count: number }): Chat | null {
+  forRecord(rid: string, record: { target: string; id: string }, o: { kind: '질문' | '지시'; title: string; shown: string; first: string; reply?: { shown: string; prompt: string }; count: number; agent?: NewChatBody['agent'] }): Chat | null {
     const c = this.findRecord(rid, record.target, record.id)
     if (c && c.recordSent === o.count) return null
     if (!c) {
       // 대화에는 기록 글만 보이고, 에이전트는 지침까지 받는다
-      const made = this.create({ rid, text: o.shown, title: o.title, write: o.kind === '질문' ? 'read' : 'notes', mode: 'edit' }, { record }, o.first)
+      const made = this.create({ rid, text: o.shown, title: o.title, write: o.kind === '질문' ? 'read' : 'notes', mode: 'edit', ...(o.agent && { agent: o.agent }) }, { record }, o.first)
       const s = this.must(made.id)
       s.recordSent = o.count
       s.recordTurn = true

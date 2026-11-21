@@ -1,8 +1,11 @@
 import type { PaintColor } from './api'
 import type { RecordDraft } from './RecordContext'
 
-/** 입력란에서 고르는 종류. 지시는 11/21부터 에이전트 입력란에서만 보낸다(시안 「기록과 에이전트의 경계」 안 A). 예전 지시 기록은 그대로 보인다 */
-export const RECORD_KINDS = ['자동', '메모', '할 일', '질문'] as const
+/**
+ * 입력란의 종류 (11/21 시안 「기록과 에이전트의 경계」 안 A3): 고르는 줄은 없다. 쓰면 메모, 「할 일」 칩을 켜면 할 일,
+ * 글에 @claude처럼 에이전트를 부르면 서버가 질문으로 바꿔 그 에이전트에게 넘긴다. 지시는 에이전트 입력란에서만 보낸다(안 A)
+ */
+export const RECORD_KINDS = ['메모', '할 일'] as const
 export interface ComposerDraft { text: string; kind: typeof RECORD_KINDS[number]; attachment: RecordDraft; color: PaintColor }
 /** Merely reopening the composer must not remove a quote; only the explicit x does that. */
 export function attachRecordDraft(draft: ComposerDraft, attachment: RecordDraft, defaultColor: PaintColor): ComposerDraft {
@@ -12,7 +15,7 @@ export function attachRecordDraft(draft: ComposerDraft, attachment: RecordDraft,
 }
 interface DraftState { draft: ComposerDraft; pending: number | null; error: string | null }
 interface SaveTicket { id: number; draft: ComposerDraft }
-const emptyDraft = (color: PaintColor): ComposerDraft => ({ text: '', kind: '자동', attachment: {}, color })
+const emptyDraft = (color: PaintColor): ComposerDraft => ({ text: '', kind: '메모', attachment: {}, color })
 
 /** One pending write per target, even when the pane unmounts and mounts during the request. */
 export function createRecordDraftStore() {
