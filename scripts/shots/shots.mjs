@@ -254,13 +254,16 @@ try {
         return pixels?.some((alpha, i) => i % 4 === 3 && alpha > 0 && Math.min(pixels[i - 3] ?? 255, pixels[i - 2] ?? 255, pixels[i - 1] ?? 255) < 240)
       }, undefined, { timeout: 10_000, polling: 250 }).catch(() => {})
     }
-    // 누를 부위는 하나 또는 차례로 여럿. '['로 시작하면 그대로 선택자로 쓴다. '!'로 시작하면 다른 것에 가려 있어도 그 자리를 누른다
+    // 누를 부위는 하나 또는 차례로 여럿. '['로 시작하면 그대로 선택자로 쓴다. '!'로 시작하면 다른 것에 가려 있어도 그 자리를 누른다.
+    // 켜고 끄는 단추(aria-pressed)는 이미 켜져 있으면 누르지 않는다: 주소만 같은 앞 화면에서 켠 채로 이어지면 다시 눌러 꺼 버린다(상단바 갈래 아이콘, 11/21)
     for (const c0 of [click ?? []].flat()) {
       const force = c0.startsWith('!')
       const c = force ? c0.slice(1) : c0
       const sel = c.startsWith('[') ? c : `[data-ui="${c}"]`
       // 숨은 탭(열어 둔 다른 노트)에도 같은 부위가 있으니 보이는 것을 누른다
-      await page.locator(sel).filter({ visible: true }).first().click({ timeout: 10_000, force }).catch(() => problems.push(`${name}: ${sel}를 누르지 못함`))
+      const target = page.locator(sel).filter({ visible: true }).first()
+      if (sel.includes('data-mode=') && await target.getAttribute('aria-pressed', { timeout: 10_000 }).catch(() => null) === 'true') continue
+      await target.click({ timeout: 10_000, force }).catch(() => problems.push(`${name}: ${sel}를 누르지 못함`))
     }
     if (name === 'note-select') await page.locator('.note-ask p').filter({ visible: true }).first().click({ clickCount: 3, timeout: 10_000 }).catch(() => problems.push(`${name}: 본문 글을 고르지 못함`))
     const uiSel = ui && (ui.startsWith('[') ? ui : `[data-ui="${ui}"]`)

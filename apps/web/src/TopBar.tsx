@@ -3,23 +3,34 @@ import { Icon } from './icons'
 import { go, type Route } from './router'
 import { t } from './i18n'
 import { NoticeBell } from './NoticeBell'
+import type { RightMode } from './noteScreen'
+
+/** 오른쪽 사이드바 갈래 아이콘 (11/21 안 A: 사이드바 맨 위 탭 줄 대신 상단바 사이드바 단추 옆) */
+const MODE_ICON: Record<RightMode, [ReactNode, string, string]> = {
+  info: [Icon.info, '정보', 'Info'],
+  records: [Icon.comment, '기록', 'Records'],
+  agent: [Icon.spark, '에이전트', 'Agent'],
+  terminal: [Icon.terminal, '터미널', 'Terminal'],
+}
 
 /** 위치 표시의 한 칸: 누르면 그 화면으로 (to가 없으면 글자만) */
 export interface Crumb { label: string; to?: Route; title?: string }
 
 /**
- * 상단바 (10/5 시안 "상단바", 앱 것만): 왼쪽 사이드바 여닫기 · 뒤로 · 앞으로 · 위치 … 검색 · 두 칸 · 에이전트 · 피드백 | 오른쪽 사이드바 여닫기.
+ * 상단바 (10/5 시안 "상단바", 앱 것만): 왼쪽 사이드바 여닫기 · 뒤로 · 앞으로 · 위치 … 검색 · 두 칸 · 피드백 | 오른쪽 사이드바 갈래(정보 · 기록 · 에이전트 · 터미널) · 여닫기.
  * 위치는 "프로젝트 › 주제"까지(노트 이름은 탭 · 나무 · 제목이 보인다), 이름마다 그 화면으로 간다.
  * 아이콘만 두고 가리키면 이름과 키가 뜬다(data-tip). 켜진 것은 회색 바탕(.on).
  * 테마는 설정으로, 빠른 메모는 오른쪽 사이드바 메모와 M 키로, 두 칸 맞바꾸기는 칸 머리를 끌어서 한다.
  */
-export function TopBar({ crumbs, heading, leftToggle, sideOpen, onSide, project, split, onSplit, rightToggle, rightOpen, onRight, search, onSearch, feedback, onFeedback }: {
+export function TopBar({ crumbs, heading, leftToggle, sideOpen, onSide, project, split, onSplit, rightToggle, rightOpen, onRight, rightModes = [], rightMode, onRightMode, search, onSearch, feedback, onFeedback }: {
   crumbs: Crumb[]
   /** 화면에 h1이 없으면 마지막 위치를 제목으로 알린다 (에이전트·화면 읽기 프로그램용) */
   heading: boolean
   leftToggle: boolean; sideOpen: boolean; onSide(): void
   /** 프로젝트 화면이면 두 칸 · 오른쪽 사이드바 버튼을 보인다 */
   project: boolean; split: boolean; onSplit(): void; rightToggle: boolean; rightOpen: boolean; onRight(): void
+  /** 오른쪽 사이드바의 갈래 (둘 이상일 때 아이콘으로). 누르면 그 갈래로 열고, 열린 채 켜진 것을 다시 누르면 닫는다 */
+  rightModes?: RightMode[]; rightMode?: RightMode; onRightMode?(m: RightMode): void
   search: boolean; onSearch(): void
   feedback: boolean; onFeedback(): void
 }) {
@@ -52,6 +63,12 @@ export function TopBar({ crumbs, heading, leftToggle, sideOpen, onSide, project,
         <button className={`icon-btn fb-toggle${feedback ? ' on' : ''}${rightToggle ? '' : ' tip-end'}`} data-feedback-ui data-tip={t('피드백', 'Feedback')} aria-label={t('피드백 모드 — 화면 부위를 눌러 피드백 남기기', 'Feedback mode: click a part of the screen to leave feedback')} aria-pressed={feedback} onMouseDown={(e) => e.stopPropagation()} onClick={onFeedback}>{Icon.feedback}</button>
         {rightToggle && <>
           <span className="tb-sep" />
+          {rightModes.length > 1 && <span className="tb-modes" role="group" aria-label={t('오른쪽 사이드바 갈래', 'Right sidebar view')} data-ui="오른쪽 사이드바 갈래">
+            {rightModes.map((m) => {
+              const [icon, ko, en] = MODE_ICON[m], on = rightOpen && rightMode === m
+              return <button key={m} data-mode={m} className={`icon-btn tip-end${on ? ' on' : ''}`} data-tip={t(ko, en)} aria-label={t(ko, en)} aria-pressed={on} onClick={() => onRightMode?.(m)}>{icon}</button>
+            })}
+          </span>}
           <button className={`icon-btn tip-end${rightOpen ? ' on' : ''}`} data-ui="맥락 칸 켜고 끄기" data-tip={t('오른쪽 사이드바 (⌥⌘\\)', 'Right sidebar (⌥⌘\\)')} aria-label={t('오른쪽 사이드바 켜고 끄기', 'Toggle right sidebar')} aria-pressed={rightOpen} onClick={onRight}>{Icon.panelRight}</button>
         </>}
       </div>

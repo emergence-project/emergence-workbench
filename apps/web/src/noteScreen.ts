@@ -29,6 +29,32 @@ const mode = tiny<RightMode>(normalizeRightMode(store.get<string>(MODE_KEY, 'inf
 /** 에이전트 · 터미널 탭은 기억하지 않는다: 다시 열면 정보나 기록에서 시작한다(예전 패널도 닫힌 채 시작했다) */
 export function setRightMode(m: RightMode) { mode.set(m); if (m === 'info' || m === 'records') store.set(MODE_KEY, m) }
 export const useRightMode = () => useSyncExternalStore(mode.subscribe, mode.get)
+/** 지금 화면의 오른쪽 사이드바가 가진 갈래와 보이는 갈래. 상단바의 갈래 아이콘이 읽는다(11/21 안 A: 사이드바 맨 위 탭 줄을 상단바로).
+ *  사이드바를 닫아도 같은 화면(at = 주소)이면 마지막 것을 쓴다 */
+export interface OfferedModes { at: string; modes: RightMode[]; mode: RightMode }
+const offered = tiny<OfferedModes | null>(null)
+export function useOfferRightModes(modes: RightMode[], current: RightMode) {
+  const key = modes.join(','), at = location.hash
+  useEffect(() => { offered.set({ at, modes: modesOf(key), mode: current }) }, [key, current, at])
+}
+const MODES: readonly RightMode[] = ['info', 'records', 'agent', 'terminal']
+const isMode = (v: string): v is RightMode => MODES.some((m) => m === v)
+/** 'info,records' 같은 글을 갈래 목록으로 (빈 것은 버린다) */
+const modesOf = (key: string): RightMode[] => key.split(',').filter(isMode)
+/** 상단바 갈래 아이콘의 값(App.tsx, 11/21 안 A): 사이드바를 아직 열지 않은 화면은 guess(화면 종류로 짐작)를 쓴다.
+ *  알린 갈래가 다른 화면 것일 때도 guess다(쉼표로 이은 것도 됨).
+ *  누르면 그 갈래로 열고, 열린 채 보이는 갈래를 다시 누르면 닫는다 */
+export function useTopBarModes(open: boolean, toggle: () => void, guess: string[]) {
+  const shown = useSyncExternalStore(offered.subscribe, offered.get), chosen = useRightMode()
+  const here = shown && shown.at === location.hash ? shown : null
+  const rightMode = here ? here.mode : chosen
+  const onRightMode = (m: RightMode) => {
+    if (open && rightMode === m) { toggle(); return }
+    setRightMode(m)
+    if (!open) toggle()
+  }
+  return { rightModes: here ? here.modes : modesOf(guess.join(',')), rightMode, onRightMode }
+}
 /** 지금 고른 갈래 (OPEN_RIGHT를 듣는 쪽이 읽는다) */
 export const rightModeNow = () => mode.get()
 
