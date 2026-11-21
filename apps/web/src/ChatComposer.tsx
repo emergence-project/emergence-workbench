@@ -61,6 +61,13 @@ export const EFFORT_NAME: Record<ChatEffort, string> = { low: t('생각 얕게',
 export const effortLabel = (suffix: string) => Object.entries(EFFORT_NAME).find(([k]) => k === suffix)?.[1] ?? (suffix ? t(`생각 ${suffix}`, `Think ${suffix}`) : t('생각 기본', 'Default thinking'))
 /** 하나씩 바꿔 권한 이름의 기본값과 다를 때의 이름 */
 export const CUSTOM_NAME = t('직접 정함', 'Custom')
+/** 권한의 아이콘: 좁은 입력란에서는 이름 대신 이것만 보인다 (11/21 사용자 "아이콘을 두어 글을 생략", 한 줄로) */
+const TRUST_ICON: Record<Trust, ReactNode> = { read: Icon.eye, ask: Icon.ask, plan: Icon.list, edit: Icon.pencil }
+/** 생각 깊이: 막대 of개 가운데 level개가 진하다 (글 없이도 깊이가 보이게) */
+function EffortGauge({ level, of }: { level: number; of: number }) {
+  const w = 14 / of
+  return <svg className="ac-gauge" viewBox="0 0 16 16" aria-hidden>{Array.from({ length: of }, (_, i) => { const h = 4 + (9 * (i + 1)) / of; return <rect key={i} className={i < level ? 'on' : ''} x={1 + i * w} y={14.5 - h} width={Math.max(1.4, w - 1.2)} height={h} rx="0.7" /> })}</svg>
+}
 
 /** custom = 권한 표의 토글을 하나씩 바꿔 이름이 「직접 정함」, auto = 새 대화에 걸 자동 허용 (설정 › 에이전트에서 바꾼 때만, 11/9) */
 export interface Settings { trust: Trust; model: ChatModel; effort: ChatEffort; custom?: boolean; agent: string; auto?: { read: boolean; run: boolean; web: boolean }; /** Claude 계정 (11/16, 열린 대화만) */ account?: string }
@@ -377,6 +384,8 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
     : efforts.map((m) => ({ key: m, name: EFFORT_NAME[m], on: settings.effort === m, pick: { effort: m } }))
   const thinkingNow = variants.length > 1 ? (settings.model === 'default' ? t(`${effortLabel(fam.suffix)} (기본)`, `${effortLabel(fam.suffix)} (default)`) : effortLabel(fam.suffix)) : EFFORT_NAME[settings.effort]
 
+  const trustName = settings.custom ? CUSTOM_NAME : TRUST_NAME[settings.trust]
+
   return (
     <div className="ac-composer" data-ui="에이전트 입력란" onKeyDown={(e) => { if (e.target !== box.current) sendKey.onKeyDown(e) }} onDrop={onDrop} onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault() }}>
       {(all.length > 0 || images.length > 0) && (
@@ -427,7 +436,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
         <input ref={file} type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple hidden onChange={(e) => { void addImages([...(e.target.files ?? [])]); e.target.value = '' }} />
         {!room?.plain && <>
         {!noTrust && <>
-        <PopButton ui="맡기는 정도" tip={t('권한 (⇧⇥)', 'Permissions (⇧⇥)')} wide label={<>{settings.custom ? CUSTOM_NAME : TRUST_NAME[settings.trust]} ▾</>}>
+        <PopButton ui="맡기는 정도" tip={t(`권한: ${trustName} (⇧⇥)`, `Permissions: ${trustName} (⇧⇥)`)} wide label={<><span className="ac-pop-ico" aria-hidden>{settings.custom ? Icon.settings : TRUST_ICON[settings.trust]}</span><span className="ac-pop-text">{trustName} ▾</span></>}>
           {(close) => TRUSTS.filter((v) => v !== 'plan' || isClaude(settings.agent)).map((v) => (
             <button key={v} role="menuitemradio" aria-checked={settings.trust === v} className={`ac-pop-item${settings.trust === v ? ' on' : ''}`} onClick={() => { close(); onSettings({ trust: v }) }}>
               <span className="ac-pop-check" aria-hidden>{settings.trust === v ? Icon.check : null}</span>
@@ -441,7 +450,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
         </>}
         {/* 모델과 생각 깊이는 따로 (11/9 11:07): 왼쪽에서 모델을 고르고, 그 모델이 받는 깊이를 오른쪽에서 */}
         <span className="ac-compose-model">
-        <PopButton ui="모델 고르기" tip={t('에이전트 · 모델', 'Agent · model')} label={<>{!isClaude(settings.agent) && <><AgentChip agent={settings.agent} /> </>}{familyName(settings.model, models)} ▾</>}>
+        <PopButton ui="모델 고르기" tip={t('에이전트 · 모델', 'Agent · model')} label={<>{!isClaude(settings.agent) && <><AgentChip agent={settings.agent} /> </>}{familyName(settings.model, models)}<span className="ac-pop-text"> ▾</span></>}>
           {(close) => <>
             <AgentChoices agent={settings.agent} fixed={agentFixed} onPick={(a) => { close(); if (a !== settings.agent) onSettings(agentSwitch(a, settings.trust)) }} />
             <div className="ac-pop-h">{t('모델', 'Model')}</div>
@@ -459,7 +468,7 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
           </>}
         </PopButton>
         {thinking.length > 0 && (
-          <PopButton ui="생각 고르기" tip={t('생각 깊이', 'Thinking')} label={<>{thinkingNow} ▾</>}>
+          <PopButton ui="생각 고르기" tip={t(`생각 깊이: ${thinkingNow}`, `Thinking: ${thinkingNow}`)} label={<><EffortGauge level={thinking.findIndex((o) => o.on) + 1} of={thinking.length} /><span className="ac-pop-text">{thinkingNow} ▾</span></>}>
             {(close) => thinking.map((o) => <button key={o.key} role="menuitemradio" aria-checked={o.on} className={o.on ? 'on' : ''} onClick={() => { close(); onSettings(o.pick) }}><span className="ac-pop-check" aria-hidden>{o.on ? Icon.check : null}</span>{o.name}</button>)}
           </PopButton>
         )}
