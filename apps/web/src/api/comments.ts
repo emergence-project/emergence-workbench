@@ -31,6 +31,8 @@ export function commentsApi(rid: string) {
       req(`${t(target)}/${enc(id)}`, send('PATCH', change)).then((r) => json<CommentFileReply>(r)),
     /** 맥의 Claude(claude -p)에게 이 질문을 넘긴다. 답을 덧붙인 파일이 올 때까지(몇 분) 기다린다 */
     answer: (target: string, id: string) => req(`${t(target)}/${enc(id)}/answer`, { method: 'POST' }).then((r) => json<CommentFileReply>(r)),
+    /** 「고치게 하기」: 부른 에이전트가 고치는 일이라고 답한 기록의 대화가 노트를 고친다 (고친 것은 수정 검토로) */
+    fix: (target: string, id: string) => req(`${t(target)}/${enc(id)}/fix`, { method: 'POST' }).then((r) => json<CommentFileReply>(r)),
     /** 답에 든 고침(before/after)을 노트에 적용한다. answer: 답 번호, baseHash: 기록 파일 hash */
     apply: (target: string, id: string, answer: number, baseHash: string) =>
       req(`${t(target)}/${enc(id)}/apply`, send('POST', { answer, baseHash })).then((r) => json<CommentFileReply>(r)),

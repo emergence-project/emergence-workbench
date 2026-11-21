@@ -4,6 +4,7 @@ import path from 'node:path'
 import { readAiKey } from '../aiKey.js'
 import { agentAnswer, answeredBy, appendAnswer, applyAnswerFixes, askPrompt, claudeClassifierRunner, questionRunner, recordChatPrompt, replyToRecord } from '../ask.js'
 import { repeat } from '../scheduler.js'
+import { fixPrompt } from '../recordFix.js'
 import * as C from '@rw/core/contract/comments'
 import { calledAgent, LIBRARY_RID } from '@rw/core'
 import { parseBody, replies } from '../contract.js'
@@ -117,6 +118,21 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
   }
   app.post<{ Params: { rid: string; target: string; id: string } }>('/api/researches/:rid/comments/:target/:id/answer', replies(C.CommentFile), async (req): Promise<C.CommentFile> =>
     answerWithClaude(req.params.rid, req.params.target, req.params.id))
+
+  /** 「고치게 하기」 (11/21, recordFix.ts): 부른 에이전트가 고치는 일이라고 답한 기록의 대화를 노트 고칠 권한으로 이어 하게 한다. 고친 것은 수정 검토로 */
+  app.post<{ Params: { rid: string; target: string; id: string } }>('/api/researches/:rid/comments/:target/:id/fix', replies(C.CommentFile), async (req): Promise<C.CommentFile> => {
+    const { rid, target, id } = req.params
+    const f = readComments(recordsRoot(rid), target)
+    const q = f.comments.find((c) => c.id === id)
+    const chat = ctx.agentChats?.recordChat(rid, target, id)
+    if (!q || !chat?.needsEdit) throw new WorkbenchError(409, t('이 기록에는 고치게 할 답이 없습니다', 'This record has no answer to act on'))
+    const chats = ctx.agentChats!
+    chats.settings(chat.id, { write: 'notes' })
+    const shown = t('고치게 하기', 'Have it changed')
+    // count는 기록의 글 수와 겹치지 않는 값: 이 차례의 답도 기록에 적힌다
+    chats.forRecord(rid, { target, id }, { kind: '지시', title: chat.title, shown, first: fixPrompt(target.startsWith('concept-')), reply: { shown, prompt: fixPrompt(target.startsWith('concept-')) }, count: -(q.answers.length + 1) })
+    return f
+  })
 
   /*
    * 질문 · 지시를 맥의 Claude가 하는 때 (설정 › 에이전트, 10/16. 질문도 10/27 피드백): 바로(instant)면 남기거나 이어 쓸 때, 하루 한 번(daily)이면 고른 시각에.
