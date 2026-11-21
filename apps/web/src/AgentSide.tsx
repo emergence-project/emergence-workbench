@@ -74,7 +74,7 @@ function ChatPlaceNote() {
 function ServerSkewNote() {
   const skew = serverSkew(useQuery({ queryKey: qk.devices, queryFn: devicesApi.get, refetchInterval: 60_000 }).data?.devices)
   if (!skew) return null
-  return <p className="ac-place ac-skew" data-ui="서버 버전 다름">{t(`${skew.name}의 앱 버전(${skew.server})이 이 컴퓨터(${skew.here})와 다릅니다. 대화 화면이 맞지 않으면 두 컴퓨터를 새 버전으로 다시 시작하세요`, `The app on ${skew.name} (${skew.server}) differs from this computer (${skew.here}). If chat screens look wrong, restart both on the new version`)}</p>
+  return <p className="ac-place ac-skew" data-ui="서버 버전 다름">{t(`${skew.name}의 앱(${skew.server})이 이 컴퓨터(${skew.here})와 다릅니다: ${skew.gap}. 대화 화면이 맞지 않으면 두 컴퓨터를 새 버전으로 다시 시작하세요`, `The app on ${skew.name} (${skew.server}) differs from this computer (${skew.here}): ${skew.gap}. If chat screens look wrong, restart both on the new version`)}</p>
 }
 
 /** 맨 위 갈래 단추 (정보 | 에이전트 | 터미널). 터미널은 이 컴퓨터에서 연 화면만 */

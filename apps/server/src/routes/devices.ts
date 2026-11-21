@@ -6,6 +6,7 @@ import { parseBody, replies } from '../contract.js'
 import { machineName } from '../backup.js'
 import { logoutDevice, otherDevices, setDeviceAccounts, setDeviceLogout, thisDevice } from '../devices.js'
 import { BEAT_MS, DEVICE_KEY_HEADER, DeviceHub, deviceKeyOk, mergeDevices, readServerConfig, writeServerConfig, type ServerConfig } from '../deviceServer.js'
+import { deviceBuild } from '../deviceBuild.js'
 import { t } from '../i18n.js'
 import type { PhoneStatus } from '@rw/core/contract/phone'
 import type { Phone } from '../phone.js'
@@ -25,9 +26,9 @@ function sampleDevices(now: Date): C.Device[] {
   const ago = (min: number) => new Date(now.getTime() - min * 60_000).toISOString()
   const gh = { kind: 'github' as const, name: 'researcher' }
   return [
-    { name: 'studio', label: 'Mac Studio', this: true, online: true, seen: ago(0), version: '1a19a27', os: 'macOS 26.1', accounts: [gh, { kind: 'claude', plan: 'Max' }, { kind: 'claude', name: '답변용', plan: 'Pro' }, { kind: 'codex', plan: 'Plus' }, { kind: 'google' }] },
-    { name: 'laptop', label: 'MacBook Pro', this: false, online: true, live: true, seen: ago(1), version: '1a19a27', os: 'macOS 26.1', accounts: [gh, { kind: 'claude', plan: 'Pro' }] },
-    { name: 'mini', label: 'Mac mini', this: false, online: false, seen: ago(60 * 19), version: 'dc65a0e', os: 'macOS 15.6', accounts: [gh, { kind: 'claude', plan: 'Max' }, { kind: 'codex', plan: 'Plus' }] },
+    { name: 'studio', label: 'Mac Studio', this: true, online: true, seen: ago(0), version: '1a19a27', build: { pr: 622, at: '2026-11-21T07:58:00+09:00', behind: 0, ahead: 0 }, os: 'macOS 26.1', accounts: [gh, { kind: 'claude', plan: 'Max' }, { kind: 'claude', name: '답변용', plan: 'Pro' }, { kind: 'codex', plan: 'Plus' }, { kind: 'google' }] },
+    { name: 'laptop', label: 'MacBook Pro', this: false, online: true, live: true, seen: ago(1), version: '1a19a27', build: { pr: 622, at: '2026-11-21T07:58:00+09:00', behind: 0, ahead: 0 }, os: 'macOS 26.1', accounts: [gh, { kind: 'claude', plan: 'Pro' }] },
+    { name: 'mini', label: 'Mac mini', this: false, online: false, seen: ago(60 * 19), version: 'dc65a0e', build: { pr: 610, at: '2026-11-21T06:45:00+09:00', behind: 12, ahead: 0 }, os: 'macOS 15.6', accounts: [gh, { kind: 'claude', plan: 'Max' }, { kind: 'codex', plan: 'Plus' }] },
   ]
 }
 
@@ -65,7 +66,13 @@ export function registerDevices(app: FastifyInstance, ctx: RouteContext, deps: D
     const server: C.DeviceServer | null = cfg
       ? { machine: cfg.machine, ...(cfg.label && { label: cfg.label }), this: amServer, ...(!amServer && reach && (reach.error ? { error: reach.error } : { reached: reach.at })) }
       : null
-    return { shared, devices, server }
+    return { shared, devices: await withBuilds(devices), server }
+  }
+  /** 버전(커밋)을 업데이트 번호 · 시각 · 앞뒤 수로 (앱 저장소가 있을 때) */
+  const withBuilds = async (devices: C.Device[]): Promise<C.Device[]> => {
+    const repo = opts.appRepo
+    if (!repo) return devices
+    return Promise.all(devices.map(async (d) => { const b = d.version ? await deviceBuild(repo.root, d.version, repo.running) : null; return b ? { ...d, build: b } : d }))
   }
 
   app.get('/api/devices', replies(C.Devices), async (): Promise<C.Devices> => view())

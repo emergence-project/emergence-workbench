@@ -77,10 +77,25 @@ function ServerRow({ server, me, busy, onMake }: { server: DeviceServer | null; 
 
 /** 앱 버전이 이 기기와 다른가 (둘 다 알 때만). 버전이 어긋나면 서버에서 도는 대화 화면이 맞지 않을 수 있다 (11/21 맥북의 빈 화면) */
 export const versionDiffers = (d: Pick<Device, 'version' | 'this'>, me: Pick<Device, 'version'> | undefined): boolean => !d.this && !!d.version && !!me?.version && d.version !== me.version
+/** 앱 버전을 읽는 말로 (11/21): 마지막 업데이트 번호와 시각 "#622 · 11/21 07:58". 이 기기가 모르는 커밋이면 해시 그대로 */
+export function versionName(d: Pick<Device, 'version' | 'build'>): string {
+  const b = d.build
+  if (!b) return d.version ?? ''
+  const at = new Date(b.at)
+  const when = Number.isNaN(at.getTime()) ? '' : `${at.getMonth() + 1}/${at.getDate()} ${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`
+  return [b.pr ? `#${b.pr}` : d.version, when].filter(Boolean).join(' · ')
+}
+/** 이 기기와 얼마나 다른가: "업데이트 12개 뒤" · "3개 앞". 모르면 "버전 다름" */
+export function versionGap(d: Pick<Device, 'build'>): string {
+  const b = d.build
+  if (b && b.behind > 0 && b.ahead === 0) return t(`업데이트 ${b.behind}개 뒤`, `${b.behind} update(s) behind`)
+  if (b && b.ahead > 0 && b.behind === 0) return t(`업데이트 ${b.ahead}개 앞`, `${b.ahead} update(s) ahead`)
+  return t('버전 다름', 'Different version')
+}
 /** 서버 컴퓨터의 앱 버전이 이 기기와 다르면 그 둘 */
-export function serverSkew(devices: Device[] | undefined): { name: string; server: string; here: string } | null {
+export function serverSkew(devices: Device[] | undefined): { name: string; server: string; here: string; gap: string } | null {
   const me = devices?.find((x) => x.this), sv = devices?.find((x) => x.server)
-  return me?.version && sv?.version && versionDiffers(sv, me) ? { name: sv.label ?? sv.name, server: sv.version, here: me.version } : null
+  return me?.version && sv?.version && versionDiffers(sv, me) ? { name: sv.label ?? sv.name, server: versionName(sv), here: versionName(me), gap: versionGap(sv) } : null
 }
 
 function DeviceRow({ d, differs, onLogout }: { d: Device; differs?: boolean; onLogout?: () => void }) {
@@ -93,8 +108,8 @@ function DeviceRow({ d, differs, onLogout }: { d: Device; differs?: boolean; onL
         <div className="set-name">{d.label ?? d.name}{d.this && <small className="setup-sub">{t('이 기기', 'This device')}</small>}{d.server && <small className="setup-sub">{t('서버', 'Server')}</small>}</div>
         <div className="setup-desc dev-meta">
           <span>{state}</span>
-          {d.version && <span>{t(`앱 ${d.version}`, `App ${d.version}`)}</span>}
-          {differs && <span className="dev-differs" data-ui="기기 버전 다름" data-tip={t('이 기기와 앱 버전이 다릅니다. 그 컴퓨터에서 앱을 다시 시작해 새 버전으로 맞추세요', 'Its app version differs from this device. Restart the app there to bring it up to date')}>{t('버전 다름', 'Different version')}</span>}
+          {d.version && <span data-ui="기기 앱 버전" data-tip={d.build ? t(`마지막 업데이트 번호와 시각 (설정 › 업데이트 이력의 번호) · 커밋 ${d.version}`, `Last update number and time (as in Settings › Update history) · commit ${d.version}`) : undefined}>{t(`앱 ${versionName(d)}`, `App ${versionName(d)}`)}</span>}
+          {differs && <span className="dev-differs" data-ui="기기 버전 다름" data-tip={d.build?.ahead && !d.build.behind ? t('이 기기보다 새 버전입니다. 이 기기의 앱을 다시 시작해 새 버전으로 맞추세요', 'It is newer than this device. Restart the app here to bring this device up to date') : t('이 기기와 앱 버전이 다릅니다. 그 컴퓨터에서 앱을 다시 시작해 새 버전으로 맞추세요', 'Its app version differs from this device. Restart the app there to bring it up to date')}>{versionGap(d)}</span>}
           {d.os && <span>{d.os}</span>}
           {d.logout && <span>{t('로그아웃 대기: 다음 알림 때 합니다', 'Sign-out pending: on its next report')}</span>}
         </div>
