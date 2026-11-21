@@ -85,11 +85,11 @@ export function versionName(d: Pick<Device, 'version' | 'build'>): string {
   const when = Number.isNaN(at.getTime()) ? '' : `${at.getMonth() + 1}/${at.getDate()} ${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`
   return [b.pr ? `#${b.pr}` : d.version, when].filter(Boolean).join(' · ')
 }
-/** 이 기기와 얼마나 다른가: "업데이트 12개 뒤" · "3개 앞". 모르면 "버전 다름" */
+/** 이 기기와 얼마나 다른가: "업데이트 12개 남음" · "3개 앞섬". 모르면 "버전 다름" */
 export function versionGap(d: Pick<Device, 'build'>): string {
   const b = d.build
-  if (b && b.behind > 0 && b.ahead === 0) return t(`업데이트 ${b.behind}개 뒤`, `${b.behind} update(s) behind`)
-  if (b && b.ahead > 0 && b.behind === 0) return t(`업데이트 ${b.ahead}개 앞`, `${b.ahead} update(s) ahead`)
+  if (b && b.behind > 0 && b.ahead === 0) return t(`업데이트 ${b.behind}개 남음`, `${b.behind} update(s) behind`)
+  if (b && b.ahead > 0 && b.behind === 0) return t(`업데이트 ${b.ahead}개 앞섬`, `${b.ahead} update(s) ahead`)
   return t('버전 다름', 'Different version')
 }
 /** 서버 컴퓨터의 앱 버전이 이 기기와 다르면 그 둘 */
