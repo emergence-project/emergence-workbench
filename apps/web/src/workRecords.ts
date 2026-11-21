@@ -12,10 +12,10 @@ export const WORK_FILTERS = ['판단', '맡긴 일', '전체', '할 일', '메�
 export type WorkFilter = typeof WORK_FILTERS[number]
 /** 기록 › 모두의 종류: 전체 · 메모 · 할 일 · 질문 · 지시 · 맡긴 일 (10/15 지시를 더함, 10/21 작업 탭을 합쳐 맡긴 일도, 10/22 12:09 전체: 노트마다 적은 기록을 종류 없이 한 목록에). work는 옛 작업 탭에 저장된 값을 읽을 때만 */
 export type WorkSection = 'work' | 'records'
-export const SECTION_FILTERS: Record<WorkSection, readonly WorkFilter[]> = { work: ['판단', '맡긴 일'], records: ['전체', '메모', '할 일', '질문', '지시', '맡긴 일'] }
+export const SECTION_FILTERS: Record<WorkSection, readonly WorkFilter[]> = { work: ['판단', '맡긴 일'], records: ['전체', '메모', '할 일', '질문', '맡긴 일'] }
 /** 필터의 화면 이름 (값은 한국어 그대로 저장한다) */
 export const WORK_FILTER_LABEL = Object.fromEntries(WORK_FILTERS.map((f) => [f, kindLabel(f)])) as Record<WorkFilter, string>
-export const isRecordFilter = (f: WorkFilter): f is RecordFilter => f === '할 일' || f === '메모' || f === '질문' || f === '지시'
+export const isRecordFilter = (f: WorkFilter): f is RecordFilter => f === '할 일' || f === '메모' || f === '질문'
 export const WORK_FILTER_KEY: Record<WorkSection, string> = { work: 'rw-work-filter', records: 'rw-records-filter' }
 
 /** 기록 탭을 그 필터로 연다 (10/14 13:33 제안: 오른쪽 사이드바 기록의 "기록 탭에서 보기"). 이미 열린 기록 탭도 바뀐다 */
