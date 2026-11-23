@@ -3,7 +3,6 @@
 .fbp-agent .sp { flex: 1; }
 .fbp-agent-error { flex-basis: 100%; font-size: var(--fs-xs); }
 /* 맡은 대화가 일하는 중: 주고받은 대화 맨 아래, 방금 남긴 글 밑에 (11/20) */
-.fbp-replying { border-left: 2px solid var(--s-progress); padding: var(--sp-1) var(--sp-2); }
 /* 상단바 "#n 반영됨" (2단계 다): 피드백을 맡은 대화의 PR이 합쳐져 지금 앱에 들어왔을 때. 오른쪽 사이드 아이콘들 앞에 */
 /* 설정 줄 오른쪽의 select (다크에서도 읽히게 rs-select 바탕, 폭은 내용만큼) */
 .set-row .rs-select.set-select { width: auto; flex: none; }
@@ -17,3 +16,16 @@
 .fbp-entry .fbp-head .fbp-hand { position: absolute; top: var(--sp-2); right: calc(var(--sp-3) + (28px + var(--sp-1)) * (var(--fbp-fold) + var(--fbp-ed))); margin: 0; }
 .fbp-entry:has(.fbp-hand) .fbp-head { padding-right: calc((28px + var(--sp-1)) * (var(--fbp-fold) + var(--fbp-ed) + 1) + var(--sp-2)); }
 .fbp-head .fbp-agent-error { flex: 0 1 auto; flex-basis: auto; min-width: 0; }
+/* 맡은 대화 (11/23 "피드백 옆에 대화", 시안 feedback-chat): 주고받은 대화 옆 칸. 넓으면 두 칸, 좁으면 위아래 */
+.fbp-talk { container-type: inline-size; }
+.fbp-talk-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); align-items: start; }
+.fbp-talk-thread:empty { display: none; }
+@container (min-width: 760px) {
+  .fbp-talk-row:has(> .fbp-talk-thread:not(:empty)):has(> .fbc) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+.fbc { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.fbc-live { border-left: 2px solid var(--s-progress); }
+.fbc-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); max-height: 420px; overflow-y: auto; }
+.fbc-me { align-self: flex-end; max-width: 85%; background: var(--bg-sunken); border-radius: var(--r-md); padding: var(--sp-1) var(--sp-2); }
+.fbc-steps { font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fbc-empty { margin: 0; font-size: var(--fs-xs); }

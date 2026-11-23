@@ -80,7 +80,7 @@ export const DEFAULT_SCREENS = [
   ['feedback-mode-pane', '#/r/{rid}/edits', '[data-feedback-ui].fb-pop', ['묻기 버튼', '[data-tip="피드백"]', '![data-ui="고침 대화"]']],
   // 확인 필요: 반려한 것을 다시 처리한 항목을 펼쳐 주고받은 기록과 승인·반려를 찍는다 (fixtures/sandbox-feedback)
   ['feedback', '#/feedback', '주고받은 기록', ['피드백 줄']],
-  // 전후 그림 크게 보기 (10/13): 그림이 있는 항목을 펼쳐 전 그림을 누른 모습. 승인을 기다리는 항목이라 대화는 접혀 있다 (11/9)
+  // 전후 그림 크게 보기 (10/13): 그림이 있는 항목을 펼쳐 전 그림을 누른 모습. 11/23부터 시안과 한 창: 위 줄에 전 · 후 · 시안, 오른쪽에 대화와 답 칸
   ['feedback-gallery', '#/feedback', '전후 그림', ['[data-ui="피드백 줄"][data-ui-item^="2026-10-04 09:30"]', '[data-ui="전후 그림"] button']],
   // 에이전트 대화 (10/21): 예제 실행기(agentSample.ts)가 계획 승인을 묻는 대화(계획 먼저)를 찍기 전에 만든다 (shots.mjs, {chat}). 오른쪽 사이드바 자리의 패널은 상단바 반짝이
   ['agent', '#/agent/{chat}', '계획 카드'],
@@ -90,7 +90,7 @@ export const DEFAULT_SCREENS = [
   ['agent-app', '#/agent/{appchat}', '대화 PR'],
   // 크게 본 시안 아래의 지시 칸 (11/23 피드백 "아티팩트처럼 바로 지시"): 예제 실행기가 남긴 시안을 눌러 연 모습
   ['agent-mockup-say', '#/agent/{appchat}', '시안 지시', ['[data-ui="시안"] .ac-mockup-pic']],
-  // 크게 본 피드백 시안 (11/23 피드백 "논의는 오른쪽에 그림은 왼쪽"): (앞 화면과 주소가 달라야 새로 열린다) 결정을 묻는 항목의 시안을 눌러 「논의」 글칸을 연 모습
+  // 크게 본 피드백 시안 (11/23 피드백 "논의는 오른쪽에 그림은 왼쪽"): (앞 화면과 주소가 달라야 새로 열린다) 결정을 묻는 항목의 시안을 눌러 「논의」 글칸을 연 모습. 전후 그림과 같은 창
   ['feedback-mockup-decide', '#/feedback', '시안 논의', ['[data-ui="피드백 줄"][data-ui-item^="2026-10-04 14:30"]', '[data-ui="피드백 시안"] .ac-mockup-pic', '[data-ui="시안 논의"]']],
   // 사이드바 아이콘 줄의 「>_」로 오른쪽 칸을 터미널로 바꾼 모습 (11/19 B1, 11/23부터 사이드바 안)
   ['agent-terminal', '#/agent/{done}', '터미널 칸', '터미널 버튼'],

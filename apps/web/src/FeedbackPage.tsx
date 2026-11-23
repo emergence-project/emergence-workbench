@@ -6,7 +6,8 @@ import { Icon } from './icons'
 import { MemoText } from './memo'
 import { onListKey } from './listInput'
 import { SayCard } from './Conversation'
-import { ApproveButton, BeforeAfter, ClaimLine, Compose, FeedbackMockups, HandlingPictures, resultToApprove } from './FeedbackAnswer'
+import { ApproveButton, ClaimLine, Compose, resultToApprove } from './FeedbackAnswer'
+import { BeforeAfter, FeedbackMockups, HandlingPictures } from './FeedbackViewer'
 import { askConfirm } from './askText'
 import { feedbackConversation, latestReply, lockedBefore, splitThread, summaryAt, summaryRows, tagKey, type ThreadStep } from './feedbackThread'
 import { FeedbackFocus, FocusMissing, useFeedbackFocus, useFocusOpen, useIsFocus } from './feedbackFocus'
@@ -21,6 +22,7 @@ import { href } from './router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { qk } from './queries'
 import { AgentLine } from './FeedbackAgentLine'
+import { FeedbackChat } from './FeedbackChat'
 import { flash } from './flash'
 import { FeedbackTurnSplit, type FeedbackRowAct } from './FeedbackTurnSplit'
 const FEEDBACK_STATE = [...qk.feedback, 'state'] as const, FEEDBACK_UNPUBLISHED = [...qk.feedback, 'unpublished'] as const
@@ -269,17 +271,21 @@ function Entry({ e, showDate, onFold }: { e: FeedbackItem; showDate?: boolean; o
           : <span className="fbp-target">{uiShown(e.target)}</span>}
         <span className="sp" />
         {/* 「에이전트에게 맡기기」는 머리 줄 오른쪽에 (10/28 07:38: 버튼 하나 때문에 항목이 길어짐) */}
-        <AgentLine e={e} part="button" />
+        <AgentLine e={e} />
         {/* 10/4 20:43 "접기도 아이콘으로, 오른쪽 끝에" */}
         {onFold && <button className="icon-btn fbp-foldback" data-ui="접기" data-tip={t('접기', 'Collapse')} aria-label={t('접기', 'Collapse')} onClick={onFold}>{Icon.fold}</button>}
       </div>
       {e.status?.clean ? <CleanText e={e} /> : e.source ? <div className="fbp-text"><MemoText text={e.text} /></div> : <FeedbackText e={e} locked={!!e.status} />}
-      <AgentLine e={e} part="line" /><ClaimLine e={e} />
+      <ClaimLine e={e} />
       {needsAnswer(e) && <div className="fbp-ask" data-ui="물음"><b>{t('Claude가 묻는 것', 'Claude asks')}</b> {e.status!.ask}</div>}
       {e.status && <Summary e={e} onOpinion={resultToApprove(e) && talk === 'closed' ? () => setTalk('focus') : undefined} />}
-      {(e.status || e.comments) && <Conversation e={e} shut={!showTalk} onOpen={(o) => setTalk(o ? 'open' : 'closed')} />}
-      {/* 맡은 대화가 일하는 중이면 대화 맨 아래, 방금 남긴 글 바로 밑에 (11/20 논의) */}
-      <AgentLine e={e} part="replying" />
+      {/* 주고받은 대화 옆에 그 항목을 맡은 에이전트 대화 (11/23): 넓으면 두 칸, 좁으면 위아래 */}
+      <div className="fbp-talk">
+        <div className="fbp-talk-row">
+          <div className="fbp-talk-thread">{(e.status || e.comments) && <Conversation e={e} shut={!showTalk} onOpen={(o) => setTalk(o ? 'open' : 'closed')} />}</div>
+          <FeedbackChat e={e} open={showTalk} />
+        </div>
+      </div>
       {e.merged && (
         <details className="fbp-merged" data-ui="합친 코멘트">
           <summary>{t(`같은 지적 ${e.merged.length}건을 이 항목으로 합침`, `Merged ${plural(e.merged.length, 'duplicate')} into this item`)} · {e.merged.map((m) => `${m.date.slice(5)} ${m.time}`).join(', ')}</summary>
@@ -325,7 +331,7 @@ function Summary({ e, onOpinion }: { e: FeedbackItem; onOpinion?(): void }) {
           {[...revised].reverse().map((h) => (
             <div key={h.at} className="fbp-summary-old">
               <span className="muted">{whenOf(h.handled_at ?? h.at)}</span>
-              {(['understood', 'cause', 'note'] as const).map((f) => h[f] && <div key={f} className="fbp-summary-row"><b>{FIELD_NAME[f]}</b><span className="fbp-summary-text">{h[f]}</span><span /></div>)}<BeforeAfter pictures={h.pictures} />
+              {(['understood', 'cause', 'note'] as const).map((f) => h[f] && <div key={f} className="fbp-summary-row"><b>{FIELD_NAME[f]}</b><span className="fbp-summary-text">{h[f]}</span><span /></div>)}<BeforeAfter e={e} pictures={h.pictures} />
             </div>
           ))}
         </details>
