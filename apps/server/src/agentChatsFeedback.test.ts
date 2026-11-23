@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { appBriefFor, feedbackPrompt, pictureImage, type AgentRunner, type RunEvent, type RunInput } from './agentChats.js'
 import { buildApp } from './app.js'
 import { FeedbackChats } from './agentFeedbackTick.js'
+import { DeviceHub } from './deviceServer.js'
 import { DEFAULT_AGENT_SETTINGS, agentTurns, type AgentSettings } from '@rw/core'
 import { sampleAppWork, type AppWork } from './appWorktree.js'
 import { addFeedbackComment, appendFeedback, listAllFeedback, writeFeedbackAnswer } from './feedback.js'
@@ -385,6 +386,22 @@ describe('자동 처리: 쌓인 대기를 한 번에 맡기기 (11/20 22:37 제�
     const chats = make(1)
     await chats.pickFeedback()
     expect(chats.list().length).toBe(1)
+  })
+
+  it('자리가 차면 피드백 돕기를 켠 맥에 그 맥의 자리만큼 맡긴다 (11/23 안 A)', async () => {
+    const hub = new DeviceHub()
+    hub.beat({ name: 'laptop', seen: '', accounts: [], helper: { slots: 1, busy: 0, keys: [] } })
+    const chats = new FeedbackChats({
+      dir: path.join(tmp, 'chats-help'), runner, limit: 1,
+      project: () => ({ repo: tmp, title: 'x' }), readable: () => [], extraDirs: () => [], notify: () => {},
+      app: sampleAppWork(path.join(tmp, 'wt-help')), feedback: { dir: fb, helpers: hub }, settings: () => ({ ...DEFAULT_AGENT_SETTINGS, feedback: 'instant' }),
+    })
+    await chats.pickFeedback()
+    expect(chats.list()).toHaveLength(1)
+    const sent = hub.beat({ name: 'laptop', seen: '', accounts: [], helper: { slots: 1, busy: 0, keys: [] } }).feedback
+    expect(sent.length).toBeGreaterThan(0)
+    expect(sent.some((k) => keysIn(chats).includes(k))).toBe(false)
+    expect(hub.free()).toBeUndefined()
   })
 
   it('서버로 정한 컴퓨터가 따로 있으면 이 컴퓨터는 저절로 맡지 않는다 (11/20)', async () => {

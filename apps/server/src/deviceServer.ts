@@ -4,7 +4,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
-import type { Device, DeviceRecord } from '@rw/core/contract/devices'
+import type { Device, DeviceBeat } from '@rw/core/contract/devices'
 
 export interface ServerConfig { machine: string; label?: string; url: string; secret: string; at: string }
 export const SERVER_FILE = '_settings/server.yaml'
@@ -34,14 +34,38 @@ export function writeServerConfig(dir: string, c: Omit<ServerConfig, 'secret' | 
   return cfg
 }
 
-/** 서버 쪽: 다른 컴퓨터가 알린 기기와 걸어 둔 로그아웃 */
+/** 피드백 돕기를 켠 맥 하나 (서버가 본 값). queued = 맡겼고 아직 답으로 보내지 않음, sent = 지난 답으로 보냄 (다음 알림의 busy에 아직 없을 수 있다) */
+interface Helper { slots: number; busy: number; keys: string[]; queued: string[]; sent: string[]; at: number }
+
+/**
+ * 서버 쪽: 다른 컴퓨터가 알린 기기와 걸어 둔 로그아웃, 그리고 피드백 돕기 (11/23 안 A).
+ * 맡길지는 서버 한 곳이 정한다: 서버의 자리가 차면 저절로 맡기기가 켜져 있는 돕는 맥(free)에 맡기고(assign), 그 맥이 다음에 알릴 때 답으로 받아 시작한다.
+ * 돕는 맥이 LIVE_MS 동안 알리지 않거나 돕기를 끄면 lapsed가 그 맥의 항목을 돌려준다: 서버가 맡음을 풀고 다시 맡기며, 그 맥이 다시 알리면 drop으로 그 대화를 멈춘다
+ */
 export class DeviceHub {
-  private beats = new Map<string, { rec: DeviceRecord; at: number }>()
+  private beats = new Map<string, { rec: Device; at: number }>()
   private logouts = new Set<string>()
-  beat(rec: DeviceRecord, now = Date.now()): { logout: boolean } {
-    this.beats.set(rec.name, { rec: { ...rec, seen: new Date(now).toISOString() }, at: now })
+  private helpers = new Map<string, Helper>()
+  /** 서버가 맡음을 푼 항목: 그 맥이 다시 알리면 멈추라고 보낸다 */
+  private drops = new Map<string, Set<string>>()
+  /** 돕기를 끈 맥에 맡겼지만 보내지 못한 항목 (다음 lapsed가 돌려준다) */
+  private orphans = new Map<string, string[]>()
+  beat(beat: DeviceBeat, now = Date.now()): { logout: boolean; feedback: string[]; drop: string[] } {
+    const { helper, ...rec } = beat
+    const was = this.helpers.get(rec.name)
+    let feedback: string[] = []
+    if (helper) {
+      feedback = was?.queued ?? []
+      this.helpers.set(rec.name, { slots: helper.slots, busy: helper.busy, keys: [...helper.keys], queued: [], sent: feedback, at: now })
+    } else if (was) {
+      this.helpers.delete(rec.name)
+      if (was.queued.length) this.orphans.set(rec.name, [...(this.orphans.get(rec.name) ?? []), ...was.queued])
+    }
+    this.beats.set(rec.name, { rec: { ...rec, seen: new Date(now).toISOString(), this: false, online: true, ...(helper && { helper: { slots: helper.slots, busy: helper.busy } }) }, at: now })
     const logout = this.logouts.delete(rec.name)
-    return { logout }
+    const drop = [...(this.drops.get(rec.name) ?? [])]
+    this.drops.delete(rec.name)
+    return { logout, feedback, drop }
   }
   requestLogout(name: string): void { this.logouts.add(name) }
   pending(name: string): boolean { return this.logouts.has(name) }
@@ -49,7 +73,32 @@ export class DeviceHub {
   live(now = Date.now()): Device[] {
     return [...this.beats.values()].map(({ rec, at }) => ({ ...rec, this: false, online: now - at < LIVE_MS, live: true, ...(this.logouts.has(rec.name) && { logout: true }) }))
   }
+  /** 자리가 남은 돕는 맥 (켜져 있고 가장 많이 남은 것). 없으면 undefined */
+  free(now = Date.now()): string | undefined {
+    const room = (h: Helper) => h.slots - Math.max(h.busy, h.keys.length) - h.sent.length - h.queued.length
+    return [...this.helpers.entries()].filter(([, h]) => now - h.at < LIVE_MS && room(h) > 0).sort(([, a], [, b]) => room(b) - room(a))[0]?.[0]
+  }
+  /** 돕는 맥에 피드백을 맡긴다 (한 대화에 묶을 항목들). 그 맥의 다음 알림 답으로 간다 */
+  assign(name: string, keys: string[]): void { this.helpers.get(name)?.queued.push(...keys) }
+  /** 늦은(LIVE_MS 동안 알리지 않은) 돕는 맥과 돕기를 끈 맥의 항목: 서버가 그 맥 이름의 맡음을 풀고 다시 맡긴다. 한 번만 돌려준다 */
+  lapsed(now = Date.now()): { name: string; keys: string[] }[] {
+    const out: { name: string; keys: string[] }[] = []
+    for (const [name, h] of this.helpers) {
+      if (now - h.at < LIVE_MS) continue
+      this.helpers.delete(name)
+      const keys = [...new Set([...h.keys, ...h.sent, ...h.queued])]
+      if (!keys.length) continue
+      out.push({ name, keys })
+      this.drops.set(name, new Set([...(this.drops.get(name) ?? []), ...h.keys, ...h.sent]))
+    }
+    for (const [name, keys] of this.orphans) out.push({ name, keys })
+    this.orphans.clear()
+    return out
+  }
 }
+
+/** 기기 관리와 피드백 돕기가 함께 쓰는 하나 */
+export const hubOf = (ctx: { deviceHub?: DeviceHub }): DeviceHub => (ctx.deviceHub ??= new DeviceHub())
 
 /**
  * 기기 목록을 합친다: 이 컴퓨터 + (서버가 본 기기 | 개인 저장소의 마지막 값). 서버가 본 것이 앞선다.

@@ -24,6 +24,11 @@ export type FeedbackPick = (typeof FEEDBACK_PICKS)[number]
 export const FEEDBACK_MERGES = ['green', 'approved', 'never'] as const
 export type FeedbackMerge = (typeof FEEDBACK_MERGES)[number]
 export const FEEDBACK_MINUTES = [10, 20, 30, 60] as const
+/**
+ * 피드백 돕기 (11/23 피드백 "이 맥에서도 에이전트가 피드백을 처리하게", 안 A): 서버가 아닌 맥이 서버의 자리가 찼을 때 넘치는 피드백을
+ * 한 번에 몇 개까지 맡을지. 0 = 돕지 않음. 이 맥의 값이라 서버로 보내지 않는다 (맡길지는 서버가 정한다, deviceServer.ts의 DeviceHub)
+ */
+export const FEEDBACK_HELPERS = [0, 1, 2, 3] as const
 
 /**
  * 에이전트마다 (11/9 사용자 결정 "Claude가 쓰고 Codex가 검토", 시안 https://claude.ai/artifact/3rzyEjiuLgnmBvmWLJoER8 2절).
@@ -48,6 +53,8 @@ export interface AgentSettings {
   feedback: FeedbackPick
   merge: FeedbackMerge
   minutes: number
+  /** 피드백 돕기: 서버가 넘칠 때 이 맥이 한 번에 맡는 수 (0 = 끔) */
+  helper: number
   per: Record<AgentPrefKind, AgentPref>
   review: ReviewMode
 }
@@ -59,7 +66,7 @@ export const DEFAULT_AGENT_PREFS: Record<AgentPrefKind, AgentPref> = {
   gemini: { trust: 'ask', role: 'write' },
 }
 
-export const DEFAULT_AGENT_SETTINGS: AgentSettings = { instructions: 'manual', questions: 'manual', at: '09:00', feedback: 'manual', merge: 'green', minutes: 30, per: DEFAULT_AGENT_PREFS, review: 'off' }
+export const DEFAULT_AGENT_SETTINGS: AgentSettings = { instructions: 'manual', questions: 'manual', at: '09:00', feedback: 'manual', merge: 'green', minutes: 30, helper: 0, per: DEFAULT_AGENT_PREFS, review: 'off' }
 
 /** 저장된 값이나 요청 값을 믿지 않고, 고를 수 있는 값만 남긴다 */
 export function normalizeAgentSettings(raw: unknown, current?: AgentSettings): AgentSettings {
@@ -75,6 +82,7 @@ export function normalizeAgentSettings(raw: unknown, current?: AgentSettings): A
     feedback: (FEEDBACK_PICKS as readonly unknown[]).includes(src.feedback) ? src.feedback as FeedbackPick : base.feedback,
     merge: (FEEDBACK_MERGES as readonly unknown[]).includes(src.merge) ? src.merge as FeedbackMerge : base.merge,
     minutes: (FEEDBACK_MINUTES as readonly unknown[]).includes(src.minutes) ? src.minutes as number : base.minutes,
+    helper: FEEDBACK_HELPERS.find((h) => h === src.helper) ?? base.helper ?? 0,
     per: normalizePrefs(src.per, base.per),
     review: has(REVIEW_MODES, src.review) ? src.review : base.review,
   }
