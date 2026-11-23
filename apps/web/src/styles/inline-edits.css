@@ -17,3 +17,8 @@
 .ie .ae-md p { margin: 0 0 var(--sp-1); }
 .ie-cur .ae-edit { width: 100%; }
 .ie-edit-acts { display: flex; justify-content: flex-end; gap: var(--sp-1); margin-top: var(--sp-1); }
+
+/* 기록 안의 제안 카드 (11/23): 좁은 칸에서는 받기 · 버리기를 둘째 줄 오른쪽에 함께 둔다 (받기만 다음 줄로 떨어졌다) */
+.ie .ns-head { justify-content: flex-end; }
+.ie .ns-head .ns-tag { margin-right: auto; }
+.ie .ns-head .sp { flex: 1 0 100%; height: 0; }

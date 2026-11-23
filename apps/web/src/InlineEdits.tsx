@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { agentEditsApi, type EditAction, type EditHunk, type EditReview } from './api'
 import { useConceptRender } from './ConceptNotes'
 import { onlySpacing, paintDiff } from './diffPaint'
+import { SuggestionCard } from './NoteSuggestions'
 import { ObsidianMarkdown, type RenderOptions } from './ObsidianMarkdown'
 import { useAgentEdits } from './projectQueries'
 import { qk } from './queries'
@@ -12,14 +13,19 @@ import { go } from './router'
 
 /**
  * 기록 안의 수정 검토 (10/28 사용자 정정 "이동하지 않고 사이드바에서"): 기록의 대화가 고친 노트의 바뀐 곳을 기록 아래에 펼친다.
- * 좁은 칸이라 전 · 후를 위아래로 두고, 승인 · 되돌리기 · 고치기는 수정 검토 화면과 같은 일을 한다(같은 API)
+ * 좁은 칸이라 전 · 후를 위아래로 두고, 승인 · 되돌리기 · 고치기는 수정 검토 화면과 같은 일을 한다(같은 API).
+ * 내가 쓴 문단을 고친 것은 파일에 쓰이지 않고 제안으로 남으므로(agentSuggest), 그 제안 카드도 여기에 보인다 (11/23: 펼치면 비어 보였다)
  */
 export function InlineEdits({ rid, files }: { rid: string; files: string[] }) {
-  const reviews = useAgentEdits(rid).data?.reviews
+  const edits = useAgentEdits(rid).data, reviews = edits?.reviews
+  const options = useConceptRender(rid)
   // 옛 배치(notes/)와 주제 폴더 경로가 섞여도 노트 폴더 이름으로 맞춘다 (수정 검토의 고친 대화 줄과 같게)
   const folder = (f: string) => f.split('/').slice(-2).join('/')
   const rows = reviews?.filter((r) => r.target.kind === 'note' && files.some((f) => f === (r.target as { file: string }).file || folder(f) === folder((r.target as { file: string }).file))) ?? []
+  const mine = (f: string) => files.some((x) => x === f || folder(x) === folder(f))
+  const held = edits?.suggestions.filter((s) => s.target.kind === 'note' && mine(s.target.file)) ?? []
   if (!reviews) return <p className="muted ie-empty">…</p>
+  if (held.length) return <div className="ie" data-ui="기록 안 수정 검토">{rows.map((r) => <InlineReview key={r.key} k={r.key} title={r.title} rid={rid} />)}{held.map((s) => <SuggestionCard key={s.id} s={s} rid={rid} options={options} />)}</div>
   if (!rows.length) return <p className="muted ie-empty">{t('검토할 고친 곳이 없습니다 (모두 승인했거나 되돌림).', 'No changes left to review (all approved or reverted).')}</p>
   return <div className="ie" data-ui="기록 안 수정 검토">{rows.map((r) => <InlineReview key={r.key} k={r.key} title={r.title} rid={rid} />)}</div>
 }

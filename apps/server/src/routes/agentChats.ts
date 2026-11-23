@@ -107,7 +107,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     ...(runner ? runner.review && { review: runner.review } : { review: (o: OneShot) => codexAsk(registry.configDir, o.cwd, o.prompt, undefined, o) }),
     ...(ctx.opts.appRepo && { inApp: ((repo) => commitChecker(repo.root, () => repo.running))(ctx.opts.appRepo) }),
     recordAnswer: (rid, rec, text, edits) => {
-      const changed = edits.length ? [t('고친 곳 (아래 「고친 곳 검토」에서 승인):', 'Changed (approve under "Review changes" below):'), ...edits.map((e) => `- ${e.file} +${e.added} −${e.removed}`)].join('\n') : ''
+      const changed = edits.length ? [t('고친 곳 (아래 「고친 곳 검토」에서 승인. 내가 쓴 문단은 제안으로 남아, 받아야 노트에 씁니다):', 'Changed (approve under "Review changes" below; paragraphs you wrote stay as suggestions until you take them):'), ...edits.map((e) => `- ${e.file} +${e.added} −${e.removed}`)].join('\n') : ''
       agentAnswer(ctx.recordsRoot(rid), rec.target, rec.id, 'claude', [text, changed].filter(Boolean).join('\n\n'))
     },
   }, centralMemo())
