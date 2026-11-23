@@ -1,9 +1,11 @@
+import { ScreenLayoutFigure } from '../../aboutFigures'
 import type { AboutSection } from '../types'
 
 // 소개 › project › 화면의 짜임. 한국어(ko)와 영어(en)는 같은 모양으로 함께 고치고, prs(이 절을 고친 PR)는 ko에만 적는다.
 
 export const ko: AboutSection = {
   title: '화면의 짜임', prs: [103, 104, 118, 137, 142, 143, 158, 160, 166, 218, 228, 249, 279, 309, 313, 316, 367, 427],
+  figure: <ScreenLayoutFigure />,
   items: [
     { text: <>레일의 홈 아래에 프로젝트마다 머리글자 버튼이 있어 바로 갑니다. 버튼이 창 높이에 다 들어가지 않으면 들어가는 만큼만 보이고, 그 아래 <b>+n</b> 버튼이 나머지 프로젝트를 메뉴로 엽니다(11/20). 지금 연 프로젝트는 늘 보이고, 숨은 프로젝트의 확인 수는 +n 버튼에 합쳐 보입니다. 창이 아주 낮으면 ＋ 등록도 그 메뉴로 갑니다.</> },
     { text: <>레일 버튼의 주황 수는 확인 항목이 있다는 표시입니다: 프로젝트 버튼은 확인이 필요한 노트 · 판단할 맡긴 일 · 수정 검토(에이전트 고침) · 내 차례 기록(에이전트가 물어 내 답을 기다리는 기록)의 합, 피드백은 확인 필요(확인 항목은 없고 아직 GitHub에 등록하지 않은 피드백만 있으면 수 대신 주황 점), 소개는 확인할 곳. 가리키면 무엇을 세는지 나옵니다. 네트워킹의 아직 보지 않은 등록 추천은 답할 것이 아니라 소식이라 수 없이 파란 점으로 붙고(11/23, 알림 종의 새 소식과 같은 색), 네트워킹을 열면 사라집니다.</> },
@@ -18,6 +20,7 @@ export const ko: AboutSection = {
 
 export const en: AboutSection = {
   title: 'Screen layout',
+  figure: <ScreenLayoutFigure />,
   items: [
     { text: <>Below Home on the rail, each project has an initials button that takes you straight there. When the buttons do not fit the window height, only those that fit are shown and a <b>+n</b> button below them opens the rest in a menu (11/20). The open project is always shown, and the review counts of hidden projects add up on the +n button. In a very short window, ＋ Register moves into that menu too.</> },
     { text: <>An orange count on a rail button means there is something to review: on a project button, the sum of notes needing review, delegated tasks to decide, agent edits to review and your-turn records (an agent asked and waits for your answer); on Feedback, Needs review (an orange dot instead of a count when nothing needs review but some feedback is not yet registered on GitHub); on About, places to review. Hover to see what is counted. Suggested people you have not seen yet are news, not something to answer, so Networking gets a blue dot without a count (11/23, the same color as new news in the bell); it goes away once you open Networking.</> },

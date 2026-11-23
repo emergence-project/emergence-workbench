@@ -50,6 +50,35 @@ export function DocMapFigure() {
   )
 }
 
+/** 화면의 짜임 (11/23 "화면 짜임에 그림을"): 상단바 아래 레일 · 왼쪽 사이드바 · 주 패널 · 옆 패널 · 오른쪽 사이드바 */
+export function ScreenLayoutFigure() {
+  const area = (name: string, sub: string, tabs?: string) => (
+    <div className="sl-area"><b>{name}</b>{tabs && <span className="sl-tabs">{tabs}</span>}<span className="muted">{sub}</span></div>
+  )
+  return (
+    <figure className="about-fig about-layout" aria-label={t('화면의 짜임: 위에 상단바, 그 아래 왼쪽부터 레일, 왼쪽 사이드바, 주 패널, 옆 패널, 오른쪽 사이드바', 'Screen layout: the top bar above; below it from the left the rail, left sidebar, main pane, side pane and right sidebar')}>
+      <div className="sl-win">
+        <div className="sl-top">
+          <span className="sl-ico">{Icon.panelLeft}{Icon.back}{Icon.forward}</span>
+          <span className="sl-where"><b>{t('상단바', 'Top bar')}</b> <span className="muted">{t('프로젝트 › 주제', 'Project › Topic')}</span></span>
+          <span className="sl-ico">{Icon.bell}{Icon.search}{Icon.split}{Icon.feedback}{Icon.panelRight}</span>
+        </div>
+        <div className="sl-body">
+          <div className="sl-rail" title={t('레일', 'Rail')}>
+            <i>{Icon.home}</i><span className="sl-pj">AB</span><span className="sl-pj">CD</span><span className="sl-more">+n</span>
+            <span className="sl-gap" /><i>{Icon.library}</i><i>{Icon.feedback}</i>
+          </div>
+          {area(t('왼쪽 사이드바', 'Left sidebar'), t('프로젝트 정보 · 작업 · 기록 · 수정 검토 · 흐름 · 주제 › 노트 · 자료', 'Project info · Work · Records · Edit review · Flows · Topic › Note · Materials'), t('프로젝트 | 파일 | 목차', 'Project | Files | Outline'))}
+          {area(t('주 패널', 'Main pane'), t('고른 화면. 위에 탭 바', 'The chosen screen, with a tab bar on top'), t('탭', 'Tabs'))}
+          {area(t('옆 패널', 'Side pane'), t('함께 볼 PDF · 논문 (두 패널)', 'PDF or paper to read alongside (Two panes)'), t('탭', 'Tabs'))}
+          {area(t('오른쪽 사이드바', 'Right sidebar'), t('지금 연 노트의 정보 · 기록, 이 프로젝트의 에이전트 대화', 'Info and records of the open note, this project\'s agent conversations'), t('정보 | 기록 | 에이전트', 'Info | Records | Agents'))}
+        </div>
+      </div>
+      <figcaption className="muted">{t('맨 왼쪽 레일은 홈 · 프로젝트 머리글자 · 라이브러리 · 피드백으로 가는 버튼. 두 사이드바는 상단바 양 끝 버튼(⌘\\ · ⌥⌘\\)으로 여닫고, 옆 패널은 두 패널을 켰을 때만 보입니다', 'The rail at the far left has buttons for Home, project initials, the libraries and Feedback. The two sidebars open and close with the buttons at both ends of the top bar (⌘\\ · ⌥⌘\\); the side pane shows only with Two panes on')}</figcaption>
+    </figure>
+  )
+}
+
 /** 글의 종류 표 */
 export const DOC_KINDS: { name: string; what: string; format: string; where: ReactNode }[] = [
   { name: t('원고', 'Manuscript'), what: t('결과를 모으는 개인 초고. 공동 집필·투고는 Overleaf', 'Personal draft gathering results. Co-writing and submission in Overleaf'), format: 'LaTeX', where: <>{c('research.yaml')}의 {c('sources.manuscript')}</> },
