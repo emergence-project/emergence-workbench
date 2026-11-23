@@ -13,6 +13,7 @@ code:
   - apps/web/src/FeedbackSend.tsx
   - apps/web/src/FeedbackPage.tsx
   - apps/web/src/FeedbackAnswer.tsx
+  - apps/web/src/FeedbackViewer.tsx
   - apps/web/src/feedbackDraft.ts
 ---
 
@@ -42,11 +43,12 @@ code:
 | web | `apps/web/src/FeedbackMode.tsx` | 피드백 모드: 부위(`data-ui`) 강조, 누른 부위 · 화면 그림 · 고른 글 모으기 |
 | web | `apps/web/src/FeedbackSend.tsx` | 남기기 창: 유형 고르기(필수) · 글 · 그림 |
 | web | `apps/web/src/FeedbackPage.tsx` | 모아 보기 표: 확인 필요 · 대기 · 완료 · 전체, 줄 펼치기 |
-| web | `apps/web/src/FeedbackAnswer.tsx` | 처리에 답하기: 승인 · 반려 · 진행 · 중단 · 논의, 코멘트 |
+| web | `apps/web/src/FeedbackAnswer.tsx` | 처리에 답하기: 승인 · 반려 · 진행 · 중단 · 논의, 코멘트 (`Compose`의 `prefix`로 크게 본 그림에서 보낸 글 앞에 「후 그림:」 등을 붙인다) |
+| web | `apps/web/src/FeedbackViewer.tsx` | 전후 그림과 시안을 한 창으로 크게 보기(11/23): 위 줄에서 전 · 후 · 시안 고르기, 오른쪽에 대화와 답 칸, 대화 칸 접기 |
 | web | `apps/web/src/feedbackDraft.ts` | 적던 글 보존 |
 | web | `apps/web/src/feedbackFocus.tsx` | 항목 하나의 주소 `#/feedback/<키>`: 필터를 풀고 그 항목을 펼쳐 그 자리로 내리기 |
 
-처리 · 답에 붙인 시안(`mockups`)은 `apps/server/src/feedbackMockups.ts`가 에이전트 작업 폴더 `mockups/`에서 `pictures/`로 옮겨 적고, `apps/web/src/FeedbackMockups.tsx`가 작은 그림 · 크게 넘겨 보기 · html 새 창 · 「이 시안으로 진행」 · 「논의」로 보인다. 작업 폴더가 없는 앱이면 시안 파일을 `pictures/`에 바로 두고 `mockups`에 이름만 적어도 된다.
+처리 · 답에 붙인 시안(`mockups`)은 `apps/server/src/feedbackMockups.ts`가 에이전트 작업 폴더 `mockups/`에서 `pictures/`로 옮겨 적고, `apps/web/src/FeedbackMockups.tsx`가 작은 그림 · html 새 창 · 「이 시안으로 진행」 · 「논의」로 보이고, 크게 넘겨 보기는 전후 그림과 함께 `FeedbackViewer.tsx`가 맡는다. 작업 폴더가 없는 앱이면 시안 파일을 `pictures/`에 바로 두고 `mockups`에 이름만 적어도 된다.
 
 ## 옮기는 순서
 

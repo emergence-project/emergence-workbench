@@ -1,8 +1,5 @@
 import { useEffect, useState } from 'react'
 import { api, type FeedbackItem } from './api'
-import { PictureGallery, type GalleryPicture } from './PictureGallery'
-import { FeedbackMockups } from './FeedbackMockups'
-import { latestReply } from './feedbackThread'
 import { ComposeBox } from './Conversation'
 import { asksUser, feedbackBucket, stateOf } from './feedbackBuckets'
 import { t } from './i18n'
@@ -41,44 +38,6 @@ export function ApproveButton({ e, onOpinion }: { e: FeedbackItem; onOpinion?():
   )
 }
 
-export { FeedbackMockups }
-
-/**
- * 지금 처리의 전후 그림: 누르면 크게 띄워 ← →로 넘겨 본다 (10/13 진행).
- * 그 아래 지금 처리와 그 뒤 답에 붙은 시안 (11/19): 답할 수 있으면 크게 본 채로 「이 시안으로 진행」 · 「논의」
- */
-export function HandlingPictures({ e }: { e: FeedbackItem }) {
-  const mockups = e.status && [...(e.status.mockups ?? []), ...(latestReply(e.status)?.mockups ?? [])]
-  return (
-    <>
-      <BeforeAfter pictures={e.status?.pictures} />
-      <FeedbackMockups e={e} paths={mockups} decide={answerable(e)} />
-    </>
-  )
-}
-
-/** 한 처리의 전후 그림 [전, 후]: 지금 처리와 고친 이력이 함께 쓴다 */
-export function BeforeAfter({ pictures }: { pictures?: string[] }) {
-  const [big, setBig] = useState<number | null>(null)
-  const gallery: GalleryPicture[] = (pictures ?? []).slice(0, 2).map((p, k) => ({
-    src: `/api/feedback/picture?path=${encodeURIComponent(p)}`,
-    label: k ? t('후', 'After') : t('전', 'Before'),
-    alt: k ? t('고친 뒤 화면', 'Screen after the fix') : t('수정 전 화면', 'Screen before the fix'),
-  }))
-  if (!gallery.length) return null
-  return (
-    <div className="fbp-pictures" data-ui="전후 그림">
-      {gallery.map((g, k) => (
-        <figure key={g.src}>
-          <button type="button" className="fbp-picture" data-tip={t('크게 보기', 'View larger')} aria-label={`${t('크게 보기', 'View larger')}: ${g.alt}`} onClick={() => setBig(k)}><img src={g.src} alt={g.alt} /></button>
-          <figcaption className="muted">{g.label}</figcaption>
-        </figure>
-      ))}
-      {big !== null && <PictureGallery pictures={gallery} start={big} onClose={() => setBig(null)} />}
-    </div>
-  )
-}
-
 /**
  * 아래 입력란 (10/8 시안 · 11/8 시안 N7ik 3절): 승인이 아닌 의견은 여기서 종류를 고르고 글을 적어 「보내기」. 의견은 주고받은 대화에 남는다.
  * - 결과를 알린 답(반영 · 답변 · 거절 · 나중에): 진행 · 질문 · 논의 · 반려. 승인은 위 지금 처리 카드에.
@@ -87,14 +46,16 @@ export function BeforeAfter({ pictures }: { pictures?: string[] }) {
  * - 끝났거나 관리자 차례가 아니면 질문만.
  * 질문(자료 값 코멘트) · 반려 · 논의는 글이 있어야 보낸다. 진행 · 중단은 글 없이도 보내고, 글이 있으면 함께 적힌다.
  * 질문은 처리를 그대로 두고 묻는다(관리자가 답만 한다). 반려 · 진행 · 논의는 다시 처리하게 돌려보낸다(논의는 고치지 않고 시안 · 물음으로). 중단은 그대로 끝낸다.
+ * prefix: 크게 본 전후 그림 옆에서 쓰면 "후 그림:"처럼 무엇을 보고 적었는지 글 앞에 붙인다 (FeedbackViewer.tsx). 적던 글은 아래 입력란과 따로 남는다
  */
 type Opinion = '코멘트' | '반려' | '진행' | '중단' | '논의'
 const NEEDS_TEXT: Opinion[] = ['반려', '논의', '코멘트']
 const unsentAnswers = new Map<string, string>()
-export function Compose({ e, focus }: { e: FeedbackItem; focus?: boolean }) {
+export function Compose({ e, focus, prefix }: { e: FeedbackItem; focus?: boolean; prefix?: string }) {
   // 적던 답은 다른 항목 · 다른 화면을 보고 와도 남는다 (보내면 지움, 앱을 다시 열면 없음)
-  const [text, setText] = useState(() => unsentAnswers.get(e.key) ?? '')
-  useEffect(() => { if (text) unsentAnswers.set(e.key, text); else unsentAnswers.delete(e.key) }, [e.key, text])
+  const draft = prefix ? `${e.key}\n${prefix}` : e.key
+  const [text, setText] = useState(() => unsentAnswers.get(draft) ?? '')
+  useEffect(() => { if (text) unsentAnswers.set(draft, text); else unsentAnswers.delete(draft) }, [draft, text])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [picked, setPicked] = useState<Opinion | null>(null)
@@ -104,7 +65,8 @@ export function Compose({ e, focus }: { e: FeedbackItem; focus?: boolean }) {
   const canSend = !NEEDS_TEXT.includes(choice) || !!text.trim()
   const send = () => {
     setBusy(true)
-    ;(choice === '코멘트' ? api.commentFeedback(e.key, text) : api.reviewFeedback(e.key, choice, text))
+    const body = prefix && text.trim() ? `${prefix} ${text.trim()}` : text
+    ;(choice === '코멘트' ? api.commentFeedback(e.key, body) : api.reviewFeedback(e.key, choice, body))
       .then(() => { setText(''); setPicked(null); setError(null) }, (err: Error) => setError(err.message)).finally(() => setBusy(false))
   }
   // 관리자 차례(처리 전 · 코멘트에 답하기 전 · 다시 처리하기 전)에는 입력란을 두지 않는다 (10/10 13:02)
