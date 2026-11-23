@@ -199,12 +199,15 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-side-tabs { position: sticky; top: calc(-1 * var(--sp-3)); z-index: 1; flex: none; display: flex; align-items: center; gap: 2px; margin: calc(-1 * var(--sp-3)) calc(-1 * var(--sp-3)) 0; padding: var(--sp-1) var(--sp-2); border-bottom: 1px solid var(--line); background: var(--bg); }
 .ac-term-col .ac-side-tabs { position: static; margin: 0; }
 .ac-side-tab { min-width: 28px; height: 28px; padding: 0 var(--sp-2); border-radius: var(--r-sm); display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1); color: var(--text-2); font-size: var(--fs-xs); }
+.ac-side-tab.end { margin-left: auto; }
+.ac-side-tab.end ~ .ac-side-tab.end { margin-left: 0; }
 .ac-side-tab:hover { background: var(--bg-hover); color: var(--text); }
 .ac-side-tab.on { background: var(--bg-hover); color: var(--text); }
 .ac-side-tab svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-/* 대화 머리의 「✓ 해결 · 보관」 (종료된 대화에만) */
-.ac-resolve { gap: var(--sp-1); white-space: nowrap; }
-.ac-resolve svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* 검토 칸의 검토자 고르기 */
+.ac-review-pick { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); margin: var(--sp-1) 0; }
+.ac-review-who { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); }
 .ac-changes-btn { gap: var(--sp-1); white-space: nowrap; }
 .ac-changes-btn.on, .ac-head .btn.on { background: var(--bg-hover); }
 .ac-head-menu { right: 0; top: calc(100% + var(--sp-1)); }

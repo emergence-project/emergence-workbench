@@ -63,7 +63,7 @@ export interface AgentSettings {
 export const DEFAULT_AGENT_PREFS: Record<AgentPrefKind, AgentPref> = {
   'claude-code': { trust: 'edit', role: 'write' },
   codex: { trust: 'ask', role: 'both' },
-  gemini: { trust: 'ask', role: 'write' },
+  gemini: { trust: 'ask', role: 'both' },
 }
 
 export const DEFAULT_AGENT_SETTINGS: AgentSettings = { instructions: 'manual', questions: 'manual', at: '09:00', feedback: 'manual', merge: 'green', minutes: 30, helper: 0, per: DEFAULT_AGENT_PREFS, review: 'off' }
@@ -98,7 +98,7 @@ function normalizePrefs(raw: unknown, base: Record<AgentPrefKind, AgentPref>): R
     const b = base[k] ?? DEFAULT_AGENT_PREFS[k]
     const v = rec(src[k])
     const trust = has(AGENT_TRUSTS, v.trust) && (v.trust !== 'plan' || k === 'claude-code') ? v.trust : b.trust
-    const role = k === 'claude-code' ? 'write' : has(AGENT_ROLES, v.role) && (v.role === 'write' || k === 'codex') ? v.role : b.role
+    const role = k === 'claude-code' ? 'write' : has(AGENT_ROLES, v.role) ? v.role : b.role
     const a = rec(v.auto)
     const auto = v.auto === null ? undefined : typeof a.read === 'boolean' && typeof a.run === 'boolean' && typeof a.web === 'boolean' ? { read: a.read, run: a.run, web: a.web } : b.auto
     return { trust, role, ...(auto && { auto }) }

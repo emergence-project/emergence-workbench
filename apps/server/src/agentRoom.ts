@@ -14,6 +14,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { CENTRAL_RID, DEBATE_DEFAULT, RoomState as RoomStateSchema, VerdictEntry as VerdictEntrySchema, type AgentKind, type VerdictEntry, type Chat, type ChatItem, type ChatMessageBody, type CentralState, type DebateSeat, type RoomMember, type RoomPerm, type RoomRules, type RoomState } from '@rw/core/contract/agentChats'
 import { clip, LIVE, type AgentChatsDeps, type Stored } from './agentChats.js'
+import { readOnlyAsk } from './agentReviewers.js'
 import { CentralChats } from './agentCentral.js'
 import type { CentralMemoDeps } from './agentTidy.js'
 import { ROOM_NAME, routeOf, verdictOf } from '@rw/core'
@@ -189,14 +190,7 @@ export class RoomChats extends CentralChats {
     const cwd = this.deps.project(CENTRAL_RID).repo, pick = { ...(seat?.model && seat.model !== 'default' && { model: seat.model }), ...(seat?.effort && { effort: seat.effort }) }
     if (agent === 'codex' && this.deps.review) return this.deps.review({ prompt, cwd, ...pick })
     const run = agent !== 'claude-code' ? this.deps.others?.[agent] : undefined
-    if (run) {
-      const ac = new AbortController(), out: string[] = []
-      for await (const e of run({ prompt, mode: 'edit', model: seat?.model ?? 'default', effort: seat?.effort ?? 'medium', cwd, extraDirs: [], brief: '', write: 'read', signal: ac.signal, canUseTool: async () => ({ allow: false, message: 'Read only in the room: answer in text.' }) })) {
-        if (e.type === 'text' && !e.sub) out.push(e.text)
-        if (e.type === 'result' && !e.ok && e.error && !out.length) throw new Error(e.error)
-      }
-      return out.join('\n\n')
-    }
+    if (run) return readOnlyAsk(run, prompt, cwd, { ...(seat?.model && { model: seat.model }), ...(seat?.effort && { effort: seat.effort }) })
     const side = this.deps.runner.side
     if (!side) throw new WorkbenchError(404, t(`여기서는 ${nameOf(agent)}에게 물을 수 없습니다`, `${nameOf(agent)} cannot be asked here`))
     return side({ prompt, cwd, ...pick })

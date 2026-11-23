@@ -14,11 +14,12 @@
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import { APP_RID, CENTRAL_RID, startModel } from '@rw/core/contract/agentChats'
+import { APP_RID, CENTRAL_RID, startModel, type Reviewer } from '@rw/core/contract/agentChats'
 import type { AppChecks, AppSubmitBody, AppSubmitted, AskAnswer, Attach, CentralOpenBody, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
 import { appEnv, notStarted, personalReadable, type AppWork, type Snap } from './appWorktree.js'
 export { appEnv } from './appWorktree.js'
 import { autoCustom, autoOf, type AgentSettings } from '@rw/core'
+import { fillReview, reviewerName, reviewerOf } from './agentReviewers.js'
 import { HERE, t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
 import { FRESH_MS } from './appMemory.js'
@@ -677,20 +678,19 @@ export class AgentChats {
     return { text: clip(text, 4000) }
   }
 
-  /** 다른 에이전트의 검토 (11/9 "Claude가 쓰고 Codex가 검토"): 읽기만 하는 Codex의 답을 카드로 붙인다. 넘기기 전에는 대화의 맥락에 들지 않는다 */
-  review(id: string, auto = false): Chat {
+  /** 다른 에이전트의 검토 (agentReviewers.ts): 고른 검토자마다 따로 읽기만 하며 묻고 카드를 하나씩 붙인다. 읽는 중인 검토자는 건너뛴다 */
+  review(id: string, auto = false, by: readonly Reviewer[] = ['codex']): Chat {
     const c = this.must(id)
-    const ask = this.deps.review
-    if (!ask) throw new WorkbenchError(404, t(`${HERE.ko}에서는 Codex 검토를 쓸 수 없습니다`, `Codex review is not available on ${HERE.en}`))
-    if (c.items.some((it) => it.kind === 'review' && it.text === undefined && !it.error)) throw new WorkbenchError(409, t('이미 검토하는 중입니다', 'A review is already running'))
+    const can = by.filter((a) => reviewerOf(a, this.deps))
+    if (!can.length) throw new WorkbenchError(404, t(`${HERE.ko}에서는 ${by.map(reviewerName).join(' · ')} 검토를 쓸 수 없습니다`, `${by.map(reviewerName).join(', ')} review is not available on ${HERE.en}`))
+    const free = can.filter((a) => !c.items.some((it) => it.kind === 'review' && it.by === a && it.text === undefined && !it.error))
+    if (!free.length) throw new WorkbenchError(409, t('이미 검토하는 중입니다', 'A review is already running'))
     const { prompt, edits } = reviewPrompt(c)
-    const it: Extract<ChatItem, { kind: 'review' }> = { kind: 'review', at: now(), by: 'codex', edits, ...(auto && { auto }) }
-    this.push(c, it)
-    const t0 = Date.now()
-    void ask({ prompt, cwd: this.cwdOf(c) })
-      .then((a) => { it.text = clip(a.trim() || t('(검토가 비었습니다)', '(empty review)'), MAX_TEXT) })
-      .catch((e: Error) => { it.error = clip(e.message, 500) })
-      .finally(() => { it.seconds = Math.round((Date.now() - t0) / 1000); this.touch(c) })
+    const cwd = this.cwdOf(c)
+    for (const a of free) {
+      const it: Extract<ChatItem, { kind: 'review' }> = { kind: 'review', at: now(), by: a, edits, ...(auto && { auto }) }
+      this.push(c, it); fillReview(reviewerOf(a, this.deps)!, prompt, cwd, it, () => this.touch(c))
+    }
     return wireOf(c)
   }
 

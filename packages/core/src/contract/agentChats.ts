@@ -295,6 +295,10 @@ export const NewChatBody = z.object({
 export const ChatMessageBody = z.object(message).strict()
 /** POST /agent-chats/:id/side: 곁 질문 */
 export const SideBody = z.object({ text: z.string().trim().min(1).max(4000) }).strict()
+/** 검토할 에이전트 (11/23 "여러 에이전트에게 동시 검토, 각각 독립 검토"): 고른 에이전트마다 따로 읽고 카드를 하나씩 붙인다. 없으면 Codex */
+export const REVIEWERS = ['codex', 'gemini'] as const
+export type Reviewer = (typeof REVIEWERS)[number]
+export const ReviewBody = z.object({ by: z.array(z.enum(REVIEWERS)).min(1).max(REVIEWERS.length).optional() }).strict()
 export const ForgetBody = z.object({ label: z.string().min(1) }).strict()
 /** note = 거절하며 할 말(에이전트에게 그대로 간다), mode = 계획을 승인하며 이어 갈 맡기는 정도(ask · edit) */
 export const AskAnswerBody = z.object({ ask: z.string().min(1), answer: z.enum(ASK_ANSWERS), note: z.string().trim().max(4000).optional(), mode: z.enum(CHAT_MODES).optional() }).strict()
@@ -377,6 +381,7 @@ export type ImageIn = z.infer<typeof ImageIn>
 export type ChatSettings = z.infer<typeof ChatSettings>
 export type ChatMessageBody = z.input<typeof ChatMessageBody>
 export type SideBody = z.infer<typeof SideBody>
+export type ReviewBody = z.infer<typeof ReviewBody>
 export type ChatMode = (typeof CHAT_MODES)[number]
 export type ChatModel = z.infer<typeof ChatModel>
 export type ModelChoice = z.infer<typeof ModelChoice>

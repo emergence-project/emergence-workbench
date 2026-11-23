@@ -28,7 +28,7 @@ import { PermTable } from './AgentPermTable'
 import { AppFixHint, ProjectPick, RecentChats, scopeName } from './AgentProjectPick'
 import { ChatHerePick, useChatHere } from './ChatHere'
 import { AgentChip, agentOf, effortsOf, familyName, familyOf, fitEffort, isClaude, useChatSettings, useModels, useNewChatAccount } from './AgentPick'
-import { isReviewCommand, ReviewButton, ReviewCard, ReviewPane, useReviewer } from './AgentReview'
+import { isReviewCommand, ReviewButton, ReviewCard, ReviewPane } from './AgentReview'
 import { CENTRAL_PAGE, CentralBoard, CentralBoardButton, CentralLine, CentralStart } from './CentralChat'
 import { HostWho, hostWhoAt, MemberItem, RoomItem, RoomManage, RoomStrip, useComposerRoom, VerdictLog } from './CentralRoom'; import { DebateEnd, DebateLine, DebateMember, DebatePanel, DebateStrip, debateComposer } from './Debate'
 import { APP_HINT, ATTACH_NAME, ChatQuoteMenu, Composer, CUSTOM_NAME, EFFORT_NAME, effortLabel, PopButton, settingsOf, sideQuestion, TRUST_NAME, trustOf, type Fill, type Settings } from './ChatComposer'
@@ -482,12 +482,11 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
           {chat.archived && <span className="tag">{chat.machine ?? t('보관함', 'Archived')}</span>}
         </div>}
       </div>
-      <ChatStateMark state={shownState(chat)} label={!compact} name={!compact && inBackground(chat) ? STATE_NAME.running : sname} />
-      {/* 「종료」(에이전트 차례가 끝남)는 해결이 아니다: 사용자가 해결로 보면 보관함에 넣는다 (11/23 피드백, 토론의 「토론 끝내기」와 같은 자리) */}
+      {/* 상태는 색 아이콘만 (11/23 사용자 결정: 목록 줄과 같이, 이름은 가리키면). 차례가 끝난 대화는 아무것도 없고 옆의 해결 아이콘이 그 뜻 */}
+      <ChatStateMark state={shownState(chat)} name={!compact && inBackground(chat) ? STATE_NAME.running : sname} />
+      {/* 차례가 끝난 것은 해결이 아니다: 사용자가 해결로 보면 동그라미 체크로 보관함에 넣는다 (11/23 피드백 시안 chat-resolve-circle 1, 토론의 「토론 끝내기」와 같은 자리) */}
       {chat.state === 'idle' && !chat.tasks && !chat.archived && !chat.machine && !chat.debate && chat.rid !== CENTRAL_RID && (
-        <button className="btn sm ac-resolve" data-ui="해결 보관 버튼" data-tip={t('해결된 대화로 보고 보관함에 넣습니다 (보관함에서 꺼낼 수 있음)', 'Mark it resolved and move it to the archive (you can take it back out)')} onClick={() => void archive(true)}>
-          {Icon.check}{t('해결 · 보관', 'Resolve · archive')}
-        </button>
+        <button className="icon-btn sm ac-resolve" data-ui="해결 보관 버튼" data-tip={t('해결 (보관함으로)', 'Resolve (to the archive)')} aria-label={t('해결 (보관함으로)', 'Resolve (to the archive)')} onClick={() => void archive(true)}>{Icon.approve}</button>
       )}
       {/* 사이드바가 있는 에이전트 화면에서는 변경사항 · 검토가 사이드바 아이콘 줄에 있다 (11/23 시안 chat-head-icons 안 B) */}
       {!!chat.changed.length && !compact && !onPane && (
