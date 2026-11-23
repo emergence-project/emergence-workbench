@@ -21,15 +21,24 @@ export const CENTRAL_PAGE = 'central'
 
 const useCentral = () => useQuery({ queryKey: qk.agentCentral, queryFn: () => agentChatsApi.central() })
 
-/** 대화 목록 맨 위의 「중앙」 줄: 작업 현황의 남음 · 내 차례 · 정체 */
+/**
+ * 대화 목록 맨 위의 「중앙」 줄 (11/21 피드백, 시안 central-line-right 안 C):
+ * 이름 줄 오른쪽에 주황 글로 「결정 n · 멈춤 n」(0인 쪽은 숨김, 둘 다 0이면 비움), 아래 줄은 늘 설명글
+ */
 export function CentralLine({ row, on, onOpen }: { row?: ChatRow; on: boolean; onOpen?(id: string): void }) {
   const { counts } = useBoard()
+  const need = row ? [
+    counts.decide > 0 && t(`결정 ${counts.decide}`, `${counts.decide} to decide`),
+    counts.stopped > 0 && t(`멈춤 ${counts.stopped}`, `${counts.stopped} stopped`),
+  ].filter(Boolean).join(' · ') : ''
   return (
     <button className={`nav ac-line ac-central${on ? ' on' : ''}`} data-ui="중앙 대화 줄" onClick={() => (onOpen ? row && onOpen(row.id) : go({ page: 'agent', id: row?.id ?? CENTRAL_PAGE }))}>
-      <span className="ac-line-top"><span className="ac-line-dot">{row && <ChatStateMark state={shownState(row)} name={stateName(row)} />}</span><span className="label">{t('중앙', 'Central')}</span></span>
+      <span className="ac-line-top">
+        <span className="ac-line-dot">{row && <ChatStateMark state={shownState(row)} name={stateName(row)} />}</span><span className="label">{t('중앙', 'Central')}</span>
+        {need && <span className="ac-central-need" title={t('결정: 내 답을 기다림 · 멈춤: 오류 · 멈춤 · 차례 끝남 · 정체', 'To decide: waits for your answer · Stopped: error, stopped, turn ended or stalled')}>{need}</span>}
+      </span>
       <span className="ac-line-meta">
-        {row ? <CountLine counts={counts} />
-          : onOpen ? t('아래 입력란에 말하면 중앙이 열립니다', 'Type below to start the central conversation') : t('질문 · 앱 고치기 · 프로젝트 작성을 한곳에서', 'Questions, app fixes and project writing in one place')}
+        {!row && onOpen ? t('아래 입력란에 말하면 중앙이 열립니다', 'Type below to start the central conversation') : t('질문 · 앱 고치기 · 프로젝트 작성을 한곳에서', 'Questions, app fixes and project writing in one place')}
       </span>
     </button>
   )
