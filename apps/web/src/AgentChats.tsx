@@ -179,7 +179,7 @@ function useChatActions(id: string) {
   return { rename, remove }
 }
 
-/** 고른 대화 여러 개를 보관 · 꺼내기 · 지우기 (지우기는 보관한 것만, 한 번 묻고) */
+/** 고른 대화 여러 개를 보관 · 복원 · 지우기 (지우기는 보관한 것만, 한 번 묻고) */
 export function useBulkChats() {
   const client = useQueryClient()
   const [busy, setBusy] = useState(false)
@@ -187,7 +187,7 @@ export function useBulkChats() {
     setBusy(true)
     try { for (const id of ids) await one(id); flash(done) } catch (e) { flash((e as Error).message) } finally { setBusy(false); void client.invalidateQueries({ queryKey: qk.agentChats }) }
   }
-  const archive = (ids: string[], v: boolean) => run(ids, (id) => agentChatsApi.archive(id, v), v ? t(`${ids.length}개를 보관함에 넣었습니다`, `Archived ${ids.length}`) : t(`${ids.length}개를 보관함에서 꺼냈습니다`, `Unarchived ${ids.length}`))
+  const archive = (ids: string[], v: boolean) => run(ids, (id) => agentChatsApi.archive(id, v), v ? t(`${ids.length}개를 보관함에 넣었습니다`, `Archived ${ids.length}`) : t(`${ids.length}개를 복원했습니다`, `Restored ${ids.length}`))
   const remove = async (ids: string[]): Promise<boolean> => {
     if (!await askConfirm({ title: t(`보관한 대화 ${ids.length}개를 지울까요?`, `Delete ${ids.length} archived conversations?`), hint: t('대화 기록만 사라집니다. 노트 · 기록과 수정 검토, 바꾼 파일과 PR은 그대로 남습니다.', 'Only the conversations are deleted. Notes, records, edit review, changed files and PRs stay.'), ok: t('삭제', 'Delete') })) return false
     await run(ids, (id) => agentChatsApi.remove(id), t(`${ids.length}개를 지웠습니다`, `Deleted ${ids.length}`))
@@ -459,7 +459,7 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
     try {
       client.setQueryData(qk.agentChat(chat.id), await agentChatsApi.archive(chat.id, v))
       void client.invalidateQueries({ queryKey: qk.agentChats })
-      onSaved(v ? t('보관함에 넣었습니다', 'Archived') : t('보관함에서 꺼냈습니다', 'Unarchived'))
+      onSaved(v ? t('보관함에 넣었습니다', 'Archived') : t('복원했습니다', 'Restored'))
     } catch (e) { onError((e as Error).message) }
   }
   const [added, removed] = chat.items.reduce(([a, r], i) => (i.kind === 'edit' ? [a + i.added, r + i.removed] : [a, r]), [0, 0])
@@ -512,7 +512,7 @@ function HeadMore({ live, archived, onRename, onArchive, onRemove, onRecord }: {
         <div className="menu ac-head-menu" role="menu" data-ui="대화 더 보기 항목">
           <button role="menuitem" data-ui="대화 제목 바꾸기" onClick={() => { setOpen(false); onRename() }}>{t('제목 바꾸기', 'Rename')}</button>
           {onRecord && <button role="menuitem" data-ui="기록으로 남기기" onClick={() => { setOpen(false); onRecord() }}>{t('기록으로 남기기', 'Keep as a record')}</button>}
-          <button role="menuitem" disabled={live && !archived} title={live ? t('도는 대화는 멈춘 뒤 보관합니다', 'Stop it before archiving') : undefined} onClick={() => { setOpen(false); onArchive(!archived) }}>{archived ? t('보관함에서 꺼내기', 'Unarchive') : t('보관함에 넣기', 'Archive')}</button>
+          <button role="menuitem" disabled={live && !archived} title={live ? t('도는 대화는 멈춘 뒤 보관합니다', 'Stop it before archiving') : undefined} onClick={() => { setOpen(false); onArchive(!archived) }}>{archived ? t('보관함에서 복원', 'Restore') : t('보관함에 넣기', 'Archive')}</button>
           <button role="menuitem" className="danger" data-ui="대화 지우기" disabled={live || !archived} title={!archived ? t('보관함에 넣은 대화만 지웁니다', 'Only archived conversations can be deleted') : undefined} onClick={() => { setOpen(false); onRemove() }}>{t('삭제', 'Delete')}</button>
         </div>
       )}
