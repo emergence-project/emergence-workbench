@@ -3,7 +3,7 @@
     "apps/server/src/agentChats.ts": 1062,
     "apps/server/src/comments.ts": 643,
     "apps/server/src/feedback.ts": 634,
-    "apps/web/src/AgentChats.tsx": 1096,
+    "apps/web/src/AgentChats.tsx": 1091,
     "apps/web/src/App.tsx": 628,
     "apps/web/src/Workspace.tsx": 641
   },

@@ -41,7 +41,7 @@ export type RunEvent =
   | { type: 'session'; id: string }
   | { type: 'text'; text: string; sub?: boolean }
   | { type: 'tool'; tool: string; input: Record<string, unknown>; sub?: boolean }
-  | { type: 'result'; ok: boolean; cost?: number; seconds?: number; error?: string; tokens?: { in: number; out: number }; context?: { used: number; window: number } }
+  | { type: 'result'; ok: boolean; cost?: number; seconds?: number; error?: string; tokens?: { in: number; out: number }; context?: { used: number; window: number; compactAt?: number } }
   /** 앞 내용을 요약함 (자동 · /compact) */
   | { type: 'compact'; auto: boolean; before: number; after?: number }
   /** 요약하는 중 */

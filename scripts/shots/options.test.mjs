@@ -9,22 +9,22 @@ import { parseShotOptions, screenScheme } from './options.mjs'
 import { selectScreens } from './screens.mjs'
 
 test('default matches the documented Mac viewport without expanding CI samples', () => {
-  assert.deepEqual(parseShotOptions([], {}), { viewport: { width: 1200, height: 735 }, theme: 'mixed', sample: 'default', lang: 'ko', help: false })
+  assert.deepEqual(parseShotOptions([], {}), { viewport: { width: 1200, height: 735 }, theme: 'mixed', sample: 'default', lang: 'ko', scale: 2, help: false })
 })
 
 test('one CLI interface selects viewport, theme and fixture with both argument styles', () => {
-  const expected = { viewport: { width: 1440, height: 900 }, theme: 'dark', sample: 'subjects', lang: 'ko', help: false }
+  const expected = { viewport: { width: 1440, height: 900 }, theme: 'dark', sample: 'subjects', lang: 'ko', scale: 2, help: false }
   assert.deepEqual(parseShotOptions(['--viewport', '1440x900', '--theme=dark', '--sample', 'subjects'], {}), expected)
   assert.deepEqual(parseShotOptions(['--viewport=1440x900', '--theme', 'dark', '--sample=subjects'], {}), expected)
 })
 
 test('explicit light theme overrides mixed dark-name captures and legacy environment', () => {
   const got = parseShotOptions(['--viewport=1200x735', '--theme=light', '--sample=default'], { SHOTS_VIEWPORT: '1440x900', SHOTS_SCHEME: 'dark', SHOTS_SUBJECTS: '1' })
-  assert.deepEqual(got, { viewport: { width: 1200, height: 735 }, theme: 'light', sample: 'default', lang: 'ko', help: false })
+  assert.deepEqual(got, { viewport: { width: 1200, height: 735 }, theme: 'light', sample: 'default', lang: 'ko', scale: 2, help: false })
 })
 
 test('legacy environment remains compatible while standard commands use CLI options', () => {
-  assert.deepEqual(parseShotOptions([], { SHOTS_VIEWPORT: '1440x900', SHOTS_SCHEME: 'dark', SHOTS_SUBJECTS: '1' }), { viewport: { width: 1440, height: 900 }, theme: 'dark', sample: 'subjects', lang: 'ko', help: false })
+  assert.deepEqual(parseShotOptions([], { SHOTS_VIEWPORT: '1440x900', SHOTS_SCHEME: 'dark', SHOTS_SUBJECTS: '1' }), { viewport: { width: 1440, height: 900 }, theme: 'dark', sample: 'subjects', lang: 'ko', scale: 2, help: false })
 })
 
 test('invalid or incomplete options fail before starting the build or server', () => {
@@ -66,7 +66,7 @@ test('the actual CI capture command selects the same bounded default scope', () 
   const workflow = YAML.parse(fs.readFileSync(path.join(root, '.github/workflows/ci.yml'), 'utf8'))
   const command = workflow.jobs.shots.steps.find((step) => step.run?.startsWith('pnpm shots')).run
   const options = parseShotOptions(command.split(/\s+/).slice(2), {})
-  assert.deepEqual(options, { viewport: { width: 1200, height: 735 }, theme: 'mixed', sample: 'default', lang: 'ko', help: false })
+  assert.deepEqual(options, { viewport: { width: 1200, height: 735 }, theme: 'mixed', sample: 'default', lang: 'ko', scale: 2, help: false })
   assert.equal(selectScreens(options.sample).length, 137)
   assert.equal(selectScreens(options.sample).filter(([name]) => screenScheme(options.theme, name) === 'dark').length, 2)
 })
@@ -80,4 +80,10 @@ test('--lang en captures the English sample', () => {
 test('every screen names a part to wait for, so it is not captured before its content loads', () => {
   const missing = [...selectScreens('default'), ...selectScreens('subjects')].filter(([, , ui]) => !ui).map(([name]) => name)
   assert.deepEqual(missing, [])
+})
+
+test('agent conversations take half-size pictures with SHOTS_SCALE=1, and --scale wins', () => {
+  assert.equal(parseShotOptions([], { SHOTS_SCALE: '1' }).scale, 1)
+  assert.equal(parseShotOptions(['--scale', '2'], { SHOTS_SCALE: '1' }).scale, 2)
+  assert.throws(() => parseShotOptions(['--scale=3'], {}), /--scale must be 1 or 2/)
 })

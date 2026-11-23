@@ -32,6 +32,7 @@ import { isReviewCommand, ReviewButton, ReviewCard, ReviewPane } from './AgentRe
 import { CENTRAL_PAGE, CentralBoard, CentralBoardButton, CentralLine, CentralStart } from './CentralChat'
 import { HostWho, hostWhoAt, MemberItem, RoomItem, RoomManage, RoomStrip, useComposerRoom, VerdictLog } from './CentralRoom'; import { DebateEnd, DebateLine, DebateMember, DebatePanel, DebateStrip, debateComposer } from './Debate'
 import { APP_HINT, ATTACH_NAME, ChatQuoteMenu, Composer, CUSTOM_NAME, EFFORT_NAME, effortLabel, PopButton, settingsOf, sideQuestion, TRUST_NAME, trustOf, type Fill, type Settings } from './ChatComposer'
+import { contextName, tokensName } from './agentTokens'
 
 /**
  * 에이전트 대화 (10/21 "프로젝트 관리 먼저", 같은 날 "에이전트 창 구조 다시" · "코덱스와 Claude 앱 더 참고"):
@@ -73,12 +74,6 @@ export function Delta({ added, removed }: { added: number; removed: number }) {
   return <span className="ac-delta"><span className="ac-add">+{added}</span><span className="ac-del">−{removed}</span></span>
 }
 
-/** 토큰 수: 1.2k · 48k · 1.3M */
-export function tokensName(n: number): string {
-  if (n < 1000) return String(n)
-  if (n < 1_000_000) return `${(n / 1000).toFixed(n < 10_000 ? 1 : 0)}k`
-  return `${(n / 1_000_000).toFixed(1)}M`
-}
 /** Claude Code가 주는 비용은 쓴 토큰을 API 요금으로 친 값이다. 구독 로그인이면 따로 청구되지 않는다 */
 export const costName = (usd: number) => t(`API 가격으로 약 $${usd.toFixed(2)} (구독 로그인이면 청구되지 않음)`, `About $${usd.toFixed(2)} at API prices (not billed on a subscription login)`)
 
@@ -401,8 +396,8 @@ function ItemView({ chat, it, who, onError, onChanges, onRewind, onPass }: { cha
     case 'blocked': return <li className="ac-note" data-ui="막은 일"><span className="ac-tool mono">{it.tool}</span><span>{t('막음', 'Blocked')} · {it.reason}</span></li>
     case 'bypass': return <li className="ac-note" data-ui="우회 실행" title={when}><span className="ac-tool mono">Bash</span><span>{it.how === 'once' ? t('허락으로 우회 (한 번)', 'Bypassed with permission (once)') : t('허락으로 우회 (이 대화에서 늘)', 'Bypassed with permission (always in this chat)')} · <code>{it.command}</code></span></li>
     case 'result': return (
-      <li className="ac-note muted" data-ui="차례 끝" title={it.cost ? costName(it.cost) : undefined}>
-        {it.ok ? `✓ ${t('이번 차례 끝', 'Turn done')}` : t('이번 차례 실패', 'Turn failed')}{it.seconds !== undefined && ` · ${secondsName(it.seconds)}`}{it.tokens && ` · ${t('토큰', 'Tokens')} ${tokensName(it.tokens.in + it.tokens.out)}`}
+      <li className="ac-note muted" data-ui="차례 끝" title={[it.context && t('지금 에이전트가 들고 있는 앞 내용의 크기 / 요약하는 선', 'Earlier conversation the agent holds / where it is summarized'), it.tokens && t(`이번 차례에 처리한 토큰 ${tokensName(it.tokens.in + it.tokens.out)} (요청마다 앞 내용을 다시 읽은 몫까지 더한 값)`, `Tokens processed this turn ${tokensName(it.tokens.in + it.tokens.out)} (counts the earlier conversation re-read on every request)`), it.cost && costName(it.cost)].filter(Boolean).join('\n') || undefined}>
+        {it.ok ? `✓ ${t('이번 차례 끝', 'Turn done')}` : t('이번 차례 실패', 'Turn failed')}{it.seconds !== undefined && ` · ${secondsName(it.seconds)}`}{it.context ? ` · ${t('컨텍스트', 'Context')} ${contextName(it.context)}` : it.tokens && ` · ${t('토큰', 'Tokens')} ${tokensName(it.tokens.in + it.tokens.out)}`}
       </li>
     )
     case 'error': return <li className="ac-note error-text" data-ui="대화 오류">! {it.text}</li>
@@ -458,7 +453,7 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
     } catch (e) { onError((e as Error).message) }
   }
   const [added, removed] = chat.items.reduce(([a, r], i) => (i.kind === 'edit' ? [a + i.added, r + i.removed] : [a, r]), [0, 0])
-  // 맥락 크기는 늘 보이게 (세부는 작업 패널의 사용량). 12만이 넘으면 앞 내용을 요약한다
+  // 맥락 크기는 늘 보이게 (세부는 작업 패널의 사용량). 요약하는 선(compactAt)을 넘으면 앞 내용을 요약한다
   const results = chat.items.filter((i): i is Extract<ChatItem, { kind: 'result' }> => i.kind === 'result')
   const context = [...results].reverse().find((r) => r.context)?.context
   const cost = results.reduce((s, r) => s + (r.cost ?? 0), 0)
@@ -478,7 +473,7 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
           {chat.rid === APP_RID || chat.rid === LIBRARY_RID ? <span>{project}</span> : <button className="a" data-ui="대화 프로젝트" onClick={() => go({ page: 'overview', rid: chat.rid })}>{project}</button>}
           <span>·</span><span>{scopeName(chat.scope, topics)}</span>
           {chat.pr && <><span>·</span><a className="a" data-ui="대화 PR" href={chat.pr.url} target="_blank" rel="noreferrer">PR #{chat.pr.number}</a></>}
-          {context && <><span>·</span><span data-ui="대화 맥락" title={[isClaude(chat.agent) ? t('지금 에이전트가 들고 있는 앞 내용의 크기. 12만이 넘으면 앞 내용을 요약해 줄입니다', 'How much earlier conversation the agent holds. Over 120k it is summarized') : t('지금 에이전트가 들고 있는 앞 내용의 크기 (에이전트가 알려 준 값)', 'How much earlier conversation the agent holds (as the agent reports it)'), cost > 0 ? costName(cost) : ''].filter(Boolean).join('\n')}>{t('컨텍스트', 'Context')} {tokensName(context.used)}</span></>}{inBackground(chat) && <><span>·</span><span data-ui="대화 백그라운드 명령">{t(`백그라운드 명령 ${chat.tasks}개`, `${chat.tasks} background command${chat.tasks! > 1 ? 's' : ''}`)}</span></>}
+          {context && <><span>·</span><span data-ui="대화 맥락" title={[isClaude(chat.agent) ? t(`지금 에이전트가 들고 있는 앞 내용의 크기. ${tokensName(context.compactAt ?? context.window)}쯤 되면 앞 내용을 요약해 줄입니다`, `How much earlier conversation the agent holds. Around ${tokensName(context.compactAt ?? context.window)} it is summarized`) : t('지금 에이전트가 들고 있는 앞 내용의 크기 (에이전트가 알려 준 값)', 'How much earlier conversation the agent holds (as the agent reports it)'), cost > 0 ? costName(cost) : ''].filter(Boolean).join('\n')}>{t('컨텍스트', 'Context')} {contextName(context)}</span></>}{inBackground(chat) && <><span>·</span><span data-ui="대화 백그라운드 명령">{t(`백그라운드 명령 ${chat.tasks}개`, `${chat.tasks} background command${chat.tasks! > 1 ? 's' : ''}`)}</span></>}
           {chat.archived && <span className="tag">{chat.machine ?? t('보관함', 'Archived')}</span>}
         </div>}
       </div>

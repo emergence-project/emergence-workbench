@@ -119,7 +119,7 @@ export const ChatItem = z.discriminatedUnion('kind', [
    * 차례 끝. cost = 쓴 토큰을 API 요금으로 친 값(구독 로그인이면 청구되지 않음), tokens = 이 차례에 넣고(in, 캐시 포함) 낸(out) 토큰,
    * context = 마지막 요청의 맥락 크기와 그 모델의 맥락 창
    */
-  z.object({ kind: z.literal('result'), at: z.string(), ok: z.boolean(), cost: z.number().optional(), seconds: z.number().optional(), tokens: z.object({ in: z.number(), out: z.number() }).strict().optional(), context: z.object({ used: z.number(), window: z.number() }).strict().optional() }).strict(),
+  z.object({ kind: z.literal('result'), at: z.string(), ok: z.boolean(), cost: z.number().optional(), seconds: z.number().optional(), tokens: z.object({ in: z.number(), out: z.number() }).strict().optional(), context: z.object({ used: z.number(), window: z.number(), compactAt: z.number().optional() }).strict().optional() }).strict(),
   /** crash = Claude Code 프로세스가 비정상으로 끝남 (사용자가 멈춘 것 밖, 11/20). 같은 대화의 이력으로 세어 중앙에게 알린다 */
   z.object({ kind: z.literal('error'), at: z.string(), text: z.string(), crash: z.boolean().optional() }).strict(),
   /** 앞 내용을 요약해 이어 감 (Claude Code의 맥락 줄이기). auto = 맥락이 커져 저절로, before · after = 줄이기 전후 맥락 토큰 */
