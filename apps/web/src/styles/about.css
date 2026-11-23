@@ -205,7 +205,10 @@ button.about-unsure:hover, .about-nav-flag[role=button]:hover { background: colo
 
 /* 이력 · 수정 칸 (11/20 시안 3절 안 C, AboutHistorySide.tsx): 두 칸으로 나눠 오른쪽 칸에. 업데이트마다 카드, 확인 전 카드는 옅은 주황 */
 .stage.about-with-side { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+/* 앱 오른쪽 사이드바(InfoOrAgent)의 정보 갈래: 이력은 넓게 반 칸, 에이전트 갈래는 다른 화면처럼 340px */
+.stage.about-with-side:has(> .kh-side-agent) { grid-template-columns: minmax(0, 1fr) 340px; }
 .about-rs { background: var(--bg); border-left: 1px solid var(--line); }
+.kh-side.about-rs { padding: 0; gap: 0; overflow: hidden; }
 .about-rs .rs-head { gap: var(--sp-2); }
 .about-rs .rs-pad { padding: var(--sp-4); }
 .about-hist { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
