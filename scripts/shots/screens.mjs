@@ -125,8 +125,6 @@ export const DEFAULT_SCREENS = [
   ['notice-bell', '#/agent', '알림 목록', '알림 종'],
   // 어느 화면에서나 오른쪽 사이드바의 에이전트 (11/16): 소개 화면에서 사이드바를 열면 맨 위 「중앙」, 최근 대화, 중앙에게 말하는 입력란
   ['agent-side', '#/about', '에이전트 사이드바', '맥락 칸 켜고 끄기'],
-  // 터미널을 한 번 연 뒤 에이전트로 돌아온 모습 (11/19): 열린 셸은 숨어 있고 에이전트만 보인다
-  ['agent-side-back', '#/about', '에이전트 사이드바', ['맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button[data-mode="terminal"]', '[data-ui="오른쪽 사이드바 갈래"] button[data-mode="agent"]']],
   // 자기 오른쪽 사이드바가 있는 지식 첫 화면: 사이드바 맨 위 「정보 | 에이전트」에서 에이전트
   ['knowledge-agent', '#/library', '에이전트 사이드바', '[data-ui="오른쪽 사이드바 갈래"] button[data-mode="agent"]'],
   // 피드백 맡기기 (2단계 나): 수정 요청이 온 항목을 앱 고치기 대화에 맡겨 처리한 뒤, 그 항목의 진행 줄 (shots.mjs가 맡기고 처리 기록을 적는다)
