@@ -10,7 +10,7 @@ import { scopeName } from './AgentProjectPick'
 import { AgentChip, effortsOf, familyName, familyOf, isClaude, useModels } from './AgentPick'
 import { useReviewers } from './AgentReview'
 import { EFFORT_NAME, effortLabel } from './ChatComposer'
-import { costName, Delta, tokensName, useChat } from './AgentChats'
+import { costName, tokensName, useChat } from './AgentChats'
 
 /** 맥락 창이 이만큼 차면 /compact를 권한다 */
 const COMPACT_HINT = 0.8
@@ -48,8 +48,8 @@ export function ChatInfo({ chat }: { chat: Chat }) {
   )
 }
 
-/** 사이드바 맨 위 아이콘 줄 (11/23 시안 chat-head-icons 안 B, chat-resolve-circle 2): 왼쪽에 이 대화 · 검토(검토자가 있는 Claude 대화),
- *  오른쪽 끝에 변경사항(+n −n) · 터미널. 토론 · 중앙은 세부 패널이 한 칸뿐이라 그 칸과 터미널만 */
+/** 사이드바 맨 위 아이콘 줄 (11/23 시안 chat-head-icons 안 B, chat-resolve-circle 2, side-icons-review-changes 안 가): 왼쪽에 이 대화 · 검토(돋보기 안 체크, 검토자가 있는 Claude 대화),
+ *  오른쪽 끝에 변경사항(파일 ± 아이콘, 고친 곳이 있으면 초록 점, +n −n은 툴팁) · 터미널. 토론 · 중앙은 세부 패널이 한 칸뿐이라 그 칸과 터미널만 */
 export function ChatSideTabs({ id, col }: { id: string; col: ReturnType<typeof useSideColumn> }) {
   const chat = useChat(id).data
   const reviewers = useReviewers()
@@ -60,9 +60,9 @@ export function ChatSideTabs({ id, col }: { id: string; col: ReturnType<typeof u
   const tabs: SideTab[] = [
     tab('info', '이 대화 칸 버튼', Icon.info, t('이 대화', 'This conversation'), single ? t('이 대화', 'This conversation') : t('이 대화 (컨텍스트 · 모델 · 사용 중인 파일 · 권한)', 'This conversation (context, model, claimed files, permissions)')),
     ...(single ? [] : [
-      ...(reviewers.length > 0 && isClaude(chat.agent) && !chat.machine ? [tab('review', '검토 칸 버튼', Icon.review, t('검토', 'Review'), t('검토 (Codex · Gemini가 각자 읽기만 하며 검토 · 지난 검토)', 'Review (Codex, Gemini each review read-only; past reviews)'))] : []),
+      ...(reviewers.length > 0 && isClaude(chat.agent) && !chat.machine ? [tab('review', '검토 칸 버튼', Icon.inspect, t('검토', 'Review'), t('검토 (Codex · Gemini가 각자 읽기만 하며 검토 · 지난 검토)', 'Review (Codex, Gemini each review read-only; past reviews)'))] : []),
     ]),
-    ...(single ? [] : [{ ...tab('changes', '변경사항 칸 버튼', added || removed ? <Delta added={added} removed={removed} /> : Icon.compose, t('변경사항', 'Changes'), t('변경사항', 'Changes')), end: true }]),
+    ...(single ? [] : [{ ...tab('changes', '변경사항 칸 버튼', <>{Icon.review}{(added > 0 || removed > 0) && <i className="ac-side-dot" />}</>, t('변경사항', 'Changes'), added || removed ? t(`변경사항 +${added} −${removed}`, `Changes +${added} −${removed}`) : t('변경사항 (아직 없음)', 'Changes (none yet)')), end: true }]),
     ...(col.termTab ? [{ ...col.termTab, end: single || undefined }] : []),
   ]
   return <SideTabs tabs={tabs} />
