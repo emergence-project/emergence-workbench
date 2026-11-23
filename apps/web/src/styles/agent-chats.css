@@ -188,7 +188,18 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-other { flex: none; max-width: 45%; font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ac-usage { margin-top: auto; }
 .ac-changes { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
-.ac-change-file { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.ac-changes { gap: 0; }
+.ac-change-all { padding-bottom: var(--sp-1); font-size: var(--fs-xs); }
+.ac-change-all .sp { flex: 1; }
+/* 파일마다 접힌 한 줄, 누르면 그 파일만 펼친다 (11/23 제안) */
+.ac-change-file { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; padding: 2px 0; border-bottom: 1px solid var(--line); }
+.ac-change-file.open { padding-bottom: var(--sp-2); }
+.ac-change-head { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-1); padding: 2px 0; border: 0; border-radius: var(--r-xs); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.ac-change-head:hover { background: var(--bg-hover); }
+.ac-change-head:disabled { cursor: default; color: inherit; }
+.ac-change-head .ac-file { flex: 1; }
+.ac-change-head .tree-chev { width: 16px; height: auto; }
+.ac-change-file.open .tree-chev span { transform: rotate(90deg); }
 .ac-diff-part { border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; gap: 0; background: var(--bg); }
 .ac-diff-part.on { border-color: var(--line-strong); }
 .ac-diff-hit { display: flex; flex-direction: column; padding: 0; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
