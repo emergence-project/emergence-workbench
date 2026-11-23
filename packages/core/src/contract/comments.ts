@@ -89,7 +89,19 @@ export const PendingQuestion = z.object({
 
 /** GET /api/record-turns: 답을 기다리는 에이전트 기록 (모든 프로젝트 · 지식 라이브러리). 상단바 알림 종의 「답할 것」 (11/23) */
 export const RecordTurn = z.object({ rid: z.string(), target: z.string(), title: z.string(), id: z.string(), kind: CommentKind, by: z.string(), body: z.string() }).strict()
-export const RecordTurns = z.object({ turns: z.array(RecordTurn) }).strict()
+/** 완료 기록이 많이 쌓인 곳(200개 넘고 보관으로 옮길 것이 있는 곳): 종이 정리를 권한다 */
+export const RecordTidy = z.object({ rid: z.string(), done: z.number(), ready: z.number() }).strict()
+export const RecordTurns = z.object({ turns: z.array(RecordTurn), tidy: z.array(RecordTidy) }).strict()
+
+// ---------- 완료 기록 보관 (11/23) ----------
+/** 옮긴(옮길) 기록: 대상과 기록 id */
+export const ArchiveMove = z.object({ target: z.string(), ids: z.array(z.string()) }).strict()
+/** GET …/records/archive: 보관한 기록(읽기 전용)과 지금 옮길 수 있는 수, 기준 날 수 */
+export const RecordArchive = z.object({ files: z.array(RecordFile), ready: z.number(), days: z.number() }).strict()
+/** POST …/records/archive: 옮긴 것 (되돌리기에 그대로 보낸다) */
+export const RecordsArchived = z.object({ moved: z.array(ArchiveMove) }).strict()
+export const RestoreArchiveBody = z.object({ moves: z.array(ArchiveMove).max(2000) })
+export const RecordsRestored = z.object({ restored: z.number() }).strict()
 
 /** GET /comments */
 export const CommentOverview = z.object({
@@ -148,7 +160,12 @@ export type CommentFile = z.infer<typeof CommentFile>
 export type RecordFile = z.infer<typeof RecordFile>
 export type PendingQuestion = z.infer<typeof PendingQuestion>
 export type RecordTurn = z.infer<typeof RecordTurn>
+export type RecordTidy = z.infer<typeof RecordTidy>
 export type RecordTurns = z.infer<typeof RecordTurns>
+export type ArchiveMove = z.infer<typeof ArchiveMove>
+export type RecordArchive = z.infer<typeof RecordArchive>
+export type RecordsArchived = z.infer<typeof RecordsArchived>
+export type RecordsRestored = z.infer<typeof RecordsRestored>
 export type CommentOverview = z.infer<typeof CommentOverview>
 export type RecordList = z.infer<typeof RecordList>
 export type CommentAdded = z.infer<typeof CommentAdded>

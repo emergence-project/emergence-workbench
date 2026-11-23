@@ -1,5 +1,6 @@
 // ---------- 노트 기록 · PDF 코멘트 (서버 comments.ts) ----------
 import type {
+  ArchiveMove, RecordArchive, RecordsArchived, RecordsRestored,
   CommentAdded, CommentChangeBody, CommentFile as CommentFileReply, CommentOverview, CommentState, NewCommentBody, NoteHighlight as NoteHighlightReply, RecordList, ReplyBody,
 } from '@rw/core/contract/comments'
 import type { RecordsPublished, RecordsPublishState, UnpublishedFiles } from '@rw/core/contract/feedback'
@@ -21,6 +22,10 @@ export function commentsApi(rid: string) {
   const t = (target: string) => `${base}/${enc(target)}`
   return {
     records: () => req(`/api/researches/${enc(rid)}/records`).then((r) => json<RecordList>(r)),
+    /** 완료 기록 보관 (11/23): 보관한 것과 옮길 수 있는 수 · 옮기기 · 꺼내기 */
+    archive: () => req(`/api/researches/${enc(rid)}/records/archive`).then((r) => json<RecordArchive>(r)),
+    archiveOld: () => req(`/api/researches/${enc(rid)}/records/archive`, send('POST', {})).then((r) => json<RecordsArchived>(r)),
+    restoreArchive: (moves: ArchiveMove[]) => req(`/api/researches/${enc(rid)}/records/archive/restore`, send('POST', { moves })).then((r) => json<RecordsRestored>(r)),
     overview: () => req(base).then((r) => json<CommentOverview>(r)),
     read: (target: string) => req(t(target)).then((r) => json<CommentFileReply>(r)),
     classify: (target: string, baseHash: string) => req(`${t(target)}/classify`, send('POST', { baseHash })).then((r) => json<CommentFileReply>(r)),

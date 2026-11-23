@@ -20,6 +20,7 @@ import { uiShown } from './uiNames'
 import { RecordPointer, type PointedPart } from './RecordPointer'
 import { kindLabel } from './recordLabels'
 import { useRecords } from './projectQueries'
+import { RecordArchive } from './RecordArchive'
 
 // 지시는 필터에서 뺐다 (11/21 안 A): 예전 지시는 「전체」에 남는다
 /**
@@ -127,6 +128,7 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf }: {
         <summary>{t('완료', 'Done')} <span className="n">{doneCount}</span></summary>
         {doneOpen && groups.filter((g) => g.done.length).map((g) => group(g.file, g.done))}
       </details>}
+      {filter === '전체' && <RecordArchive rid={rid} target={project ? undefined : target.target} onChanged={() => { if (!project) void load(rid, target.target, true) }} />}
       {!shown.length && !error && <p className="empty records-empty">{slot.error ?? t('불러오는 중…', 'Loading…')}</p>}
       {!project && !!slot.file?.highlights.some((h) => h.lost) && <LostHighlights rid={rid} file={slot.file} />}
     </div>

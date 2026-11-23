@@ -36,3 +36,15 @@ describe('agent overview', () => {
     expect(res.json().markdown).toContain('| 프로젝트 | 폴더 | 사용자 차례 | 에이전트 차례 | 저장소 | 최근 기록 |')
   })
 })
+
+describe('완료 기록 보관 경로 (11/23)', () => {
+  it('옮길 것이 없으면 0이고, 옮기고 되돌리는 경로가 계약대로 답한다', async () => {
+    const before = (await app.inject({ method: 'GET', url: `${R}/records/archive` })).json() as { files: unknown[]; ready: number; days: number }
+    expect(before.days).toBe(90)
+    const moved = (await app.inject({ method: 'POST', url: `${R}/records/archive` })).json() as { moved: { target: string; ids: string[] }[] }
+    expect(moved.moved.reduce((n, m) => n + m.ids.length, 0)).toBe(before.ready)
+    const back = await app.inject({ method: 'POST', url: `${R}/records/archive/restore`, payload: { moves: moved.moved } })
+    expect(back.statusCode).toBe(200)
+    expect((back.json() as { restored: number }).restored).toBe(before.ready)
+  })
+})

@@ -5,6 +5,7 @@ import { readAiKey } from '../aiKey.js'
 import { agentAnswer, answeredBy, appendAnswer, applyAnswerFixes, askPrompt, claudeClassifierRunner, questionRunner, recordChatPrompt, replyToRecord } from '../ask.js'
 import { repeat } from '../scheduler.js'
 import { fixPrompt } from '../recordFix.js'
+import { tidyHint } from '../recordArchive.js'
 import * as C from '@rw/core/contract/comments'
 import { calledAgent, LIBRARY_RID } from '@rw/core'
 import { parseBody, replies } from '../contract.js'
@@ -31,12 +32,16 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
   /** 답을 기다리는 에이전트 기록 하나하나 (상단바 알림 종의 「답할 것」, 11/23): 모든 프로젝트와 지식 라이브러리. 수는 research-issues의 records와 같은 규칙 */
   app.get('/api/record-turns', replies(C.RecordTurns), async (): Promise<C.RecordTurns> => {
     const turns: C.RecordTurn[] = []
+    const tidy: C.RecordTidy[] = []
     for (const rid of [...registry.ids(), ...(registry.libraryPath ? [LIBRARY_RID] : [])]) {
       try {
-        for (const f of listComments(recordsRoot(rid))) for (const c of f.comments) if (isUserTurnRecord(c)) turns.push({ rid, target: f.target, title: f.title, id: c.id, kind: c.kind, by: c.by!, body: c.body })
+        const files = listComments(recordsRoot(rid))
+        const hint = tidyHint(files)
+        if (hint) tidy.push({ rid, ...hint })
+        for (const f of files) for (const c of f.comments) if (isUserTurnRecord(c)) turns.push({ rid, target: f.target, title: f.title, id: c.id, kind: c.kind, by: c.by!, body: c.body })
       } catch { /* 저장소가 없거나 읽지 못하면 그 곳은 건너뛴다 */ }
     }
-    return { turns }
+    return { turns, tidy }
   })
   app.get<{ Params: { rid: string } }>('/api/researches/:rid/records', replies(C.RecordList), async (req): Promise<C.RecordList> => {
     const rid = req.params.rid

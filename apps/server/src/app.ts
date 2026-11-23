@@ -41,6 +41,7 @@ import { registerFiles } from './routes/files.js'
 import { registerHistory } from './routes/history.js'
 import { registerJournal } from './routes/journal.js'
 import { registerComments } from './routes/comments.js'
+import { registerRecordArchive } from './routes/recordArchive.js'
 import { registerDevices } from './routes/devices.js'
 import { registerGoogle } from './routes/google.js'
 import { registerTopics } from './routes/topics.js'
@@ -388,6 +389,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerHistory(app, ctx)
   registerJournal(app, ctx)
   registerComments(app, ctx)
+  registerRecordArchive(app, ctx)
   registerTopics(app, ctx)
   // 계정으로 맞추기(설치판)는 백업(계정 저장소와 맞추기)을 부른다
   const runBackup = registerBackup(app, ctx)
