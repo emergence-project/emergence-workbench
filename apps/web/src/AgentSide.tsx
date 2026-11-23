@@ -95,14 +95,15 @@ function useChatRid(id: string | undefined): string | null {
   return list.find((c) => c.id === id)?.rid ?? CENTRAL_RID
 }
 
-/** 자기 오른쪽 사이드바가 있는 화면(지식 · 논문 · 그림 첫 화면)의 사이드바: 상단바의 갈래 아이콘(정보 · 에이전트 · 터미널, 11/21 안 A)으로 그 화면 정보와 에이전트를 오간다.
+/** 자기 오른쪽 사이드바가 있는 화면(지식 · 논문 · 그림 첫 화면)의 사이드바: 상단바의 갈래 아이콘(정보 · 에이전트, 11/21 안 A)으로 그 화면 정보와 에이전트를 오간다.
+ *  터미널은 상단바 아이콘에 없다(11/23: 에이전트 대화 창 안). 코드 블록 「터미널에서 실행」만 이 칸을 터미널로 연다.
  *  고른 갈래는 노트 화면의 오른쪽 사이드바 갈래와 같은 기억(noteScreen) */
 export function InfoOrAgent({ ui, onSaved, children }: { ui: string; onSaved(m: string): void; children: ReactNode }) {
   const chosen = useRightMode()
   const term = useSideTerminal(chosen)
   const mode: RightMode = chosen === 'agent' || term.on ? chosen : 'info'
   const side = mode !== 'info'
-  useOfferRightModes(term.able ? ['info', 'agent', 'terminal'] : ['info', 'agent'], mode)
+  useOfferRightModes(['info', 'agent'], mode)
   return (
     <aside className={`kh-side kh-side-tabs${side ? ' kh-side-agent' : ''}`} data-ui={mode === 'agent' ? '에이전트 사이드바' : mode === 'terminal' ? '터미널 사이드바' : ui}>
       {mode === 'agent' ? <GlobalAgentPanel onSaved={onSaved} /> : mode === 'info' && children}
@@ -111,13 +112,13 @@ export function InfoOrAgent({ ui, onSaved, children }: { ui: string; onSaved(m: 
   )
 }
 
-/** 프로젝트 밖 화면의 에이전트 사이드바 (App.tsx): 이 컴퓨터에서 연 화면이면 상단바 아이콘으로 에이전트 · 터미널을 오간다.
+/** 프로젝트 밖 화면의 에이전트 사이드바 (App.tsx): 갈래가 에이전트 하나라 상단바에 갈래 아이콘이 없다(11/23: 터미널 아이콘을 뺌, 「터미널에서 실행」만 터미널로 연다).
  *  에이전트 화면(terminalOnly: 새 대화 · 중앙)은 터미널만. 대화를 연 화면은 대화 머리 「>_」가 오른쪽 칸을 터미널로 바꾼다(AgentChats.tsx의 AgentPage). 터미널은 그 대화의 프로젝트 폴더, 그 밖은 중앙(앱 저장소)에서 연다 */
 export function AgentSideBody({ onSaved, terminalOnly, chatId }: { onSaved(m: string): void; terminalOnly?: boolean; chatId?: string }) {
   const chosen = useRightMode()
   const chatRid = useChatRid(terminalOnly ? chatId : undefined)
   const term = useSideTerminal(terminalOnly ? 'terminal' : chosen, chatRid)
-  useOfferRightModes(terminalOnly ? ['terminal'] : term.able ? ['agent', 'terminal'] : ['agent'], terminalOnly || term.on ? 'terminal' : 'agent')
+  useOfferRightModes(terminalOnly ? ['terminal'] : ['agent'], terminalOnly || term.on ? 'terminal' : 'agent')
   if (terminalOnly) return term.pane
   return <>
     {!term.on && <GlobalAgentPanel onSaved={onSaved} />}
