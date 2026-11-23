@@ -14,6 +14,8 @@
 /* 오른쪽 칸 높이는 창에 묶는다: max-height만 두면 긴 대화가 줄을 늘려 창 밖으로 나갔다 (11/23 피드백). 대화만 스크롤하고 단추는 아래에 남는다 */
 .gallery-box.with-foot { height: var(--gallery-h); }
 .gallery-foot > .fbp-mockup-decide { flex: 1; min-height: 0; }
+/* 글칸 · 단추는 대화 길이와 상관없이 늘 창 아래 (11/23 피드백 "대화창은 하단에 고정"): 대화가 남은 칸을 채운다 */
+.gallery-foot .fbp-mockup-thread { flex: 1; }
 .gallery-box.with-foot > .gallery-head { grid-column: 1 / -1; }
 .gallery-foot { display: flex; flex-direction: column; min-height: 0; overflow: auto; }
 .gallery-foot .fbp-mockup-decide-row { flex-wrap: wrap; }
