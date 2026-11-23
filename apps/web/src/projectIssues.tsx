@@ -2,9 +2,10 @@ import { useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, type ProjectIssues, type ResearchListItem } from './api'
 import { issueTip } from './projectProfile'
+import { t } from './i18n'
 import { qk } from './queries'
 
-const EMPTY: ProjectIssues = { counts: {}, tasks: {}, edits: {}, records: {}, problems: {} }
+const EMPTY: ProjectIssues = { counts: {}, tasks: {}, edits: {}, records: {}, problems: {}, confirm: {} }
 
 /**
  * 프로젝트마다 확인할 것의 수: 판단할 맡긴 일(결과 · 종결 조건 제안, 10/7) + 에이전트 고침 + 에이전트가 물은 기록 + 결정을 기다리는 흐름(11/11).
@@ -26,7 +27,8 @@ export function useProjectIssues(researches: ResearchListItem[] | null): Project
   return { ...EMPTY, ...q.data }
 }
 
-export function ProjectRailCount({ n, tasks, edits, records, problems }: { n: number | undefined; tasks?: number; edits?: number; records?: number; problems?: number }) {
-  if (!n) return null
+/** 결정할 것의 수(진한 주황). 결정할 것이 없고 승인만 남은 맡긴 일이 있으면 옅은 수로 (11/23 결정 필요 · 확인만) */
+export function ProjectRailCount({ n, tasks, edits, records, problems, confirm }: { n: number | undefined; tasks?: number; edits?: number; records?: number; problems?: number; confirm?: number }) {
+  if (!n) return confirm ? <span className="rail-count pale" data-ui="확인만 수" title={t(`확인만: 종결 조건을 통과한 맡긴 일 ${confirm}개`, `Confirm only: ${confirm} task(s) passed the end condition`)}>{confirm}</span> : null
   return <span className="rail-count" data-ui="확인할 보조 노트 수" title={issueTip(tasks ?? 0, edits ?? 0, records ?? 0, problems ?? 0)}>{n}</span>
 }

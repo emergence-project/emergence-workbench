@@ -11,7 +11,9 @@ import { RecordList } from './RecordList'
 import { recordRoute } from './recordsPanelHelpers'
 import { go } from './router'
 import { useProblems } from './Problems'
-import { needsJudgment, openTaskId, taskRowKey } from './taskView'
+import { openTaskId, splitJudge, taskRowKey } from './taskView'
+import { TurnCounts, TurnGroupHead } from './TurnGroup'
+import { ConfirmTaskList } from './TurnConfirmTasks'
 import { agentTurnRecords, isRecordFilter, openTodoRecords, parseWorkFilter, clearTodoFocus, peekTodoFocus, RECORD_VIEWS, SECTION_FILTERS, TODO_FOCUS_EVENT, todoKey, RECORD_PLACE_EVENT, peekRecordPlace, clearRecordPlace, hasRecordPlace, userTurnRecords, WORK_FILTER_EVENT, WORK_FILTER_KEY, WORK_FILTER_LABEL, workRecordGroups, recordPlaces, PLACE_KINDS, PLACE_KIND_LABEL, type FlatRecord, type RecordPlace, type WorkRecordGroup, type RecordFilter, type RecordView, type WorkFilter } from './workRecords'
 import { EditReviewRow, FlowDecisionRow, TurnRecordRow } from './RecordTurns'
 import { JournalRecordRow, WorkComposer } from './WorkRecordViews'
@@ -83,7 +85,9 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
   const [dialog, setDialog] = useState<TaskDraft | null>(null)
   // 흐름의 결정 대기 (11/11): 방향 보고가 계속 · 좁히기 · 종료를 기다리는 흐름. 사이드바 흐름 줄의 수와 같다
   const flowTurns = useProblems(rid).data?.problems.filter((p) => p.waiting) ?? []
-  const judgeCount = tasks.filter(needsJudgment).length + flowTurns.length
+  // 결정 필요 · 확인만 (11/23 시안 turn-split): 종결 조건을 통과한 결과는 승인만 남아 따로 옅게 묶는다
+  const judge = splitJudge(tasks)
+  const judgeCount = judge.decide.length + flowTurns.length
   const recordsQuery = useRecords(rid)
   const files = recordsQuery.data?.files ?? NO_FILES
   useEffect(() => {
@@ -128,7 +132,8 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
   const todoRecords = openTodoRecords(files)
   const agentRecords = agentTurnRecords(files)
   const agentTasks = tasks.filter((x) => x.state === 'working' || x.state === 'paused')
-  const mineCount = judgeCount + askRecords.length + reviews.length + editCount + todoRecords.length
+  const decideCount = judgeCount + askRecords.length + reviews.length + editCount + todoRecords.length
+  const mineCount = decideCount + judge.confirm.length
   const agentCount = agentTasks.length + agentRecords.length
   const count = filter === '맡긴 일' ? tasks.length + new Set(diagnostics.map((d) => d.file)).size : groups.reduce((n, group) => n + group.items.length, 0)
   // 내 차례 · 에이전트 차례에서 펼친 줄 하나 (판단 카드와 기록 줄이 함께 쓴다)
@@ -156,7 +161,8 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
           <div className="segmented small" role="group" aria-label={t('기록 보기', 'Records view')} data-ui="기록 차례">
             {RECORD_VIEWS.map((v) => <button key={v} className={view === v ? 'on' : ''} aria-pressed={view === v} onClick={() => { setView(v); setOpenRow(null) }}>
               {v === 'mine' ? t('내 차례', 'Your turn') : v === 'agent' ? t('에이전트 차례', "Agents' turn") : t('모두', 'All')}
-              {v === 'mine' && mineCount > 0 && <span className={judgeCount + askRecords.length + reviews.length + editCount > 0 ? 'rail-count tk-turn' : 'tk-cnt'}>{mineCount}</span>}
+              {v === 'mine' && (judgeCount + askRecords.length + reviews.length + editCount > 0 ? <TurnCounts decide={decideCount} confirm={judge.confirm.length} className="tk-turn" />
+                : mineCount > 0 && <span className="tk-cnt">{mineCount}</span>)}
               {v === 'agent' && agentCount > 0 && <span className="tk-cnt">{agentCount}</span>}</button>)}
           </div>
           <span className="sp" />
@@ -170,13 +176,16 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
           {view === 'mine' && <>
             <TaskWeek rid={rid} tasks={tasks} entries={entries} todos={summary.todos} />
             <div className="tk-list" data-ui="내 차례 목록">
+              {judge.confirm.length > 0 && decideCount > 0 && <TurnGroupHead count={decideCount} />}
               {flowTurns.map((p) => <FlowDecisionRow key={p.id} rid={rid} id={p.id} question={p.question} />)}
-              <JudgeList rid={rid} tasks={tasks} heading loaded={tasksLoaded} onSaved={onSaved} reload={reloadTasks} emptyText={null} openId={openTaskId(openRow)} onToggle={(id) => toggleRow(taskRowKey(id))}
+              <JudgeList rid={rid} tasks={judge.decide} heading loaded={tasksLoaded} onSaved={onSaved} reload={reloadTasks} emptyText={null} openId={openTaskId(openRow)} onToggle={(id) => toggleRow(taskRowKey(id))}
                 onEditProposal={(x) => setDialog({ mode: 'proposal', from: x, endCondition: x.proposal?.endCondition.length === 1 ? x.proposal.endCondition[0] : (x.proposal?.endCondition ?? []).map((c, i) => `${i + 1}) ${c}`).join('\n') })} />
               {askRecords.map((item) => recordRow(item, true))}
               {reviews.length > 0 && <Reviews list={reviews} />}
               {editCount > 0 && <EditReviewRow rid={rid} count={editCount} />}
               {todoRecords.map((item) => recordRow(item, false))}
+              <ConfirmTaskList rid={rid} tasks={judge.confirm} openId={openTaskId(openRow)} onToggle={(id) => toggleRow(taskRowKey(id))} onSaved={onSaved} reload={reloadTasks}
+                onEditProposal={(x) => setDialog({ mode: 'proposal', from: x })} />
               {!mineCount && <p className="empty tk-empty">{loading ? t('불러오는 중…', 'Loading…') : t('지금 내 차례인 것이 없습니다. 맡긴 일의 결과, 흐름의 방향 보고, 에이전트의 질문, 할 일이 생기면 여기에 보입니다.', 'Nothing is waiting for you. Results of delegated tasks, direction reports of flows, agent questions and to-dos show up here.')}</p>}
             </div>
           </>}
