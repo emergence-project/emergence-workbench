@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatRow } from './api'
 import { isUnseenIn, type Seen } from './agentSeen'
-import { needCount, noticesOf } from './NoticeBell'
+import { needCount, noticesOf, unread } from './NoticeBell'
 
 const now = Date.parse('2026-11-20T12:00:00Z')
 const chat = (id: string, state: ChatRow['state'], o: Partial<ChatRow> = {}) =>
@@ -76,5 +76,16 @@ describe('알림 종: 수로만 아는 알림 (11/23)', () => {
     const list = noticesOf({ tidy: [{ rid: 'p1', done: 230, ready: 40 }] })
     expect(list).toHaveLength(1)
     expect(list[0]).toMatchObject({ kind: 'archive', need: false, place: 'p1', n: 40 })
+  })
+})
+
+describe('알림 종: 읽은 소식은 빠진다 (11/23 피드백 "읽고 나서 사라져야")', () => {
+  it('읽은 소식은 목록에서 빠지고, 답할 것은 읽어도 남는다', () => {
+    const list = noticesOf({
+      records: [{ rid: 'p1', target: 'project', title: 'P', id: 'c-20261119-0900-ab', kind: '질문' as const, by: 'claude', body: '물음' }],
+      errors: [{ at: '2026-11-20T10:00:00Z', text: '읽은 오류' }, { at: '2026-11-20T11:00:00Z', text: '새 오류' }],
+    }, now)
+    const seen = [list.find((n) => n.text === '읽은 오류')!.key, list.find((n) => n.need)!.key]
+    expect(unread(list, seen).map((n) => n.text)).toEqual(['물음', '새 오류'])
   })
 })
