@@ -166,7 +166,6 @@ export function NoticeBell() {
               <option value="">{t('전체', 'All')}</option>
               {places.map((p) => <option key={p.id} value={p.id}>{placeName(p.id)}{p.need ? ` (${p.need})` : p.fresh ? ' •' : ''}</option>)}
             </select>}
-            <button className="a" disabled={!list.some(fresh)} onClick={() => mark(list.filter(fresh).map((n) => n.key))}>{t('소식 모두 읽음', 'Mark news read')}</button>
           </div>
           {list.length > 0 && <div className="tb-bell-sum" data-ui="알림 요약">
             <span className="turn-dot" aria-hidden />{t(`답할 것 ${needCount(list)}`, `${needCount(list)} to answer`)}<span aria-hidden>·</span><span className="tb-bell-dot on" aria-hidden />{t(`새 소식 ${list.filter(fresh).length}`, `${list.filter(fresh).length} new`)}
@@ -184,7 +183,10 @@ export function NoticeBell() {
               <span className="tb-bell-text" title={n.text}>{n.text}</span>
             </button>
           ))}
-          {list.length > shown.length && <div className="tb-bell-foot"><span className="muted">{t('소식은 지난 7일', 'News from the last 7 days')}</span><button className="a" onClick={() => setMore(true)}>{t(`더 보기 (${list.length - shown.length})`, `Show more (${list.length - shown.length})`)}</button></div>}
+          {list.length > 0 && <div className="tb-bell-foot">
+            <button className="a" disabled={!list.some(fresh)} onClick={() => mark(list.filter(fresh).map((n) => n.key))}>{t('소식 모두 읽음', 'Mark news read')}</button>
+            {list.length > shown.length && <button className="a" data-tip={t('소식은 지난 7일', 'News from the last 7 days')} onClick={() => setMore(true)}>{t(`더 보기 (${list.length - shown.length})`, `Show more (${list.length - shown.length})`)}</button>}
+          </div>}
         </div>
       )}
     </span>
