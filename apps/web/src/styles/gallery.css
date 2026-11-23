@@ -17,6 +17,9 @@
 /* 오른쪽 칸 높이는 창에 묶는다: max-height만 두면 긴 대화가 줄을 늘려 창 밖으로 나갔다 (11/23 피드백). 대화만 스크롤하고 단추는 아래에 남는다 */
 .gallery-box.with-foot { height: var(--gallery-h); }
 .gallery-foot > .fbp-viewer-side { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+/* 크게 본 창 옆의 의견 종류는 칸 폭에 딱 맞게 넷이 나눠 쓴다 (11/23 피드백) */
+.fbp-viewer-side .fbp-opinion { align-self: stretch; display: flex; }
+.fbp-viewer-side .fbp-opinion button { flex: 1; justify-content: center; padding-inline: var(--sp-1); }
 /* 글칸 · 단추는 대화 길이와 상관없이 늘 창 아래 (11/23 피드백 "대화창은 하단에 고정"): 대화가 남은 칸을 채운다 */
 .gallery-foot .fbp-mockup-thread { flex: 1; }
 .gallery-box.with-foot > .gallery-head { grid-column: 1 / -1; }
