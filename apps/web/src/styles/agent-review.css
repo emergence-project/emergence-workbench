@@ -21,3 +21,7 @@
 .ap-head { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
 .ap-autos { display: flex; gap: var(--sp-3); flex: none; }
 .ap-hint { font-size: var(--fs-sm); flex: none; }
+/* 사이드바 「검토」 칸 (AgentReview.tsx의 ReviewPane) */
+.ac-review-pane-h { justify-content: space-between; }
+.ac-review-past summary { cursor: pointer; font-size: var(--fs-xs); }
+.ac-review-past .ac-review-list { margin-top: var(--sp-1); font-size: var(--fs-xs); }

@@ -34,7 +34,7 @@ export function reviewLines(text: string): { level: 'fix' | 'look' | 'none' | 'o
 export const passText = (text: string) => t(`Codex가 검토했습니다. 맞는 것은 고치고, 아니면 왜 아닌지 알려 줘.\n\n${text}`, `Codex reviewed the work. Fix what is right, and tell me why for anything you disagree with.\n\n${text}`)
 
 /** 대화 머리의 「Codex 검토」 (Claude 대화에서만, Codex가 검토할 수 있을 때) */
-export function ReviewButton({ chat, onError }: { chat: Chat; onError(m: string): void }) {
+export function ReviewButton({ chat, onError, label }: { chat: Chat; onError(m: string): void; label?: string }) {
   const ok = useReviewer()
   const client = useQueryClient()
   const [going, setGoing] = useState(false)
@@ -44,7 +44,31 @@ export function ReviewButton({ chat, onError }: { chat: Chat; onError(m: string)
     setGoing(true)
     try { client.setQueryData(qk.agentChat(chat.id), await agentChatsApi.review(chat.id)) } catch (e) { onError(msg(e)) } finally { setGoing(false) }
   }
-  return <button className="btn sm" data-ui="Codex 검토" disabled={busy} data-tip={t('읽기만 하는 Codex가 고친 곳과 마지막 답을 검토합니다', 'Codex reads the changes and the latest answer, without editing')} onClick={() => void run()}>{t('Codex 검토', 'Codex review')}</button>
+  return <button className="btn sm" data-ui="Codex 검토" disabled={busy} data-tip={t('읽기만 하는 Codex가 고친 곳과 마지막 답을 검토합니다', 'Codex reads the changes and the latest answer, without editing')} onClick={() => void run()}>{label ?? t('Codex 검토', 'Codex review')}</button>
+}
+
+/** 사이드바의 「검토」 칸 (11/23 안 B): Codex 검토 실행 단추와 지난 검토(최근 것 먼저). 카드 자체는 대화 줄에 그대로 있다 */
+export function ReviewPane({ chat, onError }: { chat: Chat; onError(m: string): void }) {
+  const reviews = chat.items.filter((i): i is Review => i.kind === 'review').reverse()
+  return (
+    <section data-ui="검토 칸">
+      <div className="ac-work-row ac-review-pane-h"><h3>{t('Codex 검토', 'Codex review')}</h3><ReviewButton chat={chat} onError={onError} label={t('검토하기', 'Review')} /></div>
+      <span className="muted ac-hint">{t('읽기만 하는 Codex가 고친 곳 · 요청 · 마지막 답을 읽습니다. 결과 카드는 대화에도 붙습니다', 'Codex reads the changes, the request and the latest answer without editing. The result card also goes into the conversation')}</span>
+      {!reviews.length && <span className="muted ac-hint">{t('아직 검토가 없습니다', 'No reviews yet')}</span>}
+      {reviews.map((it) => {
+        const lines = it.text ? reviewLines(it.text) : []
+        const fix = lines.filter((l) => l.level === 'fix').length, look = lines.filter((l) => l.level === 'look').length
+        return (
+          <details key={it.at} className="ac-review-past" data-ui="지난 검토">
+            <summary><span className="muted">{new Date(it.at).toLocaleString()}</span> · {it.text === undefined && !it.error ? t('읽는 중…', 'Reading…') : it.error ? t('오류', 'Error') : fix || look ? t(`고칠 것 ${fix} · 볼 것 ${look}`, `${fix} to fix · ${look} to check`) : t('고칠 것 없음', 'Nothing to fix')}</summary>
+            {it.error ? <div className="error-text">! {it.error}</div> : <ol className="ac-review-list">{lines.map((l, i) => (
+              <li key={i} className={l.level}>{l.level === 'fix' && <span className="ac-review-lv fix">{t('고칠 것', 'Fix')}</span>}{l.level === 'look' && <span className="ac-review-lv">{t('볼 것', 'Check')}</span>}{l.text}</li>
+            ))}</ol>}
+          </details>
+        )
+      })}
+    </section>
+  )
 }
 
 /** 대화 안의 검토 카드: Codex 로고 · 무엇을 봤는지 · 고칠 것 / 볼 것 · 「Claude에게 넘기기」 · 「다시 검토」 */
