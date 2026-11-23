@@ -198,3 +198,14 @@ body:has(.overlay, .quick) .fb-toggle:not(.on, :hover) { background: var(--bg); 
 .fbp-mockup-decide { display: flex; flex-direction: column; gap: var(--sp-1); }
 .fbp-mockup-decide .fbp-input { min-height: 0; }
 .fbp-mockup-decide-row { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); }
+/* 크게 본 시안 오른쪽 칸의 주고받은 대화 (11/23 피드백: 크게 보기가 아래 대화를 덮어 논의할 때 이력이 안 보였다) */
+.fbp-mockup-thread { display: flex; flex-direction: column; gap: var(--sp-1); min-height: 0; overflow: auto; margin-bottom: var(--sp-2); }
+.fbp-mockup-thread-cap { font-size: var(--fs-xs); }
+.fbp-mockup-thread ol { display: flex; flex-direction: column; gap: var(--sp-1); margin: 0; padding: 0; list-style: none; }
+/* 메신저처럼 (11/23 진행 "카카오톡처럼 좌우 비대칭"): 관리자 말은 왼쪽, 사용자 말(원문 포함)은 오른쪽. 말한 쪽 아래 모서리만 덜 둥글다 */
+.fbp-mockup-thread li { align-self: flex-start; max-width: 85%; padding: 6px var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-md); border-bottom-left-radius: var(--r-xs); background: var(--bg-hover); font-size: var(--fs-xs); color: var(--text-2); }
+.fbp-mockup-thread li.me { align-self: flex-end; border-radius: var(--r-md); border-bottom-right-radius: var(--r-xs); background: var(--select-bg); border-color: var(--line-strong); }
+.fbp-mockup-thread li.me .fbp-mockup-thread-head { justify-content: flex-end; }
+.fbp-mockup-thread-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--sp-1); }
+.fbp-mockup-thread-head b { color: var(--text); font-weight: var(--fw-strong); }
+.fbp-mockup-thread p { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }

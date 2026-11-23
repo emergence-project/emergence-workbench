@@ -801,7 +801,14 @@
   "노트 고침 줄": "Note edit line",
   "바뀐 곳 보기": "View changes",
   "바뀐 곳 버튼": "Changes button",
-  "세부 패널 버튼": "Details button",
+  "변경사항 칸 버튼": "Changes tab button",
+  "세부 패널 버튼": "Sidebar button",
+  "사이드바 아이콘 줄": "Sidebar icon row",
+  "이 대화 칸 버튼": "This conversation tab",
+  "검토 칸 버튼": "Review tab",
+  "검토 칸": "Review pane",
+  "지난 검토": "Past review",
+  "해결 보관 버튼": "Resolve and archive button",
   "대화 더 보기": "Conversation more",
   "대화 더 보기 항목": "Conversation more items",
   "다음에 보냄": "Sends next",
@@ -1228,5 +1235,6 @@
   "뒤집힘 표시": "Mark flipped",
   "판정 기록 펼치기": "Show all debates",
   "다른 앱 수정": "Fix another app",
-  "알림 요약": "Notification summary"
+  "알림 요약": "Notification summary",
+  "시안 옆 대화": "Conversation beside mockup"
 }

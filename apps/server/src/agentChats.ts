@@ -16,7 +16,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { APP_RID, CENTRAL_RID, startModel } from '@rw/core/contract/agentChats'
 import type { AppChecks, AppSubmitBody, AppSubmitted, AskAnswer, Attach, CentralOpenBody, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
-import { appEnv, notStarted, type AppWork, type Snap } from './appWorktree.js'
+import { appEnv, notStarted, personalReadable, type AppWork, type Snap } from './appWorktree.js'
 export { appEnv } from './appWorktree.js'
 import { autoCustom, autoOf, type AgentSettings } from '@rw/core'
 import { HERE, t } from './i18n.js'
@@ -831,8 +831,8 @@ export class AgentChats {
           if (c.snap) for (const v of Object.values(c.points ?? {})) v.snap ??= c.snap
         }
       } else p = this.deps.project(c.rid)
-      // 앱 고치기 대화는 작업 폴더만, 피드백을 맡았으면 피드백 폴더(그림)도 묻지 않고 읽는다
-      const readable = app ? (c.feedback && this.deps.feedback ? [this.deps.feedback.dir] : []) : this.deps.readable().filter((d) => d !== p.repo)
+      // 앱 고치기 대화는 작업 폴더만, 피드백을 맡았으면 피드백 폴더(그림)와 안내가 가리키는 개인 규칙(personalReadable)도 묻지 않고 읽는다
+      const readable = app ? (c.feedback ? [...(this.deps.feedback ? [this.deps.feedback.dir] : []), ...personalReadable(app.rules)] : []) : this.deps.readable().filter((d) => d !== p.repo)
       const mode = c.mode
       const ctx: PolicyCtx = { rid: c.rid, write: c.write, mode, planOk: false, scope: c.scope, repo: p.repo, readable, claimedBy: (f, r) => this.claimedBy(c.id, f, r ?? c.rid), auto: () => autoOf({ write: c.write, mode: ctx.mode, ...(c.auto && { auto: c.auto }) }), always: (k) => !!c.alwaysKeys?.some((a) => a.key === k) }
       const claim = (file?: string) => {

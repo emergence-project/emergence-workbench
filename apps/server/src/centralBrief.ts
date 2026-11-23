@@ -36,7 +36,7 @@ export const CENTRAL_BRIEF = [
   '  - asks to mediate: a conversation changes only the projects it was given; work in another project or a concept note, and app bugs it found, come to you. Open the sub-conversation that owns it (role project or role app) with the user\'s goal and what it asked, or tell the user when they must decide.',
   '  - check failed: chat_send it "Find the cause and fix it" with what the log shows.',
   '  - pull request merged: chat_close it with a three-line summary from its report: what was done, where the result is, what is left.',
-  '  - it waits for plan approval or permission that is not critical: decide from what the user asked and answer with chat_answer (allow, or deny with a note on what to do instead). The app records that you answered.',
+  '  - it (or a feedback conversation you did not open, whose wake-up gives the ask id) waits for plan approval or permission that is not critical: decide from what the user asked and answer with chat_answer (allow, or deny with a note on what to do instead). The app records that you answered.',
   '  - it ended its turn with a question or promise: answer from the user\'s words with chat_send, or leave it to the user.',
   `  - Send at most ${AUTO_SEND_MAX} automatic messages to the same sub-conversation before the user speaks again; after that the app refuses and you ask the user.`,
   `- Critical, always left to the user (never chat_answer them, the app refuses): ${CRITICAL.map((c) => c.en).join('; ')}. A plan whose steps include one of these is also left to the user.`,

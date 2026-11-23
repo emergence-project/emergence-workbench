@@ -6,7 +6,7 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { appBriefFor, fileEditOf, judge, partsOfPatch, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
 import { buildApp } from './app.js'
-import { aboutFragment, appBranch, appWorktrees, checkRowsOfError, ciCovers, localChecks, otherApps, sampleAppWork, type AppWork } from './appWorktree.js'
+import { aboutFragment, appBranch, personalReadable, appWorktrees, checkRowsOfError, ciCovers, localChecks, otherApps, sampleAppWork, type AppWork } from './appWorktree.js'
 
 const repo = '/w/app-1'
 const W = 'mcp__workbench__'
@@ -55,6 +55,21 @@ describe('앱 고치기 대화의 허락 규칙', () => {
     expect(judge(ctx(), `${W}read_note`, { project: 'p' }).kind).toBe('allow')
     expect(judge(ctx(), 'Read', { file_path: `${repo}/CLAUDE.md` }).kind).toBe('allow')
     expect(judge(ctx(), 'Read', { file_path: '/etc/hosts' }).kind).toBe('ask')
+  })
+  it('피드백 대화는 안내가 가리키는 개인 규칙 · 그 폴더의 문서를 묻지 않고 읽고, 기계 설정 · 대화 기록과 쓰기는 그대로 (11/23)', () => {
+    const p = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-personal-'))
+    for (const d of ['rules', 'planning', '_settings', '_chats', '.git']) fs.mkdirSync(path.join(p, d))
+    const rules = path.join(p, 'CLAUDE.md')
+    fs.writeFileSync(rules, '# 규칙')
+    const c = ctx({ readable: personalReadable(rules) })
+    expect(judge(c, 'Read', { file_path: rules }).kind).toBe('allow')
+    expect(judge(c, 'Read', { file_path: path.join(p, 'rules', 'research.md') }).kind).toBe('allow')
+    expect(judge(c, 'Grep', { pattern: 'x', path: path.join(p, 'planning') }).kind).toBe('allow')
+    expect(judge(c, 'Read', { file_path: path.join(p, '_settings', 'config.yaml') }).kind).toBe('ask')
+    expect(judge(c, 'Read', { file_path: path.join(p, '_chats', 'a.json') }).kind).toBe('ask')
+    expect(judge(c, 'Edit', { file_path: rules, old_string: 'a', new_string: 'b' }).kind).toBe('deny')
+    expect(personalReadable(undefined)).toEqual([])
+    fs.rmSync(p, { recursive: true, force: true })
   })
   it('안내와 파일 고침 줄', () => {
     const b = appBriefFor({ branch: 'claude/app-1234abcd', write: 'notes', mode: 'plan', rules: '/cfg/personal/CLAUDE.md' })

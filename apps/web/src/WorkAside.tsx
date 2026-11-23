@@ -42,9 +42,9 @@ export function WorkAside({ children, ui = '작업 상태', className, hidden, w
   )
 }
 
-/** 에이전트 화면에서 대화 머리의 「>_」로 작업 상태 칸 자리를 바꾸는 터미널 (11/19 사용자 결정 B1).
- *  맨 위 「터미널」 · 크게 · 닫기. 한 번 열면 작업 상태로 돌아가거나 다른 대화로 가도 셸을 숨겨 둔다(hidden) */
-export function TerminalColumn({ rid, hidden, onClose }: { rid: string; hidden: boolean; onClose(): void }) {
+/** 에이전트 화면에서 사이드바 맨 위 아이콘 줄의 「>_」로 작업 상태 칸 자리를 바꾸는 터미널 (11/19 사용자 결정 B1, 11/23 단추를 머리에서 사이드바로).
+ *  맨 위 아이콘 줄 · 「터미널」 · 크게 · 닫기. 한 번 열면 작업 상태로 돌아가거나 다른 대화로 가도 셸을 숨겨 둔다(hidden) */
+export function TerminalColumn({ rid, hidden, onClose, tabs }: { rid: string; hidden: boolean; onClose(): void; tabs?: ReactNode }) {
   const [wide, setWide] = useState(false)
   const tools = <>
     <button className={`icon-btn sm${wide ? ' on' : ''}`} data-ui="터미널 크게" aria-pressed={wide} data-tip={wide ? t('원래 폭', 'Normal width') : t('크게 (화면 절반)', 'Wide (half the screen)')} aria-label={t('크게', 'Wide')} onClick={() => setWide(!wide)}>{wide ? Icon.minimize : Icon.maximize}</button>
@@ -52,34 +52,56 @@ export function TerminalColumn({ rid, hidden, onClose }: { rid: string; hidden: 
   </>
   return (
     <WorkAside ui="터미널 칸" className="ac-term-col" hidden={hidden} wide={wide}>
+      {tabs}
       <TerminalPane rid={rid} attach title tools={tools} />
     </WorkAside>
   )
 }
 
+/** 사이드바 맨 위 아이콘 줄의 한 칸 */
+export type SideTab = { key: string; ui: string; icon: ReactNode; tip: string; label: string; on: boolean; onClick(): void }
+/** 사이드바 맨 위 아이콘 줄 (11/23 시안 chat-head-icons 안 B): 이 대화 · 변경사항 · 검토 · 터미널. 누르면 그 칸으로 바뀐다 */
+export function SideTabs({ tabs }: { tabs: SideTab[] }) {
+  return (
+    <div className="ac-side-tabs" data-ui="사이드바 아이콘 줄" role="tablist">
+      {tabs.map((x) => (
+        <button key={x.key} role="tab" aria-selected={x.on} className={`ac-side-tab${x.on ? ' on' : ''}`} data-ui={x.ui} data-tip={x.tip} aria-label={x.label} onClick={x.onClick}>{x.icon}</button>
+      ))}
+    </div>
+  )
+}
+
+/** 세부 패널의 칸: 이 대화(정보 · 잡은 파일 · 권한) · 변경사항 · 검토 */
+export type PaneTab = 'info' | 'changes' | 'review'
+const TAB_KEY = 'rw-agent-pane-tab'
+
 /** 에이전트 화면(AgentPage)의 오른쪽 칸: 세부 패널과 터미널 중 하나 (11/19 B1: 「>_」를 누르면 칸이 터미널로 바뀐다).
- *  pane은 세부 패널을 여는지(기억한다). 터미널은 한 번 열면 가려도 셸을 살려 둔다. rid는 터미널을 열 폴더(대화의 프로젝트) */
+ *  pane은 세부 패널을 여는지(기억한다), tab은 세부 패널의 어느 칸인지(기억한다). 터미널은 한 번 열면 가려도 셸을 살려 둔다. rid는 터미널을 열 폴더(대화의 프로젝트) */
 export function useSideColumn(chatPage: boolean, rid?: string) {
   const [pane, setPaneState] = useState(() => store.get<boolean>(PANE_KEY, true))
   const setPane = (v: boolean) => { setPaneState(v); store.set(PANE_KEY, v) }
+  const [tab, setTabState] = useState<PaneTab>(() => store.get<PaneTab>(TAB_KEY, 'info'))
   const [term, setTerm] = useState(false)
   const [opened, setOpened] = useState(false)
   const canTerm = useTerminalAvailable()
-  const open = () => { setTerm(true); setOpened(true) }
+  const openTerm = () => { setTerm(true); setOpened(true) }
   // 대화 코드 블록의 「터미널에서 실행」(TerminalPane.tsx의 putInTerminal)도 이 칸을 터미널로 바꾼다
   useEffect(() => {
     if (!chatPage || !canTerm) return
-    const on = () => { if (rightModeNow() === 'terminal') open() }
+    const on = () => { if (rightModeNow() === 'terminal') openTerm() }
     window.addEventListener(OPEN_RIGHT, on)
     return () => window.removeEventListener(OPEN_RIGHT, on)
   }, [chatPage, canTerm])
   const showTerm = term && canTerm
   const work = pane && !showTerm
-  const togglePane = () => { if (showTerm) { setTerm(false); setPane(true) } else setPane(!pane) }
-  const tools = <>
-    <button className={`icon-btn sm${work ? ' on' : ''}`} data-ui="세부 패널 버튼" aria-pressed={work} data-tip={t('세부 패널 (변경사항 · 작업 상태)', 'Details (changes and work)')} aria-label={t('세부 패널', 'Details')} onClick={togglePane}>{Icon.list}</button>
-    {canTerm && <button className={`icon-btn sm${showTerm ? ' on' : ''}`} data-ui="터미널 버튼" aria-pressed={showTerm} data-tip={t('터미널 (이 대화의 프로젝트 폴더)', 'Terminal (this conversation\'s project folder)')} aria-label={t('터미널', 'Terminal')} onClick={() => (showTerm ? setTerm(false) : open())}>{Icon.terminal}</button>}
-  </>
-  const terminal = opened && canTerm && rid ? <TerminalColumn rid={rid} hidden={!showTerm} onClose={() => setTerm(false)} /> : null
-  return { work, togglePane, tools, terminal }
+  // 사이드바가 열려 있으면(세부 패널이든 터미널이든) 닫고, 닫혀 있으면 세부 패널을 연다
+  const togglePane = () => { if (showTerm) { setTerm(false); setPane(false) } else setPane(!pane) }
+  /** 세부 패널을 열고 그 칸으로 (터미널이 열려 있으면 세부 패널로 돌아온다) */
+  const show = (v: PaneTab) => { setTerm(false); setPane(true); setTabState(v); store.set(TAB_KEY, v) }
+  // 대화 머리에는 사이드바 여닫기만 둔다. 터미널은 사이드바 아이콘 줄에 (11/23 사용자 결정)
+  const tools = <button className={`icon-btn sm${work || showTerm ? ' on' : ''}`} data-ui="세부 패널 버튼" aria-pressed={work || showTerm} data-tip={t('사이드바 (이 대화 · 변경사항 · 검토 · 터미널)', 'Sidebar (this conversation, changes, review, terminal)')} aria-label={t('사이드바', 'Sidebar')} onClick={togglePane}>{Icon.panelRight}</button>
+  /** 아이콘 줄 끝의 터미널 칸 (이 컴퓨터에서 터미널을 쓸 수 있을 때) */
+  const termTab: SideTab | null = canTerm ? { key: 'terminal', ui: '터미널 버튼', icon: Icon.terminal, tip: t('터미널 (이 대화의 프로젝트 폴더)', 'Terminal (this conversation\'s project folder)'), label: t('터미널', 'Terminal'), on: showTerm, onClick: openTerm } : null
+  const terminal = (tabs?: ReactNode) => (opened && canTerm && rid ? <TerminalColumn rid={rid} hidden={!showTerm} onClose={() => setTerm(false)} tabs={tabs} /> : null)
+  return { work, togglePane, tools, terminal, tab: showTerm ? null : tab, show, termTab }
 }
