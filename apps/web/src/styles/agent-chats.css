@@ -195,6 +195,16 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 .ac-diff-part .ac-diff-old, .ac-diff-part .ac-diff-new { border-radius: 0; }
 .ac-diff-note { padding: var(--sp-1) var(--sp-2); border-top: 1px solid var(--line); background: var(--bg-side); font-family: inherit; font-size: var(--fs-xs); color: var(--text); }
 .ac-diff-input { box-sizing: border-box; width: 100%; padding: var(--sp-1) var(--sp-2); border: 0; border-top: 1px solid var(--line); font: inherit; font-family: system-ui, sans-serif; font-size: var(--fs-xs); color: var(--text); background: var(--bg-side); resize: vertical; outline: none; }
+/* 사이드바 맨 위 아이콘 줄 (WorkAside.tsx의 SideTabs, 11/23 안 B): 이 대화 · 변경사항 · 검토 · 터미널. 칸 위쪽 끝에 붙어 스크롤해도 남는다 */
+.ac-side-tabs { position: sticky; top: calc(-1 * var(--sp-3)); z-index: 1; flex: none; display: flex; align-items: center; gap: 2px; margin: calc(-1 * var(--sp-3)) calc(-1 * var(--sp-3)) 0; padding: var(--sp-1) var(--sp-2); border-bottom: 1px solid var(--line); background: var(--bg); }
+.ac-term-col .ac-side-tabs { position: static; margin: 0; }
+.ac-side-tab { min-width: 28px; height: 28px; padding: 0 var(--sp-2); border-radius: var(--r-sm); display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-1); color: var(--text-2); font-size: var(--fs-xs); }
+.ac-side-tab:hover { background: var(--bg-hover); color: var(--text); }
+.ac-side-tab.on { background: var(--bg-hover); color: var(--text); }
+.ac-side-tab svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+/* 대화 머리의 「✓ 해결 · 보관」 (종료된 대화에만) */
+.ac-resolve { gap: var(--sp-1); white-space: nowrap; }
+.ac-resolve svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .ac-changes-btn { gap: var(--sp-1); white-space: nowrap; }
 .ac-changes-btn.on, .ac-head .btn.on { background: var(--bg-hover); }
 .ac-head-menu { right: 0; top: calc(100% + var(--sp-1)); }
