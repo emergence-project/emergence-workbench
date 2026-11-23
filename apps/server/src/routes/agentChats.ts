@@ -57,13 +57,16 @@ function injectFetch(app: FastifyInstance): typeof fetch {
 
 /** 중앙 메모 파일 (시안 §9 ⑤): 개인 저장소가 있으면 agent/central-memo.md로 두고 써지면 올린다, 없으면 이 컴퓨터 설정 폴더 */
 const MEMO_PATH = 'agent/central-memo.md'
+/** 의도 장부 (agentCentralReview.ts, 11/23): 사용자의 말 그대로라 공개 저장소가 아닌 개인 저장소에, 메모 옆 */
+const LEDGER_PATH = 'agent/central-decisions.json'
 
 export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runner?: AgentRunner, appWork?: AppWork, others?: Record<string, AppWork>): DebateChats {
   const { registry, broadcast, repoPath } = ctx
   const personal = ctx.opts.personalDir
-  const centralMemo = () => personal
-    ? { file: path.join(personal, MEMO_PATH), where: 'personal' as const, publish: async () => { await assertPrivateRemote(personal); await publishPaths(personal, [MEMO_PATH], { message: 'Update central memo' }) } }
-    : { file: path.join(registry.configDir, 'central-memo.md'), where: 'local' as const }
+  const kept = (rel: string, local: string, message: string) => personal
+    ? { file: path.join(personal, rel), where: 'personal' as const, publish: async () => { await assertPrivateRemote(personal); await publishPaths(personal, [rel], { message }) } }
+    : { file: path.join(registry.configDir, local), where: 'local' as const }
+  const centralMemo = () => ({ ...kept(MEMO_PATH, 'central-memo.md', 'Update central memo'), decisions: kept(LEDGER_PATH, 'central-decisions.json', 'Update intent ledger') })
   // 저절로 맡기기는 한 컴퓨터만: 개인 저장소에 맡은 컴퓨터를 적어 올린 뒤 맡는다 (feedbackClaims.ts, 10/22). 개인 저장소가 없으면 이 컴퓨터만 쓰는 것으로 본다
   const fbDir = ctx.opts.feedbackDir
   const pull = ctx.opts.feedbackSync

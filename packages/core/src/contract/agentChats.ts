@@ -557,6 +557,22 @@ export const CentralMemo = z.object({ text: z.string(), where: z.enum(['personal
 export const CentralMemoBody = z.object({ text: z.string().max(4000) }).strict()
 export type CentralMemo = z.infer<typeof CentralMemo>
 
+/** 의도 장부 (11/23): 사용자의 말 그대로 · 날짜 · 출처 대화. 더하기만, 바뀐 결정은 옛 항목에 superseded(대체됨, by = 새 항목 번호). GET · POST /agent-central/decisions */
+export const CentralDecision = z.object({ n: z.number().int(), words: z.string(), date: z.string(), source: z.string(), superseded: z.object({ date: z.string(), by: z.number().int() }).strict().optional() }).strict()
+export const CentralDecisions = z.object({ items: z.array(CentralDecision), where: z.enum(['personal', 'local']) }).strict()
+export const CentralDecisionBody = z.object({ words: z.string().trim().min(1).max(2000), source: z.string().trim().min(1).max(100), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), replaces: z.number().int().min(1).optional() }).strict()
+/** POST /agent-central/review: 앱 고치기 대화의 PR을 깊이 검토 (chat_review). hold = 검토 동안 합치지 않기. POST /agent-central/hold: 검토 중인 PR의 보류를 걸거나 푼다 (pr_hold) */
+export const CentralReviewBody = z.object({ id: z.string(), focus: z.string().trim().max(1000).optional(), hold: z.boolean().optional() }).strict()
+export const CentralReviewStarted = z.object({ id: z.string(), files: z.number().int(), held: z.boolean() }).strict()
+export const CentralHoldBody = z.object({ id: z.string(), on: z.boolean(), reason: z.string().trim().max(300).optional() }).strict()
+export const CentralHold = z.object({ id: z.string(), held: z.boolean() }).strict()
+export type CentralDecision = z.infer<typeof CentralDecision>
+export type CentralDecisions = z.infer<typeof CentralDecisions>
+export type CentralDecisionBody = z.infer<typeof CentralDecisionBody>
+export type CentralReviewBody = z.infer<typeof CentralReviewBody>
+export type CentralReviewStarted = z.infer<typeof CentralReviewStarted>
+export type CentralHold = z.infer<typeof CentralHold>
+
 // ---------- 시안 (11/19 "시안을 화면에서 바로") ----------
 
 /** GET /agent-mockups/:dir: 앱 고치기 대화 작업 폴더의 mockups/ 안 파일 이름 (그림 · html · css) */

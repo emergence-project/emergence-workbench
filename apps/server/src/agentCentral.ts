@@ -13,13 +13,13 @@
  *   앱이 다시 켜지면 아직 보내지 않은 깨우기는 사라진다 (CI · 합쳐짐은 1분마다 tickCentral이 다시 찾는다).
  */
 import { agentTurnReasons, agentTurns, userTurn } from '@rw/core'
-import { APP_RID, CENTRAL_RID, type AppMerged, type CentralAnswerBody, type CentralFeedback, type CentralHeldOrder, type CentralMemo, type CentralPriorityBody, type CentralKid, type CentralOpenBody, type CentralOpened, type CentralState, type Chat, type CentralMessageBody, type ChatItem, type ChatMessageBody, type ChatMode } from '@rw/core/contract/agentChats'
+import { APP_RID, CENTRAL_RID, type AppMerged, type CentralAnswerBody, type CentralFeedback, type CentralHeldOrder, type CentralMemo, type CentralPriorityBody, type CentralKid, type CentralOpenBody, type CentralOpened, type CentralState, type Chat, type CentralMessageBody, type ChatMessageBody, type ChatMode } from '@rw/core/contract/agentChats'
 import { APP_CHECKS, APP_SUBMIT, LIVE, handedAt, lastTouched, promptOf, rowOf, type AgentChatsDeps, type Stored } from './agentChats.js'
 import { endSummaryPrompt } from './agentPrompts.js'
 import { due, memoBlock, pack, readMemo, TIDY_SUMMARIES, writeMemo, type CentralMemoDeps } from './agentTidy.js'
 import { listAllFeedback } from './feedback.js'
 import { bundlesOf, keysOf } from './feedbackGroups.js'
-import { FeedbackChats } from './agentFeedbackTick.js'
+import { ReviewChats } from './agentCentralReview.js'
 import { appRoom, APP_LIVE_CAP, APP_LIVE_MIN, FRESH_MS, memLine, readMemory, roomRule, type Mem, type Room } from './appMemory.js'
 import { t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
@@ -28,54 +28,19 @@ export { AUTO_SEND_MAX, CENTRAL_BRIEF, CRITICAL, type Critical } from './central
 import { cut, digestOf, kidReport, kidSig, lastReport, oneLine, stateWord, tail } from './agentCentralDigest.js'
 import { crashesOf, crashLines, lastCrash } from './agentCrash.js'
 import { moveHeld } from './agentHeld.js'
+import { criticalOf, kidOf, openAsk, type Ask } from './agentKid.js'
 
 /** 중앙을 저절로 깨울 때 넘기는 마지막 글 · CI 기록 길이 (11/18) */
 const REPORT_FULL = 4000
 const LOG_TAIL = 3000
 
-
-type Ask = Extract<ChatItem, { kind: 'ask' }>
-
-/** 아직 답하지 않은 허락 · 계획 카드 (마지막 것) */
-function openAsk(c: Stored): Ask | undefined {
-  let a: Ask | undefined
-  for (const it of c.items) if (it.kind === 'ask' && !it.answer) a = it
-  return a
-}
-
-/** 그 허락이 크리티컬하면 그 까닭 (CRITICAL 가운데 하나). 연구 프로젝트에서 고치기는 노트 변경이라 크리티컬 */
-export function criticalOf(a: Ask, kid: Pick<Stored, 'rid'>): Critical | undefined {
-  const of = (key: Critical['key']) => CRITICAL.find((x) => x.key === key)
-  if (a.does === 'delete') return of('delete')
-  if (a.does === 'outside') return of('outside')
-  if (kid.rid !== APP_RID && a.does === 'edit') return of('notes')
-  const s = `${a.tool} ${a.summary}`
-  return CRITICAL.find((x) => x.re.test(s))
-}
-
-/** 하위 대화 한 줄 */
-export function kidOf(c: Stored): CentralKid {
-  const a = openAsk(c)
-  const wait = a && (a.plan !== undefined ? 'plan' : 'ask')
-  const crit = a && criticalOf(a, c)
-  const own = kidReport(c.items)
-  const report = own ?? lastReport(c.items)
-  const crashes = c.state === 'error' && lastCrash(c.items) ? crashesOf(c.items).length : 0
-  return {
-    id: c.id, rid: c.rid, title: c.title, state: c.state, ...(c.state === 'waiting' && wait && { wait }),
-    ...(c.state === 'waiting' && a && { ask: { id: a.id, ...(crit && { critical: crit.ko }) } }),
-    ...(c.pr && { pr: { ...c.pr } }), ...(c.merged && { merged: c.merged }), ...(c.feedback && { feedback: c.feedback }), ...(c.bundle && { bundle: [...c.bundle] }),
-    archived: !!c.archived, ...(c.summary && { summary: c.summary }), ...(report && { report }), ...(own && { reported: true }), updated: c.updated,
-    ...(c.pr && c.ci && !c.merged && { ci: c.ci }), ...(c.todos.length && { todos: { done: c.todos.filter((x) => x.state === 'completed').length, total: c.todos.length } }), ...(crashes && { crashes }), ...(c.scope.app && { app: c.scope.app }),
-  }
-}
-
+export { criticalOf, kidOf } from './agentKid.js'
 
 /** 깨울 까닭 하나 */
-type Wake = { kind: 'end' | 'ask' | 'ci' | 'merged' | 'help' | 'crash'; log?: string; text?: string }
+type Wake = { kind: 'end' | 'ask' | 'ci' | 'merged' | 'help' | 'crash' | 'review'; log?: string; text?: string }
 /** digested: 중앙 대화 id별로 마지막으로 넘긴 하위 대화마다의 kidSig */ type WakeState = { prev: Map<string, Stored['state']>; events: Map<string, Wake[]>; seen: Set<string>; timer?: ReturnType<typeof setTimeout>; auto: boolean; sends: Map<string, number>; digested: Map<string, Map<string, string>> }
 
-export class CentralChats extends FeedbackChats {
+export class CentralChats extends ReviewChats {
   /** 하위 대화가 바뀐 뒤 중앙을 깨우기까지 모으는 시간 (시험은 줄인다) */
   wakeMs = 10_000
   /** 남은 메모리 읽기 (시험은 값을 넣는다) */
@@ -85,7 +50,9 @@ export class CentralChats extends FeedbackChats {
   private wakeState?: WakeState
   /** 중앙 세션에 마지막으로 넘긴 메모 (바뀌면 다음 말에 다시 붙인다) */
   private memoSent = new Map<string, string>()
-  constructor(deps: AgentChatsDeps, private readonly memoDeps?: CentralMemoDeps) { super(deps) }
+  constructor(deps: AgentChatsDeps, private readonly memoDeps?: CentralMemoDeps) { super(deps, memoDeps?.decisions) }
+  /** 중앙에게 붙이는 메모와 의도 장부 (agentCentralReview.ts) */
+  private memoText(): string { return [this.memo().text, this.ledger()].filter(Boolean).join('\n\n') }
 
   private w(): WakeState {
     return (this.wakeState ??= { prev: new Map(), events: new Map(), seen: new Set(), auto: false, sends: new Map(), digested: new Map() })
@@ -185,7 +152,7 @@ export class CentralChats extends FeedbackChats {
   private digest(c: Stored): string {
     const kids = this.kidsOf(c.id), all = this.w().digested, seen = c.sessionId ? all.get(c.id) : undefined
     all.set(c.id, new Map(kids.filter((k) => !k.archived).map((k) => [k.id, kidSig(k)])))
-    return `${digestOf(kids, c.held?.length, seen)}${this.feedbackLine()}`
+    return `${digestOf(kids, c.held?.length, seen)}${this.feedbackLine()}${this.reviewLine()}`
   }
 
   /** 사용자가 중앙에게 말한다: 중앙이 없으면 연다 (Opus, 읽기만). 붙인 것 · 지금 화면 한 줄도 함께 */
@@ -193,9 +160,9 @@ export class CentralChats extends FeedbackChats {
     const { start, ...m } = typeof body === 'string' ? { text: body } : body
     const c = this.central()
     if (c) return this.send(c.id, m)
-    const digest = `${digestOf([])}${this.feedbackLine()}`
-    const made = this.create({ rid: CENTRAL_RID, ...m, title: t('중앙', 'Central'), scope: { kind: 'all' }, write: 'read', mode: 'edit', model: start?.model ?? 'opus', effort: start?.effort ?? 'medium', ...(start?.account && { account: start.account }) }, {}, `${CENTRAL_BRIEF}${memoBlock(this.memo().text)}\n\n${digest}\n\n${promptOf(m.text, m.attach)}`)
-    this.memoSent.set(made.id, this.memo().text)
+    const digest = `${digestOf([])}${this.feedbackLine()}${this.reviewLine()}`
+    const made = this.create({ rid: CENTRAL_RID, ...m, title: t('중앙', 'Central'), scope: { kind: 'all' }, write: 'read', mode: 'edit', model: start?.model ?? 'opus', effort: start?.effort ?? 'medium', ...(start?.account && { account: start.account }) }, {}, `${CENTRAL_BRIEF}${memoBlock(this.memoText())}\n\n${digest}\n\n${promptOf(m.text, m.attach)}`)
+    this.memoSent.set(made.id, this.memoText())
     return made
   }
 
@@ -212,7 +179,7 @@ export class CentralChats extends FeedbackChats {
       w.auto = false
       w.sends.clear()
       // 앱이 다시 켜져 세션이 없으면 안내도 다시. 메모는 세션을 새로 열 때와 메모가 바뀐 뒤에만 붙인다 (토큰 아끼기)
-      const memo = this.memo().text, brief = c.sessionId ? '' : CENTRAL_BRIEF
+      const memo = this.memoText(), brief = c.sessionId ? '' : CENTRAL_BRIEF
       const head = `${brief}${!brief && this.memoSent.get(id) === memo ? '' : memoBlock(memo, !!brief)}`
       this.memoSent.set(id, memo)
       const room = this.roomNote(c)
@@ -269,6 +236,11 @@ export class CentralChats extends FeedbackChats {
     const w = this.w()
     this.note(id, { kind: 'help', text }, `help:${id}:${w.seen.size}:${text}`)
     return c.id
+  }
+
+  /** 깊은 검토가 끝났다 (agentCentralReview.ts): 확인된 것 · 보류로 거절한 합치기 · 실패만 중앙을 깨운다 */
+  protected override reviewed(c: Stored, found: string[], error?: string): void {
+    this.note(c.id, { kind: 'review', text: found.join('\n'), ...(error && { log: error }) }, `review:${c.id}:${this.w().seen.size}`)
   }
 
   private wakeLater(): void {
@@ -343,6 +315,12 @@ export class CentralChats extends FeedbackChats {
           lines.push(`waits for ${plan ? 'plan approval' : 'permission'}: ask ${a.id} · ${a.tool} · ${a.summary}`)
           if (plan) lines.push(`plan:\n${cut(a.plan ?? '', REPORT_FULL)}`)
           lines.push(crit ? `critical (${crit.en}): leave it to the user, do not answer it` : 'not critical: answer it yourself with chat_answer, from what the user asked')
+        } else if (e.kind === 'review') {
+          const mine = k.parent === this.central()?.id
+          ko.push(`「${k.title}」 깊은 검토 ${e.log ? '실패' : e.text ? '찾음' : '이상 없음'}`)
+          if (e.log) lines.push(`deep review failed: ${cut(e.log, 500)}. The hold is released.`)
+          else if (e.text) lines.push(`deep review confirmed (hold released):\n${e.text}`, `버그/규칙: ${mine ? 'chat_send the fix to it' : 'not your sub-conversation: open an app sub-conversation for the fix or tell the user'}. 의도: ask the user ("지금 확인할 것"), never block it yourself.`)
+          else lines.push(`deep review found nothing; the hold is released. Its app_merge was refused during the hold: ${mine ? 'chat_send it one line to call app_merge again' : 'tell the user it can merge now'}.`)
         } else if (e.kind === 'ci') {
           ko.push(`「${k.title}」 CI 실패`)
           lines.push(`pull request check failed. Log tail:\n${tail(e.log ?? '', LOG_TAIL)}`)
@@ -570,6 +548,7 @@ export class CentralChats extends FeedbackChats {
     if (!c.worktree || !c.branch) throw new WorkbenchError(409, t('작업 폴더를 아직 만들지 않았습니다', 'The work folder is not ready yet'))
     if (c.feedback) throw new WorkbenchError(409, t('피드백 대화의 PR은 합치기 설정대로 앱이 합칩니다', 'Feedback pull requests are merged by the app per the merge setting'))
     if (c.merged) throw new WorkbenchError(409, t('이 대화의 PR은 이미 합쳤습니다', 'This conversation\'s pull request is already merged'))
+    this.refuseHeld(c.id)
     if (!c.pr) throw new WorkbenchError(409, t(`PR이 아직 없습니다. 먼저 ${APP_SUBMIT}로 올려 주세요`, `No pull request yet. Call ${APP_SUBMIT} first`))
     const ck = await w.checks(c.worktree, c.branch)
     if (!ck.done) throw new WorkbenchError(409, t(`CI가 아직 끝나지 않았습니다. ${APP_CHECKS}(wait)로 기다린 뒤 다시 부르세요`, `CI has not finished. Wait with ${APP_CHECKS} (wait) and call again`))

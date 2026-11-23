@@ -20,6 +20,9 @@ const now = () => new Date().toISOString()
 const mark = (e: FeedbackListItem): string => `${lastTouched(e)}|${e.comments?.length ?? 0}|${e.review?.at ?? ''}`
 
 export class FeedbackChats extends SharedChats {
+  /** 중앙이 깊은 검토 동안 보류한 PR이면 그 까닭 (agentCentralReview.ts): 저절로 합치지 않는다 */
+  protected held(_id: string): string | undefined { return undefined }
+
   /**
    * 피드백 대화 돌보기 (1분마다, 설정 › 에이전트 "앱 피드백"):
    * 1. 맡은 대화의 PR이 CI 빨강이면 실패 기록을 그 대화에 다시 보내 고치게 한다 (두 번까지).
@@ -67,7 +70,7 @@ export class FeedbackChats extends SharedChats {
           this.send(c.id, { text: t(`CI가 실패했습니다 (${c.ciRetries}/2). 아래 기록을 읽고 고친 뒤 다시 올려 주세요.\n\n${ck.log ?? ''}`.trim(), `CI failed (${c.ciRetries}/2). Read the log below, fix it and submit again.\n\n${ck.log ?? ''}`.trim()) })
           continue
         }
-        if (s.merge === 'never' || (s.merge === 'approved' && !approved)) continue
+        if (s.merge === 'never' || (s.merge === 'approved' && !approved) || this.held(c.id)) continue
         if (app.conflicted && (await app.conflicted(c.worktree, c.branch))) {
           const sig = `conflict:${ck.checks.map((x) => x.link ?? x.name).join('|')}`
           if (sig !== c.ciSeen) {

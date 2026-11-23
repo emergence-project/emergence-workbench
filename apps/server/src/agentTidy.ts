@@ -49,7 +49,7 @@ export function unpack(dir: string, c: Tidyable): void {
 // ---------- 중앙 메모 (시안 §9 ⑤) ----------
 
 /** 중앙 메모 파일: 개인 저장소가 있으면 거기(두 맥이 함께 읽음), 없으면 이 컴퓨터 설정 폴더. publish = 쓴 뒤 올리기 */
-export interface CentralMemoDeps { file: string; where: 'personal' | 'local'; publish?: () => Promise<unknown> }
+export interface CentralMemoDeps { file: string; where: 'personal' | 'local'; publish?: () => Promise<unknown>; /** 의도 장부 (agentCentralReview.ts), 같은 자리 */ decisions?: Omit<CentralMemoDeps, 'decisions'> }
 /** 중앙 메모 길이 한도 (매 대화 처음에 읽는 글이라 짧게) */
 export const MEMO_MAX = 4000
 

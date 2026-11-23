@@ -76,6 +76,7 @@ code:
 - 중앙 방(`agentRoom.ts` · `CentralRoom.tsx`, 11/20): 방장(수정) 하나와 읽기만 · 발언 사람, 받는 이(그냥 = 방장, @이름 = 그 사람만, @모두 · @all = 모두 · 방장 마지막, `@rw/core` `routeOf`. @ 메뉴는 `aka`로 다른 이름에도 맞는다). 여럿을 부르면 같은 시점의 대화를 떼어 두고(`seen`) 동시에 물어 서로의 답을 가리고 방장만 모두의 답을 본다. 방 사람은 세션 없이 부를 때마다 최근 방 대화를 한 번 읽고 답하고(`ChatItem` `member`), 방이 바뀌면 `room` 줄이 남는다. 방장은 MCP `room_ask` · `room_invite` · `room_remove`(`mcpRoom.ts`). 다른 앱은 한 번 묻기(`review` · `side`) 자리만 있으면 옮길 수 있다
 - 토론(`agentDebate.ts` · `Debate.tsx`, 11/20): 중앙과 따로 연 대화(rid `_debate`)에서 앱이 사회를 보는 네 단계(각자 답 → 이름을 가린 서로 비판 → 「새 근거:」가 있어야 바꾸는 고친 답 → 투표하지 않는 정리). 모두 같은 판정이면 비판을 건너뛰고(`skip`), 비판 회수 `rounds`(0–2), 자리마다 모델 · 생각(`DebateSeat`, Codex는 `codexPickArgs`)은 방 상태 `debate`에 다음 토론의 기본으로 남는다. 끝내면 판정 기록 한 줄 · 중앙 `debate` 줄의 결론 · 방장 소식(`news`) · 보관. 다른 앱은 한 번 묻기 자리만 있으면 단계 함수(`answerPrompt` · `critiquePrompt` · `revisePrompt` · `sumPrompt`)와 `runDebate`를 그대로 옮길 수 있다
 - 오래된 대화 정리와 중앙 메모(`agentTidy.ts`): 끝나고 7일 손대지 않은 대화를 보관 · 요약 · 압축하고, 중앙이 읽는 오래 갈 규칙을 한 파일에 둔다. 옮길 때는 보관 · 압축만 가져가도 된다
+- 중앙의 검토 역할(`agentCentralReview.ts` · `mcpReview.ts`, 11/23): 앱 고치기 대화 둘이 같은 파일을 바꾸면 깨우는 글에 「겹침:」 줄(토큰 없음). 의도 장부 `agent/central-decisions.json`(`decision_add`, 사용자의 말 그대로 · 날짜 · 출처, 더하기만 · 바뀌면 옛 항목에 대체됨). 깊은 검토 `chat_review`는 PR diff와 장부만 받은 한 번 묻기(`side`) 둘(찾기 → 확인)로, 확인된 것만 중앙을 깨우고 없으면 조용하다. 검토 중 보류(`pr_hold`)된 PR은 `appMerge`와 자동 합치기가 건너뛴다. 다른 앱은 한 번 묻기 자리와 diff만 있으면 옮길 수 있다
 
 ## 점검
 

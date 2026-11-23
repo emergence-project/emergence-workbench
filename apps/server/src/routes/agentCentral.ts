@@ -43,6 +43,15 @@ export function registerAgentCentral(app: FastifyInstance, chats: CentralChats):
   /** 자리를 기다리는 앱 고치기의 여는 순서 (chat_priority, 11/20) */
   app.post('/api/agent-central/priority', replies(C.CentralHeldOrder), async (req): Promise<C.CentralHeldOrder> => chats.priority(parseBody(C.CentralPriorityBody, req.body)))
 
+  /** 검토 역할 (11/23, agentCentralReview.ts): 의도 장부 (decision_add, 더하기만) · 깊은 검토 (chat_review) · 검토 중 보류 (pr_hold) */
+  app.get('/api/agent-central/decisions', replies(C.CentralDecisions), async (): Promise<C.CentralDecisions> => chats.decisions())
+  app.post('/api/agent-central/decisions', replies(C.CentralDecisions), async (req): Promise<C.CentralDecisions> => chats.addDecision(parseBody(C.CentralDecisionBody, req.body)))
+  app.post('/api/agent-central/review', replies(C.CentralReviewStarted), async (req): Promise<C.CentralReviewStarted> => chats.startReview(parseBody(C.CentralReviewBody, req.body)))
+  app.post('/api/agent-central/hold', replies(C.CentralHold), async (req): Promise<C.CentralHold> => {
+    const b = parseBody(C.CentralHoldBody, req.body)
+    return chats.hold(b.id, b.on, b.reason)
+  })
+
   /** 다른 대화가 중앙에게 중재를 청한다 (central_help): 중앙을 깨운다 */
   app.post('/api/agent-central/help', replies(C.CentralHelped), async (req): Promise<C.CentralHelped> => {
     const b = parseBody(C.CentralHelpBody, req.body)
