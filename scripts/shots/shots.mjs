@@ -88,10 +88,12 @@ try {
       await page.goto('about:blank')
     }
     await page.emulateMedia({ colorScheme: screenScheme(options.theme, name) })
-    if (name === 'review' || name === 'review-talk') {
+    // feedback-mode-pane (11/23): 고침 대화가 열린 수정 검토를 피드백 모드로 누른다
+    const talk = name === 'review-talk' || name === 'feedback-mode-pane'
+    if (name === 'review' || talk) {
       // review와 주소가 같아 주소만 바꾸면 화면이 그대로라, 새로 연다
-      if (name === 'review-talk') await page.goto('about:blank')
-      const why = await seedAgentEdits(base, rid, options.lang) ?? (name === 'review-talk' ? await seedEditTalk(base, rid, options.lang) : null)
+      if (talk) await page.goto('about:blank')
+      const why = await seedAgentEdits(base, rid, options.lang) ?? (talk ? await seedEditTalk(base, rid, options.lang) : null)
       if (why) problems.push(`${name}: 예제 고침을 넣지 못함 (${why})`)
     }
     // 변경사항 (10/27): 이때만 예제를 git 저장소로 만든다 (맨 끝 두 화면)
@@ -351,7 +353,7 @@ try {
       await page.evaluate((rid) => { localStorage.removeItem('rw-agent-place'); localStorage.removeItem(`rw-agent-panel-${rid}`); localStorage.removeItem(`rw-ws-${rid}`) }, rid)
       await page.goto('about:blank')
     }
-    if (name === 'review' || name === 'review-talk') await clearAgentEdits(base)
+    if (name === 'review' || name === 'review-talk' || name === 'feedback-mode-pane') await clearAgentEdits(base)
     if (name === 'agent-background') await page.unrouteAll({ behavior: 'ignoreErrors' })
     if (name === 'agent-recent') { await page.evaluate(() => localStorage.removeItem('rw-side-agent')); await page.goto('about:blank') }
     if (name === 'agent-archive') { if (done) await fetch(`${base}api/agent-chats/${done}/archive`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ archived: false }) }); await page.evaluate(() => localStorage.removeItem('rw-agent-filter')); await page.goto('about:blank') }

@@ -4,6 +4,7 @@ import { Icon } from './icons'
 import { api, type ResearchApi } from './api'
 import { AutosaveContext, AutosaveGroup, hasClosingTabs } from './autosave'
 import { t } from './i18n'
+import { paneName } from './uiNames'
 
 /**
  * 작업 화면: 두 칸 + 칸마다 탭 + 오른쪽 사이드바 (예전 이름 "맥락 칸", data-ui는 그대로).
@@ -549,7 +550,7 @@ export function Workspace({ rid, route, layout, setLayout, dragging, titleOf, ui
   return (
     <main className="ws" ref={box} style={{ gridTemplateColumns: cols }} data-ui="작업 화면">
       {([0, 1] as const).map((i) => (
-        <Pane key={i} i={i} visible={shown.includes(i)} pane={layout.panes[i]} focused={two && layout.focus === i} isFocus={shown.includes(i) && i === focused} titleOf={titleOf} uiTitleOf={uiTitleOf} kindOf={kindOf} renderTab={renderTab} visibleTabs={visibleTabs} groups={groups}
+        <Pane key={i} i={i} two={two} visible={shown.includes(i)} pane={layout.panes[i]} focused={two && layout.focus === i} isFocus={shown.includes(i) && i === focused} titleOf={titleOf} uiTitleOf={uiTitleOf} kindOf={kindOf} renderTab={renderTab} visibleTabs={visibleTabs} groups={groups}
           home={atHome && i === focused ? home : null} canSwap={layout.split}
           onFocus={() => focusPane(i)} onActivate={(t) => activate(i, t)} onClose={(t) => void close(t)} onDropTab={(key) => move(key, i)} onSwap={swapPanes}
           divider={two && i === 1 ? <div className="ws-divider" onPointerDown={drag('split')} role="separator" aria-label={t('두 패널 경계 — 끌어서 크기 조절', 'Border between panes: drag to resize')} /> : null} />
@@ -564,10 +565,9 @@ export function Workspace({ rid, route, layout, setLayout, dragging, titleOf, ui
 
 const ICON: Record<Tab['k'], ReactNode> = { overview: Icon.home, info: Icon.projectInfo, status: Icon.projectInfo, changes: Icon.projectInfo, repo: Icon.repo, files: Icon.repo, agents: Icon.bot, notes: Icon.block, concepts: Icon.concept, papers: Icon.paper, edits: Icon.review, problems: Icon.branch, todo: Icon.task, records: Icon.comment, log: Icon.log, map: Icon.tree, statement: Icon.statement, doc: Icon.pdf, file: Icon.block, part: Icon.block, mspdf: Icon.pdf, concept: Icon.concept, paper: Icon.paper, topic: Icon.layers, task: Icon.task, chat: Icon.spark }
 
-function Pane({ i, visible, pane, focused, isFocus, titleOf, uiTitleOf, kindOf, renderTab, visibleTabs, groups, home, canSwap, onFocus, onActivate, onClose, onDropTab, onSwap, divider }: {
-  i: 0 | 1; visible: boolean; pane: PaneState; focused: boolean; isFocus: boolean; titleOf(t: Tab): string; uiTitleOf(t: Tab): string; kindOf(t: Tab): string | null; renderTab(t: Tab, context: TabRenderContext): ReactNode; visibleTabs: Tab[]; home: ReactNode
-  groups: Map<string, AutosaveGroup>
-  canSwap: boolean
+function Pane({ i, two, visible, pane, focused, isFocus, titleOf, uiTitleOf, kindOf, renderTab, visibleTabs, groups, home, canSwap, onFocus, onActivate, onClose, onDropTab, onSwap, divider }: {
+  i: 0 | 1; two: boolean; visible: boolean; pane: PaneState; focused: boolean; isFocus: boolean; titleOf(t: Tab): string; uiTitleOf(t: Tab): string; kindOf(t: Tab): string | null; renderTab(t: Tab, context: TabRenderContext): ReactNode; visibleTabs: Tab[]; home: ReactNode
+  groups: Map<string, AutosaveGroup>; canSwap: boolean
   onFocus(): void; onActivate(t: Tab): void; onClose(t: Tab): void; onDropTab(key: string): void; onSwap(): void; divider: ReactNode
 }) {
   const [over, setOver] = useState(false)
@@ -596,7 +596,7 @@ function Pane({ i, visible, pane, focused, isFocus, titleOf, uiTitleOf, kindOf, 
   return (
     <>
       {divider}
-      <section className={`ws-pane${focused ? ' focused' : ''}`} data-ui={i === 0 ? '왼쪽 칸' : '오른쪽 칸'} style={{ display: visible ? undefined : 'none' }} onMouseDownCapture={onFocus}>
+      <section className={`ws-pane${focused ? ' focused' : ''}`} data-ui={paneName(i, two)} style={{ display: visible ? undefined : 'none' }} onMouseDownCapture={onFocus}>
         <div className={`ws-tabs-wrap${overflow.left ? ' overflow-left' : ''}${overflow.right ? ' overflow-right' : ''}`}>
         <div ref={tabsRef} className={`ws-tabs${over ? ' drop' : ''}`} role="tablist" data-ui="탭" draggable={canSwap}
           title={canSwap ? t('탭 바 — 옆 패널로 끌어 두 패널을 맞바꿉니다', 'Tab bar: drag to the other pane to swap the two panes') : undefined}

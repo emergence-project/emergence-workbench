@@ -34,7 +34,10 @@ describe('Korean names for screen parts follow the term table', () => {
     expect(koName('확인이 필요한 보조 노트')).toBe('확인이 필요한 노트')
     expect(koName('형광펜 단추')).toBe('하이라이트 버튼')
     expect(koName('작업 화면')).toBe('작업 화면')
-    expect(koName('오른쪽 칸')).toBe('오른쪽 사이드바')
+    expect(koName('맥락 칸')).toBe('오른쪽 사이드바')
+    // 작업 화면의 옛 패널 이름은 사이드바가 아니라 패널 (11/23 15:21 피드백)
+    expect(koName('작업 화면 › 왼쪽 칸 › 고침 검토')).toBe('작업 화면 › 왼쪽 패널 › 고침 검토')
+    expect(koName('오른쪽 칸')).toBe('오른쪽 패널')
   })
 })
 
