@@ -348,6 +348,8 @@ try {
     await page.screenshot({ path: path.join(out, `${name}.png`) })
     // 주소만 바꾸는 이동은 열린 창을 그대로 두므로, 다음 화면을 가리지 않게 닫는다
     if (name === 'task-dialog') await page.keyboard.press('Escape')
+    // 피드백 모드를 켠 채 다음 화면으로 가면 누르기가 모두 피드백 창을 연다: 창을 닫고 모드를 끈다
+    if (name === 'feedback-mode-pane') { await page.keyboard.press('Escape'); await page.keyboard.press('Escape') }
     // 패널 자리와 나란히 연 탭을 되돌려 뒤 화면이 같게
     if (name === 'agent-dock' || name === 'agent-beside') {
       await page.evaluate((rid) => { localStorage.removeItem('rw-agent-place'); localStorage.removeItem(`rw-agent-panel-${rid}`); localStorage.removeItem(`rw-ws-${rid}`) }, rid)
