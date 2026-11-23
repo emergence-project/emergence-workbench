@@ -185,6 +185,24 @@ describe('중앙을 저절로 깨우기', () => {
     chats.stopAll()
   })
 
+  it('피드백 대화(중앙이 열지 않음)의 허락 기다림도 중앙을 깨우고 중앙이 답한다. 다른 대화는 거절 (11/23 "앞으로 허락 묻지 말고 너가 해")', async () => {
+    const { chats, c } = await make(5)
+    const fb = chats.create({ rid: '_app', text: '[web]', title: '피드백', mode: 'edit' }, { feedback: '2026-11-23#1' })
+    await vi.waitFor(() => expect(chats.get(fb.id).state).toBe('waiting'))
+    await vi.waitFor(() => expect(centralPrompts()).toHaveLength(2))
+    const ask = chats.get(fb.id).items.find((i) => i.kind === 'ask')!
+    expect(centralPrompts()[1]).toContain(`waits for permission: ask ${ask.kind === 'ask' && ask.id}`)
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    chats.answerKid({ id: fb.id, ask: ask.kind === 'ask' ? ask.id : '', answer: 'allow' })
+    await vi.waitFor(() => expect(chats.get(fb.id).items).toContainEqual(expect.objectContaining({ kind: 'text', text: 'ran' })))
+    expect(chats.get(c.id).items).toContainEqual(expect.objectContaining({ kind: 'text', text: expect.stringMatching(/자동: .* → 허락/) }))
+    const mine = chats.create({ rid: '_app', text: '[web]', mode: 'edit' })
+    await vi.waitFor(() => expect(chats.get(mine.id).state).toBe('waiting'))
+    const a2 = chats.get(mine.id).items.find((i) => i.kind === 'ask')!
+    expect(() => chats.answerKid({ id: mine.id, ask: a2.kind === 'ask' ? a2.id : '', answer: 'allow' })).toThrow(/피드백 대화가 아닙니다|feedback conversation/)
+    chats.stopAll()
+  })
+
   it(`저절로 깨어난 중앙은 사용자가 말하기 전까지 한 하위 대화에 ${AUTO_SEND_MAX}번까지만 보낸다`, async () => {
     const { chats, c } = await make(60_000)
     const kid = await chats.openKid({ role: 'project', project: 'chiral', title: '2절', task: '다듬어' })

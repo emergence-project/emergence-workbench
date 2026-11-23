@@ -573,10 +573,10 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
     }, async (a) => { const r = await post(base, f, '/api/agent-central/memo', a); return r.ok ? text('Memo saved') : r.error })
     server.registerTool('chat_answer', {
       title: 'Answer for the user',
-      description: 'Answer a plan approval or permission request a sub-conversation waits on (chat_list shows ask id), from what the user asked. Only non-critical ones: the app refuses critical ones (merging, restarting the app, deleting or overwriting, sending outside, changing research or concept notes, money or accounts) — leave those to the user. The card shows that you answered.',
+      description: 'Answer a plan approval or permission request a sub-conversation or a feedback conversation waits on (chat_list or the wake-up shows ask id), from what the user asked. Only non-critical ones: the app refuses critical ones (merging, restarting the app, deleting or overwriting, sending outside, changing research or concept notes, money or accounts) — leave those to the user. The card shows that you answered.',
       inputSchema: {
-        id: z.string().describe('Sub-conversation id'),
-        ask: z.string().describe('Ask id from chat_list'),
+        id: z.string().describe('Sub-conversation or feedback conversation id'),
+        ask: z.string().describe('Ask id from chat_list or the wake-up'),
         answer: z.enum(['allow', 'deny']),
         note: z.string().optional().describe('For deny: what to do instead'),
       },
