@@ -57,29 +57,50 @@ export function TerminalColumn({ rid, hidden, onClose }: { rid: string; hidden: 
   )
 }
 
-/** 에이전트 화면(AgentPage)의 오른쪽 칸: 세부 패널과 터미널 중 하나 (11/19 B1: 「>_」를 누르면 칸이 터미널로 바뀐다).
- *  pane은 세부 패널을 여는지(기억한다). 터미널은 한 번 열면 가려도 셸을 살려 둔다. rid는 터미널을 열 폴더(대화의 프로젝트) */
-export function useSideColumn(chatPage: boolean, rid?: string) {
-  const [pane, setPaneState] = useState(() => store.get<boolean>(PANE_KEY, true))
-  const setPane = (v: boolean) => { setPaneState(v); store.set(PANE_KEY, v) }
+export type SideView = 'info' | 'changes' | 'terminal'
+const VIEW_KEY = 'rw-agent-view'
+
+/** 정보 · 변경사항 · 터미널 중 지금 보일 것. 고른 것이 없는 대화(변경사항이 없거나 터미널을 못 쓰면)에서는 정보로 */
+export function shownView(view: SideView | null, can: { changes: boolean; terminal: boolean }): SideView | null {
+  if (view === 'changes' && !can.changes) return 'info'
+  if (view === 'terminal' && !can.terminal) return 'info'
+  return view
+}
+
+/** 에이전트 화면(AgentPage)의 오른쪽 칸: 정보 · 변경사항 · 터미널 세 보기 중 하나 (11/23 시안 agent-side-views).
+ *  대화 머리의 아이콘 묶음이 보기를 돌리고, 켜진 것을 다시 누르면 칸을 닫는다(고른 보기는 기억한다).
+ *  터미널은 한 번 열면 다른 보기로 가도 셸을 살려 둔다(11/19 B1). rid는 터미널을 열 폴더, delta는 변경사항 아이콘에 붙일 +n −n(없으면 아이콘도 없다) */
+export function useSideColumn(chatPage: boolean, rid?: string, delta?: ReactNode) {
+  // 정보 · 변경사항 · 닫힘은 기억하고, 터미널은 이 화면에서만 (다음에 열면 기억한 보기로)
+  const [view, setViewState] = useState<SideView | null>(() => store.get<SideView | null>(VIEW_KEY, store.get<boolean>(PANE_KEY, true) ? 'info' : null))
   const [term, setTerm] = useState(false)
   const [opened, setOpened] = useState(false)
   const canTerm = useTerminalAvailable()
-  const open = () => { setTerm(true); setOpened(true) }
+  const shown = shownView(term ? 'terminal' : view, { changes: !!delta, terminal: canTerm })
+  const openTerm = () => { setTerm(true); setOpened(true) }
+  const setView = (v: SideView | null) => {
+    if (v === 'terminal') return openTerm()
+    setTerm(false); setViewState(v); store.set(VIEW_KEY, v)
+  }
+  const toggle = (v: SideView) => setView(shown === v ? null : v)
   // 대화 코드 블록의 「터미널에서 실행」(TerminalPane.tsx의 putInTerminal)도 이 칸을 터미널로 바꾼다
   useEffect(() => {
     if (!chatPage || !canTerm) return
-    const on = () => { if (rightModeNow() === 'terminal') open() }
+    const on = () => { if (rightModeNow() === 'terminal') openTerm() }
     window.addEventListener(OPEN_RIGHT, on)
     return () => window.removeEventListener(OPEN_RIGHT, on)
   }, [chatPage, canTerm])
-  const showTerm = term && canTerm
-  const work = pane && !showTerm
-  const togglePane = () => { if (showTerm) { setTerm(false); setPane(true) } else setPane(!pane) }
-  const tools = <>
-    <button className={`icon-btn sm${work ? ' on' : ''}`} data-ui="세부 패널 버튼" aria-pressed={work} data-tip={t('세부 패널 (변경사항 · 작업 상태)', 'Details (changes and work)')} aria-label={t('세부 패널', 'Details')} onClick={togglePane}>{Icon.list}</button>
-    {canTerm && <button className={`icon-btn sm${showTerm ? ' on' : ''}`} data-ui="터미널 버튼" aria-pressed={showTerm} data-tip={t('터미널 (이 대화의 프로젝트 폴더)', 'Terminal (this conversation\'s project folder)')} aria-label={t('터미널', 'Terminal')} onClick={() => (showTerm ? setTerm(false) : open())}>{Icon.terminal}</button>}
-  </>
-  const terminal = opened && canTerm && rid ? <TerminalColumn rid={rid} hidden={!showTerm} onClose={() => setTerm(false)} /> : null
-  return { work, togglePane, tools, terminal }
+  const btn = (v: SideView, ui: string, label: string, tip: string, body: ReactNode, cls = '') => (
+    <button className={`icon-btn sm${cls}${shown === v ? ' on' : ''}`} data-ui={ui} aria-pressed={shown === v} aria-label={label}
+      data-tip={shown === v ? t(`${tip} · 다시 누르면 닫기`, `${tip} · click again to close`) : tip} onClick={() => toggle(v)}>{body}</button>
+  )
+  const tools = (
+    <span className="ac-views" role="group" aria-label={t('오른쪽 칸 보기', 'Side column view')} data-ui="오른쪽 칸 보기">
+      {btn('info', '정보 보기 버튼', t('정보', 'Info'), t('이 대화 정보', 'About this conversation'), Icon.info)}
+      {delta && btn('changes', '변경사항 보기 버튼', t('변경사항', 'Changes'), t('변경사항', 'Changes'), <>{Icon.review}{delta}</>, ' wide')}
+      {canTerm && btn('terminal', '터미널 버튼', t('터미널', 'Terminal'), t('터미널 (이 대화의 프로젝트 폴더)', 'Terminal (this conversation\'s project folder)'), Icon.terminal)}
+    </span>
+  )
+  const terminal = opened && canTerm && rid ? <TerminalColumn rid={rid} hidden={shown !== 'terminal'} onClose={() => setView(null)} /> : null
+  return { view: shown === 'terminal' ? null : shown, open: (v: SideView) => setView(v), tools, terminal }
 }

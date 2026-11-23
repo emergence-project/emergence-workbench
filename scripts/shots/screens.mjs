@@ -82,11 +82,11 @@ export const DEFAULT_SCREENS = [
   ['feedback-gallery', '#/feedback', '전후 그림', ['[data-ui="피드백 줄"][data-ui-item^="2026-10-04 09:30"]', '[data-ui="전후 그림"] button']],
   // 에이전트 대화 (10/21): 예제 실행기(agentSample.ts)가 계획 승인을 묻는 대화(계획 먼저)를 찍기 전에 만든다 (shots.mjs, {chat}). 오른쪽 사이드바 자리의 패널은 상단바 반짝이
   ['agent', '#/agent/{chat}', '계획 카드'],
-  // 노트를 고치고 끝난 대화와 바뀐 곳 패널 (#232)
-  ['agent-changes', '#/agent/{done}', '바뀐 곳'],
+  // 노트를 고치고 끝난 대화와 바뀐 곳 패널 (#232). 머리 보기 묶음의 변경사항 아이콘으로 오른쪽 칸을 변경사항 보기로 (11/23)
+  ['agent-changes', '#/agent/{done}', '변경사항 칸', '변경사항 보기 버튼'],
   // 앱 고치기 대화 (2단계 10/21): 작업 폴더에서 파일 하나를 고치고 PR을 연 대화 (shots.mjs, {appchat})
   ['agent-app', '#/agent/{appchat}', '대화 PR'],
-  // 대화 머리 「>_」로 오른쪽 칸을 터미널로 바꾼 모습 (11/19 B1)
+  // 대화 머리 보기 묶음의 「>_」로 오른쪽 칸을 터미널로 바꾼 모습 (11/19 B1, 11/23 묶음)
   ['agent-terminal', '#/agent/{done}', '터미널 칸', '터미널 버튼'],
   // Codex 검토 카드 (11/9): 끝난 대화에 붙은 검토 (shots.mjs가 검토를 부른다)
   ['agent-review', '#/agent/{done}', '검토 카드'],

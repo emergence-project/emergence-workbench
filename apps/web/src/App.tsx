@@ -254,7 +254,7 @@ export function App() {
   /** 사이드바를 쓰는 전역 화면 (지식: 개념노트 목록) */
   const globalSide = globalPageOf(route.page)?.side
   const globalRightAble = globalRightHere.current = !!globalPageOf(route.page)?.right?.(route)
-  // 오른쪽 사이드바가 없는 전역 화면은 그 자리에서 에이전트와 대화한다 (11/16 "모든 페이지에서 오른쪽 사이드바로", AgentSide.tsx). 에이전트 화면(새 대화 · 중앙)은 터미널만 (이 컴퓨터에서 연 화면, 11/19). 대화를 연 에이전트 화면은 대화 머리의 「>_」가 오른쪽 칸을 터미널로 바꾸고 「터미널에서 실행」도 그 칸이 받는다 (WorkAside.tsx의 useSideColumn, 11/19 B1)
+  // 오른쪽 사이드바가 없는 전역 화면은 그 자리에서 에이전트와 대화한다 (11/16 "모든 페이지에서 오른쪽 사이드바로", AgentSide.tsx). 에이전트 화면(새 대화 · 중앙)은 터미널만 (이 컴퓨터에서 연 화면, 11/19). 대화를 연 에이전트 화면은 대화 머리의 보기 묶음(정보 · 변경사항 · 터미널, 11/23)이 오른쪽 칸을 돌리고 「터미널에서 실행」도 그 칸이 받는다 (WorkAside.tsx의 useSideColumn, 11/19 B1)
   const terminalHere = useTerminalAvailable(), agentCol = agentColHere.current = route.page === 'agent' && !!route.id && route.id !== CENTRAL_PAGE, agentSideAble = agentSideHere.current = globalPage && !globalRightAble && (route.page !== 'agent' || (terminalHere && !agentCol)), agentSideShown = agentSideAble && agentSide
   const showSide = (!globalPage && !!rid && sideOpen) || (!!globalSide && sideOpen)
   const rightOpenNow = globalPage ? (agentSideAble ? agentSide : globalRight) : layout.ctx, toggleRight = () => { if (agentSideAble) setAgentSide((v) => !v); else if (globalPage) setGlobalRight((v) => !v); else setLayout((l) => ({ ...l, ctx: !l.ctx })) }, rightModes = useTopBarModes(rightOpenNow, toggleRight, agentSideAble ? (route.page === 'agent' || !terminalHere ? [] : ['agent', 'terminal']) : [globalRightAble ? 'info' : 'info,records', 'agent', terminalHere ? 'terminal' : ''])

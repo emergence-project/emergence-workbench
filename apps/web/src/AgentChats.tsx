@@ -14,6 +14,7 @@ import { go, href } from './router'
 import { StatusDot } from './StatusDot'
 import { store } from './store'
 import { useSideColumn, WorkAside } from './WorkAside'
+import { ChangesColumn, chatDelta, Delta, reviewOf } from './AgentChanges'
 import { chatLog, isAgentStep, ProcLine, secondsName, type Step } from './WorkLog'
 import { inBackground, isUnseen, myTurn, shownState, useMarkSeen, useSeen } from './agentSeen'
 import { useDismiss } from './useDismiss'
@@ -67,11 +68,6 @@ export function ChatStateMark({ state, label, name: given }: { state: ChatState;
   return label || state === 'queued' ? <span className="ac-state muted">{name}</span> : null
 }
 
-/** +n −n (노트 고침에서 더하고 뺀 줄) */
-function Delta({ added, removed }: { added: number; removed: number }) {
-  return <span className="ac-delta"><span className="ac-add">+{added}</span><span className="ac-del">−{removed}</span></span>
-}
-
 /** 토큰 수: 1.2k · 48k · 1.3M */
 export function tokensName(n: number): string {
   if (n < 1000) return String(n)
@@ -99,7 +95,6 @@ export const useChatList = (rid?: string) => { useSeen(); return useQuery({ quer
 export const chatTitles = new Map<string, string>()
 const useChat = (id: string, enabled = true) => useQuery({ queryKey: qk.agentChat(id), queryFn: () => agentChatsApi.get(id).then((c) => { chatTitles.set(c.id, c.title); return c }), enabled })
 export const useProjects = () => useQuery({ queryKey: qk.researches, queryFn: () => api.researches() }).data?.researches
-
 
 /** 대화 목록 · 머리에 보일 프로젝트 이름 (앱 고치기 대화는 「앱」) */
 export const projectName = (rid: string, projects?: { id: string; title: string }[]) => (rid === APP_RID ? t('앱', 'App') : rid === CENTRAL_RID ? t('중앙', 'Central') : rid === DEBATE_RID ? t('토론', 'Debate') : rid === LIBRARY_RID ? t('지식', 'Knowledge') : projects?.find((p) => p.id === rid)?.title ?? rid)
@@ -350,8 +345,6 @@ function TodoBar({ todos }: { todos: Todo[] }) {
   )
 }
 
-const reviewOf = (rid: string, file: string) => go({ page: 'review', key: `note:${rid}:${file}` })
-
 /** 노트 고침: 대화 안에는 한 줄(무엇을 · +n −n), 바뀐 곳은 오른쪽 칸과 수정 검토에서 */
 function EditLine({ chat, it, onChanges }: { chat: Chat; it: Extract<ChatItem, { kind: 'edit' }>; onChanges?(): void }) {
   // 오른쪽 사이드바의 대화에서는 고친 곳을 이 줄 아래에 펼쳐 그 자리에서 검토한다 (10/28 사용자 정정: 페이지를 옮기지 않고)
@@ -425,7 +418,7 @@ function ItemView({ chat, it, who, onError, onChanges, onRewind, onPass }: { cha
 // ---------- 대화 하나 ----------
 
 /** 대화의 머리: 이름 · 프로젝트 · 범위, 오른쪽 상태 · +n −n 바뀐 곳 · 작업 · ⋯(보관 · 지우기) */
-function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, compact = false, tools, onRecord }: {
+function ChatHead({ chat, onBack, pane, inPage, onDeleted, onSaved, onError, compact = false, tools, onRecord }: {
   chat: Chat
   onBack?(): void
   /** 오른쪽 사이드바 패널 (10/28 안 A): ‹ 목록으로 · 제목 한 줄 · 아래 줄은 묶음 · 상태 · 시각 */
@@ -434,9 +427,10 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
   tools?: ReactNode
   /** 「기록으로 남기기」 (직접 연 대화, 적기 칸이 있는 패널에서만) */
   onRecord?(): void
-  /** 오른쪽 세부 패널(바뀐 곳 · 작업)이 열렸는지와 여닫기. 없으면(패널) 바뀐 곳은 에이전트 화면에서 연다 */
+  /** 오른쪽 칸에 정보가 열렸는지 */
   pane?: boolean
-  onPane?(): void
+  /** 에이전트 화면 안: 변경사항은 머리의 아이콘 묶음(tools)이 연다. 아니면(탭) 「변경사항」 단추가 에이전트 화면으로 간다 */
+  inPage?: boolean
   onDeleted(): void
   onSaved(m: string): void
   onError(m: string): void
@@ -482,9 +476,9 @@ function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onError, com
         </div>}
       </div>
       <ChatStateMark state={shownState(chat)} label={!compact} name={!compact && inBackground(chat) ? STATE_NAME.running : sname} />
-      {!!chat.changed.length && !compact && (
-        <button className={`btn sm ac-changes-btn${pane ? ' on' : ''}`} data-ui="바뀐 곳 버튼" aria-pressed={onPane ? !!pane : undefined} data-tip={onPane ? t('변경사항 · 작업 패널 여닫기', 'Show or hide changes and work') : t('에이전트 화면에서 변경사항 보기', 'View changes in the agent page')}
-          onClick={() => (onPane ? onPane() : go({ page: 'agent', id: chat.id }))}>
+      {!!chat.changed.length && !compact && !inPage && (
+        <button className="btn sm ac-changes-btn" data-ui="바뀐 곳 버튼" data-tip={t('에이전트 화면에서 변경사항 보기', 'View changes in the agent page')}
+          onClick={() => go({ page: 'agent', id: chat.id })}>
           <Delta added={added} removed={removed} />{t('변경사항', 'Changes')}
         </button>
       )}
@@ -537,13 +531,15 @@ function QueuedBar({ chat, onEdit, onError }: { chat: Chat; onEdit(f: Omit<Fill,
 }
 
 /** 대화 하나: 머리, 주고받은 줄, 입력란 위의 할 일 · 다음에 보냄, 입력란 (auto = 지금 보는 노트) */
-export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, onDeleted, onSaved }: {
+export function ChatView({ id, auto, head = true, pane, onChanges, tools, onBack, onDeleted, onSaved }: {
   id: string
   auto?: Attach
   head?: boolean
+  /** 오른쪽 칸에 정보가 열렸는지 (중앙의 작업 현황 단추는 그때 좁은 화면에서만) */
   pane?: boolean
-  onPane?(): void
-  /** 머리 오른쪽 아이콘 단추 (에이전트 화면의 세부 패널 · 터미널) */
+  /** 오른쪽 칸을 변경사항 보기로 (에이전트 화면). 없으면 변경사항은 에이전트 화면에서 연다 */
+  onChanges?(): void
+  /** 머리 오른쪽 아이콘 단추 (에이전트 화면의 정보 · 변경사항 · 터미널 묶음) */
   tools?: ReactNode
   onBack?(): void
   onDeleted(): void
@@ -572,9 +568,9 @@ export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, o
   const lines = useMemo(() => {
     if (!chat) return null
     const { blocks, log } = chatLog(chat.items), running = isLive(chat.state)
-    const onChanges = onPane ? () => act.current.changes?.() : undefined
-    return blocks.map((b, i) => b.kind === 'proc' ? <ProcLine key={i} from={b.from} to={b.to} log={log} live={running && i === blocks.length - 1} /> : <ItemView key={i} chat={chat} it={b.item} who={chat.rid === CENTRAL_RID && hostWhoAt(blocks, i)} onError={setFail} onChanges={onChanges} onRewind={(p) => act.current.rewind(p)} onPass={(text) => setFill({ text, n: Date.now() })} />)
-  }, [id, chat?.items, chat?.state, chat?.updated, chat?.rid, chat?.machine, !!onPane]) // eslint-disable-line react-hooks/exhaustive-deps -- 쓰는 중인 글(draft)만 바뀐 chat은 줄을 다시 그리지 않는다
+    const openChanges = onChanges ? () => act.current.changes?.() : undefined
+    return blocks.map((b, i) => b.kind === 'proc' ? <ProcLine key={i} from={b.from} to={b.to} log={log} live={running && i === blocks.length - 1} /> : <ItemView key={i} chat={chat} it={b.item} who={chat.rid === CENTRAL_RID && hostWhoAt(blocks, i)} onError={setFail} onChanges={openChanges} onRewind={(p) => act.current.rewind(p)} onPass={(text) => setFill({ text, n: Date.now() })} />)
+  }, [id, chat?.items, chat?.state, chat?.updated, chat?.rid, chat?.machine, !!onChanges]) // eslint-disable-line react-hooks/exhaustive-deps -- 쓰는 중인 글(draft)만 바뀐 chat은 줄을 다시 그리지 않는다
   if (!chat) return <div className="empty center">{error ? (error as Error).message : t('불러오는 중…', 'Loading…')}</div>
   const live = isLive(chat.state)
   const settings: Settings = { trust: trustOf(chat), model: chat.model, effort: chat.effort, agent: chat.agent, account: chat.account ?? 'default', ...(chat.rid !== APP_RID && autoCustom(chat) && !over.trust && { custom: true }), ...over }
@@ -626,11 +622,10 @@ export function ChatView({ id, auto, head = true, pane, onPane, tools, onBack, o
       : live ? t('보내면 다음 차례에 읽습니다', 'Sent now, read next turn')
         : chat.rid === APP_RID ? t('이어서 쓰기 · 그림 붙여넣기', 'Continue · paste images') : t('이어서 쓰기 · / 명령 · @ 붙이기', 'Continue · / commands · @ attach')
   const showTodos = chat.todos.length > 0 && (live || chat.todos.some((x) => x.state !== 'completed'))
-  const openChanges = onPane ? () => { if (!pane) onPane() } : undefined
-  act.current = { rewind: (p) => void rewind(p), changes: openChanges }
+  act.current = { rewind: (p) => void rewind(p), changes: onChanges }
   return (
     <AppLinkProvider feedback={chat.rid === CENTRAL_RID || chat.rid === APP_RID}><div className="ac-chat" data-ui="에이전트 대화">
-      {head && <ChatHead chat={chat} pane={pane} onPane={onPane} tools={tools} onBack={onBack} onDeleted={onDeleted} onSaved={onSaved} onError={setFail} />}{head && chat.rid === CENTRAL_RID && <RoomStrip />}{head && <DebateStrip chat={chat} />}
+      {head && <ChatHead chat={chat} pane={pane} inPage={!!onChanges} tools={tools} onBack={onBack} onDeleted={onDeleted} onSaved={onSaved} onError={setFail} />}{head && chat.rid === CENTRAL_RID && <RoomStrip />}{head && <DebateStrip chat={chat} />}
       {chat.record && <RecordBanner rid={chat.rid} record={chat.record} />}
       <ol ref={listRef} className="ac-items" data-ui="대화 줄들" role="log" onScroll={onScroll}>
         {!!chat.trimmed && <li className="ac-note muted">{t(`오래된 앞 줄 ${chat.trimmed}개는 지웠습니다 (대화는 마지막 400줄만 둡니다)`, `${chat.trimmed} older lines were removed (a conversation keeps its last 400)`)}</li>}
@@ -700,78 +695,6 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
   )
 }
 
-// ---------- 오른쪽 세부 패널: 바뀐 곳 · 작업 (에이전트 화면) ----------
-
-type Edit = Extract<ChatItem, { kind: 'edit' }>
-
-/** 바뀐 곳에 단 코멘트를 에이전트에게 보낼 지시로 */
-export function commentMessage(notes: { file: string; old: string; new: string; text: string }[]): ChatMessageBody {
-  return {
-    text: [t('변경사항에 코멘트를 달았습니다. 하나씩 반영해 주세요.', 'I commented on the changes. Please address each one.'), ...notes.map((n, i) => `${i + 1}. ${n.file}: ${n.text}`)].join('\n'),
-    attach: notes.map((n) => ({ kind: 'selection' as const, ref: n.file, label: (n.new || n.old).slice(0, 40), text: [n.old && `- ${n.old}`, n.new && `+ ${n.new}`].filter(Boolean).join('\n').slice(0, 4000) })),
-  }
-}
-
-/** 바뀐 곳: 파일마다 고친 문단(− · +), 문단을 누르면 코멘트, 모아서 에이전트에게 보내기. 승인 · 되돌리기는 수정 검토에서(파일 줄 오른쪽 「수정 검토 ›」, 10/28 21:39 정렬) */
-function Changes({ chat, onSaved }: { chat: Chat; onSaved(m: string): void }) {
-  const client = useQueryClient()
-  const edits = chat.items.filter((i): i is Edit => i.kind === 'edit')
-  const [notes, setNotes] = useState<Record<string, string>>({})
-  const [open, setOpen] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [fail, setFail] = useState<string | null>(null)
-  const files = [...new Set(edits.map((e) => e.file))]
-  const ready = Object.entries(notes).filter(([, v]) => v.trim())
-  const send = async () => {
-    const list = ready.map(([k, v]) => { const [ei, pi] = k.split(':').map(Number); const e = edits[ei!]!; const p = e.parts[pi!]!; return { file: e.file, old: p.old, new: p.new, text: v.trim() } })
-    setBusy(true); setFail(null)
-    try {
-      client.setQueryData(qk.agentChat(chat.id), await agentChatsApi.send(chat.id, commentMessage(list)))
-      setNotes({}); setOpen(null)
-      onSaved(t('코멘트를 에이전트에게 보냈습니다', 'Comments sent to the agent'))
-    } catch (e) { setFail((e as Error).message) } finally { setBusy(false) }
-  }
-  if (!edits.length) return null
-  return (
-    <section className="ac-changes" data-ui="바뀐 곳">
-      {files.map((f) => {
-        const mine = edits.map((e, ei) => ({ e, ei })).filter((x) => x.e.file === f)
-        return (
-          <div key={f} className="ac-change-file">
-            <div className="ac-work-row">
-              <span className="mono ac-file" title={f}>{f}</span>
-              <Delta added={mine.reduce((s, x) => s + x.e.added, 0)} removed={mine.reduce((s, x) => s + x.e.removed, 0)} />
-              {chat.rid !== APP_RID && <button className="a ac-change-review" data-ui="수정 검토로" title={t('수정 검토에서 승인 · 되돌리기', 'Approve or revert in edit review')} onClick={() => reviewOf(chat.rid, f)}>{t('수정 검토 ›', 'Edit review ›')}</button>}
-            </div>
-            {mine.map(({ e, ei }) => e.parts.map((p, pi) => {
-              const k = `${ei}:${pi}`
-              return (
-                <div key={k} className={`ac-diff ac-diff-part${open === k ? ' on' : ''}`}>
-                  <button className="ac-diff-hit" data-ui="바뀐 곳 코멘트" aria-expanded={open === k} title={t('눌러서 코멘트', 'Click to comment')} onClick={() => setOpen(open === k ? null : k)}>
-                    {p.old && <div className="ac-diff-old"><span aria-hidden>− </span>{p.old}</div>}
-                    {p.new && <div className="ac-diff-new"><span aria-hidden>+ </span>{p.new}</div>}
-                  </button>
-                  {notes[k]?.trim() && open !== k && <div className="ac-diff-note"><b>{t('나', 'Me')}</b> · {notes[k]}</div>}
-                  {open === k && <textarea className="ac-diff-input" rows={2} autoFocus value={notes[k] ?? ''} placeholder={t('이 고침에 코멘트', 'Comment on this change')} aria-label={t('코멘트', 'Comment')}
-                    onChange={(ev) => setNotes({ ...notes, [k]: ev.target.value })}
-                    onKeyDown={(ev) => { if (ev.key === 'Escape') { ev.preventDefault(); setOpen(null) } }} />}
-                </div>
-              )
-            }))}
-            {mine.at(-1)?.e.reason && <span className="muted ac-hint">{mine.at(-1)!.e.reason}</span>}
-          </div>
-        )
-      })}
-      {fail && <span className="error-text ac-hint">{fail}</span>}
-      <div className="ac-card-row">
-        <span className="muted ac-hint">{ready.length ? t(`코멘트 ${ready.length}개`, `${ready.length} comment(s)`) : t('문단을 누르면 코멘트를 답니다', 'Click a change to comment')}</span>
-        <span className="sp" />
-        <button className="btn primary sm" data-ui="코멘트 보내기" disabled={!ready.length || busy} onClick={() => void send()}>{t('에이전트에게 보내기', 'Send to the agent')}</button>
-      </div>
-    </section>
-  )
-}
-
 /** 맥락 창이 이만큼 차면 /compact를 권한다 */
 const COMPACT_HINT = 0.8
 
@@ -809,8 +732,9 @@ function ChatInfo({ chat }: { chat: Chat }) {
 }
 
 const PERM_OPEN_KEY = 'rw-agent-perm-open'
-/** 세부 패널: 이 대화(맥락 창 · 기본 정보) · 바뀐 곳(있으면) · 잡은 파일(다른 대화 것도) · 이 대화의 허락 · 하위 에이전트 */
-export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): void }) {
+
+/** 오른쪽 칸. 정보 보기: 이 대화(맥락 창 · 기본 정보) · 잡은 파일(다른 대화 것도) · 이 대화의 허락 · 하위 에이전트. 변경사항 보기: ChangesColumn */
+export function WorkColumn({ id, view = 'info', onSaved }: { id: string; view?: 'info' | 'changes'; onSaved(m: string): void }) {
   const client = useQueryClient()
   const [permOpen, setPermOpen] = useState(() => store.get<boolean>(PERM_OPEN_KEY, false))
   const setPerm = (v: boolean) => { setPermOpen(v); store.set(PERM_OPEN_KEY, v) }
@@ -821,7 +745,8 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
   const agents = chat.items.filter((i): i is Step => i.kind === 'step' && isAgentStep(i))
   const forget = async (label: string) => client.setQueryData(qk.agentChat(id), await agentChatsApi.forget(id, label))
   const trust = trustOf(chat)
-  const hasEdits = chat.items.some((i) => i.kind === 'edit'); if (chat.debate) return <WorkAside><DebatePanel chat={chat} /><VerdictLog /><details className="ac-info-fold" data-ui="이 대화 접기"><summary>{t('이 대화', 'This conversation')} <span className="muted">{t('토큰 · 시각 ›', 'tokens · time ›')}</span></summary><ChatInfo chat={chat} /></details></WorkAside>
+  if (view === 'changes' && chatDelta(chat)) return <ChangesColumn chat={chat} onSaved={onSaved} />
+  if (chat.debate) return <WorkAside><DebatePanel chat={chat} /><VerdictLog /><details className="ac-info-fold" data-ui="이 대화 접기"><summary>{t('이 대화', 'This conversation')} <span className="muted">{t('토큰 · 시각 ›', 'tokens · time ›')}</span></summary><ChatInfo chat={chat} /></details></WorkAside>
   // 중앙은 파일을 고치지 않으므로 이 칸을 작업 현황에 쓰고, 「이 대화」는 그 아래 접어 둔다
   if (chat.rid === CENTRAL_RID) return (
     <WorkAside>
@@ -832,7 +757,6 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
   return (
     <WorkAside>
       <ChatInfo chat={chat} />
-      {hasEdits && !chat.machine && <><h3>{t('변경사항', 'Changes')}</h3><Changes chat={chat} onSaved={onSaved} /></>}
       <section data-ui="잡은 파일">
         <h3>{t('사용 중인 파일', 'Claimed files')}</h3>
         {chat.claims.map((f) => <div key={f} className="ac-work-row"><span className="mono ac-file" title={f}>{f}</span><span className="tag">{t('이 대화', 'This')}</span></div>)}
@@ -869,14 +793,15 @@ export function WorkColumn({ id, onSaved }: { id: string; onSaved(m: string): vo
 // ---------- 레일 "에이전트" 화면 ----------
 
 export function AgentPage({ id, onSaved, side }: { id?: string; onSaved(m: string): void; side?: { open: boolean; onOpen(): void } }) {
-  const chatPage = !!id && id !== CENTRAL_PAGE, col = useSideColumn(chatPage, useChat(id ?? '', chatPage).data?.rid) // 오른쪽 칸: 세부 패널 · 터미널
+  const chatPage = !!id && id !== CENTRAL_PAGE, chat = useChat(id ?? '', chatPage).data, delta = chatDelta(chat)
+  const col = useSideColumn(chatPage, chat?.rid, delta && <Delta added={delta.added} removed={delta.removed} />) // 오른쪽 칸: 정보 · 변경사항 · 터미널
   return (
     <main className="stage full" data-ui="에이전트">
       <section className="pane">
         {id === CENTRAL_PAGE ? <CentralStart /> : id
           ? <div className="ac-page">
-            <ChatView key={id} id={id} pane={col.work} onPane={col.togglePane} tools={col.tools} onDeleted={() => go({ page: 'agent' })} onSaved={onSaved} />
-            {col.work && <WorkColumn id={id} onSaved={onSaved} />}{col.terminal}
+            <ChatView key={id} id={id} pane={col.view === 'info'} onChanges={() => col.open('changes')} tools={col.tools} onDeleted={() => go({ page: 'agent' })} onSaved={onSaved} />
+            {col.view && <WorkColumn id={id} view={col.view} onSaved={onSaved} />}{col.terminal}
           </div>
           : <div className="scroll"><div className="page-body ac-start">
             <h1 className="ac-h">{t('새 대화', 'New conversation')}</h1>
