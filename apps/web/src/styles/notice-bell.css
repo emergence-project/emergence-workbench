@@ -19,9 +19,9 @@
 .tb-bell-sum { display: flex; align-items: center; gap: var(--sp-1); padding: var(--sp-1) 10px; color: var(--text-3); font-size: var(--fs-xs); }
 
 .tb-bell-none { padding: 6px 10px; font-size: var(--fs-sm); }
-/* 11/23: 답할 것은 사용자 차례 주황 점, 소식은 무채색 점(읽지 않음 짙게 · 읽음 옅게). 파랑은 진행 상태에만 쓰므로 쓰지 않는다 */
+/* 11/23: 답할 것은 사용자 차례 주황 점, 소식은 읽지 않음 파란 점 · 읽음 빈 고리 (파랑 = 새로 온 것, 사용자 결정 "바꾸자") */
 .tb-bell-dot { width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--line-strong); flex: none; }
-.tb-bell-item.unread .tb-bell-dot, .tb-bell-dot.on { background: var(--text-2); border-color: var(--text-2); }
+.tb-bell-item.unread .tb-bell-dot, .tb-bell-dot.on { background: var(--s-progress); border-color: var(--s-progress); }
 .tb-bell-where { display: inline-flex; align-items: center; gap: var(--sp-1); min-width: 0; color: var(--text-2); }
 .tb-bell-where > span:last-child { overflow: hidden; text-overflow: ellipsis; }
 .tb-bell-pc { width: 12px; height: 12px; border-radius: var(--r-xs); flex: none; }
@@ -30,7 +30,7 @@
 .tb-bell-item.need .tb-bell-text { color: var(--text); }
 .menu .tb-bell-item.first-news { border-top: 2px solid var(--line-strong); }
 .tb-bell-head .tb-bell-place { margin-left: auto; max-width: 150px; }
-.tb-bell-new { position: absolute; top: 3px; right: 2px; width: 7px; height: 7px; border-radius: 50%; background: var(--text-2); pointer-events: none; }
+.tb-bell-new { position: absolute; top: 3px; right: 2px; width: 7px; height: 7px; border-radius: 50%; background: var(--s-progress); pointer-events: none; }
 /* 폰: 종이 상단바 가운데쯤이라 340px 메뉴를 종 오른쪽 끝에 맞추면 왼쪽이 화면 밖으로 나간다. 상단바 폭에 맞춰 편다 */
 @media (max-width: 600px) {
   .titlebar { position: relative; }
