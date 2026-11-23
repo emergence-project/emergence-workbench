@@ -64,6 +64,9 @@ export function openRight(m: RightMode) {
   setRightMode(m)
   window.dispatchEvent(new CustomEvent(OPEN_RIGHT))
 }
+/** 오른쪽 사이드바를 닫아 달라 (App.tsx가 듣는다. 소개 툴바의 시계처럼 화면 안 단추가 사이드바를 끌 때) */
+export const CLOSE_RIGHT = 'rw:close-right'
+export const closeRight = () => window.dispatchEvent(new CustomEvent(CLOSE_RIGHT))
 
 // ---------- 절 목차 ----------
 

@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { AboutFixTab } from './AboutFix'
 import { AboutSide, markChanges, useAboutChanges, type Picked, type SideTab } from './AboutHistorySide'
 import { HistoryButton } from './NoteHistory'
+import { InfoOrAgent } from './AgentSide'
+import { closeRight, openRight, useRightMode } from './noteScreen'
 import { ABOUT_PARTS, type AboutPart, type AboutSection, COLOR_ROWS, partOf, sectionAnchor, SYMBOL_GROUPS } from './aboutContent'
 import { checkKey, checkState, lastPr, prsSince, useAboutChecks, type AboutCheckState } from './aboutChecks'
 import type { AboutCheck, AboutChecks } from './api'
@@ -17,7 +19,8 @@ import * as portingGuides from './about/reference/porting-guides'
 /**
  * 이 앱 소개: 앱의 왼쪽 사이드바에서 한 쪽을 고른다 (#/about/<쪽>).
  * 쪽마다 지금 앱이 어떤지를 화면의 짜임대로 절로 나눠 보여 준다 (내용은 aboutContent.tsx).
- * 툴바 오른쪽 시계로 오른쪽 사이드바를 연다 (11/20 시안 2 · 3절, AboutHistorySide.tsx): 탭 「이력」은 이 쪽을 고친 (절, 업데이트) 표로
+ * 툴바 오른쪽 시계나 상단바의 정보 아이콘으로 앱의 오른쪽 사이드바를 연다 (11/20 시안 2 · 3절, AboutHistorySide.tsx. 11/24부터 따로 띄운 칸이 아니라
+ * 앱 사이드바 한 칸이라 에이전트 사이드바와 둘이 함께 열리지 않는다): 탭 「이력」은 이 쪽을 고친 (절, 업데이트) 표로
  * 줄마다 확인을 받고, 줄을 누르면 그 절로 가서 그 업데이트가 바꾼 문장에 하이라이트를 붙인다. 탭 「수정」은 본문의 한 곳을 눌러 고친 글을 담아 보낸다(AboutFix.tsx).
  * 확인 전인 절은 절 제목 옆 「확인 전」과 왼쪽 목록의 「확인 n」으로 보인다(본문 위 확인 항목 상자는 11/20에 없앰).
  * 둘 다 누르면 이력 탭을 열고 그 절의 가장 최근 확인 전 줄을 고른다 (11/20 피드백 08:54 「클릭하면 오른쪽 사이드바가 뜨거나 알려 줘야」).
@@ -26,7 +29,7 @@ const REVIEW_EVENT = 'rw-about-review'
 /** 「확인 전」 · 「확인 n」을 눌렀을 때: 그 쪽의 그 절(없으면 첫 확인 전 절)을 이력에서 연다 */
 export function openReview(part: string, sec?: number) { window.dispatchEvent(new CustomEvent(REVIEW_EVENT, { detail: { part, sec } })) }
 
-export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) {
+export function AboutPage({ part, anchor, rightOpen, onSaved }: { part?: string; anchor?: string; rightOpen: boolean; onSaved(m: string): void }) {
   const p = partOf(part)
   // 절이 있는 쪽은 절 하나씩 따로 연다 (10/15 14:12 "서브섹션보다 서브페이지 구조로, 스크롤이 힘들다"). #/about/<쪽>은 첫 절
   const at = sectionIndex(p, anchor)
@@ -36,7 +39,9 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
   const i = pages.findIndex((x) => x.part === p && x.at === at)
   const prev = pages[i - 1]
   const next = pages[i + 1]
-  const [side, setSide] = useState(historyOn)
+  // 오른쪽 사이드바가 열려 있고 에이전트 · 터미널이 아닌 갈래면 이력 · 수정이 보인다 (AgentSide.tsx의 InfoOrAgent)
+  const mode = useRightMode()
+  const side = rightOpen && mode !== 'agent' && mode !== 'terminal'
   const [tab, setTab] = useState<SideTab>(tabOn)
   const [picked, setPicked] = useState<Picked | null>(null)
   // 다른 쪽의 「확인 n」을 누르면 쪽을 옮긴 뒤 고를 줄
@@ -53,7 +58,7 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
       const ns = i >= 0 ? todo(i) : []
       if (!ns.length) return
       const v = { n: Math.max(...ns), sec: i }
-      setSide(true); keepHistory(true); setTab('history'); keepTab('history')
+      openRight('info'); setTab('history'); keepTab('history')
       if (x.id !== p.id) pending.current = v
       else setPicked(v)
       if (x.id !== p.id || i !== at) go({ page: 'about', part: x.id, ...(i > 0 && { anchor: sectionAnchor(x.sections[i]!, i) }) })
@@ -62,7 +67,8 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
     return () => window.removeEventListener(REVIEW_EVENT, on)
   }, [checks, p.id, at])
   const sec = at >= 0 ? p.sections![at] : undefined
-  const showSide = (v: boolean) => { setSide(v); keepHistory(v); if (!v) setPicked(null) }
+  const showSide = (v: boolean) => { if (v) openRight('info'); else closeRight() }
+  useEffect(() => { if (!side) setPicked(null) }, [side])
   const showTab = (v: SideTab) => { setTab(v); keepTab(v); if (v === 'fix') setPicked(null) }
   // 줄을 고르면 그 절로 간다
   const pick = (v: Picked | null) => {
@@ -85,7 +91,7 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
     return x ? { key: checkKey(p, sectionAnchor(x, i)), pr: lastPr(x), name: x.ui ?? x.title } : undefined
   }, [p])
   return (
-    <main className={`stage full${side ? ' about-with-side' : ''}`} data-ui="소개">
+    <main className={`stage full${rightOpen ? ' about-with-side' : ''}`} data-ui="소개">
       <section className="pane">
         <div className="pane-head about-tools" data-ui="머리줄">
           <span className="crumb"><b>{sec ? sec.title : p.title}</b></span><span className="sp" />
@@ -109,8 +115,10 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
           </PartTitle.Provider>
         </div>
       </section>
-      {side && <AboutSide part={p} tab={tab} onTab={showTab} picked={picked} onPick={pick} onClose={() => showSide(false)}
-        fix={<AboutFixTab key={`${p.id}-${at}`} root={article} partName={p.ui ?? p.title} sectionKey={sectionKey} />} />}
+      {rightOpen && <InfoOrAgent ui="소개 이력" infoClass="about-rs" onSaved={onSaved}>
+        <AboutSide part={p} tab={tab} onTab={showTab} picked={picked} onPick={pick}
+          fix={<AboutFixTab key={`${p.id}-${at}`} root={article} partName={p.ui ?? p.title} sectionKey={sectionKey} />} />
+      </InfoOrAgent>}
     </main>
   )
 }
@@ -304,10 +312,7 @@ export function AboutRailCount() {
   return <span className="rail-count" data-ui="확인할 곳 수" title={t(`소개에서 확인 전인 절 ${n}`, `About sections not reviewed: ${n}`)}>{n}</span>
 }
 
-/** 이력 보기 켬 · 끔 (툴바 시계). 고른 상태는 이 브라우저가 기억한다 */
-const HISTORY_KEY = 'rw.aboutHistory'
-function historyOn(): boolean { try { return localStorage.getItem(HISTORY_KEY) === '1' } catch { return false } }
-function keepHistory(on: boolean) { try { localStorage.setItem(HISTORY_KEY, on ? '1' : '0') } catch { /* 기억하지 못해도 지금 화면은 바뀐다 */ } }
+/** 이력 · 수정 가운데 고른 탭. 사이드바를 여닫는 것은 앱의 오른쪽 사이드바가 기억한다 */
 const TAB_KEY = 'rw.aboutSideTab'
 function tabOn(): SideTab { try { return localStorage.getItem(TAB_KEY) === 'fix' ? 'fix' : 'history' } catch { return 'history' } }
 function keepTab(v: SideTab) { try { localStorage.setItem(TAB_KEY, v) } catch { /* 위와 같다 */ } }
