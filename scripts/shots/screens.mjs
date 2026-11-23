@@ -88,6 +88,8 @@ export const DEFAULT_SCREENS = [
   ['agent-app', '#/agent/{appchat}', '대화 PR'],
   // 크게 본 시안 아래의 지시 칸 (11/23 피드백 "아티팩트처럼 바로 지시"): 예제 실행기가 남긴 시안을 눌러 연 모습
   ['agent-mockup-say', '#/agent/{appchat}', '시안 지시', ['[data-ui="시안"] .ac-mockup-pic']],
+  // 크게 본 피드백 시안 (11/23 피드백 "논의는 오른쪽에 그림은 왼쪽"): (앞 화면과 주소가 달라야 새로 열린다) 결정을 묻는 항목의 시안을 눌러 「논의」 글칸을 연 모습
+  ['feedback-mockup-decide', '#/feedback', '시안 논의', ['[data-ui="피드백 줄"][data-ui-item^="2026-10-04 14:30"]', '[data-ui="피드백 시안"] .ac-mockup-pic', '[data-ui="시안 논의"]']],
   // 대화 머리 「>_」로 오른쪽 칸을 터미널로 바꾼 모습 (11/19 B1)
   ['agent-terminal', '#/agent/{done}', '터미널 칸', '터미널 버튼'],
   // Codex 검토 카드 (11/9): 끝난 대화에 붙은 검토 (shots.mjs가 검토를 부른다)
