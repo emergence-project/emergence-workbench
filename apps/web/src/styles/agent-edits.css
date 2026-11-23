@@ -14,11 +14,10 @@
 
 /* 노트 고르는 탭과 보기 · 원문 */
 .ae-review { display: flex; flex-direction: column; gap: var(--sp-2); }
-.ae-notes { display: flex; flex-direction: column; gap: 2px; color: var(--text-2); font-size: var(--fs-sm); }
+/* 표: 바깥 테두리 하나, 머리 줄, 고친 까닭 줄(머리 바로 밑, 칸을 가로지름), 절 헤더, 바뀐 곳 사이 가는 선 */
+.ae-notes { display: flex; flex-direction: column; gap: 2px; padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--line-strong); color: var(--text-2); font-size: var(--fs-sm); }
 .ae-notes-h { font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text); }
 .ae-notes ul { margin: 0; padding-left: var(--sp-4); }
-
-/* 표: 바깥 테두리 하나, 머리 줄, 절 헤더, 바뀐 곳 사이 가는 선 */
 .ae-table { border: 1px solid var(--line-strong); border-radius: var(--r-md); background: var(--bg); }
 .ae-head, .ae-hunk, .ae-ctx { display: grid; grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1fr) 112px; }
 .ae-head { background: var(--bg-sunken); border-bottom: 1px solid var(--line-strong); border-radius: var(--r-md) var(--r-md) 0 0; font-size: var(--fs-xs); font-weight: var(--fw-strong); color: var(--text-2); }
