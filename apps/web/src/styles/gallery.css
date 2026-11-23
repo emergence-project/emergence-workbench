@@ -26,3 +26,7 @@
 .gallery-body img.gallery-fit { width: 100%; height: auto; background: var(--paper); }
 /* 노트 본문의 그림: 누르면 크게 */
 .ob-md :is(figure.md-fig img, figure.md-fig canvas, img.ob-fig, canvas.ob-fig) { cursor: zoom-in; }
+/* 시안 html (11/23 피드백 "그림과 html을 통합"): 그림 대신 칸 안에 띄운다. 칸 높이는 창에 맞추고, 1440보다 좁으면 줄여 그린다(PictureGallery HtmlFrame) */
+.gallery-body .gallery-html { width: 100%; height: calc(var(--gallery-h) - 72px); overflow: hidden; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--paper); }
+.gallery-html iframe { display: block; border: 0; background: var(--paper); }
+@media (max-width: 720px) { .gallery-box.with-foot .gallery-body .gallery-html { height: calc(var(--gallery-h) - 72px - 140px); } }
