@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mockupRefs } from './Mockups'
+import { mockupRefs, mockupSay } from './Mockups'
 import { groupMockups } from './FeedbackMockups'
 
 describe('mockupRefs (글에 나온 시안 경로)', () => {
@@ -21,5 +21,11 @@ describe('groupMockups (피드백 시안 묶기)', () => {
       { stem: 'pictures/2026-11-19-1432-mockup-tabs', name: 'tabs', pic: 'pictures/2026-11-19-1432-mockup-tabs.png', html: 'pictures/2026-11-19-1432-mockup-tabs.html' },
       { stem: 'pictures/only', name: 'only', html: 'pictures/only.html' },
     ])
+  })
+})
+
+describe('mockupSay (크게 본 시안 아래에서 보낸 지시)', () => {
+  it('앞에 시안 이름을 붙이고 앞뒤 빈칸을 지운다', () => {
+    expect(mockupSay('home-a', '  제목을 더 크게 \n')).toBe('시안 home-a: 제목을 더 크게')
   })
 })

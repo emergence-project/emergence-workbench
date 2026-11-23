@@ -1,4 +1,4 @@
-import { useQueries } from '@tanstack/react-query'
+import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { agentChatsApi, mockupUrl } from './api'
 import { PictureGallery, type GalleryPicture } from './PictureGallery'
@@ -56,7 +56,40 @@ export function Mockups({ text, chat }: { text?: string; chat: string }) {
           </figure>
         )
       })}
-      {big !== null && <PictureGallery pictures={pictures} start={big} onClose={() => setBig(null)} />}
+      {big !== null && <PictureGallery pictures={pictures} start={big} onClose={() => setBig(null)} foot={(p) => <MockupSay key={p.src} chat={chat} name={p.alt} />} />}
+    </div>
+  )
+}
+
+/** 시안에 보낼 지시: 앞에 시안 이름을 붙인다 */
+export const mockupSay = (name: string, text: string) => `${t('시안', 'Mockup')} ${name}: ${text.trim()}`
+
+/**
+ * 크게 본 시안 아래의 지시 한 칸 (11/21 피드백 "아티팩트처럼 바로 에이전트에게 지시해서 수정하라고"):
+ * 보내면 이 대화에 「시안 이름: 한 말」로 간다. 일하는 중이면 그 차례에 섞어 읽고, 쉬는 중이면 새 차례를 연다(서버 send)
+ */
+function MockupSay({ chat, name }: { chat: string; name: string }) {
+  const client = useQueryClient()
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [sent, setSent] = useState(false)
+  const send = () => {
+    if (!text.trim() || busy) return
+    setBusy(true)
+    agentChatsApi.send(chat, { text: mockupSay(name, text) })
+      .then((r) => { client.setQueryData(qk.agentChat(chat), r); setSent(true); setError(null) }, (err: Error) => setError(err.message))
+      .finally(() => setBusy(false))
+  }
+  if (sent) return <div className="fbp-mockup-decide muted" role="status">{t(`시안 ${name}에 지시를 보냈습니다`, `Sent the instruction on mockup ${name}`)}</div>
+  return (
+    <div className="fbp-mockup-decide" data-ui="시안 지시">
+      <textarea className="fbp-input" rows={2} value={text} placeholder={t('이 시안에서 고칠 것을 에이전트에게 말하세요', 'Tell the agent what to change in this mockup')} onChange={(ev) => setText(ev.target.value)}
+        onKeyDown={(ev) => { if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); send() } }} />
+      <div className="fbp-mockup-decide-row">
+        {error && <span className="error-text">{error}</span>}
+        <button type="button" className="btn primary" data-ui="시안 지시 보내기" disabled={busy || !text.trim()} onClick={send}>{t('보내기 (⌘↵)', 'Send (⌘↵)')}</button>
+      </div>
     </div>
   )
 }

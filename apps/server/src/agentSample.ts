@@ -3,6 +3,8 @@
  * 앱 고치기 대화는 파일 하나를 고치고 PR을 올리는 줄을 낸다(sampleAppWork가 정해 둔 PR #234). 피드백을 맡았으면 처리 기록 줄(feedback_answer)도.
  * 화면 그림(pnpm shots)과 개발용 예제 모드에서 대화 화면을 보이려고 둔다. 지시에 "계산 · 돌려 · run"이 있으면 할 일 · 하위 에이전트 · (계획 먼저면) 계획 카드 · 명령 허락 · 노트 고침을 차례로 낸다.
  */
+import fs from 'node:fs'
+import path from 'node:path'
 import type { ModelChoice } from '@rw/core/contract/agentChats'
 import type { AgentRunner, RunEvent } from './agentChats.js'
 import { t } from './i18n.js'
@@ -78,9 +80,23 @@ async function* sampleApp(input: Parameters<AgentRunner>[0]): AsyncIterable<RunE
     // 피드백을 맡은 대화: 처리 기록은 앱이 적는다 (feedback_answer, 예제 화면 그림에서는 shots.mjs가 대신 부른다)
     if (input.prompt.includes('- key: ')) yield { type: 'tool', tool: 'mcp__workbench__feedback_answer', input: { state: '반영' } }
   }
-  yield { type: 'text', text: s.allow ? t('메뉴를 오른쪽 끝에 맞췄습니다. PR #234를 열었고 CI가 모두 통과했습니다.\n\n## 보고\n- 바꾼 것: 메뉴를 오른쪽 끝에 맞춤\n- 위치: `apps/web/src/styles/menu.css`', 'The menu now aligns to the right edge. Opened PR #234; CI passed.\n\n## Report\n- Changed: the menu aligns to the right edge\n- Where: `apps/web/src/styles/menu.css`') : t('고친 것을 올리지 않았습니다.', 'I did not submit the change.') }
+  // 시안 하나 (11/23 화면 그림: 크게 본 시안 아래의 지시 칸) — 작업 폴더의 mockups/에 두고 글에 경로를 적는다
+  if (s.allow) sampleMockup(input.cwd)
+  yield { type: 'text', text: s.allow ? t('메뉴를 오른쪽 끝에 맞췄습니다. PR #234를 열었고 CI가 모두 통과했습니다.\n\n## 보고\n- 바꾼 것: 메뉴를 오른쪽 끝에 맞춤\n- 위치: `apps/web/src/styles/menu.css`\n- 시안: mockups/export-menu.svg', 'The menu now aligns to the right edge. Opened PR #234; CI passed.\n\n## Report\n- Changed: the menu aligns to the right edge\n- Where: `apps/web/src/styles/menu.css`\n- Mockup: mockups/export-menu.svg') : t('고친 것을 올리지 않았습니다.', 'I did not submit the change.') }
   yield { type: 'mark', uuid: crypto.randomUUID() }
   yield { type: 'result', ok: true, cost: 0.61, seconds: 4, tokens: { in: 72_900, out: 3_100 }, context: { used: 44_800, window: 200_000 } }
+}
+
+/** 예제 시안: 내보내기 메뉴가 툴바 오른쪽 끝에 맞춰진 모습 (svg 한 장) */
+function sampleMockup(cwd: string) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="240" viewBox="0 0 480 240" font-family="-apple-system,sans-serif" font-size="13">
+<rect width="480" height="240" fill="#fff"/><rect x="0" y="0" width="480" height="40" fill="#f4f4f3"/>
+<text x="16" y="25" fill="#0d0d0d">${t('노트', 'Note')}</text><rect x="392" y="9" width="72" height="22" rx="5" fill="#fff" stroke="#ebebea"/><text x="404" y="25" fill="#474744">${t('내보내기', 'Export')}</text>
+<rect x="320" y="38" width="144" height="96" rx="6" fill="#fff" stroke="#ebebea"/>
+<text x="334" y="62" fill="#0d0d0d">PDF</text><text x="334" y="88" fill="#0d0d0d">Markdown</text><text x="334" y="114" fill="#0d0d0d">LaTeX</text>
+<text x="16" y="220" fill="#6a6a66">${t('메뉴 오른쪽 끝 = 툴바 오른쪽 끝', 'Menu right edge = toolbar right edge')}</text></svg>`
+  fs.mkdirSync(path.join(cwd, 'mockups'), { recursive: true })
+  fs.writeFileSync(path.join(cwd, 'mockups', 'export-menu.svg'), svg)
 }
 
 /** 예제의 모델 목록 (맥의 Claude Code가 돌려주는 모양, 2026-10-22) */
