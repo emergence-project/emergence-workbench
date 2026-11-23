@@ -4,6 +4,8 @@
 .dev-meta { display: flex; flex-wrap: wrap; gap: 0 var(--sp-3); }
 .dev-accts { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-1); }
 .dev-accts .tag { margin-right: 0; }
+/* 피드백 돕기 (이 기기 줄, 11/23) */
+.dev-help { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); }
 .dev-server { margin-bottom: var(--sp-3); }
 /* 대화가 서버에서 돌면 에이전트 패널 맨 위 한 줄 (AgentSide.tsx, 3단계) */
 .ac-place { margin: 0 0 var(--sp-2); font-size: var(--fs-sm); color: var(--text-3); }

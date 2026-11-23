@@ -25,13 +25,13 @@ describe('설정 › 에이전트: 지시 처리', () => {
   it('처음은 직접 부탁이고, 고를 수 없는 값은 무시하며, 설정 파일에 남는다', async () => {
     const dir = path.join(tmp, 'config-instr-settings')
     const a = buildApp({ configDir: dir })
-    expect((await a.inject({ method: 'GET', url: '/api/settings/agents' })).json()).toEqual({ instructions: 'manual', questions: 'manual', at: '09:00', feedback: 'manual', merge: 'green', minutes: 30, ...REST })
-    expect((await a.inject({ method: 'PUT', url: '/api/settings/agents', payload: { instructions: 'daily', at: '21:00' } })).json()).toEqual({ instructions: 'daily', questions: 'manual', at: '21:00', feedback: 'manual', merge: 'green', minutes: 30, ...REST })
-    expect((await a.inject({ method: 'PUT', url: '/api/settings/agents', payload: { instructions: 'always', at: '21:30' } })).json()).toEqual({ instructions: 'daily', questions: 'manual', at: '21:00', feedback: 'manual', merge: 'green', minutes: 30, ...REST })
+    expect((await a.inject({ method: 'GET', url: '/api/settings/agents' })).json()).toEqual({ instructions: 'manual', questions: 'manual', at: '09:00', feedback: 'manual', merge: 'green', minutes: 30, helper: 0, ...REST })
+    expect((await a.inject({ method: 'PUT', url: '/api/settings/agents', payload: { instructions: 'daily', at: '21:00' } })).json()).toEqual({ instructions: 'daily', questions: 'manual', at: '21:00', feedback: 'manual', merge: 'green', minutes: 30, helper: 0, ...REST })
+    expect((await a.inject({ method: 'PUT', url: '/api/settings/agents', payload: { instructions: 'always', at: '21:30' } })).json()).toEqual({ instructions: 'daily', questions: 'manual', at: '21:00', feedback: 'manual', merge: 'green', minutes: 30, helper: 0, ...REST })
     expect((await a.inject({ method: 'PUT', url: '/api/settings/agents', payload: { per: { codex: { role: 'review' } }, review: 'edits' } })).json()).toMatchObject({ per: { codex: { trust: 'ask', role: 'review' } }, review: 'edits' })
     await a.close()
     const b = buildApp({ configDir: dir })
-    expect((await b.inject({ method: 'GET', url: '/api/settings/agents' })).json()).toEqual({ instructions: 'daily', questions: 'manual', at: '21:00', feedback: 'manual', merge: 'green', minutes: 30, per: { ...DEFAULT_AGENT_PREFS, codex: { trust: 'ask', role: 'review' } }, review: 'edits' })
+    expect((await b.inject({ method: 'GET', url: '/api/settings/agents' })).json()).toEqual({ instructions: 'daily', questions: 'manual', at: '21:00', feedback: 'manual', merge: 'green', minutes: 30, helper: 0, per: { ...DEFAULT_AGENT_PREFS, codex: { trust: 'ask', role: 'review' } }, review: 'edits' })
     await b.close()
   })
 

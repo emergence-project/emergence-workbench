@@ -3,6 +3,8 @@ import type { FSWatcher } from 'chokidar'
 import type { AgentChats } from '../agentChats.js'
 import type { AppOptions } from '../app.js'
 import type { ConceptIndex } from '../conceptIndex.js'
+import type { DeviceHub } from '../deviceServer.js'
+import type { DeviceHelper } from '@rw/core/contract/devices'
 import type { GithubAccount } from '../githubAccount.js'
 import type { Registry } from '../registry.js'
 import type { WorkbenchEvent } from '../watcher.js'
@@ -35,4 +37,11 @@ export interface RouteContext {
   account: GithubAccount
   /** 에이전트 대화 (registerAgentChats가 채운다). 기록의 질문 · 지시가 그 기록의 대화로 간다 */
   agentChats?: AgentChats
+  /** 서버 쪽 기기 알림 (deviceServer.ts). 기기 관리(routes/devices.ts)와 피드백 돕기의 맡기기(routes/agentChats.ts)가 함께 쓴다: hubOf로 */
+  deviceHub?: DeviceHub
+  /**
+   * 피드백 돕기의 돕는 맥 쪽 (11/23 안 A, routes/agentChats.ts가 채운다). info = 서버에 알릴 자리 (끔이면 undefined),
+   * start = 서버가 맡긴 항목을 이 맥에서 시작, drop = 서버가 맡음을 푼 항목의 대화를 멈춘다
+   */
+  feedbackHelp?: { info(): (DeviceHelper & { keys: string[] }) | undefined; start(keys: string[]): Promise<void>; drop(keys: string[]): void }
 }

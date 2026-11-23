@@ -152,9 +152,9 @@ export interface AgentChatsDeps {
   apps?: Record<string, AppWork>
   /**
    * 앱 피드백 폴더 (맡기기 · 처리 기록). written = 처리 기록을 적은 뒤 (저절로 올리기).
-   * claims = 저절로 맡기기를 한 컴퓨터만 (feedbackClaims.ts): taken은 다른 컴퓨터가 이번 차례에 맡았는지, claim은 이 컴퓨터가 맡기 (since = 그 항목을 마지막으로 손댄 때). elsewhere = 저절로 맡는 것은 서버(다른 컴퓨터)라 이 컴퓨터는 맡지 않음 (serverRelay.ts)
+   * claims = 저절로 맡기기를 한 컴퓨터만 (feedbackClaims.ts): taken은 다른 컴퓨터가 이번 차례에 맡았는지, claim은 이 컴퓨터(machine을 주면 그 돕는 맥)가 맡기 (since = 그 항목을 마지막으로 손댄 때). elsewhere = 저절로 맡는 것은 서버(다른 컴퓨터)라 이 컴퓨터는 맡지 않음 (serverRelay.ts). helpers = 피드백 돕기 (11/23 안 A, deviceServer.ts의 DeviceHub): 서버의 자리가 찼을 때 넘치는 항목을 맡길 돕는 맥. free = 자리가 남은 맥 이름, assign = 그 맥의 다음 알림 답에 실어 보낸다
    */
-  feedback?: { dir: string; written?: () => void; claims?: { taken(key: string, since: number): boolean; claim(key: string, since: number): Promise<boolean> }; elsewhere?: () => boolean }
+  feedback?: { dir: string; written?: () => void; claims?: { taken(key: string, since: number): boolean; claim(key: string, since: number, machine?: string): Promise<boolean> }; elsewhere?: () => boolean; helpers?: { free(): string | undefined; assign(name: string, keys: string[]): void } }
   /** 설정 › 에이전트 (피드백을 언제 맡기고 언제 합치나 · 한 차례 한도) */
   settings?: () => AgentSettings
   /** 합친 커밋이 지금 도는 앱에 들어 있는가 (모르면 undefined) */

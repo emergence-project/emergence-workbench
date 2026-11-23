@@ -67,7 +67,7 @@ code:
 ## 이 앱에만 있는 것
 
 - 앱 고치기 대화의 작업 폴더 · 브랜치 · PR(`appWorktree.ts`)과 CI 기다리기
-- 중앙 대화가 하위 대화를 여는 것(`agentCentral.ts`), 피드백 맡기기(`agentFeedbackTick.ts`). 서버 컴퓨터를 정했으면 서버만 저절로 맡는다(`feedback.elsewhere`, `serverRelay.ts`)
+- 중앙 대화가 하위 대화를 여는 것(`agentCentral.ts`), 피드백 맡기기(`agentFeedbackTick.ts`). 서버 컴퓨터를 정했으면 서버만 저절로 맡는다(`feedback.elsewhere`, `serverRelay.ts`). 서버의 자리가 차면 「피드백 돕기」를 켠 맥에 맡긴다(11/23, `feedback.helpers` = `deviceServer.ts`의 `DeviceHub`, 그 맥은 1분 알림의 답 `feedback`으로 받아 `ctx.feedbackHelp.start`로 연다. 늦으면 서버가 맡음을 풀고 `drop`으로 멈춘다)
 - 중앙 오른쪽 칸의 작업 현황(`centralBoard.ts` · `CentralChat.tsx`): 하위 대화 · 자리 기다림 · 피드백을 묶음과 정체 시간으로 한 줄씩. 세부 칸의 절 모양은 `SideSection.tsx`
 - 앱 MCP 도구(노트 · 기록 · 맡긴 일). 다른 앱은 자기 MCP를 `mcpFor` 자리에 붙인다
 - Codex · Gemini 대화(`agentAcp.ts`)와 Codex 검토

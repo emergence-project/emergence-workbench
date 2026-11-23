@@ -71,12 +71,46 @@ describe('서버 (2단계)', () => {
   it('허브: 3분 안에 알린 기기만 켜짐, 걸어 둔 로그아웃은 다음 알림에 한 번 전한다', () => {
     const hub = new DeviceHub()
     const t0 = Date.parse('2026-11-20T10:00:00Z')
-    expect(hub.beat(rec('laptop', ''), t0)).toEqual({ logout: false })
+    expect(hub.beat(rec('laptop', ''), t0)).toMatchObject({ logout: false })
     hub.requestLogout('laptop')
     expect(hub.live(t0 + 1000)[0]).toMatchObject({ name: 'laptop', online: true, live: true, logout: true })
-    expect(hub.beat(rec('laptop', ''), t0 + 60_000)).toEqual({ logout: true })
-    expect(hub.beat(rec('laptop', ''), t0 + 120_000)).toEqual({ logout: false })
+    expect(hub.beat(rec('laptop', ''), t0 + 60_000)).toMatchObject({ logout: true })
+    expect(hub.beat(rec('laptop', ''), t0 + 120_000)).toMatchObject({ logout: false })
     expect(hub.live(t0 + 120_000 + LIVE_MS)[0]!.online).toBe(false)
+  })
+
+  it('피드백 돕기: 자리가 남은 맥에 맡기면 다음 알림 답으로 가고, 늦으면 돌려받아 그 맥에 멈추라고 보낸다', () => {
+    const hub = new DeviceHub()
+    const t0 = Date.parse('2026-11-23T10:00:00Z')
+    const help = (busy: number, keys: string[] = []) => ({ ...rec('laptop', ''), helper: { slots: 2, busy, keys } })
+    expect(hub.free(t0)).toBeUndefined()
+    hub.beat(help(0), t0)
+    expect(hub.live(t0)[0]!.helper).toEqual({ slots: 2, busy: 0 })
+    expect(hub.free(t0)).toBe('laptop')
+    hub.assign('laptop', ['a'])
+    hub.assign('laptop', ['b'])
+    // 자리 둘이 맡긴 것으로 찼다
+    expect(hub.free(t0)).toBeUndefined()
+    expect(hub.beat(help(0), t0 + 60_000)).toMatchObject({ feedback: ['a', 'b'], drop: [] })
+    // 보낸 것이 아직 busy에 없어도 자리는 찬 것으로 본다
+    expect(hub.free(t0 + 60_000)).toBeUndefined()
+    expect(hub.beat(help(1, ['a', 'b']), t0 + 120_000)).toMatchObject({ feedback: [] })
+    expect(hub.lapsed(t0 + 120_000)).toEqual([])
+    // 3분 동안 알리지 않으면 맡은 항목을 한 번 돌려주고, 다시 알리면 멈추라고 한다
+    expect(hub.lapsed(t0 + 120_000 + LIVE_MS)).toEqual([{ name: 'laptop', keys: ['a', 'b'] }])
+    expect(hub.lapsed(t0 + 120_000 + LIVE_MS)).toEqual([])
+    expect(hub.free(t0 + 120_000 + LIVE_MS)).toBeUndefined()
+    expect(hub.beat(help(1, ['a', 'b']), t0 + 130_000 + LIVE_MS)).toMatchObject({ drop: ['a', 'b'] })
+  })
+
+  it('피드백 돕기: 맡긴 뒤 보내기 전에 돕기를 끄면 그 항목을 돌려준다', () => {
+    const hub = new DeviceHub()
+    const t0 = Date.parse('2026-11-23T10:00:00Z')
+    hub.beat({ ...rec('mini', ''), helper: { slots: 1, busy: 0, keys: [] } }, t0)
+    hub.assign('mini', ['c'])
+    expect(hub.beat(rec('mini', ''), t0 + 60_000)).toMatchObject({ feedback: [] })
+    expect(hub.free(t0 + 60_000)).toBeUndefined()
+    expect(hub.lapsed(t0 + 60_000)).toEqual([{ name: 'mini', keys: ['c'] }])
   })
 
   it('목록 합치기: 서버가 본 값이 저장소 값보다 앞서고, 서버 표시가 붙는다', () => {

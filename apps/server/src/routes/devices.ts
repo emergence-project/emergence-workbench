@@ -5,7 +5,7 @@ import * as C from '@rw/core/contract/devices'
 import { parseBody, replies } from '../contract.js'
 import { machineName } from '../backup.js'
 import { logoutDevice, otherDevices, setDeviceAccounts, setDeviceLogout, thisDevice } from '../devices.js'
-import { BEAT_MS, DEVICE_KEY_HEADER, DeviceHub, deviceKeyOk, mergeDevices, readServerConfig, writeServerConfig, type ServerConfig } from '../deviceServer.js'
+import { BEAT_MS, DEVICE_KEY_HEADER, deviceKeyOk, hubOf, mergeDevices, readServerConfig, writeServerConfig, type ServerConfig } from '../deviceServer.js'
 import { deviceBuild } from '../deviceBuild.js'
 import { t } from '../i18n.js'
 import type { PhoneStatus } from '@rw/core/contract/phone'
@@ -27,7 +27,7 @@ function sampleDevices(now: Date): C.Device[] {
   const gh = { kind: 'github' as const, name: 'researcher' }
   return [
     { name: 'studio', label: 'Mac Studio', this: true, online: true, seen: ago(0), version: '1a19a27', build: { pr: 622, at: '2026-11-21T07:58:00+09:00', behind: 0, ahead: 0 }, os: 'macOS 26.1', accounts: [gh, { kind: 'claude', plan: 'Max' }, { kind: 'claude', name: '답변용', plan: 'Pro' }, { kind: 'codex', plan: 'Plus' }, { kind: 'google' }] },
-    { name: 'laptop', label: 'MacBook Pro', this: false, online: true, live: true, seen: ago(1), version: '1a19a27', build: { pr: 622, at: '2026-11-21T07:58:00+09:00', behind: 0, ahead: 0 }, os: 'macOS 26.1', accounts: [gh, { kind: 'claude', plan: 'Pro' }] },
+    { name: 'laptop', label: 'MacBook Pro', this: false, online: true, live: true, seen: ago(1), version: '1a19a27', build: { pr: 622, at: '2026-11-21T07:58:00+09:00', behind: 0, ahead: 0 }, os: 'macOS 26.1', accounts: [gh, { kind: 'claude', plan: 'Pro' }], helper: { slots: 1, busy: 1 } },
     { name: 'mini', label: 'Mac mini', this: false, online: false, seen: ago(60 * 19), version: 'dc65a0e', build: { pr: 610, at: '2026-11-21T06:45:00+09:00', behind: 12, ahead: 0 }, os: 'macOS 15.6', accounts: [gh, { kind: 'claude', plan: 'Max' }, { kind: 'codex', plan: 'Plus' }] },
   ]
 }
@@ -38,7 +38,7 @@ export function registerDevices(app: FastifyInstance, ctx: RouteContext, deps: D
   const { opts, registry, account } = ctx
   setDeviceAccounts('github', () => (account.account ? [{ kind: 'github', name: account.account.login }] : []))
   if (!opts.sandbox) setDeviceLogout('github', () => account.account && account.logout())
-  const hub = new DeviceHub()
+  const hub = hubOf(ctx)
 
   // 예제 모드: 맥 스튜디오가 서버인 모습. 로그아웃은 눌러 볼 수 있게 메모리에서만
   let sampleServer: string | null = 'studio'
@@ -118,10 +118,10 @@ export function registerDevices(app: FastifyInstance, ctx: RouteContext, deps: D
   }
   app.post('/api/devices/beat', replies(C.DeviceBeatReply), async (req): Promise<C.DeviceBeatReply> => {
     checkKey(req)
-    const rec = parseBody(C.DeviceRecord, req.body)
-    const { logout } = hub.beat(rec)
+    const rec = parseBody(C.DeviceBeat, req.body)
+    const { logout, feedback, drop } = hub.beat(rec)
     const me = { ...deviceForBackup(ctx), this: false, online: true, live: true, server: true }
-    return { devices: [me, ...hub.live().filter((d) => d.name !== rec.name)], logout }
+    return { devices: [me, ...hub.live().filter((d) => d.name !== rec.name)], logout, ...(feedback.length && { feedback }), ...(drop.length && { drop }) }
   })
   app.post('/api/devices/remote-logout', replies(C.DeviceOk), async (req): Promise<C.DeviceOk> => {
     checkKey(req)
@@ -150,9 +150,13 @@ export function registerDevices(app: FastifyInstance, ctx: RouteContext, deps: D
         const cfg = config()
         if (!cfg || cfg.machine === machineName()) return
         try {
-          const res = C.DeviceBeatReply.parse(await callServer(cfg, '/api/devices/beat', deviceForBackup(ctx)))
+          // 피드백 돕기 (11/23 안 A): 켜 두었으면 자리 · 도는 수를 함께 알리고, 서버가 맡긴 피드백을 답으로 받아 이 맥에서 시작한다
+          const helper = ctx.feedbackHelp?.info()
+          const res = C.DeviceBeatReply.parse(await callServer(cfg, '/api/devices/beat', { ...deviceForBackup(ctx), ...(helper && { helper }) }))
           reach = { at: new Date().toISOString(), devices: res.devices }
           log.ok()
+          if (res.drop?.length) ctx.feedbackHelp?.drop(res.drop)
+          if (res.feedback?.length) void ctx.feedbackHelp?.start(res.feedback).catch((e) => log.fail(e))
           if (res.logout) await logoutDevice()
         } catch (e) {
           reach = { at: new Date().toISOString(), devices: [], error: e instanceof Error ? e.message : String(e) }
