@@ -13,7 +13,7 @@ import { FEEDBACK_MISSES, LIBRARY_RID, noteRecordTarget } from '@rw/core'
 import { FEEDBACK_VERDICTS } from '@rw/core/contract/feedback'
 import { recordRows } from './recordRows.js'
 import { registerTaskTools } from './mcpTasks.js'
-import { registerArchiveTool, registerRoomTools } from './mcpRoom.js'
+import { registerArchiveTool, registerRoomTools } from './mcpRoom.js'; import { registerReviewTools } from './mcpReview.js'
 import { PROBLEM_INSTRUCTIONS, registerProblemTools } from './mcpProblems.js'
 import { KEY_HEADER, serverTarget } from './appKey.js'
 import type { Changes } from '@rw/core/contract/changes'
@@ -588,7 +588,7 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
       inputSchema: { id: z.string(), summary: z.string().max(2000).describe('Three lines: what was done, where the result is, what is left') },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     }, async (a) => kidCall('/api/agent-central/close', a, 'Closed'))
-    const p = (url: string, payload: unknown) => post(base, f, url, payload); registerRoomTools(server, p); registerArchiveTool(server, p)
+    const p = (url: string, payload: unknown) => post(base, f, url, payload); registerRoomTools(server, p); registerArchiveTool(server, p); registerReviewTools(server, p)
   }
 
   return server
