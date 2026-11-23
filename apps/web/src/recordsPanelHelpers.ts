@@ -42,7 +42,8 @@ export const inSideFilter = (c: Pick<CommentEntry, 'kind' | 'by' | 'state'>, f: 
   && (f === '전체' || (f === '할 일' ? recordKind(c) === '할 일' : isTalkKind(c.kind) && !c.by && c.state === '대기'))
 /** 상태 고르기 (10/18 결정): 진행 중(끝내지 않은 기록, 메모 포함) | 완료(끝냄) */
 export type StatusFilter = '진행 중' | '완료'
-export const isDoneRecord = (c: Pick<CommentEntry, 'state'>) => c.state === '끝냄'
+/** 완료: 끝냄, 그리고 에이전트가 물은 것에 사용자가 답한 것(답함) — 답했으면 내 일은 끝났으니 「완료 n」으로 접는다 (11/23 시안 코멘트) */
+export const isDoneRecord = (c: Pick<CommentEntry, 'state' | 'kind' | 'by'>) => c.state === '끝냄' || (isTalkKind(c.kind) && Boolean(c.by) && c.state === '답함')
 export const filterByStatus = (items: CommentEntry[], status: StatusFilter) => items.filter((c) => isDoneRecord(c) === (status === '완료'))
 /** 순서 (10/18): 사용자 차례가 맨 위, 나머지는 최근 것이 위 (기록 id가 c-날짜-시각이라 글자 순이 시간 순) */
 export const sortRecords = (items: CommentEntry[]) => [...items].sort((a, b) => Number(isUserTurnRecord(b)) - Number(isUserTurnRecord(a)) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0))

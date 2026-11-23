@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ChatRow } from './api'
 import { isUnseenIn, type Seen } from './agentSeen'
-import { noticesOf } from './NoticeBell'
+import { needCount, noticesOf } from './NoticeBell'
 
 const now = Date.parse('2026-11-20T12:00:00Z')
 const chat = (id: string, state: ChatRow['state'], o: Partial<ChatRow> = {}) =>
@@ -11,11 +11,53 @@ describe('알림 종의 에이전트 알림', () => {
   it('레일의 에이전트 수와 같은 대화를 센다: 기다림 · 오류 · 끝났는데 열어 보지 않은 대화 (11/20 피드백 23:27)', () => {
     const seen: Seen = { since: '2026-11-20T00:00:00Z', ids: { opened: '2026-11-20T11:00:00Z' } }
     const chats = [chat('ask', 'waiting'), chat('broke', 'error'), chat('done', 'idle'), chat('opened', 'idle'), chat('work', 'running'), chat('old', 'idle', { archived: true })]
-    const agent = noticesOf(chats, [], [], now, (c) => isUnseenIn(seen, c)).filter((n) => n.kind === 'agent')
+    const agent = noticesOf({ chats, unseen: (c) => isUnseenIn(seen, c) }, now).filter((n) => n.kind === 'chat')
     expect(agent.map((n) => n.text).sort()).toEqual(['「ask」 허락 기다림', '「broke」 오류', '「done」 종료 · 아직 열어 보지 않음'])
   })
   it('본 기록을 넘기지 않으면 예전처럼 기다림 · 오류만', () => {
-    const agent = noticesOf([chat('ask', 'waiting'), chat('done', 'idle')], [], [], now).filter((n) => n.kind === 'agent')
+    const agent = noticesOf({ chats: [chat('ask', 'waiting'), chat('done', 'idle')] }, now).filter((n) => n.kind === 'chat')
     expect(agent).toHaveLength(1)
+  })
+  it('기다리는 대화는 답할 것, 오류 · 열어 보지 않은 종료는 소식 (11/23 "오류는 소식")', () => {
+    const list = noticesOf({ chats: [chat('ask', 'waiting'), chat('broke', 'error'), chat('done', 'idle')], unseen: (c) => c.id === 'done' }, now)
+    expect(list.map((n) => [n.text.slice(1, n.text.indexOf('」')), n.need])).toEqual([['ask', true], ['broke', false], ['done', false]])
+  })
+})
+
+describe('알림 종: 답할 것과 소식 (11/23)', () => {
+  const record = (id: string, o = {}) => ({ rid: 'p1', target: 'project', title: 'P', id, kind: '질문' as const, by: 'claude', body: '어느 쪽으로\n할까요?', ...o })
+  it('에이전트가 물은 기록은 오래돼도 남고, 소식은 7일이 지나면 빠진다', () => {
+    const list = noticesOf({ records: [record('c-20260901-0900-ab')], errors: [{ at: '2026-11-01T00:00:00Z', text: '옛 오류' }, { at: '2026-11-20T10:00:00Z', text: '새 오류' }] }, now)
+    expect(list.map((n) => [n.kind, n.need, n.text])).toEqual([['question', true, '어느 쪽으로 할까요?'], ['error', false, '새 오류']])
+  })
+  it('답할 것이 소식보다 먼저, 그 안에서는 새것이 위 · 때를 모르는 것은 아래', () => {
+    const list = noticesOf({
+      records: [record('c-20261110-0900-ab'), record('c-20261119-0900-cd', { kind: '지시' as const })],
+      issues: { tasks: { p1: 2 }, edits: { p1: 0 }, problems: {} },
+      chats: [chat('new', 'error', { updated: '2026-11-20T11:59:00Z' })],
+    }, now)
+    expect(list.map((n) => n.kind)).toEqual(['order', 'question', 'task', 'chat'])
+  })
+  it('종의 수는 답할 것만 세고, 한 줄이 여럿이면 그 수만큼', () => {
+    const list = noticesOf({ records: [record('c-20261110-0900-ab')], issues: { tasks: { p1: 2 }, edits: {}, problems: { p2: 1 } }, errors: [{ at: '2026-11-20T10:00:00Z', text: 'x' }] }, now)
+    expect(needCount(list)).toBe(4)
+  })
+  it('곳: 기록은 그 프로젝트, 피드백 · 업데이트는 앱 개발, 중앙 대화와 오류는 곳이 없다', () => {
+    const list = noticesOf({
+      records: [record('c-20261110-0900-ab', { rid: '_library', target: 'concept-x' })],
+      chats: [chat('s', 'idle', { shipped: true, pr: { number: 7 } as ChatRow['pr'] }), chat('c', 'waiting', { rid: '_central' })],
+      errors: [{ at: '2026-11-20T10:00:00Z', text: 'x' }],
+    }, now)
+    expect(Object.fromEntries(list.map((n) => [n.kind, n.place]))).toEqual({ question: '_library', chat: undefined, update: '_app', error: undefined })
+  })
+})
+
+describe('완료로 접는 기록 (11/23)', () => {
+  it('끝낸 것과, 에이전트가 물은 것에 내가 답한 것. 내가 물어 답을 받은 것은 아니다', async () => {
+    const { isDoneRecord } = await import('./recordsPanelHelpers')
+    expect(isDoneRecord({ kind: '메모', state: '끝냄' })).toBe(true)
+    expect(isDoneRecord({ kind: '질문', by: 'claude', state: '답함' })).toBe(true)
+    expect(isDoneRecord({ kind: '질문', by: 'claude', state: '대기' })).toBe(false)
+    expect(isDoneRecord({ kind: '질문', state: '답함' })).toBe(false)
   })
 })

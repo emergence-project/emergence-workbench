@@ -87,6 +87,10 @@ export const PendingQuestion = z.object({
   todo: z.object({ id: z.string(), body: z.string() }).strict().optional(),
 }).strict()
 
+/** GET /api/record-turns: 답을 기다리는 에이전트 기록 (모든 프로젝트 · 지식 라이브러리). 상단바 알림 종의 「답할 것」 (11/23) */
+export const RecordTurn = z.object({ rid: z.string(), target: z.string(), title: z.string(), id: z.string(), kind: CommentKind, by: z.string(), body: z.string() }).strict()
+export const RecordTurns = z.object({ turns: z.array(RecordTurn) }).strict()
+
 /** GET /comments */
 export const CommentOverview = z.object({
   files: z.array(z.object({ target: z.string(), title: z.string(), source: z.string().optional(), count: z.number() }).strict()),
@@ -143,6 +147,8 @@ export type NoteHighlight = z.infer<typeof NoteHighlight>
 export type CommentFile = z.infer<typeof CommentFile>
 export type RecordFile = z.infer<typeof RecordFile>
 export type PendingQuestion = z.infer<typeof PendingQuestion>
+export type RecordTurn = z.infer<typeof RecordTurn>
+export type RecordTurns = z.infer<typeof RecordTurns>
 export type CommentOverview = z.infer<typeof CommentOverview>
 export type RecordList = z.infer<typeof RecordList>
 export type CommentAdded = z.infer<typeof CommentAdded>
