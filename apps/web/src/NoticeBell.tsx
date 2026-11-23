@@ -16,18 +16,19 @@ import { Icon } from './icons'
 import { qk } from './queries'
 import { go } from './router'
 import { NOTICE_ERRORS as ERRORS } from './flash'
+import { FIGURES, NETWORK, PAPERS, useNoticeCounts } from './noticeCounts'
 import { store } from './store'
 import { useDismiss } from './useDismiss'
 
 /** 종류 = 처리하러 가는 화면. 질문 · 지시는 기록, 대화는 에이전트 대화 */
-type Kind = 'question' | 'order' | 'task' | 'edit' | 'flow' | 'chat' | 'feedback' | 'update' | 'error'
+type Kind = 'question' | 'order' | 'task' | 'edit' | 'flow' | 'chat' | 'feedback' | 'update' | 'error' | 'check' | 'repo' | 'about' | 'person' | 'answer'
 export interface Notice {
   key: string; kind: Kind; text: string
   /** 답할 것인가 (아니면 소식) */
   need: boolean
   /** 생긴 때. 수로만 아는 답할 것(맡긴 일 · 수정 검토 · 흐름)은 없다 */
   at?: string
-  /** 곳: 프로젝트 id · LIBRARY_RID · APP_RID. 없으면 「전체」에서만 보인다 */
+  /** 곳: 프로젝트 id · LIBRARY_RID · PAPERS · FIGURES · NETWORK · APP_RID. 없으면 「전체」에서만 보인다 */
   place?: string
   /** 한 줄이 여럿을 뜻하면 그 수 (종의 수에 더한다) */
   n?: number
@@ -37,6 +38,7 @@ export interface Notice {
 const KIND_NAME: Record<Kind, string> = {
   question: t('질문', 'Question'), order: t('지시', 'Instruction'), task: t('맡긴 일', 'Delegated task'), edit: t('수정 검토', 'Edit review'), flow: t('흐름', 'Flow'),
   chat: t('대화', 'Conversation'), feedback: t('피드백', 'Feedback'), update: t('업데이트', 'Update'), error: t('오류', 'Error'),
+  check: t('점검', 'Check'), repo: t('저장소', 'Repository'), about: t('소개', 'About'), person: t('추천', 'Suggestion'), answer: t('답', 'Answer'),
 }
 const SEEN = 'rw-notice-seen'
 const PLACE = 'rw-notice-place'
@@ -57,10 +59,12 @@ export interface NoticeSources {
   /** 프로젝트마다 판단할 맡긴 일 · 수정 검토 · 흐름의 수 (레일의 주황 수와 같은 값) */
   issues?: Pick<ProjectIssues, 'tasks' | 'edits' | 'problems'>
   unseen?: (c: ChatRow) => boolean
+  /** 수로만 아는 것: 라이브러리 점검 · 저장소 · 소개(답할 것), 새 추천 · 답이 온 논문 질문(소식). 화면마다 이미 세는 수 그대로 */
+  counts?: Omit<Notice, 'key'>[]
 }
 
 /** 알림 목록: 답할 것 먼저(새것이 위, 때를 모르는 것은 그 아래), 그 다음 지난 7일의 소식(새것이 위). 순수 함수: 테스트에서 부른다 */
-export function noticesOf({ chats = [], feedback = [], errors = [], records = [], issues, unseen = () => false }: NoticeSources, now = Date.now()): Notice[] {
+export function noticesOf({ chats = [], feedback = [], errors = [], records = [], issues, unseen = () => false, counts = [] }: NoticeSources, now = Date.now()): Notice[] {
   const need: Notice[] = []
   const news: Notice[] = []
   for (const r of records) {
@@ -74,6 +78,8 @@ export function noticesOf({ chats = [], feedback = [], errors = [], records = []
     ['flow', issues?.problems, (n) => t(`결정을 기다리는 흐름 ${n}개`, `${n} flow(s) awaiting your decision`), (rid) => go({ page: 'problems', rid })],
   ]
   for (const [kind, by, text, open] of counted) for (const [rid, n] of Object.entries(by ?? {})) if (n > 0) need.push({ key: `${kind}:${rid}`, kind, need: true, place: rid, n, text: text(n), open: () => open(rid) })
+  // 수가 바뀌면 열쇠가 바뀌어, 읽은 소식도 새로 늘면 다시 새 소식이 된다
+  for (const c of counts) if ((c.n ?? 0) > 0) (c.need ? need : news).push({ ...c, key: `count:${c.kind}:${c.place ?? ''}:${c.n}` })
   for (const c of chats) {
     const place = c.rid === CENTRAL_RID ? undefined : c.rid
     if (c.shipped && c.pr) news.push({ key: `shipped:${c.id}`, kind: 'update', need: false, at: c.updated, place: APP_RID, text: `#${c.pr.number} ${c.title}`, open: () => go({ page: 'feedback', ...(c.feedback && { key: c.feedback }) }) })
@@ -88,7 +94,7 @@ export function noticesOf({ chats = [], feedback = [], errors = [], records = []
   }
   for (const e of errors) news.push({ key: `error:${e.at}`, kind: 'error', need: false, at: e.at, text: e.text })
   const newest = (a: Notice, b: Notice) => ms(b.at) - ms(a.at)
-  return [...need.sort(newest), ...news.filter((n) => now - ms(n.at) < WEEK).sort(newest)]
+  return [...need.sort(newest), ...news.filter((n) => !n.at || now - ms(n.at) < WEEK).sort(newest)]
 }
 
 /** 종의 수: 답할 것만 (한 줄이 여럿이면 그 수만큼) */
@@ -107,6 +113,7 @@ export function NoticeBell() {
   const records = useQuery({ queryKey: qk.recordTurns, queryFn: () => api.recordTurns() }).data?.turns
   const issues = useQuery({ queryKey: qk.researchIssues, queryFn: () => api.researchIssues() }).data
   const projects = useQuery({ queryKey: qk.researches, queryFn: () => api.researches() }).data?.researches
+  const counts = useNoticeCounts()
   const [errorsTick, setErrorsTick] = useState(0)
   useEffect(() => { const on = () => setErrorsTick((n) => n + 1); window.addEventListener(ERRORS, on); return () => window.removeEventListener(ERRORS, on) }, [])
   const [seen, setSeen] = useState<string[]>(() => [...store.get<string[]>(SEEN, []), ...store.get<string[]>(OLD_SHIPPED_SEEN, []).map((id) => `shipped:${id}`)])
@@ -118,8 +125,8 @@ export function NoticeBell() {
   // 대화를 열어 보면(본 기록이 바뀌면) 그 알림이 빠진다
   const agentSeen = useSeen()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const all = useMemo(() => noticesOf({ chats, feedback: fb, errors: store.get(ERRORS, []), records, issues, unseen: isUnseen }), [chats, fb, records, issues, errorsTick, agentSeen])
-  const placeName = (id: string) => (id === APP_RID ? t('앱 개발', 'App development') : id === LIBRARY_RID ? t('지식 라이브러리', 'Knowledge library') : projects?.find((p) => p.id === id)?.title ?? id)
+  const all = useMemo(() => noticesOf({ chats, feedback: fb, errors: store.get(ERRORS, []), records, issues, counts, unseen: isUnseen }), [chats, fb, records, issues, counts, errorsTick, agentSeen])
+  const placeName = (id: string) => (id === APP_RID ? t('앱 개발', 'App development') : id === LIBRARY_RID ? t('지식 라이브러리', 'Knowledge library') : id === PAPERS ? t('논문 라이브러리', 'Paper library') : id === FIGURES ? t('그림 라이브러리', 'Figure library') : id === NETWORK ? t('네트워킹', 'Networking') : projects?.find((p) => p.id === id)?.title ?? id)
   const fresh = (n: Notice) => !n.need && !seen.includes(n.key)
   // 고를 곳은 알림이 있는 곳만: 앱 개발 · 지식 라이브러리 먼저가 아니라 답할 것이 많은 곳부터
   const places = useMemo(() => {

@@ -61,3 +61,16 @@ describe('완료로 접는 기록 (11/23)', () => {
     expect(isDoneRecord({ kind: '질문', state: '답함' })).toBe(false)
   })
 })
+
+describe('알림 종: 수로만 아는 알림 (11/23)', () => {
+  it('점검 · 저장소 · 소개는 답할 것으로 세고, 새 추천은 소식. 0이면 없다', () => {
+    const list = noticesOf({ counts: [
+      { kind: 'check', need: true, place: '_figures', n: 2, text: 'tikz 2' },
+      { kind: 'about', need: true, place: '_app', n: 0, text: '소개 0' },
+      { kind: 'person', need: false, place: '_network', n: 3, text: '추천 3' },
+    ] }, now)
+    expect(list.map((n) => [n.kind, n.need, n.key])).toEqual([['check', true, 'count:check:_figures:2'], ['person', false, 'count:person:_network:3']])
+    expect(needCount(list)).toBe(2)
+  })
+})
+
