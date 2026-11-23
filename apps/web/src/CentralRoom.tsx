@@ -15,17 +15,20 @@ import { useDismiss } from './useDismiss'
 const AGENTS: AgentKind[] = ['claude-code', 'codex', 'gemini']
 /** 사용자 말고 방에 둘 수 있는 수 (§7-3, 서버 ROOM_MAX) */
 const ROOM_MAX = 4
-export const PERM_NAME: Record<RoomPerm, string> = { read: t('읽기만', 'Read only'), talk: t('발언', 'Talk'), edit: t('수정', 'Edit') }
+// 이름은 짧은 명사 셋 (11/23 피드백 「발언 · 읽기만은 어색」): 읽기 · 답변 · 편집
+export const PERM_NAME: Record<RoomPerm, string> = { read: t('읽기', 'Read'), talk: t('답변', 'Answer'), edit: t('편집', 'Edit') }
+/** '…로 / …으로' (받침): 읽기로 · 답변으로 · 편집으로 */
+const PERM_TO: Record<RoomPerm, string> = { read: '읽기로', talk: '답변으로', edit: '편집으로' }
 const PERM_TIP: Record<RoomPerm, string> = {
   read: t('부르면 접힌 요약만 냅니다', 'Gives a folded summary when called'),
   talk: t('부르면 방에서 답합니다. 파일은 고치지 않습니다', 'Answers in the room when called. Does not change files'),
   edit: t('방장: 하위 대화 · 파일 · PR을 맡습니다', 'Host: runs sub-conversations, files and pull requests'),
 }
-const NEXT_STEP = t('수정 넘기기는 다음 단계입니다. 지금은 방장(Claude)만 수정합니다', 'Handing over edit comes next. For now only the host (Claude) edits')
+const NEXT_STEP = t('편집 넘기기는 다음 단계입니다. 지금은 방장(Claude)만 편집합니다', 'Handing over edit comes next. For now only the host (Claude) edits')
 
 export const useRoom = (): RoomState | undefined => useQuery({ queryKey: qk.agentCentral, queryFn: () => agentChatsApi.central() }).data?.room
 
-/** 왕관 (방장 = 수정을 가진 사람, 무채색) */
+/** 왕관 (방장 = 편집을 가진 사람, 무채색) */
 export const Crown = () => <svg className="room-crown" viewBox="0 0 16 12" role="img" aria-label={t('방장', 'Host')}><path d="M1 3l3.5 3L8 1l3.5 5L15 3l-1.5 8h-11z" /></svg>
 
 /** 이름 하나: 로고 · (방장이면 왕관) · 이름 */
@@ -115,7 +118,7 @@ export function RoomManage() {
       <InviteMenu room={room} onError={setFail} />
       <div className="room-rules" data-ui="방 규칙">
         <div className="room-rule"><span>{t('여럿이 답하는 방식', 'How several answer')}</span><ModeSeg room={room} change={change} /></div>
-        <label className="room-rule"><span>{t('방장이 초대 (읽기만 · 발언까지)', 'Host may invite (read only, talk)')}</span><input type="checkbox" checked={room.rules.hostInvite} onChange={(e) => void change(() => agentChatsApi.roomRules({ hostInvite: e.target.checked }))} /></label>
+        <label className="room-rule"><span>{t('방장이 초대 (읽기 · 답변까지)', 'Host may invite (read, answer)')}</span><input type="checkbox" checked={room.rules.hostInvite} onChange={(e) => void change(() => agentChatsApi.roomRules({ hostInvite: e.target.checked }))} /></label>
         <div className="room-rule"><span>{t('새로 들어올 때 권한', 'Permission for newcomers')}</span><Seg value={room.rules.defaultPerm} name={t('새로 들어올 때 권한', 'Permission for newcomers')} ui="방 기본 권한" onPick={(p) => void change(() => agentChatsApi.roomRules({ defaultPerm: p }))} options={(['read', 'talk'] as const).map((p) => ({ v: p, label: PERM_NAME[p] }))} /></div>
         <div className="room-rule"><span>{t('방장이 한 번에 부르는 수', 'Host calls at once')}</span><Seg value={room.rules.callMax} name={t('방장이 한 번에 부르는 수', 'Host calls at once')} ui="방장 부르기 한도" onPick={(n) => void change(() => agentChatsApi.roomRules({ callMax: n }))} options={[1, 2, 3].map((n) => ({ v: n, label: String(n) }))} /></div>
       </div>
@@ -124,7 +127,7 @@ export function RoomManage() {
   )
 }
 
-/** 방 사람의 답 (사용자가 @로 불렀거나 방장이 물었을 때). 읽기만 사람은 접힌 요약 */
+/** 방 사람의 답 (사용자가 @로 불렀거나 방장이 물었을 때). 읽기 사람은 접힌 요약 */
 export function MemberItem({ it }: { it: Extract<ChatItem, { kind: 'member' }> }) {
   const room = useRoom()
   const perm = room?.members.find((m) => m.agent === it.by)?.perm
@@ -143,9 +146,9 @@ export function RoomItem({ it }: { it: Extract<ChatItem, { kind: 'room' }> }) {
   const change = useRoomChange()
   const actor = it.by === 'host' ? (room ? ROOM_NAME[room.host] : t('방장', 'Host')) : t('내가', 'I')
   const who = it.agent ? ROOM_NAME[it.agent] : ''
-  const what = it.act === 'invite' ? t(`${who}를 ${PERM_NAME[it.perm ?? 'talk']}으로 초대`, `invited ${who} (${PERM_NAME[it.perm ?? 'talk']})`)
+  const what = it.act === 'invite' ? t(`${who}를 ${PERM_TO[it.perm ?? 'talk']} 초대`, `invited ${who} (${PERM_NAME[it.perm ?? 'talk']})`)
     : it.act === 'remove' ? t(`${who}를 내보냄`, `removed ${who}`)
-      : it.act === 'perm' ? t(`${who}의 권한을 ${PERM_NAME[it.perm ?? 'talk']}으로`, `set ${who} to ${PERM_NAME[it.perm ?? 'talk']}`)
+      : it.act === 'perm' ? t(`${who}의 권한을 ${PERM_TO[it.perm ?? 'talk']}`, `set ${who} to ${PERM_NAME[it.perm ?? 'talk']}`)
         : t('방 규칙을 바꿈', 'changed the room rules')
   const removable = it.by === 'host' && it.act === 'invite' && it.agent && room?.members.some((m) => m.agent === it.agent && m.by === 'host')
   return (

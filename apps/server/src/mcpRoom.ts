@@ -1,5 +1,5 @@
 // 에이전트용 입구(mcp.ts)의 중앙 방 도구 (11/20 사용자 결정 "중앙 = 여럿이 말하는 방", 시안 https://claude.ai/artifact/1e4G2p1cQjgVNSSAZ9RFHr):
-// 방장(중앙 대화)만 받는다. room_ask 방 사람에게 묻기 · room_invite 초대(읽기만 · 발언까지, 까닭 한 줄) · room_remove 내가 초대한 사람 내보내기.
+// 방장(중앙 대화)만 받는다. room_ask 방 사람에게 묻기 · room_invite 초대(읽기 · 답변까지, 까닭 한 줄) · room_remove 내가 초대한 사람 내보내기.
 // 앱 서버 API만 부르고 파일을 직접 읽거나 쓰지 않는다
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'

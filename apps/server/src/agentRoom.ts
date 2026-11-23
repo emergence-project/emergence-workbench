@@ -1,9 +1,9 @@
 /**
  * 중앙 방 (11/20 사용자 결정 "중앙 = 여럿이 말하는 방", 시안 https://claude.ai/artifact/1e4G2p1cQjgVNSSAZ9RFHr §7 추천대로):
  *
- * - 방 사람: 방장(수정을 가진 사람, 왕관) 하나와 다른 에이전트. 사용자 말고 4명까지. 권한은 읽기만(부르면 접힌 요약) · 발언(부르면 답함) · 수정(방장).
+ * - 방 사람: 방장(편집을 가진 사람, 왕관) 하나와 다른 에이전트. 사용자 말고 4명까지. 권한은 읽기(부르면 접힌 요약) · 답변(부르면 답함) · 편집(방장).
  * - 받는 이: 그냥 말하면 방장만, @이름이면 부른 사람만, @모두면 모두. @모두에서는 다른 사람이 먼저 답하고 방장이 마지막에 정리한다 (§7-4).
- * - 초대: 사용자는 언제나, 방장은 방 규칙이 허락하면 읽기만 · 발언까지 (까닭 한 줄, 사용자가 ×로 뺀다, §7-2). 방장이 한 번에 부르는 수는 규칙의 callMax (§7-3).
+ * - 초대: 사용자는 언제나, 방장은 방 규칙이 허락하면 읽기 · 답변까지 (까닭 한 줄, 사용자가 ×로 뺀다, §7-2). 방장이 한 번에 부르는 수는 규칙의 callMax (§7-3).
  * - 방 사람은 대화 세션을 열지 않는다: 부를 때마다 최근 방 대화와 물음을 한 번 읽고 답한다(읽기만). 방장은 아직 못 본 답을 다음 차례 앞에 받는다.
  * - 1단계: 방장은 Claude(중앙 대화)로 고정이다. 수정을 다른 에이전트에게 넘기기와 그때 하위 대화 마무리(§7-5)는 다음 단계.
  * 방 상태는 설정 폴더 agent-room.json (대화 파일 폴더 agent-chats/ 옆).
@@ -98,23 +98,23 @@ export class RoomChats extends CentralChats {
     return m
   }
 
-  /** 초대 (사용자: 아무 권한이나 수정 말고, 방장: 규칙이 허락하면 읽기만 · 발언까지와 까닭) */
+  /** 초대 (사용자: 아무 권한이나 편집 말고, 방장: 규칙이 허락하면 읽기 · 답변까지와 까닭) */
   invite(agent: AgentKind, by: 'user' | 'host', perm?: RoomPerm, reason?: string): RoomState {
     const r = this.saved
     if (by === 'host' && !r.rules.hostInvite) throw new WorkbenchError(409, t('방 규칙상 방장은 초대할 수 없습니다. 사용자에게 부탁하세요', 'Room rules do not let the host invite. Ask the user'))
     if (r.members.some((x) => x.agent === agent)) throw new WorkbenchError(409, t(`${nameOf(agent)}는 이미 방에 있습니다`, `${nameOf(agent)} is already in the room`))
     if (r.members.length >= ROOM_MAX) throw new WorkbenchError(409, t(`방에는 ${ROOM_MAX}명까지 둡니다`, `The room holds at most ${ROOM_MAX}`))
     const p = perm ?? r.rules.defaultPerm
-    if (p === 'edit') throw new WorkbenchError(409, by === 'host' ? t('방장은 읽기만 · 발언까지만 줄 수 있습니다', 'The host can give only read-only or talk') : t('수정 넘기기는 다음 단계입니다. 지금은 방장(Claude)만 수정합니다', 'Handing over edit comes next. For now only the host (Claude) edits'))
+    if (p === 'edit') throw new WorkbenchError(409, by === 'host' ? t('방장은 읽기 · 답변까지만 줄 수 있습니다', 'The host can give only read or answer') : t('편집 넘기기는 다음 단계입니다. 지금은 방장(Claude)만 편집합니다', 'Handing over edit comes next. For now only the host (Claude) edits'))
     if (by === 'host' && !reason?.trim()) throw new WorkbenchError(400, t('방장이 초대할 때는 까닭 한 줄을 적습니다', 'The host gives a one-line reason when inviting'))
     r.members.push({ agent, perm: p, by, ...(reason?.trim() && { reason: clip(reason.trim(), 200) }), at: now() })
     return this.changed({ act: 'invite', agent, perm: p, by, ...(reason?.trim() && { reason: clip(reason.trim(), 200) }) })
   }
 
-  /** 권한 바꾸기 (사용자만). 1단계는 방장의 수정을 넘기지 않는다 */
+  /** 권한 바꾸기 (사용자만). 1단계는 방장의 편집을 넘기지 않는다 */
   setPerm(agent: AgentKind, perm: RoomPerm): RoomState {
     const m = this.member(agent)
-    if (agent === this.saved.host || perm === 'edit') throw new WorkbenchError(409, t('수정 넘기기는 다음 단계입니다. 지금은 방장(Claude)만 수정합니다', 'Handing over edit comes next. For now only the host (Claude) edits'))
+    if (agent === this.saved.host || perm === 'edit') throw new WorkbenchError(409, t('편집 넘기기는 다음 단계입니다. 지금은 방장(Claude)만 편집합니다', 'Handing over edit comes next. For now only the host (Claude) edits'))
     if (m.perm === perm) return this.roomState()
     const prev = m.perm
     m.perm = perm

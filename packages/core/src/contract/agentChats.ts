@@ -126,7 +126,7 @@ export const ChatItem = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('review'), at: z.string(), by: z.enum(AGENT_KINDS), edits: z.number(), text: z.string().optional(), error: z.string().optional(), seconds: z.number().optional(), auto: z.boolean().optional() }).strict(),
   /**
    * 중앙 방 사람의 답 (11/20 사용자 결정 "중앙 = 여럿이 말하는 방"): 사용자가 @이름 · @모두로 부르거나 방장이 room_ask로 물었을 때.
-   * q = 방장이 물은 말 (from host), fold = 읽기만 사람의 접힌 요약. text가 없고 error도 없으면 답하는 중
+   * q = 방장이 물은 말 (from host), fold = 읽기 사람의 접힌 요약. text가 없고 error도 없으면 답하는 중
    */
   z.object({ kind: z.literal('member'), at: z.string(), by: z.enum(AGENT_KINDS), q: z.string().optional(), from: z.literal('host').optional(), fold: z.boolean().optional(), text: z.string().optional(), error: z.string().optional(), seconds: z.number().optional() }).strict(),
   /** 방이 바뀜: 초대 · 내보내기 · 권한 · 방 규칙. by = 사용자 · 방장, reason = 방장이 초대한 까닭 한 줄 */
@@ -391,14 +391,14 @@ export const CentralKid = z.object({
 }).strict()
 // ---------- 중앙 방 (11/20 사용자 결정, 시안 https://claude.ai/artifact/1e4G2p1cQjgVNSSAZ9RFHr) ----------
 
-/** 방의 권한: read 읽기만(부르면 접힌 요약) · talk 발언(부르면 답함) · edit 수정(하위 대화 · 파일 · PR, 한 명 = 방장) */
+/** 방의 권한: read 읽기(부르면 접힌 요약) · talk 답변(부르면 답함) · edit 편집(하위 대화 · 파일 · PR, 한 명 = 방장) */
 export const ROOM_PERMS = ['read', 'talk', 'edit'] as const
 export const RoomMember = z.object({ agent: z.enum(AGENT_KINDS), perm: z.enum(ROOM_PERMS), by: z.enum(['user', 'host']), reason: z.string().optional(), at: z.string() }).strict()
-/** 방 규칙: hostInvite = 방장이 초대해도 됨(읽기만 · 발언까지), defaultPerm = 새로 들어올 때 권한, callMax = 방장이 한 번에 부르는 수,
+/** 방 규칙: hostInvite = 방장이 초대해도 됨(읽기 · 답변까지), defaultPerm = 새로 들어올 때 권한, callMax = 방장이 한 번에 부르는 수,
  *  mode = 여럿을 부를 때 답하는 방식(11/20 사용자 제안 "모드 전환"): independent 서로의 답을 가린 채 동시에 · debate 앞사람의 답을 보고 차례로 */
 export const ROOM_MODES = ['independent', 'debate'] as const
 export const RoomRules = z.object({ hostInvite: z.boolean(), defaultPerm: z.enum(['read', 'talk']), callMax: z.number().int().min(1).max(3), mode: z.enum(ROOM_MODES).default('independent') }).strict()
-/** 방: host = 방장(수정을 가진 사람), members = 방장 포함 (사용자 말고 4명까지), asking = 지금 답하는 사람 */
+/** 방: host = 방장(편집을 가진 사람), members = 방장 포함 (사용자 말고 4명까지), asking = 지금 답하는 사람 */
 export const RoomState = z.object({ host: z.enum(AGENT_KINDS), members: z.array(RoomMember), rules: RoomRules, asking: z.array(z.enum(AGENT_KINDS)) }).strict()
 export const RoomInviteBody = z.object({ agent: z.enum(AGENT_KINDS), perm: z.enum(ROOM_PERMS).optional(), reason: z.string().trim().max(200).optional() }).strict()
 export const RoomPermBody = z.object({ agent: z.enum(AGENT_KINDS), perm: z.enum(ROOM_PERMS) }).strict()

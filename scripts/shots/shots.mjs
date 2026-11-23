@@ -171,7 +171,7 @@ try {
         if (!r.ok) problems.push(`${name}: 하위 대화를 열지 못함 (${r.status})`)
         else await wait((await r.json()).kid.id)
       }
-      // 중앙 방 (11/20): @Codex로 검토를 부르고, 방장이 MCP로 하듯 Gemini를 까닭과 함께 읽기만으로 초대한다
+      // 중앙 방 (11/20): @Codex로 검토를 부르고, 방장이 MCP로 하듯 Gemini를 까닭과 함께 읽기로 초대한다
       await fetch(`${base}api/agent-chats/${central}/messages`, { method: 'POST', headers: json, body: JSON.stringify({ text: en ? '@Codex review the picture fix in feedback' : '@Codex 피드백 그림 고친 것 검토해 줘' }) })
       for (let i = 0; i < 50; i++) { const c = (await (await fetch(`${base}api/agent-chats/${central}`)).json()).chat; if (c.items.some((x) => x.kind === 'member' && x.text)) break; await new Promise((r) => setTimeout(r, 100)) }
       await fetch(`${base}api/agent-room/host/invite`, { method: 'POST', headers: json, body: JSON.stringify({ agent: 'gemini', perm: 'read', reason: en ? 'A second look at the derivation in section 2' : '2절 유도를 Claude와 따로 한 번 더 확인' }) })

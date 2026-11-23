@@ -46,7 +46,7 @@ describe('중앙 방', () => {
   }
   afterEach(() => { for (const d of dirs.splice(0)) fs.rmSync(d, { recursive: true, force: true }); turns.length = 0; asked.length = 0 })
 
-  it('기본 방은 방장 Claude(수정)와 Codex(발언). 그냥 말하면 방장만 받고, 방 사람 목록을 처음에 함께 받는다', async () => {
+  it('기본 방은 방장 Claude(편집)와 Codex(답변). 그냥 말하면 방장만 받고, 방 사람 목록을 처음에 함께 받는다', async () => {
     const { chats, review } = make()
     expect(chats.roomState()).toMatchObject({ host: 'claude-code', members: [{ agent: 'claude-code', perm: 'edit' }, { agent: 'codex', perm: 'talk' }], rules: { callMax: 2 } })
     const c = chats.talk('안녕')
@@ -118,12 +118,12 @@ describe('중앙 방', () => {
     expect(JSON.parse(fs.readFileSync(path.join(dir, 'agent-room.json'), 'utf8')).rules.mode).toBe('debate')
   })
 
-  it('초대 · 권한 · 내보내기: 사용자는 수정 말고, 방장은 규칙 안에서 까닭과 함께 읽기만 · 발언까지. 방 소식이 남고 파일에 남는다', async () => {
+  it('초대 · 권한 · 내보내기: 사용자는 편집 말고, 방장은 규칙 안에서 까닭과 함께 읽기 · 답변까지. 방 소식이 남고 파일에 남는다', async () => {
     const { chats, dir } = make()
     const c = chats.talk('시작')
     await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
     expect(() => chats.invite('gemini', 'host', 'talk')).toThrow(/까닭/)
-    expect(() => chats.invite('gemini', 'host', 'edit', '검토')).toThrow(/읽기만/)
+    expect(() => chats.invite('gemini', 'host', 'edit', '검토')).toThrow(/읽기 · 답변까지/)
     chats.invite('gemini', 'host', 'read', '그림 검토에 강함')
     expect(chats.roomState().members.find((m) => m.agent === 'gemini')).toMatchObject({ perm: 'read', by: 'host', reason: '그림 검토에 강함' })
     expect(chats.get(c.id).items.at(-1)).toMatchObject({ kind: 'room', act: 'invite', agent: 'gemini', by: 'host' })
@@ -140,7 +140,7 @@ describe('중앙 방', () => {
     expect(again.roomState().rules.callMax).toBe(1)
   })
 
-  it('방장이 묻기 (room_ask): 답을 돌려주고 방에도 남긴다. 읽기만 사람은 접힌 요약, 한 번에 callMax까지', async () => {
+  it('방장이 묻기 (room_ask): 답을 돌려주고 방에도 남긴다. 읽기 사람은 접힌 요약, 한 번에 callMax까지', async () => {
     const { chats } = make()
     await expect(chats.hostAsk('codex', '봐 줘')).rejects.toThrow(/중앙 대화가 없습니다/)
     const c = chats.talk('시작')
