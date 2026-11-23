@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { api, type FeedbackItem } from './api'
-import { PictureGallery, type GalleryPicture } from './PictureGallery'
 import { REPLY } from './feedbackTags'
 import { feedbackConversation } from './feedbackThread'
 import { josa, t } from './i18n'
@@ -8,11 +7,12 @@ import { josa, t } from './i18n'
 /**
  * 피드백 처리 · 답에 붙은 시안 (11/19 "고르지 않은 결정은 피드백에서 시안을 제대로 볼 수 없어서"):
  * 에이전트가 feedback_answer의 mockups로 붙이면 서버가 feedback/pictures/로 옮겨 적는다(feedbackMockups.ts).
- * 작은 그림을 누르면 크게 띄워 ← →로 넘기고, html이 있으면 새 창에서 연다. decide면 크게 본 채로 「이 시안으로 진행」 · 「논의」.
+ * 작은 그림을 누르면 전후 그림과 같은 창(FeedbackViewer.tsx)에 크게 띄워 ← →로 넘기고, html은 작은 그림 아래 링크로 새 창에서 연다.
+ * 답할 수 있으면 크게 본 채로 「이 시안으로 진행」 · 「논의」.
  */
 export interface FeedbackMockup { stem: string; name: string; pic?: string; html?: string }
 
-const url = (p: string) => `/api/feedback/picture?path=${encodeURIComponent(p)}`
+export const mockupUrl = (p: string) => `/api/feedback/picture?path=${encodeURIComponent(p)}`
 
 /** 경로를 시안 하나씩으로 묶는다: 같은 이름의 그림과 html은 한 시안. 이름 앞 "날짜-시각-mockup-"은 보이지 않는다 */
 export function groupMockups(paths: string[]): FeedbackMockup[] {
@@ -30,33 +30,33 @@ export function groupMockups(paths: string[]): FeedbackMockup[] {
   return out.filter((m) => m.pic || m.html)
 }
 
-export function FeedbackMockups({ e, paths, decide }: { e: FeedbackItem; paths?: string[]; decide?: boolean }) {
-  const [big, setBig] = useState<number | null>(null)
-  const ms = groupMockups(paths ?? [])
+/** 시안의 작은 그림들: 누르면 onOpen(그림 있는 시안 중 몇째)으로 크게 본 창을 연다(FeedbackViewer.tsx). html은 아래 링크로 새 창에 */
+export function MockupThumbs({ ms, onOpen }: { ms: FeedbackMockup[]; onOpen(k: number): void }) {
   if (!ms.length) return null
   const shown = ms.filter((m) => m.pic)
-  const pictures: GalleryPicture[] = shown.map((m) => ({ src: url(m.pic ?? ''), label: `${t('시안', 'Mockup')} · ${m.name}`, alt: m.name, ...(m.html && { html: url(m.html) }) }))
   return (
     <div className="ac-mockups fbp-mockups" data-ui="피드백 시안">
       {ms.map((m) => (
         <figure key={m.stem} className="ac-mockup" data-ui="시안" data-ui-item={m.name}>
-          {m.pic && <button type="button" className="ac-mockup-pic" aria-label={t(`시안 ${m.name} 크게 보기`, `View mockup ${m.name} large`)} onClick={() => setBig(shown.indexOf(m))}><img src={url(m.pic)} alt={m.name} loading="lazy" /></button>}
+          {m.pic && <button type="button" className="ac-mockup-pic" aria-label={t(`시안 ${m.name} 크게 보기`, `View mockup ${m.name} large`)} onClick={() => onOpen(shown.indexOf(m))}><img src={mockupUrl(m.pic)} alt={m.name} loading="lazy" /></button>}
           <figcaption>
             <span className="mono ac-mockup-name">{m.name}</span>
-            {m.html && <a className="a" data-ui="시안 새 창" href={url(m.html)} target="_blank" rel="noopener noreferrer">{t('html 새 창에서 열기 ↗', 'Open html in new window ↗')}</a>}
+            {m.html && <a className="a" data-ui="시안 새 창" href={mockupUrl(m.html)} target="_blank" rel="noopener noreferrer">{t('html 새 창에서 열기 ↗', 'Open html in new window ↗')}</a>}
           </figcaption>
         </figure>
       ))}
-      {big !== null && <PictureGallery pictures={pictures} start={big} onClose={() => setBig(null)} foot={decide ? (p) => <Decide key={p.src} e={e} name={p.alt} /> : undefined} />}
     </div>
   )
 }
+
+/** 크게 본 창 옆 대화의 글 수 (원문 포함): 접은 띠에 적는다 */
+export const threadCount = (e: FeedbackItem) => 1 + feedbackConversation(e).filter((s) => s.kind !== '대기').length
 
 /**
  * 크게 본 시안 오른쪽 칸 위의 주고받은 대화 (11/23 피드백 "논의를 눌렀을 때 대화 이력이 보이지 않아"):
  * 크게 보기가 화면을 덮어 아래 대화를 볼 수 없으니, 원문과 주고받은 글을 시각순으로 짧게 보인다
  */
-function MockupThread({ e }: { e: FeedbackItem }) {
+export function MockupThread({ e }: { e: FeedbackItem }) {
   const steps = feedbackConversation(e).filter((s) => s.kind !== '대기')
   const when = (at?: string) => (at ? at.replace('T', ' ').slice(5, 16) : '')
   return (
@@ -79,8 +79,8 @@ function MockupThread({ e }: { e: FeedbackItem }) {
   )
 }
 
-/** 크게 본 시안 아래: 「이 시안으로 진행」은 바로 보내고, 「논의」는 글칸을 열어 적은 뒤 보낸다. 보낸 글 앞에 시안 이름이 붙는다 */
-function Decide({ e, name }: { e: FeedbackItem; name: string }) {
+/** 크게 본 시안 옆 대화 아래: 「이 시안으로 진행」은 바로 보내고, 「논의」는 글칸을 열어 적은 뒤 보낸다. 보낸 글 앞에 시안 이름이 붙는다 */
+export function Decide({ e, name }: { e: FeedbackItem; name: string }) {
   const [talk, setTalk] = useState(false)
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
@@ -95,7 +95,6 @@ function Decide({ e, name }: { e: FeedbackItem; name: string }) {
   if (sent) return <div className="fbp-mockup-decide muted" role="status">{t(`시안 ${name}에 「${REPLY[sent]}」을 보냈습니다`, `Sent "${REPLY[sent]}" on mockup ${name}`)}</div>
   return (
     <div className="fbp-mockup-decide" data-ui="시안 결정">
-      <MockupThread e={e} />
       {talk && (
         <textarea className="fbp-input" autoFocus rows={2} value={text} placeholder={t('이 시안에서 이야기할 것', 'What to talk over in this mockup')} onChange={(ev) => setText(ev.target.value)}
           onKeyDown={(ev) => { if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); send('논의') } }} />
