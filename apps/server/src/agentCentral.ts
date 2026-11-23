@@ -209,10 +209,12 @@ export class CentralChats extends ReviewChats {
     // 비정상 종료 (11/20): 하위 대화가 아니어도 알린다. 사용자가 멈춘 것은 stopped라 오지 않는다
     const crash = ended && c.state === 'error' && !c.archived ? lastCrash(c.items) : undefined
     if (crash) this.note(c.id, { kind: 'crash' }, `crash:${c.id}:${crash.at}`)
-    if (c.parent !== central.id || c.archived) return
+    // 피드백 대화는 사용자가 보지 않아 허락 카드에 답할 이가 없다 (11/23 "앞으로 허락 묻지 말고 너가 해"): 허락 기다림만 중앙에 알린다
+    const mine = c.parent === central.id
+    if ((!mine && !c.feedback) || c.archived) return
     const a = c.state === 'waiting' ? openAsk(c) : undefined
     if (a) this.note(c.id, { kind: 'ask' }, `ask:${a.id}`)
-    else if (ended) this.note(c.id, { kind: 'end' }, `end:${c.id}:${(c.trimmed ?? 0) + c.items.length}`)
+    else if (ended && mine) this.note(c.id, { kind: 'end' }, `end:${c.id}:${(c.trimmed ?? 0) + c.items.length}`)
   }
 
   /** 깨울 까닭 하나를 적는다 (같은 것은 한 번만. 중재 요청은 쌓는다) */
@@ -504,10 +506,11 @@ export class CentralChats extends ReviewChats {
 
   /**
    * 중앙이 하위 대화의 허락 · 계획 카드에 답한다 (chat_answer, 11/18 사용자 "허락이 크리티컬한 것이 아니면 자동이면 좋을 것 같아").
-   * 크리티컬한 것(CRITICAL)은 409로 사용자에게 남긴다. 답한 카드에는 by = central이 붙어 화면에 「중앙이 자동으로」가 보인다
+   * 크리티컬한 것(CRITICAL)은 409로 사용자에게 남긴다. 답한 카드에는 by = central이 붙어 화면에 「중앙이 자동으로」가 보인다.
+   * 피드백 대화(중앙이 열지 않았어도)의 카드에도 답한다 (11/23 사용자 "앞으로 허락 묻지 말고 너가 해")
    */
   answerKid(b: CentralAnswerBody): CentralKid {
-    const k = this.kidOfCentral(b.id)
+    const k = this.answerable(b.id)
     const a = k.items.find((x): x is Ask => x.kind === 'ask' && x.id === b.ask)
     if (!a || a.answer) throw new WorkbenchError(409, t('이미 답했거나 없는 허락 요청입니다', 'This request was already answered or does not exist'))
     const crit = criticalOf(a, k)
@@ -517,7 +520,7 @@ export class CentralChats extends ReviewChats {
     a.by = 'central'
     this.touch(k)
     // 중앙 대화에도 무엇에 어떻게 답했는지 기록으로 남긴다
-    const c = this.must(k.parent!)
+    const c = this.central()!
     const what = a.plan !== undefined ? t('계획', 'plan') : a.summary.slice(0, 120)
     const yes = b.answer === 'allow'
     c.items.push({ kind: 'text', at: new Date().toISOString(), text: t(`자동: 「${k.title}」의 ${what} → ${yes ? '허락' : '거절'}`, `Automatic: ${yes ? 'allowed' : 'declined'} ${what} in "${k.title}"`) })
@@ -567,6 +570,14 @@ export class CentralChats extends ReviewChats {
     const k = this.must(id)
     const c = this.central()
     if (!c || k.parent !== c.id) throw new WorkbenchError(400, t('중앙이 연 하위 대화가 아닙니다', 'Not a sub-conversation of the central conversation'))
+    return k
+  }
+
+  /** chat_answer가 답할 수 있는 대화: 중앙이 연 하위 대화나 피드백 대화 */
+  private answerable(id: string): Stored {
+    const k = this.must(id)
+    const c = this.central()
+    if (!c || (k.parent !== c.id && !k.feedback) || k.id === c.id) throw new WorkbenchError(400, t('중앙이 연 하위 대화나 피드백 대화가 아닙니다', 'Neither a sub-conversation of the central conversation nor a feedback conversation'))
     return k
   }
 

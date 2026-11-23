@@ -187,6 +187,18 @@ export function checkRowsOfError(e: unknown): CheckRow[] {
 /** gh pr list --state merged --json number,mergeCommit */
 const MergedPrs = z.array(z.object({ number: z.number(), mergeCommit: z.object({ oid: z.string() }).nullish() }))
 
+/**
+ * 피드백 대화가 묻지 않고 읽는 개인 저장소 자리 (11/23: 안내가 개인 규칙을 읽으라 하는데 허락 카드에 막혀 멈췄다).
+ * 규칙 파일과 그 폴더의 공개용 자리(README · rules/ · planning/ · feedback/ · ops/ …)만. 기계 설정(_settings)과 대화 기록(_chats)은 빼고, 읽기만이다
+ */
+export function personalReadable(rules?: string): string[] {
+  if (!rules) return []
+  const dir = path.dirname(rules)
+  let names: string[] = []
+  try { names = fs.readdirSync(dir) } catch { /* 폴더가 없으면 규칙 파일만 */ }
+  return [rules, ...names.filter((n) => !/^[._]/.test(n)).map((n) => path.join(dir, n))]
+}
+
 /** 실제: 앱 저장소(root)의 worktree를 base/<대화 id>에, PR은 gh로 */
 export function appWorktrees(root: string, base: string, rules?: string, profile: AppProfile = THIS_APP): AppWork {
   const prOf = async (dir: string, branch: string): Promise<{ number: number; url: string } | undefined> => {
