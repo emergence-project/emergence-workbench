@@ -36,7 +36,7 @@ export function PermTable({ chat, onSaved }: { chat: Chat; onSaved(m: string): v
     <div className="ac-perm" role="table" aria-label={t('권한', 'Permissions')}>
       <div className="ac-perm-row ac-perm-head" role="row"><span role="columnheader">{t('하는 일', 'Does')}</span><span role="columnheader">{t('자동 허용', 'Auto')}</span></div>
       {PERM_ROWS.map((r) => {
-        const on = r.turn === 'edit' ? chat.mode === 'edit' && !readOnly : r.turn ? auto[r.turn] : false
+        const on = r.turn === 'edit' ? (chat.mode === 'edit' || chat.mode === 'auto') && !readOnly : r.turn ? auto[r.turn] : false
         const blocked = readOnly && (r.turn === 'edit' || r.ui === '삭제')
         return (
           <div key={r.ui} className="ac-perm-row" role="row" data-ui={`권한 ${r.ui}`}>

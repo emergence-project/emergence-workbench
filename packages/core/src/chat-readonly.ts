@@ -299,6 +299,10 @@ const PROGRAMS: Record<string, Rule> = {
 
 /** 비밀이 든 곳 (열쇠 · 토큰 · 환경 파일): 읽기라도 한 번 묻는다 */
 const SECRET = /(^|\/)\.(ssh|aws|gnupg|netrc|docker|kube)(\/|$)|\.config\/gh(\/|$)|Keychains|credentials|(^|\/)\.env(\.|$)|id_(rsa|ed25519|ecdsa|dsa)/
+/** 앱의 개인 설정 · 대화 기록 폴더와 키체인 꺼내기: 자동 모드에서도 읽기 전에 한 번 묻는다 (11/23) */
+const APP_SECRET = /research-workspace\/personal\/_(settings|chats)(\/|$)|\bsecurity\s+(find|dump|export)-/
+/** 경로나 명령이 비밀이 든 곳을 건드리는지 (자동 모드의 읽기 · 명령 판정) */
+export const touchesSecret = (text: string) => SECRET.test(text) || APP_SECRET.test(text)
 
 /** 파일로 쓰지 않는 돌려보내기 (오류를 합치기 · 버리기) */
 const HARMLESS_REDIRECT = /(?:\d?>&\d|&>\s*\/dev\/null|\d?>>?\s*\/dev\/null)/g

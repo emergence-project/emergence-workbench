@@ -7,19 +7,21 @@
 export type ChatKind = 'read' | 'edit' | 'delete' | 'run' | 'web' | 'outside'
 export interface ChatAutoValues { read: boolean; run: boolean; web: boolean }
 
-/** 권한 이름(읽기 전용 · 묻고 하기 · 계획 모드 · 편집 자동 허용)의 토글 기본값. 편집은 모드가 정한다 */
-export function presetAuto(write: 'read' | 'notes', mode: 'ask' | 'plan' | 'edit'): ChatAutoValues {
+type Mode = 'ask' | 'plan' | 'edit' | 'auto'
+/** 권한 이름(읽기 전용 · 묻고 하기 · 계획 모드 · 편집 자동 허용 · 자동)의 토글 기본값. 편집은 모드가 정한다. 자동은 셋 다 켠다 (11/23) */
+export function presetAuto(write: 'read' | 'notes', mode: Mode): ChatAutoValues {
+  if (write !== 'read' && mode === 'auto') return { read: true, run: true, web: true }
   if (write === 'read' || mode !== 'ask') return { read: true, run: false, web: false }
   return { read: false, run: false, web: false }
 }
 
 /** 이 대화의 토글 값: 기본값 위에 하나씩 바꾼 것 */
-export function autoOf(c: { write: 'read' | 'notes'; mode: 'ask' | 'plan' | 'edit'; auto?: Partial<ChatAutoValues> }): ChatAutoValues {
+export function autoOf(c: { write: 'read' | 'notes'; mode: Mode; auto?: Partial<ChatAutoValues> }): ChatAutoValues {
   return { ...presetAuto(c.write, c.mode), ...c.auto }
 }
 
 /** 하나씩 바꿔서 권한 이름의 기본값과 다른지 (화면의 「직접 정함」) */
-export function autoCustom(c: { write: 'read' | 'notes'; mode: 'ask' | 'plan' | 'edit'; auto?: Partial<ChatAutoValues> }): boolean {
+export function autoCustom(c: { write: 'read' | 'notes'; mode: Mode; auto?: Partial<ChatAutoValues> }): boolean {
   const p = presetAuto(c.write, c.mode)
   const a = autoOf(c)
   return a.read !== p.read || a.run !== p.run || a.web !== p.web

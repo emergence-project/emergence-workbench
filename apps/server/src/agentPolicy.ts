@@ -6,7 +6,8 @@ import crypto from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import { CENTRAL_RID, type ChatMode, type ChatScope, type ChatWrite } from '@rw/core/contract/agentChats'
-import { autoOf, commandKind, LIBRARY_RID, neverBypass, runProgram, runPrograms, stateOnlyCommand, type ChatAutoValues, type ChatKind, type NeverBypass } from '@rw/core'
+import { autoOf, commandKind, LIBRARY_RID, neverBypass, runProgram, runPrograms, stateOnlyCommand, touchesSecret, type ChatAutoValues, type ChatKind, type NeverBypass } from '@rw/core'
+import { commandCritical } from './critical.js'
 import { isInside } from './fsutil.js'
 import { t } from './i18n.js'
 
@@ -233,6 +234,7 @@ function judgeApp(ctx: PolicyCtx, tool: string, input: Record<string, unknown>):
     }
     if (ctx.write === 'read') return readOnly
     if (gated) return notYet
+    if (ctx.mode === 'auto') return judgeAuto(ctx, cmd, clip(cmd))
     if (ctx.mode === 'ask') return { kind: 'ask', summary: clip(cmd), key: `Bash:${cmd}`, label: t(`명령 · ${clip(cmd, 80)}`, `Command · ${clip(cmd, 80)}`) }
     return { kind: 'allow' }
   }
@@ -254,7 +256,17 @@ function judgeApp(ctx: PolicyCtx, tool: string, input: Record<string, unknown>):
     if (!RESEARCH_WRITES.has(name)) return { kind: 'allow' }
     return { kind: 'deny', reason: t('앱 고치기 대화는 연구 프로젝트를 고치지 않습니다', 'App conversations do not change research projects'), message: 'This conversation fixes the app itself; it does not change research notes, records, tasks or flows. Tell the user what should change there instead.' }
   }
+  if (tool === 'WebFetch' || tool === 'WebSearch') return judgeWeb(ctx, tool, describeStep(ctx, tool, input).summary)
   return { kind: 'ask', summary: `${tool} · ${describeStep(ctx, tool, input).summary}`, key: tool, label: tool }
+}
+
+/** 지금 자동 허용 값 (하나씩 바꾼 것 또는 권한 이름의 기본값) */
+const autoNow = (ctx: PolicyCtx) => ctx.auto?.() ?? autoOf({ write: ctx.write, mode: ctx.mode })
+
+/** 웹 검색 · 페이지 읽기: 「웹 보기」가 켜져 있으면 묻지 않는다 (자동 모드는 켜져 있다) */
+function judgeWeb(ctx: PolicyCtx, tool: string, summary: string): Verdict {
+  if (autoNow(ctx).web) return { kind: 'allow' }
+  return { kind: 'ask', summary: `${tool} · ${summary}`, key: tool, label: t('웹 보기', 'Web'), does: 'web', turnOn: 'web' }
 }
 
 /** 도구 한 번을 허락할지: allow · ask(허락 카드) · deny(막고 이유) */
@@ -273,6 +285,11 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
     const wild = pat.split('/').findIndex((seg) => /[*?[{]/.test(seg))
     const fixed = wild < 0 ? pat : pat.split('/').slice(0, wild).join('/') || (path.isAbsolute(pat) ? '/' : '')
     const abs = ok(base) && fixed && !ok(path.resolve(base, fixed)) ? path.resolve(base, fixed) : base
+    // 자동 모드 (11/23): 어디든 읽되, 비밀이 든 곳(열쇠 · 앱 개인 설정 · 대화 기록)은 한 번 묻는다
+    if (ctx.mode === 'auto' && ctx.write !== 'read') {
+      if (touchesSecret(abs) || touchesSecret(pat)) return { kind: 'ask', summary: t(`비밀이 든 곳 읽기: ${abs}`, `Read a place that holds secrets: ${abs}`), key: `${tool}:${abs}`, label: t(`읽기 · ${abs}`, `Read · ${abs}`), once: true }
+      if (autoNow(ctx).read) return { kind: 'allow' }
+    }
     if (ok(abs)) return { kind: 'allow' }
     return { kind: 'ask', summary: t(`등록한 폴더 밖 읽기: ${abs}`, `Read outside registered folders: ${abs}`), key: `${tool}:${abs}`, label: t(`읽기 · ${abs}`, `Read · ${abs}`) }
   }
@@ -341,10 +358,7 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
   }
   const step = describeStep(ctx, tool, input)
   if (tool === 'Bash') return judgeCommand(ctx, str(input.command), step.summary)
-  if (tool === 'WebFetch' || tool === 'WebSearch') {
-    if ((ctx.auto?.() ?? autoOf({ write: ctx.write, mode: ctx.mode })).web) return { kind: 'allow' }
-    return { kind: 'ask', summary: `${tool} · ${step.summary}`, key: tool, label: t('웹 보기', 'Web'), does: 'web', turnOn: 'web' }
-  }
+  if (tool === 'WebFetch' || tool === 'WebSearch') return judgeWeb(ctx, tool, step.summary)
   return { kind: 'ask', summary: `${tool} · ${step.summary}`, key: tool, label: tool }
 }
 
@@ -358,6 +372,7 @@ function judgeCommand(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
   const auto = ctx.auto?.() ?? autoOf({ write: ctx.write, mode: ctx.mode })
   const what = clip(cmd, 80)
   const gated = ctx.mode === 'plan' && !ctx.planOk
+  if (ctx.mode === 'auto' && ctx.write !== 'read') return judgeAuto(ctx, cmd, summary)
   if (does === 'read') {
     if (auto.read) return { kind: 'allow' }
     return { kind: 'ask', summary, key: 'read', label: t('읽기', 'Read'), does, turnOn: 'read' }
@@ -378,4 +393,32 @@ function judgeCommand(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
     return { kind: 'ask', summary, key: `run:${prog}`, label: t(`실행 · ${prog}`, `Run · ${prog}`), does }
   }
   return { kind: 'ask', summary, key: `${does}:${cmd}`, label: t(`외부 · ${what}`, `Outside · ${what}`), does: 'outside', once: true }
+}
+
+/** pnpm install --frozen-lockfile: 잠금 파일 그대로 까는 것이라 새 꾸러미를 받지 않는다 (작업 폴더를 처음 열 때) */
+const FROZEN_INSTALL = /^\s*pnpm\s+(install|i)\s+(--[\w-]+\s*)*$/
+
+/**
+ * 자동 모드의 명령 (11/23 사용자 "클로드 자동 모드처럼"): 읽기는 어디든, 작업 폴더 안의 편집 · 실행은 묻지 않는다.
+ * 크리티컬한 일(지우기 · 외부로 내보내기 · 합치기 · 앱 다시 시작 · 돈 · 계정)과 비밀이 든 곳, 폴더 밖을 바꾸거나 돌리는 것만 한 번 묻는다.
+ * 읽기 전용 · 계획 승인 전은 부르기 전에 걸렀다
+ */
+function judgeAuto(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
+  const what = clip(cmd, 80)
+  const once = (does: ChatKind, label: string): Verdict => ({ kind: 'ask', summary, key: `${does}:${cmd}`, label: `${label} · ${what}`, does, once: true })
+  if (touchesSecret(cmd)) return { kind: 'ask', summary, key: `secret:${cmd}`, label: t(`비밀 · ${what}`, `Secret · ${what}`), once: true }
+  const anywhere = commandKind(cmd, { cwd: ctx.repo, home: os.homedir(), inside: () => true })
+  if (anywhere === 'delete') return once('delete', t('삭제', 'Delete'))
+  const crit = commandCritical(cmd)
+  if (crit) return once('outside', t(crit.ko, crit.en))
+  if (ctx.scope.kind === 'app' && FROZEN_INSTALL.test(cmd) && cmd.includes('--frozen-lockfile')) return { kind: 'allow' }
+  if (anywhere === 'outside') return once('outside', t('외부', 'Outside'))
+  if (anywhere === 'read') return autoNow(ctx).read ? { kind: 'allow' } : { kind: 'ask', summary, key: 'read', label: t('읽기', 'Read'), does: 'read', turnOn: 'read' }
+  // 편집 · 실행이 작업 폴더 밖 경로를 건드리면 묻는다 (고치기는 이 대화의 작업 폴더 안에서만, 함께 읽는 폴더도 고치지 않는다)
+  if (commandKind(cmd, { cwd: ctx.repo, home: os.homedir(), inside: (abs) => abs === ctx.repo || isInside(ctx.repo, abs) }) === 'outside') return once('outside', t('폴더 밖', 'Outside the folder'))
+  if (anywhere === 'edit') return { kind: 'allow' }
+  const progs = runPrograms(cmd)
+  if (autoNow(ctx).run || (progs.length > 0 && progs.every((p) => ctx.always?.(`run:${p}`)))) return { kind: 'allow' }
+  const prog = progs.find((p) => !ctx.always?.(`run:${p}`)) ?? runProgram(cmd)
+  return { kind: 'ask', summary, key: `run:${prog}`, label: t(`실행 · ${prog}`, `Run · ${prog}`), does: 'run' }
 }
