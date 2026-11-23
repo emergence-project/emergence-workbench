@@ -230,11 +230,6 @@ function ReviewOf({ k, raw, version, view, onChanged, onSaved }: { k: string; ra
         {view}
       </div>
       {rv.target.kind === 'note' && <EditSources rid={rv.target.rid} file={rv.target.file} />}
-      {/* 고친 까닭 (10/20 18:01 피드백): 이 고침 묶음 전체를 왜 했는지. 이름표를 달고, 바뀐 곳의 이유와 같은 말 · 되풀이는 뺀다 */}
-      {notes.length > 0 && <div className="ae-notes" data-ui="고친 까닭">
-        <span className="ae-notes-h">{t('에이전트가 적은 고친 까닭', 'Why the agent made these edits')}</span>
-        <ul>{notes.map((n) => <li key={n}>{n}</li>)}</ul>
-      </div>}
       <div className="ae-table" role="table" aria-label={t('변경사항', 'Changes')} data-ui="고침 비교" data-ui-item={rv.title}>
         <div className="ae-head" role="row">
           <span />
@@ -242,6 +237,12 @@ function ReviewOf({ k, raw, version, view, onChanged, onSaved }: { k: string; ra
           <span role="columnheader">{t('후', 'After')}</span>
           <span role="columnheader">{t('검토', 'Review')}</span>
         </div>
+        {/* 고친 까닭 (10/20 18:01 피드백): 이 고침 묶음 전체를 왜 했는지. 이름표를 달고, 바뀐 곳의 이유와 같은 말 · 되풀이는 뺀다.
+            표 머리 바로 밑 첫 줄로 (11/23 피드백: 표 밖에 떠 있어 이 표의 설명으로 안 읽혔다) */}
+        {notes.length > 0 && <div className="ae-notes" role="row" data-ui="고친 까닭">
+          <span className="ae-notes-h" role="cell">{t('에이전트가 적은 고친 까닭', 'Why the agent made these edits')}</span>
+          <ul role="cell">{notes.map((n) => <li key={n}>{n}</li>)}</ul>
+        </div>}
         {groups.map((g, gi) => (
           <Fragment key={`${gi}:${g.hunks[0]!.id}`}>
             <div className="ae-sec-head" role="row" data-ui="바뀐 절" title={t('이 고침들이 든 절', 'The section these edits are in')}>
