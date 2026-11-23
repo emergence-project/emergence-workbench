@@ -52,6 +52,22 @@
 .tk-meta { color: var(--text-3); font-size: var(--fs-xs); white-space: nowrap; display: flex; gap: var(--sp-3); font-variant-numeric: tabular-nums; }
 .tk-chev { width: 8px; height: 8px; border-right: 1.5px solid var(--text-3); border-bottom: 1.5px solid var(--text-3); transform: rotate(45deg); justify-self: center; margin-top: -4px; }
 .tk.open .tk-chev { transform: rotate(-135deg); margin-top: var(--sp-1); }
+/* 판단할 일의 접힌 카드 (11/23 시안 judge-list-triage): 여섯 영역에 뜻 하나씩. 좌상 제목 · 우상 기다림 / 가운데 결론 | 검사 · 남은 문제 / 묻는 것 / 좌하 주제 · 우하 할 일.
+   색은 무채색: 상태 색은 점에만, 사용자 차례 주황은 수 · 점 모양에만 (design-system.md). 종류는 동사 글자(답하기 · 승인 · 검토)로 가린다 */
+.tk-six { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "t w" "c c" "q q" "tp act"; gap: var(--sp-1) var(--sp-3); align-items: center; padding: var(--sp-2) var(--sp-4); font-size: var(--fs-sm); text-align: left; border-radius: var(--r-lg); color: var(--text); }
+.tk-six:hover { background: var(--bg-hover); }
+.tk-six .tk-title { grid-area: t; min-width: 0; }
+.tk-wait { grid-area: w; font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tk-wait .hot { color: var(--text); font-weight: var(--fw-strong); }
+.tk-mid { grid-area: c; display: flex; align-items: center; gap: var(--sp-2); min-width: 0; color: var(--text-2); }
+.tk-concl1 { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tk-m { font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; }
+.tk-m.bad { color: var(--text-2); font-weight: var(--fw-medium); }
+.tk-q { grid-area: q; min-width: 0; font-size: var(--fs-xs); color: var(--text-2); background: var(--bg-side); border-left: 3px solid var(--line-strong); border-radius: 0 var(--r-sm) var(--r-sm) 0; padding: 2px var(--sp-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tk-topic { grid-area: tp; min-width: 0; display: flex; }
+.tk-chip { font-size: var(--fs-xs); color: var(--text-2); background: var(--bg-sunken); border-radius: var(--r-sm); padding: 0 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tk-six + .tk-open { padding-left: var(--sp-4); }
+.tk-act { grid-area: act; justify-self: end; font-size: var(--fs-xs); font-weight: var(--fw-strong); border-radius: var(--r-sm); padding: 1px var(--sp-2); white-space: nowrap; background: var(--bg-sunken); color: var(--text-2); }
 .tk-open { display: flex; flex-direction: column; gap: var(--sp-2); padding: 0 var(--sp-4) var(--sp-3) calc(var(--sp-4) + 26px); font-size: var(--fs-sm); }
 .tk-kv { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 6px var(--sp-3); margin: 0; }
 .tk-kv dt, .tk-h { color: var(--text); font-size: var(--fs-xs); font-weight: var(--fw-strong); padding-top: 2px; }

@@ -22,6 +22,12 @@ describe('기록 화면 내 차례의 판단 카드', () => {
     expect(html).toMatch(/data-ui-item="b"[^>]*>.*aria-expanded="true"/)
   })
 
+  it('접힌 카드는 여섯 영역: 제목 · 기다림 · 가운데 · 주제 · 할 일 (시안 judge-list-triage)', () => {
+    const html = render(null)
+    for (const c of ['tk-title', 'tk-wait', 'tk-mid', 'tk-topic', 'tk-act res']) expect(html).toContain(`class="${c}"`)
+    expect(html).not.toContain('tk-q')
+  })
+
   it('기록 줄이 펼쳐져 있으면 카드는 모두 접는다', () => {
     expect(render('project/c-20261020-0900')).not.toContain('aria-expanded="true"')
   })

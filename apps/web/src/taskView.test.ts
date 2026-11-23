@@ -1,7 +1,7 @@
 import { t } from './i18n'
 import { describe, expect, it } from 'vitest'
 import type { Task } from './api/tasks'
-import { agentPrompt, briefCounts, cardAsks, cardConclusion, durationText, judgeOrder, openTaskId, shortStamp, splitReport, taskLine, taskRowKey, taskTiming, weekItems } from './taskView'
+import { agentPrompt, briefCounts, cardAsks, cardConclusion, durationText, judgeFace, judgeOrder, openTaskId, shortStamp, splitReport, taskLine, taskRowKey, taskTiming, weekItems } from './taskView'
 
 const task = (over: Partial<Task>): Task => ({
   id: '2026-10-05-x', file: 'workbench/tasks/2026-10-05-x.md', title: 'x', agent: 'claude-code', created: '2026-10-05 09:10', state: 'working', task: '일',
@@ -15,6 +15,17 @@ describe('맡긴 일 화면 말', () => {
     expect(durationText(3 * 86_400_000 + 4 * 3_600_000)).toBe(t('3일 4시간', '3 days 4 h'))
     expect(shortStamp('2026-10-05 09:10')).toBe('10/5 09:10')
     expect(taskTiming(task({ state: 'result', resultAt: '2026-10-06 12:59' }))).toEqual({ text: '10/5 09:10 시작 · 27시간 49분', tip: '시작 10/5 09:10 → 결과 10/6 12:59' })
+  })
+
+  it('판단 카드 여섯 영역: 기다린 날수 · 결론 | 검사 · 남은 문제 · 묻는 것 · 주제 · 할 일 (시안 judge-list-triage)', () => {
+    const now = new Date(2026, 10, 23, 12, 0).getTime()
+    const res = judgeFace(task({ state: 'result', resultAt: '2026-10-16 09:00', priority: 1, topic: '센서 설계', conclusion: '초안 두 방식', endCheck: 'unknown',
+      issues: [{ text: 'a' }], asks: [{ q: '모듈 단위로 둘까요?', options: [] }, { q: '둘째', options: [] }] } as Partial<Task>), now)
+    expect(res).toMatchObject({ wait: t('38일 기다림', 'waited 38 days'), first: true, middle: '초안 두 방식', check: { tone: 'bad' }, issues: 1,
+      ask: { text: '모듈 단위로 둘까요?', more: 1, prop: false }, topic: '센서 설계', act: { kind: 'ask', label: t('답하기 2', 'Answer 2') } })
+    const prop = judgeFace(task({ state: 'proposed', mtime: now, proposal: { endCondition: ['A', 'B'], reason: '까닭' } }), now)
+    expect(prop).toMatchObject({ wait: t('오늘', 'today'), middle: '까닭', check: null, ask: { prop: true, more: 0 }, act: { kind: 'prop' } })
+    expect(judgeFace(task({ state: 'result', resultAt: '2026-11-22 09:00', endCheck: 'pass' }), now)).toMatchObject({ ask: null, check: { tone: 'ok' }, act: { kind: 'res' } })
   })
 
   it('종결 조건 제안은 결론과 확인 요청을 제안으로 채운다', () => {
