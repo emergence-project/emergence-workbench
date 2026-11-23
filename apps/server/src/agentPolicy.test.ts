@@ -53,3 +53,34 @@ describe('중앙 대화의 명령', () => {
     expect(v.kind === 'deny' && v.message).toContain('--squash')
   })
 })
+
+// 자동 모드 (11/23 사용자 "클로드 자동 모드처럼"): 읽기 · 작업 폴더 안 명령 · 웹은 묻지 않고, 크리티컬한 일과 비밀이 든 곳만 한 번 묻는다
+describe('자동 모드', () => {
+  const app: PolicyCtx = { rid: '_app', write: 'notes', mode: 'auto', planOk: false, scope: { kind: 'app' }, repo: '/w/wt', readable: ['/w/main'], claimedBy: () => undefined }
+  const run = (command: string, c = app) => judge(c, 'Bash', { command })
+  it('작업 폴더의 명령 · 고치기 · 읽기는 묻지 않는다', () => {
+    for (const c of ['pnpm install --frozen-lockfile --prefer-offline', 'pnpm type-check', 'pnpm test', 'git fetch origin main && git merge origin/main', 'git add -A && git commit -m x', 'grep -rn "restart" src', 'cat /etc/hosts', 'sed -i "" s/a/b/ src/a.ts', 'node scripts/x.mjs']) expect(run(c).kind, c).toBe('allow')
+  })
+  it('지우기 · 밖으로 보내기 · 앱 다시 시작 · 계정 · 비밀 · 폴더 밖 고치기는 「늘」 없이 한 번 묻는다', () => {
+    for (const c of ['rm src/a.ts', 'curl https://example.com', 'gh auth status', 'brew services restart x', 'cat ~/.ssh/id_rsa', 'echo x > /w/main/a.txt', 'pnpm add left-pad']) {
+      const v = run(c)
+      expect(v.kind === 'ask' && v.once, c).toBe(true)
+    }
+  })
+  it('읽기 도구는 어디든 읽되 비밀이 든 곳은 한 번 묻는다', () => {
+    expect(judge(app, 'Read', { file_path: '/etc/hosts' }).kind).toBe('allow')
+    for (const f of ['/Users/x/.ssh/config', '/Users/x/.config/research-workspace/personal/_settings/a.json', '/Users/x/.config/research-workspace/personal/_chats/c.json', '/w/wt/.env']) {
+      const v = judge(app, 'Read', { file_path: f })
+      expect(v.kind === 'ask' && v.once, f).toBe(true)
+    }
+  })
+  it('웹 검색과 PR 올리기 · 합치기는 묻지 않는다', () => {
+    expect(judge(app, 'WebSearch', { query: 'Claude vision image token cost' }).kind).toBe('allow')
+    expect(judge(app, 'mcp__workbench__app_submit', { title: 'x' }).kind).toBe('allow')
+    expect(judge(app, 'mcp__workbench__app_merge', {}).kind).toBe('allow')
+  })
+  it('편집 자동 허용은 그대로: 웹은 묻고, 계획 승인 전과 읽기 전용은 자동이어도 막는다', () => {
+    expect(judge({ ...app, mode: 'edit' }, 'WebSearch', { query: 'x' }).kind).toBe('ask')
+    expect(run('pnpm test', { ...app, write: 'read' }).kind).toBe('deny')
+  })
+})

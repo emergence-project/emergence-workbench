@@ -1,24 +1,11 @@
 /** 중앙 대화의 안내문과 크리티컬한 허락 목록 (agentCentral.ts에서 나눔: 600줄 한도) */
+import { CRITICAL } from './critical.js'
 import { APP_LIVE_CAP, APP_LIVE_MIN, MEM_FREE_GB, MEM_FREE_MIN } from './appMemory.js'
 
 /** 사용자가 다시 말하기 전까지 중앙이 저절로 같은 하위 대화에 보낼 수 있는 횟수 (되풀이 막기) */
 export const AUTO_SEND_MAX = 2
 
-/**
- * 크리티컬한 허락 (11/18 사용자 "허락이 크리티컬한 것이 아니면 자동이면 좋을 것 같아").
- * 이것만 사용자에게 남기고, 나머지(일반 계획 승인 · 일상적인 확인)는 중앙이 사용자 말을 근거로 chat_answer로 답한다.
- * 중앙의 답은 앱이 이 목록으로 다시 가린다 (criticalOf: 맞으면 409)
- */
-export const CRITICAL = [
-  // squash 합치기는 중앙 · 하위 대화가 CI 통과 뒤 직접 한다 (11/19 "중앙은 깃 편집 권한"): squash가 아닌 합치기와 main에 바로 푸시만 남긴다
-  { key: 'merge', ko: 'squash가 아닌 PR 합치기 · main에 바로 푸시', en: 'merging a pull request other than by squash, or pushing straight to main', re: /\bgh\s+pr\s+merge\b(?!.*(--squash\b|\s-s\b))|\bgit\s+push\b.*\b(main|master)\b/i },
-  { key: 'restart', ko: '앱 다시 시작', en: 'restarting the app', re: /service:restart|launchctl|\brestart\b|다시 시작|재시작/i },
-  { key: 'delete', ko: '지우기 · 덮어쓰기', en: 'deleting or overwriting', re: /\brm\s|\brmdir\b|\bgit\s+(reset\s+--hard|clean|checkout\s+--|restore)\b|--force\b|\bpush\s+-f\b|overwrite|덮어|지우/i },
-  { key: 'outside', ko: '외부로 내보내기', en: 'sending something outside', re: /\b(curl|wget|scp|rsync|ssh)\b|\bnpm\s+publish\b|\bgh\s+(issue|release|gist|api|pr\s+(comment|review|close|edit))\b/i },
-  { key: 'notes', ko: '연구 노트 · 개념 노트 변경 확정', en: 'changing research or concept notes', re: /edit_note|new_note|edit_concept|edit_review/i },
-  { key: 'money', ko: '돈 · 계정', en: 'money or accounts', re: /billing|payment|subscri|password|credential|secret|api[ _-]?key|\btoken\b|\blogin\b|keychain|결제|구독|계정|비밀번호|토큰/i },
-] as const
-export type Critical = (typeof CRITICAL)[number]
+export { CRITICAL, type Critical } from './critical.js'
 
 /** 중앙 대화를 처음 열 때 주는 안내 (영어: 에이전트가 읽는다). 사용자에게는 보이지 않는다 */
 export const CENTRAL_BRIEF = [

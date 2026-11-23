@@ -32,15 +32,16 @@ export type Fill = { text?: string; n: number; attach?: Attach[]; images?: Image
 
 /** 권한(예전 이름 맡기는 정도): 읽기 전용(write read) 또는 고치는 대화의 모드 셋 */
 export type Trust = 'read' | ChatMode
-/** ⇧⇥ 차례: Claude Code처럼 묻고 하기 → 편집 자동 허용 → 계획 모드, 그다음 읽기 전용 (10/22 사용자 결정 "Claude Code 방식") */
-const TRUSTS: Trust[] = ['ask', 'edit', 'plan', 'read']
-export const TRUST_NAME: Record<Trust, string> = { read: t('읽기 전용', 'Read only'), ask: t('묻고 하기', 'Ask before edits'), plan: t('계획 모드', 'Plan mode'), edit: t('편집 자동 허용', 'Accept edits') }
+/** ⇧⇥ 차례: Claude Code처럼 묻고 하기 → 편집 자동 허용 → 자동 → 계획 모드, 그다음 읽기 전용 (10/22 사용자 결정 "Claude Code 방식", 자동은 11/23) */
+const TRUSTS: Trust[] = ['ask', 'edit', 'auto', 'plan', 'read']
+export const TRUST_NAME: Record<Trust, string> = { read: t('읽기 전용', 'Read only'), ask: t('묻고 하기', 'Ask before edits'), plan: t('계획 모드', 'Plan mode'), edit: t('편집 자동 허용', 'Accept edits'), auto: t('자동', 'Auto') }
 /** 앱 고치기 대화의 맡기는 정도 설명 (작업 폴더에서 고치고 시험, 올리기는 앱) */
 export const APP_HINT: Record<Trust, string> = {
   read: t('읽기만 합니다', 'Reads only'),
   ask: t('파일을 고치거나 명령을 돌리거나 PR을 올릴 때마다 묻습니다', 'Asks before each file edit, command and before opening the PR'),
   plan: t('계획을 승인한 뒤 파일을 고치고 시험한 뒤 PR을 올립니다', 'Edits, tests and opens the PR after you approve the plan'),
   edit: t('작업 폴더에서 바로 고치고 시험한 뒤 PR을 올립니다', 'Edits and tests in its work folder, then opens the PR'),
+  auto: t('읽기 · 작업 폴더의 명령 · 웹을 묻지 않고 고친 뒤 PR까지 올립니다. 지우기 · 밖으로 보내기 · 합치기 · 앱 다시 시작 · 돈 · 계정 · 비밀이 든 곳만 묻습니다', 'Reads, runs commands in its work folder and uses the web without asking, then opens the PR. Asks only for deleting, sending outside, merging, restarting the app, money, accounts and places that hold secrets'),
 }
 
 const TRUST_HINT: Record<Trust, string> = {
@@ -48,10 +49,11 @@ const TRUST_HINT: Record<Trust, string> = {
   ask: t('노트 수정과 명령을 하나씩 묻습니다', 'Asks before each note edit and command'),
   plan: t('먼저 계획을 보이고, 승인할 때 이어 갈 방법을 고릅니다', 'Shows a plan first; you choose how to continue when you approve it'),
   edit: t('범위 안 노트를 바로 고칩니다. 명령 · 웹 · 범위 밖은 묻거나 막습니다', 'Edits notes in scope right away. Commands, web and out-of-scope work ask or are blocked'),
+  auto: t('어디든 읽고, 폴더 안 명령 · 웹은 묻지 않습니다. 지우기 · 밖으로 보내기 · 돈 · 계정 · 비밀이 든 곳만 묻습니다', 'Reads anywhere; commands in its folder and the web run without asking. Asks only for deleting, sending outside, money, accounts and places that hold secrets'),
 }
 /** 중앙 대화 (11/20): 명령은 맡기는 정도와 상관없이 같은 판정 — 읽기 명령은 묻지 않고, 바꾸는 일은 하위 대화에 맡긴다 */
 const CENTRAL_COMMANDS = t('읽기 명령은 묻지 않고 돌립니다. 바꾸는 일은 하위 대화에 맡깁니다', 'Read commands run without asking. Changes go to a sub-conversation')
-const CENTRAL_HINT: Record<Trust, string> = { read: CENTRAL_COMMANDS, ask: CENTRAL_COMMANDS, plan: TRUST_HINT.plan, edit: CENTRAL_COMMANDS }
+const CENTRAL_HINT: Record<Trust, string> = { read: CENTRAL_COMMANDS, ask: CENTRAL_COMMANDS, plan: TRUST_HINT.plan, edit: CENTRAL_COMMANDS, auto: CENTRAL_COMMANDS }
 export const trustOf = (c: { write: string; mode: ChatMode }): Trust => (c.write === 'read' ? 'read' : c.mode)
 export const settingsOf = (v: Trust): ChatSettings => (v === 'read' ? { write: 'read' } : { write: 'notes', mode: v })
 /** ⇧⇥: 다음 맡기는 정도 */
@@ -63,7 +65,7 @@ export const effortLabel = (suffix: string) => Object.entries(EFFORT_NAME).find(
 /** 하나씩 바꿔 권한 이름의 기본값과 다를 때의 이름 */
 export const CUSTOM_NAME = t('직접 정함', 'Custom')
 /** 권한의 아이콘: 좁은 입력란에서는 이름 대신 이것만 보인다 (11/21 사용자 "아이콘을 두어 글을 생략", 한 줄로) */
-const TRUST_ICON: Record<Trust, ReactNode> = { read: Icon.eye, ask: Icon.ask, plan: Icon.list, edit: Icon.pencil }
+const TRUST_ICON: Record<Trust, ReactNode> = { read: Icon.eye, ask: Icon.ask, plan: Icon.list, edit: Icon.pencil, auto: Icon.spark }
 /** 생각 깊이: 막대 of개 가운데 level개가 진하다 (글 없이도 깊이가 보이게) */
 function EffortGauge({ level, of }: { level: number; of: number }) {
   const w = 14 / of
