@@ -155,6 +155,7 @@ describe('허락 규칙', () => {
     expect(describeStep(ctx({ scope: topic }), 'Read', { file_path: `${repo}/README.md` })).toMatchObject({ outside: true })
     expect(describeStep(ctx(), 'Read', { file_path: '/r/lib/a.md' })).toMatchObject({ outside: true })
     expect(describeStep(ctx(), `${W}read_note`, { project: 'other', file: 'n.md' })).toEqual({ tool: 'read_note', summary: 'other · n.md', outside: true })
+    expect(describeStep(ctx(), `${W}feedback_answer`, { key: '2026-10-04 10:15 사이드바 › 목차', state: '반영' })).toEqual({ tool: 'feedback_answer', summary: '2026-10-04 10:15 사이드바 › 목차 · 반영' })
   })
   it('안내: 범위 · 단계 · 다른 대화가 잡은 파일', () => {
     const b = briefFor({ rid: 'proj', title: 'P', scope: topic, write: 'read', others: [{ title: '다른 일', claims: ['a.md'] }, { title: '빈 일', claims: [] }] })

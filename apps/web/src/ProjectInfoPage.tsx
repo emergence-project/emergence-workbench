@@ -17,7 +17,10 @@ import { useProblems } from './Problems'
 import { recordLine, userTurnRecords } from './workRecords'
 import { StatusDot } from './StatusDot'
 import { StarIcon } from './marks'
-import { judgeOrder, taskLine, TASK_DOT, TASK_GROUPS, TASK_STATE_LABEL } from './taskView'
+import { splitJudge, taskLine, TASK_DOT, TASK_GROUPS, TASK_STATE_LABEL } from './taskView'
+import { flash } from './flash'
+import { sendJudgment } from './WorkTasks'
+import { TurnCounts } from './TurnGroup'
 import { reviewStatusLabel } from './reviewStatus'
 import { LOOSE_NOTES_LABEL, LOOSE_TOPIC_ID } from './noteKinds'
 import { ProjectRemoveSection } from './projectRemove'
@@ -154,15 +157,20 @@ export function StatusPage({ rid, rapi }: { rid: string; rapi: ResearchApi }) {
   const overview = overviewQ.data
   const { entries, loaded, error: journalError } = useJournal(rapi)
   const text = useStatusText(rid, rapi)
-  const turn = tasks ? judgeOrder(tasks) : []
+  const judge = tasks ? splitJudge(tasks) : { decide: [], confirm: [] }
+  const turn = judge.decide
   // 사이드바 기록 줄의 수와 같게: 판단할 맡긴 일 + 결정을 기다리는 흐름 + 에이전트가 물은 기록 (11/21: 맡긴 일만 세어 수가 달랐다)
   const flows = useProblems(rid).data?.problems.filter((p) => p.waiting) ?? []
   const asks = userTurnRecords(useRecords(rid).data?.files ?? [])
-  const turnRows: { key: string; dot: ReactNode; title: string; meta: string; open(): void }[] = [
+  const turnRows: { key: string; dot: ReactNode; title: string; meta: string; open(): void; approve?(): void }[] = [
     ...turn.map((x) => ({ key: `t:${x.id}`, dot: <StatusDot s={TASK_DOT[x.state]} name={TASK_STATE_LABEL[x.state]} />, title: x.title, meta: taskLine(x), open: () => go({ page: 'task', rid, task: x.id }) })),
     ...flows.map((p) => ({ key: `f:${p.id}`, dot: <span className="turn-dot" aria-hidden />, title: p.question, meta: t('흐름 · 방향 보고 결정 대기', 'Flow · direction report awaits your decision'), open: () => go({ page: 'problems', rid, id: p.id }) })),
     ...asks.map((r) => ({ key: `r:${r.file.target}:${r.entry.id}`, dot: <span className="turn-dot" aria-hidden />, title: recordLine(r.entry), meta: t('에이전트의 질문', 'Agent question'), open: () => go({ page: 'records', rid }) })),
+    // 확인만 (11/23 turn-split ③): 종결 조건을 통과한 결과는 옅은 줄 끝에서 바로 승인한다
+    ...judge.confirm.map((x) => ({ key: `c:${x.id}`, dot: <span className="turn-dot pale" aria-hidden />, title: x.title, meta: t('확인만 · 종결 조건 통과', 'Confirm only · end condition passed'), open: () => go({ page: 'task', rid, task: x.id }),
+      approve: () => void sendJudgment(rid, x, 'approve', {}, (m) => flash(m), () => scan.refetch()) })),
   ]
+  const decideN = turnRows.length - judge.confirm.length
   const since = new Date(Date.now() - RECENT_DAYS * 86_400_000)
   const sinceDay = isoDay(since)
   const recent = entries.filter((e) => e.date >= sinceDay).sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`)).slice(0, TURN_ROWS)
@@ -174,13 +182,13 @@ export function StatusPage({ rid, rapi }: { rid: string; rapi: ResearchApi }) {
       <SyncLine rid={rid} rapi={rapi} />
 
       <section className="info-sec" data-ui="내 차례">
-        <h2>{t('내 차례', 'Your turn')} <span className="muted">{tasks ? turnRows.length : '…'}</span>{turnRows.length > 0 && toWork}</h2>
+        <h2>{t('내 차례', 'Your turn')} {tasks && turnRows.length ? <TurnCounts decide={decideN} confirm={judge.confirm.length} /> : <span className="muted">{tasks ? 0 : '…'}</span>}{turnRows.length > 0 && toWork}</h2>
         {!tasks ? <p className="muted">{reading}</p> : !turnRows.length ? <p className="muted">{t('판단을 기다리는 맡긴 일 · 흐름 · 에이전트의 질문이 없습니다', 'No delegated work, flow or agent question is waiting for you')}</p> : (
           <ul className="info-list">
             {turnRows.slice(0, TURN_ROWS).map((x) => (
-              <li key={x.key}><button className="info-row" onClick={x.open}>
+              <li key={x.key} className={x.approve ? 'info-confirm' : undefined} data-ui={x.approve ? '확인만 줄' : undefined}><button className="info-row" onClick={x.open}>
                 {x.dot}<span className="info-row-title">{x.title}</span><span className="muted info-row-meta">{x.meta}</span>
-              </button></li>
+              </button>{x.approve && <button className="btn sm" data-ui="승인" onClick={x.approve}>{t('승인', 'Approve')}</button>}</li>
             ))}
             {turnRows.length > TURN_ROWS && <li className="muted info-list-more">{t(`외 ${turnRows.length - TURN_ROWS}개`, `${turnRows.length - TURN_ROWS} more`)}</li>}
           </ul>

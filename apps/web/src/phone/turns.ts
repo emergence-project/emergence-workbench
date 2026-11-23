@@ -1,5 +1,5 @@
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { userTurn } from '@rw/core'
+import { taskTurn, userTurn } from '@rw/core'
 import { api, commentsApi, tasksApi, type FeedbackItem, type ResearchListItem, type Task } from '../api'
 import { qk } from '../queries'
 import { judgeOrder } from '../taskView'
@@ -16,6 +16,9 @@ export type TurnItem =
   | { kind: 'record'; key: string; at: string; rid: string; project: string; rec: FlatRecord }
   | { kind: 'task'; key: string; at: string; rid: string; project: string; task: Task }
   | { kind: 'edits'; key: string; at: string; rid: string; project: string; n: number }
+
+/** 확인만 (11/23 결정 필요 · 확인만): 반영이 끝난 피드백과 종결 조건을 통과한 맡긴 일. 탭 수 · 알림에 넣지 않는다 */
+export const isConfirm = (x: TurnItem) => (x.kind === 'feedback' && x.turn === 'confirm') || (x.kind === 'task' && taskTurn(x.task) === 'confirm')
 
 export const TURN_GROUPS = ['feedback', 'record', 'task', 'edits'] as const satisfies TurnItem['kind'][]
 

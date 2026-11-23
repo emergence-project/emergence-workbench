@@ -19,10 +19,10 @@ export const setFeedbackNotifyOn = (v: boolean) => store.set(KEY, v)
 /** 내 차례 하나의 표: 같은 항목이 다시 처리되어(handled_at이 바뀌어) 또 내 차례가 되면 새 표 */
 const turnKey = (e: FeedbackItem) => `${e.key}@${e.status?.handled_at ?? ''}`
 
-/** 지난번에 없던 내 차례 (처음 읽을 때는 알리지 않는다: before가 null) */
+/** 지난번에 없던 내 차례 (처음 읽을 때는 알리지 않는다: before가 null). 결정 필요(답할 것)만 알린다: 확인만은 조용히 쌓인다 (11/23) */
 export function newTurns(before: Set<string> | null, entries: FeedbackItem[], now = Date.now()): FeedbackItem[] {
   if (!before) return []
-  return entries.filter((e) => userTurn(e, now) && !before.has(turnKey(e)))
+  return entries.filter((e) => userTurn(e, now) === 'answer' && !before.has(turnKey(e)))
 }
 
 /** 알림 글: 묻는 것이 있으면 그것, 없으면 처리 첫 줄이나 교정한 원문 */
@@ -40,7 +40,7 @@ export function useFeedbackNotify(): void {
   useEffect(() => {
     if (!entries) return
     const fresh = newTurns(last.current, entries)
-    last.current = new Set(entries.filter((e) => userTurn(e)).map(turnKey))
+    last.current = new Set(entries.filter((e) => userTurn(e) === 'answer').map(turnKey))
     if (!fresh.length || !feedbackNotifyOn() || notifyPermission() !== 'granted' || (document.hasFocus() && !document.hidden)) return
     for (const e of fresh) {
       const n = new Notification(t('피드백 확인 필요', 'Feedback needs review'), { body: turnBody(e), tag: `feedback-${e.key}` })

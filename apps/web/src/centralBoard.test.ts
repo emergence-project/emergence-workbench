@@ -37,7 +37,7 @@ describe('중앙의 작업 현황', () => {
     expect(rows.find((r) => r.key === 'slow')).toMatchObject({ group: 'turn', stalled: 25 })
     expect(rows.find((r) => r.key === 'ci')!.stalled).toBeUndefined()
     expect(rows.find((r) => r.key === 'crit')!.stalled).toBeUndefined()
-    expect(boardCounts(rows)).toEqual({ left: 3, turn: 2, stalled: 1 })
+    expect(boardCounts(rows)).toEqual({ left: 3, turn: 2, stalled: 1, decide: 1, stopped: 1 })
   })
 
   it('피드백은 내 차례에 다섯 개까지, 묶음 안은 오래된 것이 위, 자리 기다림은 진행 중', () => {
@@ -45,7 +45,7 @@ describe('중앙의 작업 현황', () => {
     const { rows, moreFeedback } = boardRows({ kids: [kid('end', { state: 'idle', updated: ago(200) })], feedback, held: [{ title: '대기', at: ago(3) }] }, NOW)
     expect(moreFeedback).toBe(2)
     expect(rows.map((r) => r.key)).toEqual(['end', 'fb:f0', 'fb:f1', 'fb:f2', 'fb:f3', 'fb:f4', 'held:0'])
-    expect(boardCounts(rows, moreFeedback)).toEqual({ left: 9, turn: 8, stalled: 0 })
+    expect(boardCounts(rows, moreFeedback)).toEqual({ left: 9, turn: 8, stalled: 0, decide: 7, stopped: 1 })
   })
 
   it('비정상 종료: 하위 대화는 「비정상 종료」와 횟수, 하위 대화가 아닌 대화도 내 차례에 그 대화로 가는 줄', () => {

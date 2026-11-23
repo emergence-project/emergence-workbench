@@ -11,6 +11,7 @@ code:
   - apps/server/src/routes/agentChats.ts
   - apps/web/src/api/agentChats.ts
   - apps/web/src/AgentChats.tsx
+  - apps/web/src/AgentChanges.tsx
   - apps/server/src/agentDebate.ts
   - apps/web/src/WorkLog.tsx
   - apps/web/src/AgentChatList.tsx
@@ -30,12 +31,13 @@ code:
 | core | `packages/core/src/contract/agentChats.ts` | 대화 기록 · 항목 · API 몸통의 모양 (zod) |
 | server | `apps/server/src/agentChats.ts` | 대화의 상태 기계: 차례 돌리기 · 항목 쌓기 · 저장 · 멈춤 · 다시 켰을 때 이어 가기 · 화면에 알리기 |
 | server | `apps/server/src/agentRunner.ts` | Claude Agent SDK의 `query()`를 띄우고 사건(글 조각 · 도구 · 결과)으로 바꾼다. 곁 질문 · 맥락 줄이기 |
-| server | `apps/server/src/agentPolicy.ts` | 허락 규칙(순수 함수): 도구 하나를 허락 · 묻기 · 막기로 판정, 파일 잡기 |
+| server | `apps/server/src/agentPolicy.ts` | 허락 규칙(순수 함수): 도구 하나를 허락 · 묻기 · 막기로 판정, 파일 잡기. 단계 한 줄 요약(`describeStep`): `feedback_answer`는 「key · 상태」로 적어 피드백 화면이 묶음 대화를 항목별로 나눈다(11/23) |
 | server | `apps/server/src/agentRun.ts` | 실행기의 입출력 타입(`RunInput` · `RunEvent` · `AgentRunner`). 실제 실행기와 시험용 가짜가 함께 따른다 |
 | server | `apps/server/src/agentInbox.ts` | 차례 사이에 말을 넘기는 줄(AsyncIterable). 닫으면 끝 |
 | server | `apps/server/src/routes/agentChats.ts` | HTTP 경로 `/api/agent-chats/*` |
 | web | `apps/web/src/api/agentChats.ts` | 위 경로의 클라이언트 |
 | web | `apps/web/src/AgentChats.tsx` | 대화 화면: 목록 · 항목 그리기 · 허락 카드 · 고친 파일 |
+| web | `apps/web/src/AgentChanges.tsx` | 사이드바 「변경사항」 칸 `Changes`: 파일마다 접힌 줄(› 이름 +n −n)로 시작해 눌러서 펼치고, 머리 줄 「모두 펼치기 · 접기」. 펼친 파일은 대화마다 메모리에 기억(`openChangeFile`: 대화 줄 「변경사항 보기」가 그 파일을 펼쳐 둠), 코멘트를 쓰는 파일은 접히지 않음. 문단을 누르면 코멘트, 모아서 `commentMessage`로 에이전트에게 보냄 |
 | web | `apps/web/src/WorkLog.tsx` | 작업 로그: 대화 줄을 본문과 로그로 나누는 순수 함수 `chatLog`(생각 · 이어진 도구 묶음 = 로그 한 줄, 이어진 과정 = 대화의 「과정 n–m」 한 줄), 대화 안에서 그 자리에 펼치는 「과정」 줄 `ProcLine`(11/20 시안 2절: 세부 패널의 작업 로그는 없앰) |
 | web | `apps/web/src/WorkAside.tsx` | 대화 오른쪽 칸(사이드바): 세부 패널과 터미널 중 하나(`useSideColumn`). 대화 머리에는 사이드바 여닫기만, 칸 맨 위 아이콘 줄 `SideTabs`(왼쪽 이 대화 · 검토(돋보기 안 체크), 오른쪽 끝 `end` 칸부터 변경사항(파일 ± 아이콘과 초록 점, 수는 툴팁) · 터미널, 11/23)로 칸을 고른다. 터미널은 옮길 앱에 셸이 있을 때만 |
 | web | `apps/web/src/AgentChatInfo.tsx` | 「이 대화」 칸 `ChatInfo`와 사이드바 아이콘 줄의 단추 목록 `ChatSideTabs`(검토는 검토자(Codex · Gemini)가 있는 Claude 대화에만, `AgentReview.tsx`의 `ReviewPane`이 검토자 고르기 · 실행과 지난 검토) |
@@ -47,7 +49,7 @@ code:
 
 대화마다 JSON 파일 하나(이 앱은 앱 설정 폴더의 `agent-chats/<id>.json`). 모양은 `contract/agentChats.ts`의 `Chat` · `ChatItem`이 정본이다.
 
-- 머리: `id` · `rid`(프로젝트) · `title` · `state`(`running` · `waiting` · `queued` · `idle` · `stopped` · `error`) · `mode`(`ask` · `plan` · `edit`) · `model` · `effort` · `created` · `updated`
+- 머리: `id` · `rid`(프로젝트) · `title` · `state`(`running` · `waiting` · `queued` · `idle` · `stopped` · `error`) · `mode`(`ask` · `plan` · `edit` · `auto`) · `model` · `effort` · `created` · `updated`
 - 보관: `archived` · `summary`(보관할 때 작은 모델이 쓴 결과 요약 세 줄) · `packed`(압축해 둔 원문 줄 수. 원문은 같은 폴더의 `<id>.items.json.gz`이고, 그 대화를 열면 다시 푼다)
 - 서버만: `sessionId`(SDK 세션, 이어 가기) · `alwaysKeys`(이 대화에서 늘 허락한 것) · `pending`(일하는 중에 보낸 말) · `points`(되감기 자리)
 - `items`: 종류(`kind`)로 나뉜 항목 목록 — `user`(내 말) · `text`(에이전트 글) · `step`(도구 사용 한 줄) · `ask`(허락 카드, 답하면 `answer`) · `bypass`(중앙 대화가 허락으로 우회해 돌린 명령: 명령 · 한 번/늘 · 시각) · `edit`(고친 파일 +n −n) · `result`(차례 끝: 성공 · 비용 · 토큰) · `error`(사용자가 멈추지 않았는데 프로세스가 끝났으면 `crash: true`. 대화 기록에 남아 다시 켜도 비정상 종료 이력을 센다)
@@ -56,7 +58,7 @@ code:
 
 1. **기록 모양과 저장.** `contract/agentChats.ts`의 `Chat` · `ChatItem`을 옮기고, 대화 하나를 파일 하나로 쓰고 읽는다.
 2. **실행기.** `agentRunner.ts`처럼 SDK `query()`를 띄우고 메시지를 사건으로 바꾼다. 처음엔 글 · 도구 · 결과 셋이면 된다. 저장소의 사용자 설정은 읽지 않고(`settingSources: []`) 허락은 앱의 `canUseTool`이 정한다.
-3. **허락.** `agentPolicy.ts`의 판정 함수(읽기 · 고치기 · 지우기 · 명령 · 웹 · 작업 폴더 밖)를 옮기고, 묻는 것은 `ask` 항목으로 쌓아 답을 기다린다. 실행의 「늘」(열쇠 `run:<프로그램>`)은 줄 안의 실행 프로그램(`runPrograms`)이 모두 허락됐을 때만 묻지 않는다. 중앙 대화의 Bash는 상태 보기 목록(`packages/core/src/chat-readonly.ts`의 `stateOnlyCommand`: 읽기 명령, for 반복문 · find -exec 안의 읽기, 읽기만 하는 `python3 -I -c`)이면 묻지 않고 돌리고, 맡기는 정도와 상관없이 같으며(입력 줄의 권한 설명도 중앙용 `CENTRAL_HINT`), 목록 밖이라도 막지 않고 명령 · 까닭 · 폴더를 보이며 묻는다(우회, 「늘」은 바로 그 명령만, 열쇠 `bypass:<명령>`); 허락해 돌리면 `bypass` 항목을 남긴다. 강제 푸시 · reset --hard · main 지우기 · 임시 폴더 밖 rm -rf · workbench/ 쓰기는 허락해도 막는다(`packages/core/src/chat-bypass.ts`의 `neverBypass`, 셸 감싸기 안쪽도). 저절로 허락 · 시간 초과 허락은 없다. 판정은 적힌 낱말을 보지만 셸은 돌리기 전에 낱말을 펼치므로(`find .$IFS-delete`, `find . -{delete,print}`, 반복 변수에 담은 옵션, `${x@P}`), 옵션을 가리는 프로그램에서는 중괄호 펼침과 변수를 막고 한 낱말로 정해진 값(`$HOME`, 글자 그대로 적은 반복 낱말)만 두며, 하위 명령은 첫 낱말로만 고른다(`npm --loglevel info run x`). 옮길 때 이 시험 사례(`chat-readonly.test.ts`)도 함께 옮긴다.
+3. **허락.** `agentPolicy.ts`의 판정 함수(읽기 · 고치기 · 지우기 · 명령 · 웹 · 작업 폴더 밖)를 옮기고, 묻는 것은 `ask` 항목으로 쌓아 답을 기다린다. 실행의 「늘」(열쇠 `run:<프로그램>`)은 줄 안의 실행 프로그램(`runPrograms`)이 모두 허락됐을 때만 묻지 않는다. 중앙 대화의 Bash는 상태 보기 목록(`packages/core/src/chat-readonly.ts`의 `stateOnlyCommand`: 읽기 명령, for 반복문 · find -exec 안의 읽기, 읽기만 하는 `python3 -I -c`)이면 묻지 않고 돌리고, 맡기는 정도와 상관없이 같으며(입력 줄의 권한 설명도 중앙용 `CENTRAL_HINT`), 목록 밖이라도 막지 않고 명령 · 까닭 · 폴더를 보이며 묻는다(우회, 「늘」은 바로 그 명령만, 열쇠 `bypass:<명령>`); 허락해 돌리면 `bypass` 항목을 남긴다. 강제 푸시 · reset --hard · main 지우기 · 임시 폴더 밖 rm -rf · workbench/ 쓰기는 허락해도 막는다(`packages/core/src/chat-bypass.ts`의 `neverBypass`, 셸 감싸기 안쪽도). 저절로 허락 · 시간 초과 허락은 없다. 판정은 적힌 낱말을 보지만 셸은 돌리기 전에 낱말을 펼치므로(`find .$IFS-delete`, `find . -{delete,print}`, 반복 변수에 담은 옵션, `${x@P}`), 옵션을 가리는 프로그램에서는 중괄호 펼침과 변수를 막고 한 낱말로 정해진 값(`$HOME`, 글자 그대로 적은 반복 낱말)만 두며, 하위 명령은 첫 낱말로만 고른다(`npm --loglevel info run x`). 옮길 때 이 시험 사례(`chat-readonly.test.ts`)도 함께 옮긴다. 「자동」(`mode: 'auto'`, 11/23)은 읽기 · 작업 폴더 안 명령 · 웹을 묻지 않고, 고치기는 대화 자신의 폴더만 허락한다(`judgeAuto` · `judgeWeb`). 열쇠가 든 곳 읽기(`touchesSecret`), 지우기, 크리티컬 명령(`apps/server/src/critical.ts`의 `commandCritical`: 합치기 · 다시 시작 · 외부로 내보내기 · 돈 · 계정, 따옴표 안 글은 빼고 본다), 폴더 밖 쓰기는 한 번 묻는다.
 4. **상태 기계.** `agentChats.ts`의 차례 돌리기: 보내기 → `running` → (허락 대기 `waiting`) → `idle`. 일하는 중 보낸 말은 `pending`에서 다음 차례로. 멈춤은 `interrupt()` 뒤 시간이 지나면 abort. 일하는 중 보낸 말은 SDK가 곧바로 가져가 제 줄에 두므로, 넘길 때 uuid를 붙이고 주 에이전트의 답(`user_message_uuids`)이 읽었다고 알릴 때까지 `Unread`(`agentInbox.ts`)에 둔다. 멈춤 · 실패로 닫히면 읽히지 않은 말을 `pending`(「다음에 보냄」)으로 되돌린다(그러지 않으면 화면에는 보냈는데 에이전트는 못 읽고 사라진다).
 5. **경로와 화면.** `routes/agentChats.ts`의 만들기 · 보내기 · 답하기 · 멈추기 · 이어 하기, 화면은 서버가 알리는 줄(SSE 등)로 다시 그린다.
 5-a. **목록.** 사이드바 맨 위는 중앙 대화, 그 아래 한 줄에 ☰ 대상 메뉴(전체 · 앱 개발 · 프로젝트마다 · 지식, 수와 함께)와 새 대화 아이콘(네모 위 연필)이 있다. 그 아래는 상태 묶음 넷(내 차례 · 작업 중 · 대기 · 종료)이고 종료는 처음 접혀 있다. 대기 줄은 서버가 주는 차례(`queue`)로 「대기 n번째」를 보인다. 차례가 끝났어도 백그라운드 명령(`tasks`)이 도는 대화는 「작업 중 · 백그라운드 명령 n개」로 작업 중 묶음에 둔다(`agentSeen.ts`의 `inBackground` · `shownState`, 11/21). 「전체」에서는 줄 상태 글 뒤에 대상 이름을 붙인다. 보관한 대화는 목록 맨 아래 상자 아이콘(개수 표시)으로 열고, 열면 대상별로 묶인다(11/20, 구현 `AgentChatList.tsx`). `›`는 묶음 접기에만 쓴다. 목록을 받지 못하면 빈 묶음 대신 이유 한 줄을 보인다(11/21).

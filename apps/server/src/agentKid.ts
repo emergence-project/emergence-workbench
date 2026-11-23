@@ -3,7 +3,8 @@ import { APP_RID, type CentralKid, type ChatItem } from '@rw/core/contract/agent
 import type { Stored } from './agentChats.js'
 import { kidReport, lastReport } from './agentCentralDigest.js'
 import { crashesOf, lastCrash } from './agentCrash.js'
-import { CRITICAL, type Critical } from './centralBrief.js'
+import { touchesSecret } from '@rw/core'
+import { CRITICAL, type Critical } from './critical.js'
 
 export type Ask = Extract<ChatItem, { kind: 'ask' }>
 
@@ -20,6 +21,9 @@ export function criticalOf(a: Ask, kid: Pick<Stored, 'rid'>): Critical | undefin
   if (a.does === 'delete') return of('delete')
   if (a.does === 'outside') return of('outside')
   if (kid.rid !== APP_RID && a.does === 'edit') return of('notes')
+  // 비밀이 든 곳 읽기는 계정 일이다. 웹 보기는 검색어의 낱말(token · cost)로 크리티컬하게 보지 않는다 (11/23)
+  if (touchesSecret(a.summary)) return of('money')
+  if (a.does === 'web' || /^Web(Search|Fetch)$/.test(a.tool)) return undefined
   const s = `${a.tool} ${a.summary}`
   return CRITICAL.find((x) => x.re.test(s))
 }

@@ -35,7 +35,7 @@ export const FEEDBACK_HELPERS = [0, 1, 2, 3] as const
  * trust = 새 대화의 시작 권한(대화 안에서 바꾼 것은 그 대화에만), auto = 시작할 때 자동 허용(읽기 · 실행 · 웹 보기, 없으면 권한 이름의 기본값 presetAuto),
  * role = 하는 일: write 새 대화를 맡음 · review 검토만(새 대화의 에이전트 줄에 없음) · both. 검토는 Codex만 하고, 검토로 불리면 늘 읽기 전용
  */
-export const AGENT_TRUSTS = ['read', 'ask', 'plan', 'edit'] as const
+export const AGENT_TRUSTS = ['read', 'ask', 'plan', 'edit', 'auto'] as const
 export type AgentTrust = (typeof AGENT_TRUSTS)[number]
 export const AGENT_ROLES = ['write', 'review', 'both'] as const
 export type AgentRole = (typeof AGENT_ROLES)[number]

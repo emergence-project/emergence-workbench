@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { commentMessage, effortsOf, notifyWhy, tokensName, fitEffort, modelName } from './AgentChats'
+import { commentMessage } from './AgentChanges'
+import { effortsOf, notifyWhy, tokensName, fitEffort, modelName } from './AgentChats'
 import { chatLog, procName, procSummary, stepsSummary } from './WorkLog'
 import { fitMenu, menuAt, nextTrust, sideQuestion, trustOf } from './ChatComposer'
 import { familyName, familyOf, modelFamilies, pickFamily, readyAgent } from './AgentPick'
@@ -25,7 +26,9 @@ describe('에이전트 입력란', () => {
   })
   it('⇧⇥는 권한을 Claude Code 차례로 돌린다', () => {
     expect(nextTrust('ask')).toBe('edit')
-    expect(nextTrust('edit')).toBe('plan')
+    expect(nextTrust('edit')).toBe('auto')
+    expect(nextTrust('auto')).toBe('plan')
+    expect(nextTrust('auto', false)).toBe('read')
     expect(nextTrust('plan')).toBe('read')
     expect(nextTrust('read')).toBe('ask')
   })

@@ -4,7 +4,7 @@ import { Icon } from '../icons'
 import { usePhone } from '../phoneLayout'
 import { go, type Route } from '../router'
 import { PhoneMemo } from './PhoneMemo'
-import { useTurns } from './turns'
+import { isConfirm, useTurns } from './turns'
 
 /**
  * 폰의 아래 탭 넷 (10/31 사용자 결정 "안 A · 내 차례 먼저"): 차례 · 프로젝트 · 대화 · 설정.
@@ -22,7 +22,7 @@ function Tabs({ route }: { route: Route }) {
   const { items } = useTurns()
   const on = tabOf(route)
   const tabs: { key: TabKey; label: string; icon: ReactNode; to: Route; n?: number }[] = [
-    { key: 'turns', label: t('차례', 'Turn'), icon: Icon.flag, to: { page: 'turns' }, n: items.length },
+    { key: 'turns', label: t('차례', 'Turn'), icon: Icon.flag, to: { page: 'turns' }, n: items.filter((x) => !isConfirm(x)).length },
     { key: 'projects', label: t('프로젝트', 'Projects'), icon: Icon.research, to: { page: 'projects' } },
     { key: 'agent', label: t('대화', 'Chats'), icon: Icon.spark, to: { page: 'agent' } },
     { key: 'settings', label: t('설정', 'Settings'), icon: Icon.settings, to: { page: 'settings' } },
