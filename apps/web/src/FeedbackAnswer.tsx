@@ -21,7 +21,7 @@ export const answerable = (e: FeedbackItem) => {
  * 지금 처리 카드의 「승인」: 결과를 알린 답에만. 승인이 아닌 의견은 아래 입력란에서.
  * onOpinion이 있으면 옆에 「의견 남기기」(11/9 시안 N7ik 3절 승인): 접어 둔 대화를 펼치고 입력란으로 간다
  */
-export function ApproveButton({ e, onOpinion }: { e: FeedbackItem; onOpinion?(): void }) {
+export function ApproveButton({ e, onOpinion, inline }: { e: FeedbackItem; onOpinion?(): void; inline?: boolean }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   if (asksUser(e) || !answerable(e)) return null
@@ -29,11 +29,14 @@ export function ApproveButton({ e, onOpinion }: { e: FeedbackItem; onOpinion?():
     setBusy(true)
     api.reviewFeedback(e.key, '승인').then(() => setError(null), (err: Error) => setError(err.message)).finally(() => setBusy(false))
   }
+  const approve = <button className={inline ? 'btn' : 'btn primary'} data-ui="처리 승인" disabled={busy} title={t('이 처리를 그대로 끝냅니다', 'Accept this handling as is')} onClick={send}>{t('승인', 'Approve')}</button>
+  // inline: 크게 본 창 옆 입력란의 아래 줄 왼쪽에 (보내기와 같은 줄, 11/23 피드백 "승인 버튼 위치가 이상해")
+  if (inline) return <>{approve}{error && <span className="error-text">{error}</span>}</>
   return (
     <div className="fbp-now-act">
       {error && <span className="error-text">{error}</span>}
       {onOpinion && <button className="btn" data-ui="의견 남기기" title={t('승인하기 전에 진행 · 질문 · 논의 · 반려를 적습니다', 'Go ahead, ask, discuss or send back before approving')} onClick={onOpinion}>{t('의견 남기기', 'Leave a reply')}</button>}
-      <button className="btn primary" data-ui="처리 승인" disabled={busy} title={t('이 처리를 그대로 끝냅니다', 'Accept this handling as is')} onClick={send}>{t('승인', 'Approve')}</button>
+      {approve}
     </div>
   )
 }
@@ -46,12 +49,13 @@ export function ApproveButton({ e, onOpinion }: { e: FeedbackItem; onOpinion?():
  * - 끝났거나 관리자 차례가 아니면 질문만.
  * 질문(자료 값 코멘트) · 반려 · 논의는 글이 있어야 보낸다. 진행 · 중단은 글 없이도 보내고, 글이 있으면 함께 적힌다.
  * 질문은 처리를 그대로 두고 묻는다(관리자가 답만 한다). 반려 · 진행 · 논의는 다시 처리하게 돌려보낸다(논의는 고치지 않고 시안 · 물음으로). 중단은 그대로 끝낸다.
+ * approve: 크게 본 전후 그림 옆에서는 「승인」을 대화와 의견 종류 사이에 따로 두지 않고 아래 줄 왼쪽, 「보내기」와 같은 줄에 둔다 (11/23).
  * prefix: 크게 본 전후 그림 옆에서 쓰면 "후 그림:"처럼 무엇을 보고 적었는지 글 앞에 붙인다 (FeedbackViewer.tsx). 적던 글은 아래 입력란과 따로 남는다
  */
 type Opinion = '코멘트' | '반려' | '진행' | '중단' | '논의'
 const NEEDS_TEXT: Opinion[] = ['반려', '논의', '코멘트']
 const unsentAnswers = new Map<string, string>()
-export function Compose({ e, focus, prefix }: { e: FeedbackItem; focus?: boolean; prefix?: string }) {
+export function Compose({ e, focus, prefix, approve }: { e: FeedbackItem; focus?: boolean; prefix?: string; approve?: boolean }) {
   // 적던 답은 다른 항목 · 다른 화면을 보고 와도 남는다 (보내면 지움, 앱을 다시 열면 없음)
   const draft = prefix ? `${e.key}\n${prefix}` : e.key
   const [text, setText] = useState(() => unsentAnswers.get(draft) ?? '')
@@ -72,7 +76,7 @@ export function Compose({ e, focus, prefix }: { e: FeedbackItem; focus?: boolean
   // 관리자 차례(처리 전 · 코멘트에 답하기 전 · 다시 처리하기 전)에는 입력란을 두지 않는다 (10/10 13:02)
   const hint = NEEDS_TEXT.includes(choice) ? `${REPLY_MEANING[choice]}: ${t('적어 주세요', 'write it here')}` : `${REPLY_MEANING[choice]} · ${t('덧붙일 말 (선택)', 'anything to add (optional)')}`
   return (
-    <ComposeBox value={text} onChange={setText} placeholder={hint} error={error} focus={focus}
+    <ComposeBox value={text} onChange={setText} placeholder={hint} error={error} focus={focus} start={approve && <ApproveButton e={e} inline />}
       waiting={feedbackBucket(e) === '대기' ? t('관리자의 답을 기다립니다', 'Waiting for the maintainer to answer') : undefined}
       lead={choices.length > 1 && (
         <div className="segmented fbp-opinion" role="radiogroup" data-ui="의견 종류" aria-label={t('의견 종류', 'Kind of reply')}>

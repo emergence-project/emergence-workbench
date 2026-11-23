@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { type FeedbackItem } from './api'
 import { PictureGallery, type GalleryPicture } from './PictureGallery'
 import { Decide, MockupThread, MockupThumbs, groupMockups, mockupUrl, threadCount } from './FeedbackMockups'
-import { ApproveButton, Compose, answerable } from './FeedbackAnswer'
+import { Compose, answerable } from './FeedbackAnswer'
 import { latestReply } from './feedbackThread'
 import { t } from './i18n'
 
@@ -42,7 +42,7 @@ function Viewer({ e, shown, start, live, onClose }: { e: FeedbackItem; shown: Sh
         <MockupThread e={e} />
         {live && (s?.kind === 'mockup' && answerable(e)
           ? <Decide e={e} name={p.alt} />
-          : <><ApproveButton e={e} /><Compose e={e} prefix={prefix} /></>)}
+          : <Compose e={e} prefix={prefix} approve />)}
       </div>
     )
   }

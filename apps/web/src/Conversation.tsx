@@ -26,10 +26,10 @@ export function SayCard({ me, name, tag, afterTag, when, end, ui, children }: {
 
 /**
  * 입력란: 글 칸과 그 아래 밖의 버튼들 (10/28 피드백 21:54 "버튼을 밖으로 빼고, 글이 길어지면 입력란이 길어지게").
- * 글 칸은 글에 맞춰 화면 높이의 절반까지 늘어난다. lead는 글 칸 위(피드백의 의견 종류). waiting이 있으면(상대 차례) 입력란 대신 그 한 줄만
+ * 글 칸은 글에 맞춰 화면 높이의 절반까지 늘어난다. lead는 글 칸 위(피드백의 의견 종류), start는 아래 줄 왼쪽(크게 본 창의 「승인」). waiting이 있으면(상대 차례) 입력란 대신 그 한 줄만
  */
-export function ComposeBox({ value, onChange, placeholder, error, waiting, lead, focus, children }: {
-  value: string; onChange(v: string): void; placeholder: string; error?: string | null; waiting?: string; lead?: ReactNode; focus?: boolean; children: ReactNode
+export function ComposeBox({ value, onChange, placeholder, error, waiting, lead, start, focus, children }: {
+  value: string; onChange(v: string): void; placeholder: string; error?: string | null; waiting?: string; lead?: ReactNode; start?: ReactNode; focus?: boolean; children: ReactNode
 }) {
   const ref = useRef<HTMLTextAreaElement>(null)
   // focus: 처음 그릴 때 글 칸에 커서를 둔다 (피드백 「의견 남기기」로 연 입력란)
@@ -49,6 +49,7 @@ export function ComposeBox({ value, onChange, placeholder, error, waiting, lead,
           onChange={(ev) => onChange(ev.target.value)} onKeyDown={(ev) => onListKey(ev, onChange)} />
       </div>
       <div className="fbp-compose-row" data-ui="승인·반려">
+        {start}
         {error && <span className="error-text">{error}</span>}
         <span className="sp" />
         {children}
