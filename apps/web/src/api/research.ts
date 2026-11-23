@@ -1,4 +1,5 @@
 // ---------- 프로젝트 (연구 저장소 하나: 요약·진술·원고·카드·자료·일지) ----------
+import type { RecordTurns } from '@rw/core/contract/comments'
 import type { JournalEntry, MetaPatch } from '@rw/core'
 import type {
   AgentRules, AgentStatusPreview, AllBodyOnlyResult, BodyOnlyResult, CompileResult, CreatedNote, InfoBody, InfoSaved,
@@ -60,6 +61,8 @@ export const researchListCalls = {
   imageUrl: (rid: string, v = '') => `/api/researches/${enc(rid)}/image${v ? `?v=${enc(v)}` : ''}`,
   /** 프로젝트마다 확인이 필요한 보조 노트 수 (왼쪽 띠의 프로젝트 버튼) */
   researchIssues: () => req('/api/research-issues').then((r) => json<ProjectIssues>(r)),
+  /** 답을 기다리는 에이전트 기록 하나하나 (상단바 알림 종) */
+  recordTurns: () => req('/api/record-turns').then((r) => json<RecordTurns>(r)),
 }
 
 /** 연구 하나에 대한 요청들 */

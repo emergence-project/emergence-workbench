@@ -103,6 +103,8 @@ export const qk = {
   personalRepo: ['feedback', 'personal'] as const,
   /** 프로젝트마다 확인할 것의 수(판단할 맡긴 일 · 에이전트 고침 · 물은 기록): 레일 · 홈 · 폰 내 차례 */
   researchIssues: ['research-issues'] as const,
+  /** 답을 기다리는 에이전트 기록 (알림 종). researchIssues 아래 키라 그 키를 다시 받을 때 함께 받는다 */
+  recordTurns: ['research-issues', 'record-turns'] as const,
   /** 연구 공통 규칙 (설정 › 공통 규칙, 개인 저장소 사본. 프로젝트 알림과 상관없다) */
   commonRules: ['common-rules'] as const,
   /** 네트워킹 (사람 목록 · 등록 추천 · 사람 페이지). 사람 목록을 저장하면 이 키 전체를 다시 받는다 (network/people.tsx announce) */

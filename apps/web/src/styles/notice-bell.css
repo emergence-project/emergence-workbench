@@ -13,6 +13,16 @@
 .tb-bell-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2); }
 .tb-bell-item.unread .tb-bell-text { color: var(--text); font-weight: var(--fw-strong); }
 .tb-bell-none { padding: 6px 10px; font-size: var(--fs-sm); }
+/* 11/23: 답할 것은 사용자 차례 주황 점, 소식은 무채색 점(읽지 않음 짙게 · 읽음 옅게). 파랑은 진행 상태에만 쓰므로 쓰지 않는다 */
+.tb-bell-kind { display: flex; align-items: center; gap: var(--sp-1); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tb-bell-kind .turn-dot, .tb-bell-dot { flex: none; margin-right: 2px; }
+.tb-bell-dot { width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--line-strong); }
+.tb-bell-item.unread .tb-bell-dot { background: var(--text-2); border-color: var(--text-2); }
+.tb-bell-where { color: var(--text-2); overflow: hidden; text-overflow: ellipsis; }
+.tb-bell-item.need .tb-bell-text { color: var(--text); }
+.menu .tb-bell-item.first-news { border-top: 2px solid var(--line-strong); border-top-left-radius: 0; border-top-right-radius: 0; margin-top: var(--sp-1); padding-top: var(--sp-2); }
+.tb-bell-head .tb-bell-place { margin-left: auto; max-width: 150px; }
+.tb-bell-new { position: absolute; top: 3px; right: 2px; width: 7px; height: 7px; border-radius: 50%; background: var(--text-2); pointer-events: none; }
 /* 폰: 종이 상단바 가운데쯤이라 340px 메뉴를 종 오른쪽 끝에 맞추면 왼쪽이 화면 밖으로 나간다. 상단바 폭에 맞춰 편다 */
 @media (max-width: 600px) {
   .titlebar { position: relative; }
