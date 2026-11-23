@@ -58,8 +58,7 @@ export function CentralStart() {
         <Composer rid={CENTRAL_RID} keep="new:central" agentFixed noTrust autoFocus
           settings={{ trust: 'read', agent: 'claude', model: start.model, effort: start.effort, account: start.account ?? 'default' }}
           onSettings={(s) => setStart((o) => ({ ...o, ...(s.model && { model: s.model }), ...(s.effort && { effort: s.effort }), ...(s.account && { account: s.account }) }))}
-          onSubmit={submit} placeholder={t('무엇이든 먼저 말하세요 · 예: 피드백에서 그림이 안 보인대. 고쳐 줘', 'Say anything first · e.g. pictures do not show in feedback. Fix it')} />
-        <span className="muted ac-hint">{t('질문에는 바로 답하고, 앱 고치기 · 프로젝트 작성 · 피드백 처리는 하위 대화에 맡깁니다. 중앙은 파일을 고치지 않고, 다시 시작은 내가 합니다', 'Answers questions directly and hands app fixes, project writing and feedback to sub-conversations. Central does not edit files; restarting stays with you')}</span>
+          onSubmit={submit} placeholder={t('무엇이든 먼저 말하세요. 질문에는 바로 답하고, 앱 고치기 · 프로젝트 작성 · 피드백 처리는 하위 대화에 맡깁니다', 'Say anything first. Questions get answered here; app fixes, project writing and feedback go to sub-conversations')} />
       </div>
     </div></div>
   )
