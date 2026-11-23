@@ -76,6 +76,8 @@ export const DEFAULT_SCREENS = [
   ['review', '#/r/{rid}/edits', '바뀐 곳', '[data-ui="바뀐 곳"]:last-child'],
   // 바뀐 곳에서 묻기 (10/14): 첫 바뀐 곳에 질문과 답을 넣고(agent-edits.mjs) 대화를 연 모습
   ['review-talk', '#/r/{rid}/edits', '고침 대화', '묻기 버튼'],
+  // 피드백 모드로 고침 대화를 누른 모습 (11/23 15:21): 위치가 「작업 화면 › 패널 › …」(예전에는 사이드바로 보였다)
+  ['feedback-mode-pane', '#/r/{rid}/edits', '[data-feedback-ui].fb-pop', ['묻기 버튼', '[data-tip="피드백"]', '![data-ui="고침 대화"]']],
   // 확인 필요: 반려한 것을 다시 처리한 항목을 펼쳐 주고받은 기록과 승인·반려를 찍는다 (fixtures/sandbox-feedback)
   ['feedback', '#/feedback', '주고받은 기록', ['피드백 줄']],
   // 전후 그림 크게 보기 (10/13): 그림이 있는 항목을 펼쳐 전 그림을 누른 모습. 승인을 기다리는 항목이라 대화는 접혀 있다 (11/9)
