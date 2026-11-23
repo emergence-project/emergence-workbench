@@ -119,6 +119,54 @@ export function judgeOrder(tasks: Task[]): Task[] {
   return tasks.filter(needsJudgment).sort((a, b) => (stampMs(a.resultAt) ?? a.mtime) - (stampMs(b.resultAt) ?? b.mtime))
 }
 
+/**
+ * 판단 카드의 여섯 영역 (11/23 사용자 시안 judge-list-triage, 영역 하나에 뜻 하나):
+ * ① 제목 ② 기다린 날수(+먼저) ③ 결론 | 종결 조건 검사 · 남은 문제 수 ④ 묻는 것(있을 때만) ⑤ 주제 ⑥ 할 일 동사.
+ * 산출물 · 참고 문서는 카드에 두지 않는다(펼친 곳 · 보고서).
+ */
+export interface JudgeFace {
+  wait: string
+  waitTip: string
+  first: boolean
+  middle: string
+  check: { text: string; tone: 'ok' | 'bad' } | null
+  issues: number
+  ask: { text: string; more: number; prop: boolean } | null
+  topic: string
+  act: { kind: 'ask' | 'prop' | 'res'; label: string }
+}
+
+const DAY = 86_400_000
+
+export function judgeFace(t: Task, now = Date.now()): JudgeFace {
+  const since = stampMs(t.resultAt) ?? t.mtime
+  const days = Math.max(0, Math.floor((now - since) / DAY))
+  const posted = t.resultAt ? shortStamp(t.resultAt) : shortStamp(localStamp(t.mtime))
+  const timing = taskTiming(t, now)
+  const proposed = t.state === 'proposed'
+  const cond = t.proposal?.endCondition ?? []
+  const check = proposed || !t.endCheck ? null
+    : t.endCheck === 'pass' ? { text: tr('종결 조건 통과', 'Criteria met'), tone: 'ok' as const }
+    : t.endCheck === 'fail' ? { text: tr('종결 조건 미달', 'Criteria not met'), tone: 'bad' as const }
+    : { text: tr('종결 조건 모름', 'Criteria unknown'), tone: 'bad' as const }
+  const ask = proposed
+    ? (cond.length ? { text: tr(`종결 조건 ${cond.length}개: ${cond.join(', ')}`, `${plural(cond.length, 'criterion', 'criteria')}: ${cond.join(', ')}`), more: 0, prop: true } : null)
+    : t.asks[0] ? { text: t.asks[0].q, more: t.asks.length - 1, prop: false } : null
+  return {
+    wait: days ? tr(`${days}일 기다림`, `waited ${plural(days, 'day')}`) : tr('오늘', 'today'),
+    waitTip: `${tr(`올림 ${posted}`, `Posted ${posted}`)} · ${agentName(t.agent)} · ${timing.tip}`,
+    first: t.priority === 1,
+    middle: (proposed ? t.proposal?.reason : t.conclusion) ?? '',
+    check,
+    issues: t.issues.length,
+    ask,
+    topic: t.topic ?? '',
+    act: proposed ? { kind: 'prop', label: tr('승인', 'Approve') }
+      : t.asks.length ? { kind: 'ask', label: tr(`답하기 ${t.asks.length}`, `Answer ${t.asks.length}`) }
+      : { kind: 'res', label: tr('검토', 'Review') },
+  }
+}
+
 /** 기록 화면 내 차례에서 펼친 줄 키: 판단 카드는 `task/<id>`, 기록 줄은 `<대상>/<기록 id>` */
 export const taskRowKey = (id: string) => `task/${id}`
 /** 펼친 줄 키 → 펼친 판단 카드 id. 기록 줄이 펼쳐져 있거나 아무것도 없으면 null */

@@ -13,7 +13,7 @@ import { qk } from './queries'
 import { go } from './router'
 import { StatusDot } from './StatusDot'
 import {
-  agentName, agentPrompt, briefCounts, cardAsks, cardConclusion, judgeOrder, TASK_DOT, TASK_GROUPS, TASK_STATE_LABEL, taskLine, taskTiming, weekItems,
+  agentName, agentPrompt, briefCounts, cardAsks, cardConclusion, judgeFace, judgeOrder, needsJudgment, TASK_DOT, TASK_GROUPS, TASK_STATE_LABEL, taskLine, taskTiming, weekItems,
   type WeekItem, type WeekMark,
 } from './taskView'
 import { t } from './i18n'
@@ -105,7 +105,31 @@ function Items({ list, empty }: { list: ReactNode[]; empty?: string }) {
 }
 
 /**
- * 맡긴 일 결과 줄 (시안 v31, 10/27까지 이름 "판단 카드". data-ui는 그대로): 접힌 줄 = 상태 점 · 제목 · 에이전트 · 시작 시각 · 작업 시간(끝 시각은 툴팁).
+ * 판단할 일의 접힌 카드: 여섯 영역에 뜻 하나씩 (11/23 사용자 시안 judge-list-triage). 좌상 제목 · 우상 기다린 날수,
+ * 가운데 결론과 오른쪽 끝 종결 조건 검사 · 남은 문제 수, 묻는 것(있을 때만), 좌하 주제 · 우하 할 일.
+ * 에이전트 · 시작 시각 · 작업 시간은 기다린 날수의 툴팁에
+ */
+function JudgeFaceRow({ task: tk, open, onToggle }: { task: Task; open: boolean; onToggle(): void }) {
+  const f = judgeFace(tk)
+  return (
+    <button className="tk-six" aria-expanded={open} onClick={onToggle} data-ui="판단 카드 머리">
+      <span className="tk-title">{tk.title}</span>
+      <span className="tk-wait" title={f.waitTip}>{f.wait}{f.first && <> · <span className="hot">{t('먼저', 'First')}</span></>}</span>
+      <span className="tk-mid">
+        <span className="tk-concl1">{f.middle || <span className="tk-none">{t('결론 없음', 'No conclusion')}</span>}</span>
+        {f.check && <span className={`tk-m ${f.check.tone}`}>{f.check.text}</span>}
+        {f.issues > 0 && <span className="tk-m">{t(`남은 문제 ${f.issues}`, `Open issues ${f.issues}`)}</span>}
+      </span>
+      {f.ask && <span className={`tk-q${f.ask.prop ? ' prop' : ''}`}>{f.ask.text}{f.ask.more > 0 && <span className="tk-m"> {t(`외 ${f.ask.more}`, `+${f.ask.more}`)}</span>}</span>}
+      <span className="tk-topic">{f.topic && <span className="tk-chip">{f.topic}</span>}</span>
+      <span className={`tk-act ${f.act.kind}`}>{f.act.label}</span>
+    </button>
+  )
+}
+
+/**
+ * 맡긴 일 결과 줄 (시안 v31, 10/27까지 이름 "판단 카드". data-ui는 그대로): 판단할 일의 접힌 줄은 여섯 영역 카드(JudgeFaceRow),
+ * 그 밖의 일(폰의 맡긴 일 목록)은 상태 점 · 제목 · 에이전트 · 시작 시각 · 작업 시간(끝 시각은 툴팁).
  * 펼치면 결론 · 작업 내용, 그 아래 왼쪽 사용자 확인 요청 | 오른쪽 남은 문제. 판단에 쓴 시간은 펼친 때부터 잰다(보이지 않음).
  */
 export function TaskCard({ rid, task: tk, open, onToggle, onSaved, reload, onEditProposal }: {
@@ -120,12 +144,12 @@ export function TaskCard({ rid, task: tk, open, onToggle, onSaved, reload, onEdi
   const proposed = tk.state === 'proposed'
   return (
     <article className={`tk${open ? ' open' : ''}`} data-ui="판단 카드" data-ui-item={tk.id}>
-      <button className="tk-row" aria-expanded={open} onClick={onToggle}>
+      {needsJudgment(tk) ? <JudgeFaceRow task={tk} open={open} onToggle={onToggle} /> : <button className="tk-row" aria-expanded={open} onClick={onToggle}>
         <StatusDot s={TASK_DOT[tk.state]} name={TASK_STATE_LABEL[tk.state]} />
         <span className="tk-title">{tk.title}</span>
         <span className="tk-meta"><span>{agentName(tk.agent)}</span><span title={timing.tip}>{timing.text}</span></span>
         <span className="tk-chev" aria-hidden />
-      </button>
+      </button>}
       {open && <div className="tk-open">
         <dl className="tk-kv">
           <dt>{t('결론', 'Conclusion')}</dt><dd className="tk-concl">{cardConclusion(tk) || <span className="tk-none">{t('아직 없음', 'None yet')}</span>}</dd>
