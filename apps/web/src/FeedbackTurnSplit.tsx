@@ -23,7 +23,7 @@ export function FeedbackTurnSplit({ list, table }: { list: FeedbackItem[]; table
   const approve = (e: FeedbackItem) => api.reviewFeedback(e.key, '승인')
   const approveAll = async () => {
     let ok = 0
-    await approveEach(confirm, async (e) => { try { await approve(e); ok++ } catch (err) { flash((err as Error).message, undefined, { error: true }) } })
+    await approveEach(confirm, async (e) => { try { await approve(e); ok++ } catch (err) { flash(err instanceof Error ? err.message : String(err), undefined, { error: true }) } })
     done()
     flash(t(`${ok}개를 승인했습니다`, `Approved ${ok}`))
   }
