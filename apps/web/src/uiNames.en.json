@@ -1240,18 +1240,15 @@
   "다른 앱 수정": "Fix another app",
   "알림 요약": "Notification summary",
   "시안 옆 대화": "Conversation beside mockup",
-<<<<<<< HEAD
   "결정 필요 머리": "Needs decision header",
   "확인만 머리": "Confirm only header",
   "모두 승인": "Approve all",
   "확인만 줄": "Confirm-only row",
   "확인만 수": "Confirm-only count",
   "확인만 묶음": "Confirm-only group",
-  "반려": "Revise"
-=======
+  "반려": "Revise",
   "크게 보기 고르기": "Viewer picker",
   "크게 보기 대화 접기": "Fold viewer conversation",
   "접은 대화": "Folded conversation",
   "크게 보기 대화": "Viewer conversation"
->>>>>>> origin/main
 }
