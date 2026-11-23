@@ -14,7 +14,8 @@ export interface GalleryPicture { src: string; label: string; alt: string; pdf?:
  * 양옆 화살표 · ← → 키로 넘기고, Esc · × · 바깥 누르기로 닫는다. 위에 "전 1/2"처럼 지금 그림을 적는다.
  * 노트의 그림도 같은 창으로 띄운다(10/15 B′): 라이브러리 그림이면 머리에 "그림 화면에서 열기".
  */
-/** foot: 지금 그림 아래에 둘 것 (피드백 시안의 「진행」 · 「논의」, FeedbackMockups.tsx) */
+/** foot: 지금 그림 오른쪽에 둘 것 (피드백 시안의 「진행」 · 「논의」, FeedbackMockups.tsx · 대화 시안의 지시 칸, Mockups.tsx).
+ * 11/23 피드백 "논의는 오른쪽에 그림은 왼쪽": 아래에 두면 큰 그림이 글칸을 덮었다 */
 export function PictureGallery({ pictures, start, onClose, onOpenFigure, foot }: { pictures: GalleryPicture[]; start: number; onClose(): void; onOpenFigure?(id: string): void; foot?(p: GalleryPicture): ReactNode }) {
   const [at, setAt] = useState(start)
   const n = pictures.length
@@ -36,7 +37,7 @@ export function PictureGallery({ pictures, start, onClose, onOpenFigure, foot }:
   if (!p) return null
   return (
     <div className="overlay gallery" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="gallery-box" role="dialog" aria-modal="true" aria-label={p.alt} data-ui="그림 크게 보기">
+      <div className={`gallery-box${foot ? ' with-foot' : ''}`} role="dialog" aria-modal="true" aria-label={p.alt} data-ui="그림 크게 보기">
         <div className="gallery-head">
           <span className="gallery-label">{p.label}{n > 1 && <span className="muted"> {at + 1}/{n}</span>}</span>
           {p.html && <a className="a gallery-open" data-ui="시안 새 창" href={p.html} target="_blank" rel="noopener noreferrer">{t('html 새 창에서 열기 ↗', 'Open html in new window ↗')}</a>}
@@ -48,7 +49,7 @@ export function PictureGallery({ pictures, start, onClose, onOpenFigure, foot }:
           {p.pdf ? <FigureUrlPreview url={p.src} pdf name={p.alt} className="gallery-pdf" /> : <img src={p.src} alt={p.alt} className={p.fit ? 'gallery-fit' : undefined} />}
           {n > 1 && <button type="button" className="icon-btn gallery-nav next" data-tip={t('다음 (→)', 'Next (→)')} aria-label={t('다음 그림', 'Next picture')} onClick={() => step(1)}>{Icon.forward}</button>}
         </div>
-        {foot?.(p)}
+        {foot && <div className="gallery-foot">{foot(p)}</div>}
       </div>
     </div>
   )
