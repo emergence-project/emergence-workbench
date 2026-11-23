@@ -2,7 +2,7 @@
 // 알림은 두 가지다. 「답할 것」은 답하거나 정해야 끝난다(읽어도 남고, 며칠이 지나도 남는다). 「소식」은 열어 보거나 7일이 지나면 끝난다.
 // 한 목록에 답할 것 먼저, 굵은 줄, 그 아래 소식을 새것부터. 줄마다 곳(프로젝트 · 지식 라이브러리 · 앱 개발)과 종류를 적고, 곳은 고르기 상자 「전체」로 거른다.
 // 종의 수는 답할 것만 센다(레일의 주황 수와 같은 뜻). 읽지 않은 소식만 있으면 무채색 점. 줄을 누르면 그 화면으로 가서 처리한다(목록 안에서 답하거나 승인하지 않는다: 실수 막기)
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { LIBRARY_RID } from '@rw/core'
 import type { RecordTidy, RecordTurn } from '@rw/core/contract/comments'
@@ -11,6 +11,7 @@ import { useChatList, stateName } from './AgentChats'
 import { isUnseen, useSeen } from './agentSeen'
 import { feedbackBucket } from './feedbackBuckets'
 import { feedbackSummary } from './feedbackFormat'
+import { projectColor } from './format'
 import { t } from './i18n'
 import { Icon } from './icons'
 import { qk } from './queries'
@@ -40,6 +41,8 @@ const KIND_NAME: Record<Kind, string> = {
   chat: t('대화', 'Conversation'), feedback: t('피드백', 'Feedback'), update: t('업데이트', 'Update'), error: t('오류', 'Error'),
   check: t('점검', 'Check'), repo: t('저장소', 'Repository'), about: t('소개', 'About'), person: t('추천', 'Suggestion'), answer: t('답', 'Answer'), archive: t('보관', 'Archive'),
 }
+/** 프로젝트가 아닌 곳의 기호: 레일의 그 화면 아이콘 */
+const PLACE_ICON: Record<string, ReactNode> = { [APP_RID]: Icon.feedback, [LIBRARY_RID]: Icon.library, [PAPERS]: Icon.papers, [FIGURES]: Icon.figures, [NETWORK]: Icon.network }
 const SEEN = 'rw-notice-seen'
 const PLACE = 'rw-notice-place'
 /** 예전 「#n 반영됨」에서 ×로 닫은 대화 (그 대화의 업데이트는 읽은 것으로) */
@@ -132,6 +135,7 @@ export function NoticeBell() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const all = useMemo(() => noticesOf({ chats, feedback: fb, errors: store.get(ERRORS, []), records, tidy, issues, counts, unseen: isUnseen }), [chats, fb, records, tidy, issues, counts, errorsTick, agentSeen])
   const placeName = (id: string) => (id === APP_RID ? t('앱 개발', 'App development') : id === LIBRARY_RID ? t('지식 라이브러리', 'Knowledge library') : id === PAPERS ? t('논문 라이브러리', 'Paper library') : id === FIGURES ? t('그림 라이브러리', 'Figure library') : id === NETWORK ? t('네트워킹', 'Networking') : projects?.find((p) => p.id === id)?.title ?? id)
+  const placeIcon = (id: string) => (PLACE_ICON[id] ? <span className="tb-bell-pi" aria-hidden>{PLACE_ICON[id]}</span> : <i className="tb-bell-pc" style={{ background: projectColor(id) }} aria-hidden />)
   const fresh = (n: Notice) => !n.need && !seen.includes(n.key)
   // 고를 곳은 알림이 있는 곳만: 앱 개발 · 지식 라이브러리 먼저가 아니라 답할 것이 많은 곳부터
   const places = useMemo(() => {
@@ -164,13 +168,18 @@ export function NoticeBell() {
             </select>}
             <button className="a" disabled={!list.some(fresh)} onClick={() => mark(list.filter(fresh).map((n) => n.key))}>{t('소식 모두 읽음', 'Mark news read')}</button>
           </div>
+          {list.length > 0 && <div className="tb-bell-sum" data-ui="알림 요약">
+            <span className="turn-dot" aria-hidden />{t(`답할 것 ${needCount(list)}`, `${needCount(list)} to answer`)}<span aria-hidden>·</span><span className="tb-bell-dot on" aria-hidden />{t(`새 소식 ${list.filter(fresh).length}`, `${list.filter(fresh).length} new`)}
+          </div>}
           {!list.length && <div className="muted tb-bell-none">{t('답할 것도, 지난 7일의 소식도 없습니다', 'Nothing to answer and no news in the last 7 days')}</div>}
           {shown.map((n, i) => (
             <button key={n.key} role="menuitem" className={`tb-bell-item${n.need ? ' need' : fresh(n) ? ' unread' : ''}${!n.need && shown[i - 1]?.need ? ' first-news' : ''}`} disabled={!n.open && !fresh(n)}
               onClick={() => { if (!n.need) mark([n.key]); if (n.open) { setOpen(false); n.open() } }}>
-              <span className={`tb-bell-kind${n.kind === 'error' ? ' error-text' : ''}`}>
-                {n.need ? <span className="turn-dot" role="img" aria-label={t('답할 것', 'To answer')} /> : <span className="tb-bell-dot" role="img" aria-label={fresh(n) ? t('새 소식', 'New') : t('읽음', 'Read')} />}
-                {!place && n.place && <><span className="tb-bell-where">{placeName(n.place)}</span> · </>}{KIND_NAME[n.kind]}{n.at && ` · ${clock(n.at)}`}
+              {n.need ? <span className="turn-dot" role="img" aria-label={t('답할 것', 'To answer')} /> : <span className="tb-bell-dot" role="img" aria-label={fresh(n) ? t('새 소식', 'New') : t('읽음', 'Read')} />}
+              <span className="tb-bell-kind">
+                {n.place && <span className="tb-bell-where">{placeIcon(n.place)}<span>{placeName(n.place)}</span></span>}
+                <span className={`tag${n.kind === 'error' ? ' error-text' : ''}`}>{KIND_NAME[n.kind]}</span>
+                {n.at && <span className="tb-bell-at">{clock(n.at)}</span>}
               </span>
               <span className="tb-bell-text" title={n.text}>{n.text}</span>
             </button>
