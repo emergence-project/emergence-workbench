@@ -711,5 +711,60 @@ describe('앱이 다시 켜지면', () => {
     chats.stopAll()
     fs.rmSync(dir, { recursive: true, force: true })
   })
+
+  it('줄 서 있던 지시와 그동안 보낸 지시를 둘 다 읽는다 (11/19 중앙 대화에서 줄 선 지시 하나가 사라짐)', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-chat-queued-'))
+    const at = new Date().toISOString()
+    fs.writeFileSync(path.join(dir, 'q.json'), JSON.stringify({
+      id: 'q', rid: 'p', title: 'q', agent: 'claude-code', scope: { kind: 'project' }, write: 'notes', state: 'queued', claims: [], created: at, updated: at, sessionId: 'old-q',
+      items: [{ kind: 'user', at, text: '첫 지시' }, { kind: 'user', at, text: '둘째 지시', queued: true }],
+      turn: { prompt: '첫 지시' }, pending: [{ prompt: '둘째 지시' }],
+    }))
+    const chats = new AgentChats({ dir, runner: fake, limit: 3, project: () => ({ repo: dir, title: 'p' }), readable: () => [], extraDirs: () => [], notify: () => {} })
+    expect(chats.get('q').state).toBe('queued')
+    const before = seen.length
+    chats.resumeRestarted()
+    await vi.waitFor(() => expect(chats.get('q').state).toBe('idle'))
+    const read = seen.slice(before).map((s) => s.prompt).join('\n')
+    expect(read).toContain('첫 지시')
+    expect(read).toContain('둘째 지시')
+    chats.stopAll()
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('줄 선 대화는 두 번 다시 켜져도 지시를 지닌 채 줄에 남고, 이어 가는 말에는 멈춘 차례의 마지막 지시가 붙는다', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-chat-queued-'))
+    const at = new Date().toISOString()
+    const chat = (id: string, more: object) => fs.writeFileSync(path.join(dir, `${id}.json`), JSON.stringify({ id, rid: 'p', title: id, agent: 'claude-code', scope: { kind: 'project' }, write: 'notes', claims: [], created: at, updated: at, items: [{ kind: 'user', at, text: `지시 ${id}` }], ...more }))
+    chat('q', { state: 'queued', turn: { prompt: '줄 선 지시' }, restarts: 2 })
+    const open = (limit: number) => new AgentChats({ dir, runner: fake, limit, project: () => ({ repo: dir, title: 'p' }), readable: () => [], extraDirs: () => [], notify: () => {} })
+    for (let i = 0; i < 2; i++) {
+      const c = open(0)
+      expect(c.get('q').state).toBe('queued')
+      c.stopAll()
+    }
+    chat('old', { state: 'queued' }) // 차례를 저장하기 전 버전에서 줄 선, 세션도 없는 새 대화
+    chat('run', { state: 'running', sessionId: 'old-run' })
+    const chats = open(3)
+    const before = seen.length
+    expect(chats.resumeRestarted()).toBe(2) // old · run (q는 줄에서)
+    await vi.waitFor(() => ['q', 'old', 'run'].forEach((id) => expect(chats.get(id).state).toBe('idle')))
+    const prompts = seen.slice(before).map((s) => s.prompt)
+    expect(prompts).toContainEqual(expect.stringContaining('줄 선 지시'))
+    expect(prompts).toContainEqual(expect.stringContaining('지시 old'))
+    expect(prompts).toContainEqual(expect.stringMatching(/멈춘 차례의 마지막 지시:\n> 지시 run/))
+    chats.stopAll()
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('끝난 대화 · 사용자 답을 기다리던 대화는 깨우지 않는다', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-chat-quiet-'))
+    const at = new Date().toISOString()
+    for (const [id, state] of [['i', 'idle'], ['w', 'waiting']]) fs.writeFileSync(path.join(dir, `${id}.json`), JSON.stringify({ id, rid: 'p', title: id, agent: 'claude-code', scope: { kind: 'project' }, write: 'notes', state, claims: [], created: at, updated: at, items: [], sessionId: `s-${id}` }))
+    const chats = new AgentChats({ dir, runner: fake, limit: 3, project: () => ({ repo: dir, title: 'p' }), readable: () => [], extraDirs: () => [], notify: () => {} })
+    expect(chats.resumeRestarted()).toBe(0)
+    expect(chats.get('i').state).toBe('idle')
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
 })
 
