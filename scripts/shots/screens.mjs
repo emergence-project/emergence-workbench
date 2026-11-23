@@ -86,6 +86,8 @@ export const DEFAULT_SCREENS = [
   ['agent-changes', '#/agent/{done}', '바뀐 곳'],
   // 앱 고치기 대화 (2단계 10/21): 작업 폴더에서 파일 하나를 고치고 PR을 연 대화 (shots.mjs, {appchat})
   ['agent-app', '#/agent/{appchat}', '대화 PR'],
+  // 크게 본 시안 아래의 지시 칸 (11/23 피드백 "아티팩트처럼 바로 지시"): 예제 실행기가 남긴 시안을 눌러 연 모습
+  ['agent-mockup-say', '#/agent/{appchat}', '시안 지시', ['[data-ui="시안"] .ac-mockup-pic']],
   // 대화 머리 「>_」로 오른쪽 칸을 터미널로 바꾼 모습 (11/19 B1)
   ['agent-terminal', '#/agent/{done}', '터미널 칸', '터미널 버튼'],
   // Codex 검토 카드 (11/9): 끝난 대화에 붙은 검토 (shots.mjs가 검토를 부른다)
