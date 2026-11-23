@@ -118,6 +118,8 @@ export function describeStep(ctx: Pick<PolicyCtx, 'rid' | 'scope' | 'repo'>, too
     const project = str(input.project)
     const file = str(input.file)
     const outside = (project && project !== ctx.rid && ctx.scope.kind !== 'all' && !canChange(ctx, project)) || (file && project === ctx.rid && !inScope(ctx.scope, file)) ? true : undefined
+    // 피드백 기록은 어느 항목인지(key)를 함께 적는다: 묶음 대화를 항목별로 나눠 보이는 데 쓴다 (FeedbackChat)
+    if (name === FEEDBACK_ANSWER) return { tool: name, summary: [str(input.key), str(input.state)].filter(Boolean).join(' · ') }
     const what = [project && project !== ctx.rid ? project : '', file || str(input.id) || str(input.target) || str(input.query) || str(input.section) || str(input.title) || str(input.state)].filter(Boolean).join(' · ')
     return { tool: name, summary: clip(what), ...(outside && { outside }) }
   }
