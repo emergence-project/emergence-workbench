@@ -24,7 +24,7 @@ function markSeen(names: string[]) {
 /** 등록 추천: 왼쪽 띠의 수와 첫 화면의 추천이 같은 자료를 쓴다 */
 const useSuggestions = () => useQuery({ queryKey: qk.peopleSuggestions, queryFn: () => networkApi.suggestions().then((v) => v.suggestions), ...FRESH })
 
-/** 왼쪽 띠의 네트워킹 버튼에 붙는 수: 아직 보지 않은 등록 추천 (뺀 추천은 세지 않는다, 10/4 18:16 피드백) */
+/** 왼쪽 띠의 네트워킹 버튼에 붙는 파란 점: 아직 보지 않은 등록 추천이 있음 (뺀 추천은 세지 않는다, 10/4 18:16 피드백. 답할 것이 아니라 소식이라 주황 수 대신 파란 점, 11/23) */
 /** 아직 보지 않은 등록 추천 수 (레일의 수 · 알림 종의 소식이 같이 쓴다) */
 export function useNewSuggestionCount(): number {
   const { data } = useSuggestions()
@@ -43,7 +43,7 @@ export function useNewSuggestionCount(): number {
 export function NetworkRailCount() {
   const n = useNewSuggestionCount()
   if (!n) return null
-  return <span className="rail-count" data-ui="새 추천 수" title={t(`새로 추천된 사람 ${n}명 — 노트 참고 문헌에 자주 나오는 사람`, `${n} newly suggested: people who appear often in your note references`)}>{n}</span>
+  return <span className="rail-new" data-ui="새 추천 수" role="img" aria-label={t(`새로 추천된 사람 ${n}명`, `${n} newly suggested`)} title={t(`새로 추천된 사람 ${n}명 — 노트 참고 문헌에 자주 나오는 사람`, `${n} newly suggested: people who appear often in your note references`)} />
 }
 
 /**
