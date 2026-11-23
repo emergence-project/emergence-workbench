@@ -8,6 +8,7 @@ import { mergeJournalText } from '@rw/core'
  * - reviews.yaml · status.yaml · handoff.yaml · about.yaml(소개 절 확인): 맨 위 키(피드백 항목) 단위, 같은 키를 양쪽이 고쳤으면 칸 단위.
  *   목록 칸(comments · replies · revised)은 양쪽이 더한 것을 모두 둔다. 같은 칸을 서로 다르게 고쳤으면 null(사람이 합친다).
  *   handoff.yaml은 같은 항목을 양쪽이 맡았으면 먼저 맡은 쪽(at이 이른 쪽)을 둔다.
+ *   reviews.yaml은 같은 항목의 승인·반려를 양쪽이 다르게 적었으면 둘 다 남긴다: 나중 것이 최신, 다른 것은 history로 (11/23 "git pull로 합친 뒤 다시 눌러 주세요"에서 멈췄다).
  * 합칠 수 없는 파일이면 undefined (부르는 쪽이 git의 줄 단위 합치기를 쓴다)
  */
 export type TextMerge = (base: string, ours: string, theirs: string) => string | null
@@ -16,7 +17,8 @@ export function feedbackMergeFor(file: string): TextMerge | undefined {
   const name = file.split('/').pop() ?? ''
   if (/^\d{4}-\d{2}-\d{2}\.md$/.test(name)) return mergeJournalText
   if (name === 'handoff.yaml') return (b, o, th) => mergeYamlMap(b, o, th, earlierClaim)
-  if (name === 'reviews.yaml' || name === 'status.yaml' || name === 'about.yaml') return (b, o, th) => mergeYamlMap(b, o, th)
+  if (name === 'reviews.yaml') return (b, o, th) => mergeYamlMap(b, o, th, keepBothVerdicts)
+  if (name === 'status.yaml' || name === 'about.yaml') return (b, o, th) => mergeYamlMap(b, o, th)
   return undefined
 }
 
@@ -59,6 +61,28 @@ function earlierClaim(o: unknown, th: unknown): unknown {
   if (Number.isNaN(b)) return o
   if (a !== b) return a < b ? o : th
   return String((o as { machine?: unknown }).machine) <= String((th as { machine?: unknown }).machine) ? o : th
+}
+
+/**
+ * reviews.yaml: 같은 피드백의 승인·반려를 두 컴퓨터가 다르게 적었으면 어느 쪽도 버리지 않는다.
+ * 나중에 적은 쪽(edited, 없으면 at. 같으면 이 컴퓨터)이 최신이 되고, 다른 쪽의 최신과 두 history는 history에 at 차례로 모은다.
+ * 코멘트는 양쪽 것을 모두 둔다. 한쪽이 지운 항목은 남은 쪽을 둔다
+ */
+function keepBothVerdicts(o: unknown, th: unknown): unknown {
+  if (!isMap(o) || !isMap(th)) return o ?? th
+  const when = (v: Record<string, unknown>) => String(v.edited ?? v.at ?? '')
+  const [now, other] = when(th) > when(o) ? [th, o] : [o, th]
+  const { history: h1, comments: c1, ...latest } = now
+  const { history: h2, comments: c2, ...older } = other
+  const list = (v: unknown) => (Array.isArray(v) ? v : [])
+  const union = (...xs: unknown[]) => xs.filter((x, i) => xs.findIndex((y) => same(x, y)) === i)
+  const history = union(...list(h1), ...list(h2), ...(isMap(older) && older.verdict !== undefined ? [older] : []))
+    .filter((x) => !same(x, latest))
+    .map((x, i) => [x, i] as const)
+    .sort(([x, i], [y, j]) => String((x as { at?: unknown })?.at ?? '').localeCompare(String((y as { at?: unknown })?.at ?? '')) || i - j)
+    .map(([x]) => x)
+  const comments = union(...list(c1), ...list(c2))
+  return { ...latest, ...(history.length && { history }), ...(comments.length && { comments }) }
 }
 
 /**
