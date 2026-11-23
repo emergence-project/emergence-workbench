@@ -1,5 +1,6 @@
-/* Codex 검토 카드 (11/9 "Claude가 쓰고 Codex가 검토", 시안 1절): Codex 색 테두리로 Claude의 답과 갈린다 */
+/* 검토 카드 (11/9 "Claude가 쓰고 Codex가 검토", 시안 1절): 검토한 에이전트 색 테두리(Codex 청록 · Gemini 남색, 11/23)로 Claude의 답과 갈린다 */
 .ac-review { font-size: var(--fs-sm); padding: var(--sp-2) var(--sp-3); border: 1px solid var(--ag-cx); border-radius: var(--r-md); display: flex; flex-direction: column; gap: var(--sp-1); }
+.ac-review.gemini { border-color: var(--ag-gm); }
 .ac-review-top { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
 .ac-review-name { font-weight: var(--fw-strong); margin-left: -4px; }
 .ac-review-time { margin-left: auto; }

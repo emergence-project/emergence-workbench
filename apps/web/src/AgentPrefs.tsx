@@ -127,11 +127,11 @@ function AgentDetail({ k, pref, onBack, save, onSaved }: { k: Kind; pref: AgentP
       <div className="set-row" data-ui="하는 일">
         <div>
           <div className="set-name">{t('하는 일', 'Role')}</div>
-          <div className="set-desc">{k.id === 'codex'
-            ? t('쓰기는 새 대화를 맡고, 검토는 Claude 대화의 「Codex 검토」만 합니다. 검토할 때는 늘 읽기 전용입니다.', 'Write takes new chats; Review only does "Codex review" in Claude chats. Reviews are always read only.')
-            : t('새 대화를 맡습니다. 검토는 Codex만 합니다.', 'Takes new chats. Only Codex reviews.')}</div>
+          <div className="set-desc">{k.id !== 'claude-code'
+            ? t('쓰기는 새 대화를 맡고, 검토는 Claude 대화의 검토 칸에서 고를 때 검토만 합니다. 검토할 때는 늘 읽기 전용입니다.', 'Write takes new chats; Review only reviews Claude chats when picked in the Review pane. Reviews are always read only.')
+            : t('새 대화를 맡습니다. 검토는 Codex · Gemini가 합니다.', 'Takes new chats. Codex and Gemini review.')}</div>
         </div>
-        {k.id === 'codex'
+        {k.id !== 'claude-code'
           ? <div className="segmented small" role="radiogroup" data-ui="고르기">
             {AGENT_ROLES.map((r) => <button key={r} role="radio" aria-checked={pref.role === r} className={pref.role === r ? 'on' : ''} onClick={() => save({ role: r })}>{ROLE_NAME[r]()}</button>)}
           </div>

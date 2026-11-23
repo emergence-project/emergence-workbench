@@ -2,8 +2,8 @@
 import { enc, json, req, send } from './http'
 
 // 타입은 서버와 같은 계약에서 (packages/core/src/contract/agentChats.ts)
-import type { AgentKind, AskAnswer, Chat, DebateOpened, DebateSettingsBody, CentralMemo, CentralMessageBody, RoomPerm, RoomRules, RoomState, CentralState, ChatAgents, ChatDeleted, ChatList, ChatMessageBody, ChatMode, ChatExtras, ChatModels, ChatOne, ChatSettings, MockupFiles, NewChatBody, RecordDraft, Rewound, Unqueued, WorkState } from '@rw/core/contract/agentChats'
-export type { AgentKind, CentralKid, RoomMember, RoomPerm, RoomRules, RoomState, CentralMemo, CentralState, AskAnswer, Attach, AttachKind, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatState, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
+import type { AgentKind, AskAnswer, Chat, DebateOpened, DebateSettingsBody, CentralMemo, CentralMessageBody, RoomPerm, RoomRules, RoomState, CentralState, ChatAgents, ChatDeleted, ChatList, ChatMessageBody, ChatMode, ChatExtras, ChatModels, ChatOne, ChatSettings, MockupFiles, NewChatBody, RecordDraft, Reviewer, Rewound, Unqueued, WorkState } from '@rw/core/contract/agentChats'
+export type { AgentKind, Reviewer, CentralKid, RoomMember, RoomPerm, RoomRules, RoomState, CentralMemo, CentralState, AskAnswer, Attach, AttachKind, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatState, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
 
 /** 앱 고치기 대화의 rid (계약의 APP_RID와 같은 값. 값을 가져오면 화면 번들에 zod가 들어가서 여기 다시 적는다) */
 export const APP_RID = '_app'
@@ -53,8 +53,8 @@ export const agentChatsApi = {
   send: (id: string, body: ChatMessageBody) => req(`${base}/${enc(id)}/messages`, send('POST', body)).then(one),
   /** 곁 질문 (하던 일을 멈추지 않고 작은 모델이 대화 요약만 보고 답한다) */
   side: (id: string, text: string) => req(`${base}/${enc(id)}/side`, send('POST', { text })).then(one),
-  /** Codex 검토 (11/9) */
-  review: (id: string) => req(`${base}/${enc(id)}/review`, { method: 'POST' }).then(one),
+  /** 읽기만 하는 검토 (11/23: 고른 에이전트 각각이 따로 검토). by를 비우면 Codex */
+  review: (id: string, by?: Reviewer[]) => req(`${base}/${enc(id)}/review`, send('POST', by ? { by } : {})).then(one),
   settings: (id: string, body: ChatSettings) => req(`${base}/${enc(id)}/settings`, send('POST', body)).then(one),
   forget: (id: string, label: string) => req(`${base}/${enc(id)}/forget`, send('POST', { label })).then(one),
   /** 허락 · 계획 카드에 답하기. 거절에는 할 말(note), 계획 승인에는 이어 갈 맡기는 정도(mode) */

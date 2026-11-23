@@ -191,8 +191,8 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   /** 곁 질문: 하던 일을 멈추지 않고 작은 모델이 이 대화의 요약만 보고 답한다 */
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/side', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.side(req.params.id, parseBody(C.SideBody, req.body).text) }))
 
-  /** Codex 검토 (11/9): 읽기만 하는 Codex가 고친 곳을 보고 카드를 붙인다 */
-  app.post<{ Params: { id: string } }>('/api/agent-chats/:id/review', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.review(req.params.id) }))
+  /** 검토 (11/9 Codex, 11/23 여럿 동시): 고른 에이전트마다 읽기만 하며 고친 곳을 따로 보고 카드를 하나씩 붙인다 */
+  app.post<{ Params: { id: string } }>('/api/agent-chats/:id/review', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.review(req.params.id, false, parseBody(C.ReviewBody, req.body ?? {}).by) }))
 
   app.post<{ Params: { id: string } }>('/api/agent-chats/:id/messages', replies(C.ChatOne), async (req): Promise<C.ChatOne> => ({ chat: chats.send(req.params.id, parseBody(C.ChatMessageBody, req.body)) }))
 

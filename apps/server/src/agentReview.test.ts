@@ -44,6 +44,31 @@ describe('Codex 검토', () => {
     fs.rmSync(dir, { recursive: true, force: true })
   })
 
+  it('여러 에이전트 동시 검토: 고른 에이전트마다 카드가 따로 붙고, 각자 같은 글만 읽는다 (11/23)', async () => {
+    let done: ((v: string) => void) | undefined
+    const ask = vi.fn((_o: { prompt: string; cwd: string }) => new Promise<string>((r) => { done = r }))
+    const seen: { prompt: string; write: string }[] = []
+    const gemini: AgentRunner = async function* (input): AsyncIterable<RunEvent> {
+      seen.push({ prompt: input.prompt, write: input.write })
+      yield { type: 'text', text: '볼 것: 그림 3의 축 이름' }
+      yield { type: 'result', ok: true }
+    }
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-review-'))
+    const chats = new AgentChats({ dir, runner, others: { gemini }, limit: 2, project: () => ({ repo: dir, title: 'p' }), readable: () => [], extraDirs: () => [], notify: () => {}, settings: () => DEFAULT_AGENT_SETTINGS, review: ask })
+    const c = chats.create({ rid: 'p', text: '설명해 줘' })
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    chats.review(c.id, false, ['codex', 'gemini'])
+    await vi.waitFor(() => expect(chats.get(c.id).items.find((i) => i.kind === 'review' && i.by === 'gemini')).toMatchObject({ text: '볼 것: 그림 3의 축 이름' }))
+    expect(seen).toEqual([{ prompt: ask.mock.calls[0]![0].prompt, write: 'read' }]) // 같은 글, 읽기만
+    expect(() => chats.review(c.id, false, ['codex'])).toThrow(/이미 검토/) // Codex는 아직 읽는 중
+    chats.review(c.id, false, ['codex', 'gemini']) // 읽는 중인 Codex는 건너뛰고 Gemini만 다시
+    expect(ask).toHaveBeenCalledTimes(1)
+    done!('고칠 것 없음')
+    await vi.waitFor(() => expect(chats.get(c.id).items.filter((i) => i.kind === 'review' && i.text !== undefined)).toHaveLength(3))
+    chats.stopAll()
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+
   it('저절로 검토: 파일을 고친 차례가 끝날 때만, 실패는 카드의 오류로', async () => {
     const ask = vi.fn(async () => { throw new Error('Codex 로그인이 풀렸습니다') })
     const { dir, chats } = setup('edits', ask)
@@ -74,10 +99,11 @@ describe('Codex 검토', () => {
 })
 
 describe('에이전트마다 설정', () => {
-  it('계획 모드는 Claude만, 검토는 Codex만, auto: null은 기본값으로', () => {
+  it('계획 모드는 Claude만, 검토는 Codex · Gemini (11/23), auto: null은 기본값으로', () => {
     const s = normalizeAgentSettings({ per: { codex: { trust: 'plan', role: 'review', auto: { read: true, run: true, web: false } }, gemini: { role: 'review' }, 'claude-code': { role: 'review', trust: 'plan' } }, review: 'edits' })
     expect(s.per.codex).toEqual({ trust: 'ask', role: 'review', auto: { read: true, run: true, web: false } })
-    expect(s.per.gemini.role).toBe('write')
+    expect(s.per.gemini.role).toBe('review')
+    expect(normalizeAgentSettings({}).per.gemini.role).toBe('both')
     expect(s.per['claude-code']).toEqual({ trust: 'plan', role: 'write' })
     expect(s.review).toBe('edits')
     expect(normalizeAgentSettings({ per: { codex: { auto: null } } }, s).per.codex).toEqual({ trust: 'ask', role: 'review' })

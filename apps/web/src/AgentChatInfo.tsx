@@ -8,7 +8,7 @@ import { SideTabs, type PaneTab, type SideTab, type useSideColumn } from './Work
 import { secondsName } from './WorkLog'
 import { scopeName } from './AgentProjectPick'
 import { AgentChip, effortsOf, familyName, familyOf, isClaude, useModels } from './AgentPick'
-import { useReviewer } from './AgentReview'
+import { useReviewers } from './AgentReview'
 import { EFFORT_NAME, effortLabel } from './ChatComposer'
 import { costName, Delta, tokensName, useChat } from './AgentChats'
 
@@ -48,11 +48,11 @@ export function ChatInfo({ chat }: { chat: Chat }) {
   )
 }
 
-/** 사이드바 맨 위 아이콘 줄 (11/23 시안 chat-head-icons 안 B): 이 대화 · 변경사항(+n −n) · 검토(Codex가 검토할 수 있는 Claude 대화) · 터미널.
- *  토론 · 중앙은 세부 패널이 한 칸뿐이라 그 칸과 터미널만 */
+/** 사이드바 맨 위 아이콘 줄 (11/23 시안 chat-head-icons 안 B, chat-resolve-circle 2): 왼쪽에 이 대화 · 검토(검토자가 있는 Claude 대화),
+ *  오른쪽 끝에 변경사항(+n −n) · 터미널. 토론 · 중앙은 세부 패널이 한 칸뿐이라 그 칸과 터미널만 */
 export function ChatSideTabs({ id, col }: { id: string; col: ReturnType<typeof useSideColumn> }) {
   const chat = useChat(id).data
-  const reviewer = useReviewer()
+  const reviewers = useReviewers()
   if (!chat) return null
   const [added, removed] = chat.items.reduce(([a, r], i) => (i.kind === 'edit' ? [a + i.added, r + i.removed] : [a, r]), [0, 0])
   const single = !!chat.debate || chat.rid === CENTRAL_RID
@@ -60,10 +60,10 @@ export function ChatSideTabs({ id, col }: { id: string; col: ReturnType<typeof u
   const tabs: SideTab[] = [
     tab('info', '이 대화 칸 버튼', Icon.info, t('이 대화', 'This conversation'), single ? t('이 대화', 'This conversation') : t('이 대화 (컨텍스트 · 모델 · 사용 중인 파일 · 권한)', 'This conversation (context, model, claimed files, permissions)')),
     ...(single ? [] : [
-      tab('changes', '변경사항 칸 버튼', added || removed ? <Delta added={added} removed={removed} /> : Icon.compose, t('변경사항', 'Changes'), t('변경사항', 'Changes')),
-      ...(reviewer && isClaude(chat.agent) && !chat.machine ? [tab('review', '검토 칸 버튼', Icon.review, t('검토', 'Review'), t('Codex 검토 (실행 · 지난 검토)', 'Codex review (run, past reviews)'))] : []),
+      ...(reviewers.length > 0 && isClaude(chat.agent) && !chat.machine ? [tab('review', '검토 칸 버튼', Icon.review, t('검토', 'Review'), t('검토 (Codex · Gemini가 각자 읽기만 하며 검토 · 지난 검토)', 'Review (Codex, Gemini each review read-only; past reviews)'))] : []),
     ]),
-    ...(col.termTab ? [col.termTab] : []),
+    ...(single ? [] : [{ ...tab('changes', '변경사항 칸 버튼', added || removed ? <Delta added={added} removed={removed} /> : Icon.compose, t('변경사항', 'Changes'), t('변경사항', 'Changes')), end: true }]),
+    ...(col.termTab ? [{ ...col.termTab, end: single || undefined }] : []),
   ]
   return <SideTabs tabs={tabs} />
 }

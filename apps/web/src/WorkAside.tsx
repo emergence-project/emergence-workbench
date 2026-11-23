@@ -59,13 +59,13 @@ export function TerminalColumn({ rid, hidden, onClose, tabs }: { rid: string; hi
 }
 
 /** 사이드바 맨 위 아이콘 줄의 한 칸 */
-export type SideTab = { key: string; ui: string; icon: ReactNode; tip: string; label: string; on: boolean; onClick(): void }
-/** 사이드바 맨 위 아이콘 줄 (11/23 시안 chat-head-icons 안 B): 이 대화 · 변경사항 · 검토 · 터미널. 누르면 그 칸으로 바뀐다 */
+export type SideTab = { key: string; ui: string; icon: ReactNode; tip: string; label: string; on: boolean; onClick(): void; /** 이 칸부터 줄의 오른쪽 끝으로 */ end?: boolean }
+/** 사이드바 맨 위 아이콘 줄 (11/23 시안 chat-head-icons 안 B): 왼쪽 이 대화 · 검토, 오른쪽 끝(end부터) 변경사항 · 터미널. 누르면 그 칸으로 바뀐다 */
 export function SideTabs({ tabs }: { tabs: SideTab[] }) {
   return (
     <div className="ac-side-tabs" data-ui="사이드바 아이콘 줄" role="tablist">
       {tabs.map((x) => (
-        <button key={x.key} role="tab" aria-selected={x.on} className={`ac-side-tab${x.on ? ' on' : ''}`} data-ui={x.ui} data-tip={x.tip} aria-label={x.label} onClick={x.onClick}>{x.icon}</button>
+        <button key={x.key} role="tab" aria-selected={x.on} className={`ac-side-tab${x.on ? ' on' : ''}${x.end ? ' end' : ''}`} data-ui={x.ui} data-tip={x.tip} aria-label={x.label} onClick={x.onClick}>{x.icon}</button>
       ))}
     </div>
   )
