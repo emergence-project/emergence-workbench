@@ -293,9 +293,13 @@ export function aboutRailRoute(): Route {
   return part ? { page: 'about', part: part.id } : { page: 'about' }
 }
 
-export function AboutRailCount() {
+/** 소개에서 확인 전인 절 수 (레일의 수 · 알림 종) */
+export function useAboutUncheckedCount(): number {
   const checks = useAboutChecks()
-  const n = ABOUT_PARTS.reduce((sum, x) => sum + uncheckedCount(x, checks), 0)
+  return ABOUT_PARTS.reduce((sum, x) => sum + uncheckedCount(x, checks), 0)
+}
+export function AboutRailCount() {
+  const n = useAboutUncheckedCount()
   if (!n) return null
   return <span className="rail-count" data-ui="확인할 곳 수" title={t(`소개에서 확인 전인 절 ${n}`, `About sections not reviewed: ${n}`)}>{n}</span>
 }

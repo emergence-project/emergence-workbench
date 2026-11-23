@@ -71,10 +71,14 @@ function RepoRow({ rid, title }: { rid: string; title: string }) {
 }
 
 /** 레일 폴더 아이콘의 주황 점: GitHub와 다른(받거나 올릴 커밋이 있는) 프로젝트가 있을 때. 다른 레일 버튼처럼 볼 것이 있다는 표시 */
-export function ReposRailCount() {
+export function useReposDiffCount(): number {
   const projects = useProjects() ?? []
   const repos = useQueries({ queries: projects.map((p) => ({ queryKey: qk.repo(p.id), queryFn: () => api.research(p.id).repo().catch(() => null), refetchInterval: 60_000 })) })
   const n = repos.filter((r) => { const ba = repoBehindAhead(r.data); return !!ba && (ba.behind > 0 || ba.ahead > 0) }).length
+  return n
+}
+export function ReposRailCount() {
+  const n = useReposDiffCount()
   return n ? <span className="rail-count" title={t(`GitHub와 다른 프로젝트 ${n}개`, `${n} project(s) differ from GitHub`)}>{n}</span> : null
 }
 
