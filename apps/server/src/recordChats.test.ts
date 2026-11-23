@@ -81,7 +81,7 @@ describe('기록의 질문 · 지시와 에이전트 대화', () => {
     expect((await chats()).find((x) => x.record?.id === id)!.write).toBe('notes')
     const body = (await record(id)).answers[0].body as string
     expect(body).toContain('결론: 첫 답')
-    expect(body).toContain('고친 곳 (아래 「고친 곳 검토」에서 승인):')
+    expect(body).toContain('고친 곳 (아래 「고친 곳 검토」에서 승인. 내가 쓴 문단은 제안으로 남아, 받아야 노트에 씁니다):')
     expect(body).toMatch(/- workbench\/notes\/a\/note\.md \+\d+ −\d+/)
   })
 
