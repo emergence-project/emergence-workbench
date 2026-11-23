@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { devicesApi, type Device, type DeviceAccount, type Devices, type DeviceServer } from './api'
+import { agentChatsApi } from './api/agentChats'
+import { api, devicesApi, type Device, type DeviceAccount, type Devices, type DeviceServer } from './api'
 import { askConfirm } from './askText'
 import { relativeTime } from './format'
 import { t } from './i18n'
@@ -112,10 +114,42 @@ function DeviceRow({ d, differs, onLogout }: { d: Device; differs?: boolean; onL
           {differs && <span className="dev-differs" data-ui="기기 버전 다름" data-tip={d.build?.ahead && !d.build.behind ? t('이 기기보다 새 버전입니다. 이 기기의 앱을 다시 시작해 새 버전으로 맞추세요', 'It is newer than this device. Restart the app here to bring this device up to date') : t('이 기기와 앱 버전이 다릅니다. 그 컴퓨터에서 앱을 다시 시작해 새 버전으로 맞추세요', 'Its app version differs from this device. Restart the app there to bring it up to date')}>{versionGap(d)}</span>}
           {d.os && <span>{d.os}</span>}
           {d.logout && <span>{t('로그아웃 대기: 다음 알림 때 합니다', 'Sign-out pending: on its next report')}</span>}
+          {d.helper && !d.this && <span data-ui="기기 피드백 돕기" data-tip={t('서버의 자리가 차면 넘치는 피드백을 이 컴퓨터가 맡습니다 (지금 도는 수 / 한 번에 맡는 수)', 'When the server is full, this computer takes the overflow feedback (running now / at most at once)')}>{t(`피드백 돕기 · ${d.helper.busy}/${d.helper.slots}`, `Helps with feedback · ${d.helper.busy}/${d.helper.slots}`)}</span>}
         </div>
+        {d.this && !d.server && <HelperPick />}
         {d.accounts.length > 0 && <div className="dev-accts" data-ui="기기 계정">{d.accounts.map((a, i) => <span key={i} className="tag">{accountName(a)}</span>)}</div>}
       </div>
       {onLogout && <button className="btn" data-ui="기기 로그아웃" onClick={onLogout}>{t('로그아웃', 'Sign out')}</button>}
+    </div>
+  )
+}
+
+/**
+ * 피드백 돕기 (11/23 사용자 「이 맥에서도 에이전트가 피드백을 처리하게 하고 충돌하지 않게」, 안 A): 서버가 따로 있는 맥에서 켜면
+ * 서버의 자리가 찼을 때 넘치는 피드백을 서버가 이 맥에 맡긴다. 맡길지는 서버 한 곳이 정하고 맡음(handoff.yaml)은 그대로라 둘이 같은 항목을 맡지 않는다.
+ * 이 맥이 꺼지거나 잠들면 3분 뒤 서버가 맡음을 풀고 다시 맡긴다. 값은 이 맥에만 (서버로 보내지 않는다)
+ */
+function HelperPick() {
+  const client = useQueryClient()
+  const list = useQuery({ queryKey: qk.agentChatList(), queryFn: () => agentChatsApi.list() })
+  const settings = useQuery({ queryKey: qk.agentSettings, queryFn: api.agentSettings, staleTime: 5 * 60_000 })
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const s = settings.data
+  if (!list.data?.app || !s?.place) return null
+  const save = (helper: number) => {
+    setBusy(true); setError(null)
+    api.saveAgentSettings({ helper }).then((v) => client.setQueryData(qk.agentSettings, v)).catch((e: Error) => setError(e.message)).finally(() => setBusy(false))
+  }
+  const on = s.helper > 0
+  return (
+    <div className="dev-help" data-ui="피드백 돕기">
+      <span id="dev-help-label" data-tip={t(`서버(${s.place.server})의 자리가 차면 넘치는 피드백을 서버가 이 컴퓨터에 맡깁니다. 이 컴퓨터가 꺼지거나 잠들면 3분 뒤 서버가 다시 맡깁니다`, `When the server (${s.place.server}) is full, it hands the overflow feedback to this computer. If this computer turns off or sleeps, the server hands it out again after 3 minutes`)}>{t('피드백 돕기', 'Help with feedback')}</span>
+      <button type="button" role="switch" className="switch" aria-labelledby="dev-help-label" aria-checked={on} disabled={busy} onClick={() => save(on ? 0 : 1)} />
+      {on && <select className="rs-select set-select" value={s.helper} disabled={busy} aria-label={t('한 번에 맡는 수', 'At most at once')} onChange={(e) => save(Number(e.target.value))}>
+        {[1, 2, 3].map((n) => <option key={n} value={n}>{t(`한 번에 ${n}개`, `${n} at once`)}</option>)}
+      </select>}
+      {error && <span className="error-text">{error}</span>}
     </div>
   )
 }

@@ -29,7 +29,8 @@ import { chatCap, chatRoom, MemoryGauge } from '../appMemory.js'
 import { machineName } from '../backup.js'
 import { publishFeedback } from '../feedback.js'
 import { remoteServer } from '../serverRelay.js'
-import { claimedElsewhere, claimFeedback } from '../feedbackClaims.js'
+import { claimedElsewhere, claimFeedback, releaseClaims } from '../feedbackClaims.js'
+import { hubOf } from '../deviceServer.js'
 import { agentAnswer } from '../ask.js'
 import { t } from '../i18n.js'
 import { setLocalChats } from './chatPlace.js'
@@ -70,7 +71,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     const deps = { dir: fbDir, machine: machineName(), pull, publish: () => publishFeedback(fbDir) }
     return {
       taken: (key: string, since: number) => claimedElsewhere(fbDir, key, deps.machine, since) !== null,
-      claim: (key: string, since: number) => claimFeedback(deps, key, since),
+      claim: (key: string, since: number, machine?: string) => claimFeedback({ ...deps, machine: machine ?? deps.machine }, key, since),
     }
   })() : undefined
   const mcpFor = (appChat?: string, central?: boolean, chat?: string) => createMcpServer({ baseUrl: 'http://workbench.local', key: ctx.opts.key, fetch: injectFetch(app), appChat, central, chat })
@@ -100,7 +101,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     draft: (c, text) => broadcast({ type: 'agent-draft', research: c.rid, id: c.id, text }),
     ...(appWork && { app: appWork }),
     ...(appWork && others && Object.keys(others).length && { apps: others }),
-    ...(ctx.opts.feedbackDir && { feedback: { dir: ctx.opts.feedbackDir, written: () => ctx.feedbackWritten?.(), ...(claims && { claims }), elsewhere: () => !!remoteServer(ctx.opts) } }),
+    ...(ctx.opts.feedbackDir && { feedback: { dir: ctx.opts.feedbackDir, written: () => ctx.feedbackWritten?.(), ...(claims && { claims }), elsewhere: () => !!remoteServer(ctx.opts), helpers: { free: () => hubOf(ctx).free(), assign: (name, keys) => hubOf(ctx).assign(name, keys) } } }),
     settings: () => registry.agents,
     accounts: { claude: accounts, codex: codexAccounts },
     // Codex 검토 (11/9): 묻기와 같은 codex exec, 읽기 전용. 예제 · 시험은 실행기의 것
@@ -119,6 +120,35 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   // 피드백 대화 돌보기 (CI 빨강 다시 보내기 · 합치기 · 반영됨 · 저절로 맡기기): 1분마다
   if (appWork && ctx.opts.feedbackDir) repeat(app, { first: 60_000, every: 60_000, run: () => chats.tickFeedback() })
   if (appWork && ctx.opts.feedbackDir) ctx.feedbackSaved = () => void chats.pickFeedback().catch(() => undefined)
+  // 피드백 돕기 (11/23 안 A). 서버: 늦은 돕는 맥이 맡은 항목의 맡음을 풀고 다시 맡긴다 (1분마다)
+  if (appWork && fbDir) repeat(app, {
+    first: 60_000, every: 60_000,
+    run: async () => {
+      const lapsed = hubOf(ctx).lapsed()
+      let n = 0
+      for (const l of lapsed) { n += releaseClaims(fbDir, l.keys, l.name); chats.unpick(l.keys) }
+      if (n) await publishFeedback(fbDir).catch(() => undefined)
+      if (lapsed.length) await chats.pickFeedback()
+    },
+  })
+  // 돕는 맥: 설정 › 기기 관리에서 켜 두었고 서버가 따로 있으면, 1분 알림에 자리를 싣고 서버가 맡긴 피드백을 이 맥에서 시작한다 (routes/devices.ts)
+  if (appWork && fbDir) ctx.feedbackHelp = {
+    info: () => {
+      const slots = registry.agents.helper
+      if (!slots || !remoteServer(ctx.opts)) return undefined
+      const live = chats.liveFeedback()
+      return { slots, busy: Math.min(live.count, 50), keys: live.keys.slice(0, 50) }
+    },
+    start: async (keys) => {
+      await pull?.().catch(() => undefined)
+      try { chats.handOff(keys, undefined, true) } catch (e) {
+        // 시작하지 못하면 맡음을 풀어 서버가 다시 맡기게 한다
+        if (releaseClaims(fbDir, keys, machineName())) await publishFeedback(fbDir).catch(() => undefined)
+        throw e
+      }
+    },
+    drop: (keys) => chats.dropFeedback(keys),
+  }
   // 남은 메모리를 재고, 풀렸으면 줄 선 대화를 시작한다 (11/19)
   if (gauge) {
     void gauge.refresh()

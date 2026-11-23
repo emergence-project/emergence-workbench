@@ -95,6 +95,7 @@ export class FeedbackChats extends SharedChats {
    * (같은 화면의 수정끼리, 질문 · 제안끼리, feedbackGroups.ts, 11/19).
    * 1분마다와, 사용자가 피드백 · 코멘트 · 답을 저장한 바로 뒤에 (routes/feedback.ts의 feedbackSaved, 11/20: 1분을 기다리지 않게),
    * 「자동 처리」를 켠 바로 뒤에 (routes/settings.ts). 한 번에 자리(한도)가 남는 만큼 맡는다: 쌓인 대기가 1분에 하나씩 나가지 않게 (11/20 22:37 제안).
+   * 자리가 차면 피드백 돕기를 켠 맥에 맡긴다 (11/23 안 A, 그 맥의 다음 1분 알림 답으로 간다).
    * 겹쳐 부르면 앞 차례가 끝난 뒤 한 번 더 돈다 (같은 항목을 두 번 맡지 않게)
    */
   async pickFeedback(): Promise<void> {
@@ -103,7 +104,8 @@ export class FeedbackChats extends SharedChats {
       try {
         do {
           this.pickAgain = false
-          for (let n = 0; n < this.deps.limit && await this.pickOne(); n++) { /* 자리가 남는 동안 */ }
+          // 돕는 맥(11/23)의 자리까지: 넉넉히 잡고, 자리가 없으면 pickOne이 false로 멈춘다
+          for (let n = 0; n < this.deps.limit + 20 && await this.pickOne(); n++) { /* 자리가 남는 동안 */ }
         } while (this.pickAgain)
       } finally { this.picking = null }
     })()
@@ -121,7 +123,10 @@ export class FeedbackChats extends SharedChats {
     // 클라우드에서 처리가 켜져 있어도 쉬지 않는다: 클라우드 루틴이 맡은(handoff.yaml) 항목만 건너뛴다 (11/20 사용자 "클라우드가 잡은 것 외에는 로컬이")
     // 서버로 정한 컴퓨터가 따로 있으면 저절로 맡기는 것은 그 서버만 (11/20: 여러 맥이 저마다 맡지 않게)
     if (this.deps.feedback?.elsewhere?.()) return false
-    if (s.feedback !== 'instant' || this.running() + this.queue.length >= this.deps.limit) return false
+    if (s.feedback !== 'instant') return false
+    // 이 서버의 자리가 차면 피드백 돕기를 켠 맥에 맡긴다 (11/23 안 A): 맡음은 그 맥 이름으로 적어, 그 맥에서도 다른 맥이 맡은 것으로 보지 않는다
+    const helper = this.running() + this.queue.length >= this.deps.limit ? fb.helpers?.free() : undefined
+    if (this.running() + this.queue.length >= this.deps.limit && !helper) return false
     const chats = [...this.chats.values()]
     const waiting = listAllFeedback(fb.dir)
       // 글 시각은 분 단위라 맡은 분과 같은 분에 남긴 코멘트도 새 것으로 본다 (같은 글로 두 번 맡지 않게 picked)
@@ -133,11 +138,26 @@ export class FeedbackChats extends SharedChats {
     const next = chats.some((c) => keysOf(c).includes(first.key)) ? [first] : bundlesOf(waiting.filter((e) => !chats.some((c) => keysOf(c).includes(e.key)))).find((b) => b.items.some((e) => e.key === first.key))?.items ?? [first]
     // 다른 컴퓨터도 저절로 맡기기를 켰으면 먼저 적어 올린 쪽만 맡는다 (묶음 안에서 맡은 것만)
     const mine: string[] = []
-    for (const e of next) if (!fb.claims || (await fb.claims.claim(e.key, lastTouched(e)).catch(() => false))) mine.push(e.key)
+    for (const e of next) if (!fb.claims || (await fb.claims.claim(e.key, lastTouched(e), helper).catch(() => false))) mine.push(e.key)
     if (!mine.length) return false
     for (const e of next) if (mine.includes(e.key)) this.picked.set(e.key, mark(e))
+    if (helper) { fb.helpers?.assign(helper, mine); return true }
     try { this.handOff(mine) } catch { /* 다른 대화가 막 시작했으면 다음 차례에 */ }
     return true
+  }
+
+  /** 돕는 맥이 꺼져 맡음을 푼 항목을 다시 맡길 수 있게 (11/23 안 A) */
+  unpick(keys: string[]): void { for (const k of keys) this.picked.delete(k) }
+
+  /** 이 맥에서 도는 피드백 대화와 그 대화들이 맡은 항목 (피드백 돕기: 서버에 알린다) */
+  liveFeedback(): { count: number; keys: string[] } {
+    const live = [...this.chats.values()].filter((c) => !!c.feedback && LIVE.has(c.state))
+    return { count: live.length, keys: live.flatMap((c) => keysOf(c)) }
+  }
+
+  /** 서버가 맡음을 푼 항목(이 맥이 늦게 알렸다)을 맡은 대화를 멈춘다: 서버가 다른 곳에 다시 맡기므로 둘이 함께 고치지 않게 */
+  dropFeedback(keys: string[]): void {
+    for (const c of [...this.chats.values()]) if (LIVE.has(c.state) && keysOf(c).some((k) => keys.includes(k))) { try { this.stop(c.id) } catch { /* 이미 멈췄다 */ } }
   }
 
   /**
@@ -145,10 +165,11 @@ export class FeedbackChats extends SharedChats {
    * (feedbackGroups.ts, 11/19). 같은 항목은 한 대화만: 그 피드백을 맡은 대화가 도는 중이면 거절하고, 하나만 맡길 때 끝난 대화가 있으면
    * 새로 열지 않고 그 대화에 이어 보낸다 (11/20). 에이전트 차례가 아닌 항목도 거절한다.
    */
-  handOff(keys: string | string[], parent?: string): Chat {
+  handOff(keys: string | string[], parent?: string, assigned = false): Chat {
     const fb = this.deps.feedback
     if (!this.deps.app || !fb) throw new WorkbenchError(404, t(`${HERE.ko}에서는 피드백을 에이전트에게 맡길 수 없습니다 (앱 저장소 · 피드백 폴더가 필요)`, `Feedback cannot be handed to an agent on ${HERE.en} (needs the app repository and a feedback folder)`))
-    if (this.deps.settings?.().feedback === 'off') throw new WorkbenchError(409, t('설정 › 에이전트에서 피드백 맡기기를 껐습니다', 'Handing feedback to the agent is off in Settings › Agents'))
+    // assigned = 서버가 피드백 돕기로 이 맥에 맡긴 것: 이 맥의 맡기기 설정(서버로 보냄)과 상관없다
+    if (!assigned && this.deps.settings?.().feedback === 'off') throw new WorkbenchError(409, t('설정 › 에이전트에서 피드백 맡기기를 껐습니다', 'Handing feedback to the agent is off in Settings › Agents'))
     const list = typeof keys === 'string' ? [keys] : keys
     const busyOf = (key: string) => [...this.chats.values()].find((c) => keysOf(c).includes(key) && LIVE.has(c.state))?.title
     // 앞서 이 항목을 맡은 대화가 있으면 그 대화에 이어 맡긴다: 맥락을 그대로 두고, 대화 목록에 항목마다 한 줄 (11/20)

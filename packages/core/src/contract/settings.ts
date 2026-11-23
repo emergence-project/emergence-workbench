@@ -4,7 +4,7 @@
  */
 import { z } from 'zod'
 import { UI_OPTIONS, type UiSettings as UiSettingsType } from '../ui-settings.js'
-import { AGENT_PREF_KINDS, AGENT_ROLES, AGENT_TRUSTS, FEEDBACK_MERGES, FEEDBACK_MINUTES, FEEDBACK_PICKS, INSTRUCTION_HOURS, INSTRUCTION_MODES, REVIEW_MODES, type AgentPrefKind, type AgentRole, type AgentTrust } from '../agent-settings.js'
+import { AGENT_PREF_KINDS, AGENT_ROLES, AGENT_TRUSTS, FEEDBACK_HELPERS, FEEDBACK_MERGES, FEEDBACK_MINUTES, FEEDBACK_PICKS, INSTRUCTION_HOURS, INSTRUCTION_MODES, REVIEW_MODES, type AgentPrefKind, type AgentRole, type AgentTrust } from '../agent-settings.js'
 import { SYNC_MODES } from '../sync-settings.js'
 
 type Key = keyof typeof UI_OPTIONS
@@ -41,6 +41,8 @@ export const AgentSettings = z.object({
   feedback: z.enum(FEEDBACK_PICKS),
   merge: z.enum(FEEDBACK_MERGES),
   minutes: z.custom<number>((v) => (FEEDBACK_MINUTES as readonly unknown[]).includes(v), { message: 'Expected 10, 20, 30 or 60' }),
+  /** 피드백 돕기 (11/23): 서버가 넘칠 때 이 맥이 한 번에 맡는 수, 0 = 끔. 이 맥의 값 (서버로 보내지 않는다) */
+  helper: z.custom<number>((v) => (FEEDBACK_HELPERS as readonly unknown[]).includes(v), { message: 'Expected 0 to 3' }),
   /** 에이전트마다 새 대화의 시작 권한 · 자동 허용 · 하는 일 (11/9) */
   per: z.record(z.enum(AGENT_PREF_KINDS), AgentPref),
   /** 저절로 검토 (11/9) */
