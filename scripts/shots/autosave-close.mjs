@@ -352,7 +352,7 @@ try {
       if (await otherClose.count()) await otherClose.click()
       await snapshot('close-other-tab')
       // This click also exercises focusPane rather than only tab activation.
-      await ui.page.locator('[data-ui="오른쪽 칸"]').click({ position: { x: 20, y: 90 } })
+      await ui.page.locator('[data-ui="오른쪽 패널"]').click({ position: { x: 20, y: 90 } })
       await snapshot('focus-other-pane')
       await split.click()
       await snapshot('merge-panes')

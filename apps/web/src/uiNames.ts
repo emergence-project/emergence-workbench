@@ -17,7 +17,7 @@ const EN: Record<string, string> = table
 const KO_RENAMED: [RegExp, string][] = [
   [/왼쪽 띠/g, '레일'], [/보조 노트/g, '노트'], [/제목줄/g, '상단바'], [/거르기/g, '필터'], [/형광펜/g, '하이라이트'],
   [/이름표/g, '태그'], [/입력칸/g, '입력란'], [/도구 줄|도구 막대|머리줄/g, '툴바'], [/탭 줄/g, '탭 바'],
-  [/오른쪽 칸|맥락 칸/g, '오른쪽 사이드바'], [/왼쪽 칸/g, '왼쪽 사이드바'], [/작업 칸|지금 칸|다른 칸|옆 칸/g, '패널'], [/다 고침/g, '편집 완료'], [/단추/g, '버튼'],
+  [/맥락 칸/g, '오른쪽 사이드바'], [/왼쪽 칸/g, '왼쪽 패널'], [/오른쪽 칸/g, '오른쪽 패널'], [/작업 칸|지금 칸|다른 칸|옆 칸/g, '패널'], [/다 고침/g, '편집 완료'], [/단추/g, '버튼'],
 ]
 export const koName = (name: string): string => KO_RENAMED.reduce((s, [re, to]) => s.replace(re, to), name)
 
@@ -29,3 +29,9 @@ export function uiShown(path: string): string {
   if (!path) return path
   return parseUiPath(path).map((s) => (s.item !== undefined ? `${uiName(s.name)} “${s.item}”` : uiName(s.name))).join(' › ')
 }
+
+/**
+ * 작업 화면 패널의 부위 이름 (11/23 15:21 피드백): 한 패널이면 「패널」, 두 패널이면 「왼쪽 패널」 · 「오른쪽 패널」.
+ * 예전 이름 「왼쪽 칸」 · 「오른쪽 칸」은 사이드바로 보였다. 그 이름이 적힌 옛 피드백도 찾아가기가 중간 칸을 건너뛰어 그대로 찾는다
+ */
+export const paneName = (i: 0 | 1, two: boolean) => (!two ? '패널' : i === 0 ? '왼쪽 패널' : '오른쪽 패널')
