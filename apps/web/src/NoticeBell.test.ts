@@ -72,5 +72,9 @@ describe('알림 종: 수로만 아는 알림 (11/23)', () => {
     expect(list.map((n) => [n.kind, n.need, n.key])).toEqual([['check', true, 'count:check:_figures:2'], ['person', false, 'count:person:_network:3']])
     expect(needCount(list)).toBe(2)
   })
+  it('완료 기록이 많이 쌓인 곳은 소식으로 정리를 권한다', () => {
+    const list = noticesOf({ tidy: [{ rid: 'p1', done: 230, ready: 40 }] })
+    expect(list).toHaveLength(1)
+    expect(list[0]).toMatchObject({ kind: 'archive', need: false, place: 'p1', n: 40 })
+  })
 })
-

@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { LIBRARY_RID } from '@rw/core'
-import type { RecordTurn } from '@rw/core/contract/comments'
+import type { RecordTidy, RecordTurn } from '@rw/core/contract/comments'
 import { api, APP_RID, CENTRAL_RID, type ChatRow, type FeedbackItem, type ProjectIssues } from './api'
 import { useChatList, stateName } from './AgentChats'
 import { isUnseen, useSeen } from './agentSeen'
@@ -21,7 +21,7 @@ import { store } from './store'
 import { useDismiss } from './useDismiss'
 
 /** 종류 = 처리하러 가는 화면. 질문 · 지시는 기록, 대화는 에이전트 대화 */
-type Kind = 'question' | 'order' | 'task' | 'edit' | 'flow' | 'chat' | 'feedback' | 'update' | 'error' | 'check' | 'repo' | 'about' | 'person' | 'answer'
+type Kind = 'question' | 'order' | 'task' | 'edit' | 'flow' | 'chat' | 'feedback' | 'update' | 'error' | 'check' | 'repo' | 'about' | 'person' | 'answer' | 'archive'
 export interface Notice {
   key: string; kind: Kind; text: string
   /** 답할 것인가 (아니면 소식) */
@@ -38,7 +38,7 @@ export interface Notice {
 const KIND_NAME: Record<Kind, string> = {
   question: t('질문', 'Question'), order: t('지시', 'Instruction'), task: t('맡긴 일', 'Delegated task'), edit: t('수정 검토', 'Edit review'), flow: t('흐름', 'Flow'),
   chat: t('대화', 'Conversation'), feedback: t('피드백', 'Feedback'), update: t('업데이트', 'Update'), error: t('오류', 'Error'),
-  check: t('점검', 'Check'), repo: t('저장소', 'Repository'), about: t('소개', 'About'), person: t('추천', 'Suggestion'), answer: t('답', 'Answer'),
+  check: t('점검', 'Check'), repo: t('저장소', 'Repository'), about: t('소개', 'About'), person: t('추천', 'Suggestion'), answer: t('답', 'Answer'), archive: t('보관', 'Archive'),
 }
 const SEEN = 'rw-notice-seen'
 const PLACE = 'rw-notice-place'
@@ -56,6 +56,8 @@ export interface NoticeSources {
   chats?: ChatRow[]; feedback?: FeedbackItem[]; errors?: { at: string; text: string }[]
   /** 답을 기다리는 에이전트 기록 */
   records?: RecordTurn[]
+  /** 완료 기록이 많이 쌓여 보관으로 옮기기를 권할 곳 */
+  tidy?: RecordTidy[]
   /** 프로젝트마다 판단할 맡긴 일 · 수정 검토 · 흐름의 수 (레일의 주황 수와 같은 값) */
   issues?: Pick<ProjectIssues, 'tasks' | 'edits' | 'problems'>
   unseen?: (c: ChatRow) => boolean
@@ -64,7 +66,7 @@ export interface NoticeSources {
 }
 
 /** 알림 목록: 답할 것 먼저(새것이 위, 때를 모르는 것은 그 아래), 그 다음 지난 7일의 소식(새것이 위). 순수 함수: 테스트에서 부른다 */
-export function noticesOf({ chats = [], feedback = [], errors = [], records = [], issues, unseen = () => false, counts = [] }: NoticeSources, now = Date.now()): Notice[] {
+export function noticesOf({ chats = [], feedback = [], errors = [], records = [], tidy = [], issues, unseen = () => false, counts = [] }: NoticeSources, now = Date.now()): Notice[] {
   const need: Notice[] = []
   const news: Notice[] = []
   for (const r of records) {
@@ -78,6 +80,7 @@ export function noticesOf({ chats = [], feedback = [], errors = [], records = []
     ['flow', issues?.problems, (n) => t(`결정을 기다리는 흐름 ${n}개`, `${n} flow(s) awaiting your decision`), (rid) => go({ page: 'problems', rid })],
   ]
   for (const [kind, by, text, open] of counted) for (const [rid, n] of Object.entries(by ?? {})) if (n > 0) need.push({ key: `${kind}:${rid}`, kind, need: true, place: rid, n, text: text(n), open: () => open(rid) })
+  for (const x of tidy) news.push({ key: `archive:${x.rid}:${x.ready}`, kind: 'archive', need: false, place: x.rid, n: x.ready, text: t(`완료 기록 ${x.done}개 · ${x.ready}개를 보관으로 옮길 수 있음`, `${x.done} done records · ${x.ready} can move to the archive`), open: () => go({ page: 'records', rid: x.rid }) })
   // 수가 바뀌면 열쇠가 바뀌어, 읽은 소식도 새로 늘면 다시 새 소식이 된다
   for (const c of counts) if ((c.n ?? 0) > 0) (c.need ? need : news).push({ ...c, key: `count:${c.kind}:${c.place ?? ''}:${c.n}` })
   for (const c of chats) {
@@ -110,7 +113,9 @@ const clock = (iso: string) => {
 export function NoticeBell() {
   const chats = useChatList().data?.chats
   const fb = useQuery({ queryKey: qk.feedbackAll, queryFn: () => api.feedbackAll() }).data?.entries
-  const records = useQuery({ queryKey: qk.recordTurns, queryFn: () => api.recordTurns() }).data?.turns
+  const recordTurns = useQuery({ queryKey: qk.recordTurns, queryFn: () => api.recordTurns() }).data
+  const records = recordTurns?.turns
+  const tidy = recordTurns?.tidy
   const issues = useQuery({ queryKey: qk.researchIssues, queryFn: () => api.researchIssues() }).data
   const projects = useQuery({ queryKey: qk.researches, queryFn: () => api.researches() }).data?.researches
   const counts = useNoticeCounts()
@@ -125,7 +130,7 @@ export function NoticeBell() {
   // 대화를 열어 보면(본 기록이 바뀌면) 그 알림이 빠진다
   const agentSeen = useSeen()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const all = useMemo(() => noticesOf({ chats, feedback: fb, errors: store.get(ERRORS, []), records, issues, counts, unseen: isUnseen }), [chats, fb, records, issues, counts, errorsTick, agentSeen])
+  const all = useMemo(() => noticesOf({ chats, feedback: fb, errors: store.get(ERRORS, []), records, tidy, issues, counts, unseen: isUnseen }), [chats, fb, records, tidy, issues, counts, errorsTick, agentSeen])
   const placeName = (id: string) => (id === APP_RID ? t('앱 개발', 'App development') : id === LIBRARY_RID ? t('지식 라이브러리', 'Knowledge library') : id === PAPERS ? t('논문 라이브러리', 'Paper library') : id === FIGURES ? t('그림 라이브러리', 'Figure library') : id === NETWORK ? t('네트워킹', 'Networking') : projects?.find((p) => p.id === id)?.title ?? id)
   const fresh = (n: Notice) => !n.need && !seen.includes(n.key)
   // 고를 곳은 알림이 있는 곳만: 앱 개발 · 지식 라이브러리 먼저가 아니라 답할 것이 많은 곳부터

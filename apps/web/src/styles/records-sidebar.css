@@ -134,3 +134,12 @@ input.record-marker { accent-color: var(--text); }
 .record-done-fold > summary { cursor: pointer; padding: var(--sp-1) var(--sp-1); color: var(--text-3); font-size: var(--fs-xs); user-select: none; }
 .record-done-fold > summary .n { font-variant-numeric: tabular-nums; }
 .record-done-fold[open] > summary { margin-bottom: var(--sp-2); }
+/* 완료 기록 보관 (11/23): 「완료 n」 아래 접힌 줄. 보관한 기록은 읽기 전용이라 글만 */
+.record-archive-ready { color: var(--text-2); }
+.record-archive-tidy { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2); margin-bottom: var(--sp-2); border: 1px dashed var(--line-strong); border-radius: var(--r-md); font-size: var(--fs-sm); }
+.record-archive-tidy .btn { flex: none; }
+.record-archive-row { margin-bottom: var(--sp-2); font-size: var(--fs-sm); }
+.record-archive-head { display: flex; justify-content: space-between; gap: var(--sp-2); font-size: var(--fs-xs); }
+.record-archive-head .a { flex: none; white-space: nowrap; }
+.record-archive-body, .record-archive-answer > div { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-2); }
+.record-archive-answer { margin-top: var(--sp-1); padding-left: var(--sp-2); border-left: 2px solid var(--line); font-size: var(--fs-xs); }
