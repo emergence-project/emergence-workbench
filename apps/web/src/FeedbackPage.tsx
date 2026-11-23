@@ -22,6 +22,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { qk } from './queries'
 import { AgentLine } from './FeedbackAgentLine'
 import { flash } from './flash'
+import { FeedbackTurnSplit, type FeedbackRowAct } from './FeedbackTurnSplit'
 const FEEDBACK_STATE = [...qk.feedback, 'state'] as const, FEEDBACK_UNPUBLISHED = [...qk.feedback, 'unpublished'] as const
 
 export { needsAnswer, needsConfirm, stateOf } from './feedbackBuckets'
@@ -35,6 +36,8 @@ export { Compose } from './FeedbackAnswer'
  * 묶음 안에서 대기는 다 펼치고, 처리한 것은 한 줄로 줄여 접어 둔다 (눌러서 펼침).
  */
 type Filter = FeedbackBucket | '전체'
+/** 확인 필요의 수를 결정 · 확인으로 나눠 (11/23) */
+const turnSplitLabel = (n: { ask: number; confirm: number }) => n.confirm ? t(` · 결정 ${n.ask} · 확인 ${n.confirm}`, ` · decide ${n.ask} · confirm ${n.confirm}`) : ` ${n.ask}`
 const FILTERS: Filter[] = ['확인 필요', '대기', '완료', '전체']
 const FILTER_TITLES: Record<FeedbackBucket, string> = {
   '확인 필요': t('진행 · 중단하거나 승인 · 반려할 것: 에이전트가 물은 것과 처리한 것', 'To proceed, stop, approve or revise: what the agent asked and what it handled'),
@@ -117,7 +120,7 @@ export function FeedbackPage({ focus }: { focus?: string } = {}) {
           {/* 선택지가 넷 이상이면 고르기 상자 (10/30 결정 "피드백 툴바 한 줄") */}
           <div className="fbp-picks fbp-filters"><label className="fbp-pick" data-ui="거르기">{t('상태', 'Status')}
             <select className="mini-select" value={filter} title={filter === '전체' ? undefined : FILTER_TITLES[filter]} onChange={(e) => { picked.current = true; setFilter(FILTERS.find((f) => f === e.target.value) ?? '전체') }}>
-              {FILTERS.map((f) => <option key={f} value={f}>{label(f)}{entries ? ` ${entries.filter((e) => matches(f, e)).length}` : ''}</option>)}
+              {FILTERS.map((f) => <option key={f} value={f}>{label(f)}{entries ? (f === '확인 필요' ? turnSplitLabel(railCount(entries)) : ` ${entries.filter((e) => matches(f, e)).length}`) : ''}</option>)}
             </select>
           </label><label className="fbp-pick" data-ui="갈래 거르기">{t('갈래', 'Kind')}<select className="mini-select" value={kind} onChange={(e) => setKind(KIND_FILTERS.find((k) => k === e.target.value) ?? '전체')}>{KIND_FILTERS.map((k) => <option key={k} value={k}>{k === '전체' ? label(k) : answerKindName(k)}{entries ? ` ${entries.filter((e) => matches(filter, e) && matchesKind(k, e)).length}` : ''}</option>)}</select></label></div>
           <label className="fbp-pick fbp-groupby" data-ui="묶기">{t('보기', 'View')}
@@ -138,7 +141,7 @@ export function FeedbackPage({ focus }: { focus?: string } = {}) {
             {statusError && <div className="banner danger" data-ui="처리 기록 오류">{t('feedback/status.yaml을 읽지 못해 처리 기록 없이 보여 줍니다 (모두 대기로 보임)', 'Could not read feedback/status.yaml, so items are shown without handling records (all appear as waiting)')}: {statusError}</div>}
             {!entries && !error && <p className="muted">{t('불러오는 중…', 'Loading…')}</p>}
             {entries && shown.length === 0 && <p className="muted">{filter === '대기' ? t('처리를 기다리는 피드백이 없습니다.', 'No feedback is waiting.') : t('없습니다.', 'None.')}</p>}
-            {group === '시각' && shown.length > 0 && <FeedbackTable list={shown} />}
+            {group === '시각' && shown.length > 0 && (filter === '확인 필요' ? <FeedbackTurnSplit list={shown} table={(l, act) => <FeedbackTable list={l} act={act} />} /> : <FeedbackTable list={shown} />)}
             {groups.map(([name, list]) => <Group key={name} name={name} list={list} showDate />)}
           </div>
         </div>
@@ -157,7 +160,7 @@ const keyOf = (e: FeedbackItem) => `${e.source ?? ''} ${e.date} ${e.time} ${e.ta
  * 시각 보기: 모든 피드백을 한 표에 (10/4 피드백). 열: 시각 · 상태 · 피드백(교정문) · 화면(지적한 곳) · 부위(디자인 요소)
  * · 앱 버전(남길 때의 커밋) · 반영 커밋. 머리의 시각을 누르면 순서가 바뀐다. 줄을 누르면 그 아래에 자세히.
  */
-function FeedbackTable({ list }: { list: FeedbackItem[] }) {
+function FeedbackTable({ list, act }: { list: FeedbackItem[]; act?: FeedbackRowAct }) {
   const [newest, setNewest] = useState(true)
   const [open, setOpen] = useState<string | null>(null)
   useFocusOpen(list, setOpen, keyOf)
@@ -167,7 +170,7 @@ function FeedbackTable({ list }: { list: FeedbackItem[] }) {
       <thead>
         <tr>
           <th><button className="fb-link" title={t('순서 바꾸기', 'Reverse order')} onClick={() => setNewest((v) => !v)}>{t('시각', 'Time')} {newest ? '↓' : '↑'}</button></th>
-          <th>{t('요소', 'Element')}</th><th>{t('유형', 'Type')}</th><AnswerHeads /><th>{t('확인', 'Review')}</th><th>{t('피드백', 'Feedback')}</th><th>{t('화면', 'Screen')}</th><th>{t('부위', 'Part')}</th><th>{t('남긴 버전', 'Left in')}</th><th>{t('반영 버전', 'Fixed in')}</th>
+          <th>{t('요소', 'Element')}</th><th>{t('유형', 'Type')}</th><AnswerHeads /><th>{t('확인', 'Review')}</th><th>{t('피드백', 'Feedback')}</th><th>{t('화면', 'Screen')}</th><th>{t('부위', 'Part')}</th><th>{t('남긴 버전', 'Left in')}</th><th>{t('반영 버전', 'Fixed in')}</th>{act && <th />}
         </tr>
       </thead>
       <tbody>
@@ -186,8 +189,9 @@ function FeedbackTable({ list }: { list: FeedbackItem[] }) {
               <td className="fbp-cell" title={uiShown(e.target)}>{uiShown(e.target).split(' › ').pop()}</td>
               <td className="mono fbp-cell">{e.version ?? '—'}</td>
               <td className="mono fbp-cell">{e.status?.version ?? e.status?.commit ?? ''}<InApp e={e} /></td>
+              {act && <td className="fbp-cell">{act(e, () => setOpen(k))}</td>}
             </tr>,
-            open === k && <tr key={`${k}-open`} className="fbp-row-open"><td colSpan={12}><Entry e={e} showDate onFold={() => setOpen(null)} /></td></tr>,
+            open === k && <tr key={`${k}-open`} className="fbp-row-open"><td colSpan={act ? 13 : 12}><Entry e={e} showDate onFold={() => setOpen(null)} /></td></tr>,
           ]
         })}
       </tbody>
@@ -444,14 +448,14 @@ export function FeedbackRailCount() {
     const timer = window.setTimeout(() => setTick((t) => t + 1), 45_000)
     return () => window.clearTimeout(timer)
   }, [unregistered, tick])
-  const turn = n ? n.ask + n.confirm : 0
+  const turn = n ? n.ask + n.confirm : 0 // 11/23: 진한 수는 답할 것(결정 필요)만, 확인만 남으면 옅은 수
   if (!turn && !unregistered) return null
   const why = [
-    turn ? t(`확인 필요 — 답할 것 ${n!.ask} · 확인 항목 ${n!.confirm}`, `Needs review: ${n!.ask} to answer · ${n!.confirm} to check`) : '',
+    turn ? t(`확인 필요 — 결정 ${n!.ask} · 확인 ${n!.confirm}`, `Needs review: decide ${n!.ask} · confirm ${n!.confirm}`) : '',
     unregistered ? t(`등록할 피드백 ${unregistered} (피드백 화면 오른쪽 위 "피드백 등록")`, `${unregistered} feedback item(s) to register ("Register feedback" at the top right of the feedback page)`) : '',
   ].filter(Boolean).join('\n')
   if (!turn) return <span className="rail-count dot" data-ui="등록할 피드백 표시" role="img" aria-label={why} title={why} />
-  return <span className="rail-count" data-ui="내 차례 수" title={`${t('피드백', 'Feedback')}\n${why}`}>{turn}</span>
+  return <span className={`rail-count${n!.ask ? '' : ' pale'}`} data-ui="내 차례 수" title={`${t('피드백', 'Feedback')}\n${why}`}>{n!.ask || n!.confirm}</span>
 }
 
 /**

@@ -1,6 +1,7 @@
 // 여러 프로젝트를 한눈에 (10/15): 에이전트가 프로젝트마다 agent:status를 따로 돌리지 않고, 어디에 할 일이 있는지 먼저 본다.
 // "사용자 차례"는 홈 화면의 "확인 필요" 점과 왼쪽 띠의 수(/api/research-issues)와 같은 계산이다 (AI와 사용자가 같은 수를 본다).
 // 프로젝트 하나를 자세히 보는 것은 generateStatus(agentStatus.ts). 아무것도 쓰지 않는다.
+import { taskTurn } from '@rw/core'
 import { localDate } from './fsutil.js'
 import { homeShort } from './agentPaths.js'
 import { localSyncState } from './gitSyncState.js'
@@ -11,12 +12,15 @@ import type { Workbench } from './workbench.js'
 import { scanProblems } from './problems.js'
 
 /** 사용자가 판단할 것: 판단할 맡긴 일(결과 · 종결 조건 제안) · 에이전트 고침 검토 · 에이전트가 물은 기록(10/15) · 결정을 기다리는 흐름의 방향 보고(11/11) */
-export interface UserTurn { tasks: number; edits: number; records: number; problems: number }
+/** tasks: 결정할 맡긴 일, confirm: 종결 조건을 통과해 승인만 남은 맡긴 일 (11/23, 수에 넣지 않는다) */
+export interface UserTurn { tasks: number; confirm: number; edits: number; records: number; problems: number }
 
 /** 홈 화면 "확인 필요"의 내역. edits는 에이전트 고침 기록(AgentEditStore)에서 센 그 프로젝트의 수 */
 export function userTurnOf(wb: Workbench, edits = 0): UserTurn {
+  const turns = listTasks(wb).map(taskTurn)
   return {
-    tasks: listTasks(wb).filter((t) => t.state === 'result' || t.state === 'proposed').length,
+    tasks: turns.filter((x) => x === 'decide').length,
+    confirm: turns.filter((x) => x === 'confirm').length,
     edits,
     records: userTurnRecords(wb.root),
     problems: scanProblems(wb).problems.filter((p) => p.waiting).length,
@@ -71,7 +75,7 @@ export function generateOverview(rows: (OverviewRow | { folder: string; problem:
   for (const r of rows) {
     if ('problem' in r) { out.push(`| (읽지 못함) | \`${r.folder}\` | ${r.problem.replace(/\|/g, '/')} | | | |`); continue }
     const repo = [r.behind && `${r.behind}커밋 뒤`, r.ahead && `안 올린 커밋 ${r.ahead}`].filter(Boolean).join(' · ') || '—'
-    out.push(`| ${r.title.replace(/\|/g, '/')} | \`${r.folder}\` | ${parts([['맡긴 일 판단', r.user.tasks], ['수정 검토', r.user.edits], ['물은 기록', r.user.records], ['흐름 결정', r.user.problems]])} | ${parts([['답 없는 질문', r.agent.questions], ['대기 중인 지시', r.agent.instructions], ['사용자가 답한 질문', r.agent.replies], ['분류 전 기록', r.agent.unsorted], ['진행 중 맡긴 일', r.agent.working], ['할 일', r.agent.todos]])} | ${repo} | ${r.last ?? '—'} |`)
+    out.push(`| ${r.title.replace(/\|/g, '/')} | \`${r.folder}\` | ${parts([['맡긴 일 판단', r.user.tasks], ['맡긴 일 승인만', r.user.confirm], ['수정 검토', r.user.edits], ['물은 기록', r.user.records], ['흐름 결정', r.user.problems]])} | ${parts([['답 없는 질문', r.agent.questions], ['대기 중인 지시', r.agent.instructions], ['사용자가 답한 질문', r.agent.replies], ['분류 전 기록', r.agent.unsorted], ['진행 중 맡긴 일', r.agent.working], ['할 일', r.agent.todos]])} | ${repo} | ${r.last ?? '—'} |`)
   }
   out.push('')
   return out.join('\n')

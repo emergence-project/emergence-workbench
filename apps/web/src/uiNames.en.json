@@ -1238,5 +1238,12 @@
   "판정 기록 펼치기": "Show all debates",
   "다른 앱 수정": "Fix another app",
   "알림 요약": "Notification summary",
-  "시안 옆 대화": "Conversation beside mockup"
+  "시안 옆 대화": "Conversation beside mockup",
+  "결정 필요 머리": "Needs decision header",
+  "확인만 머리": "Confirm only header",
+  "모두 승인": "Approve all",
+  "확인만 줄": "Confirm-only row",
+  "확인만 수": "Confirm-only count",
+  "확인만 묶음": "Confirm-only group",
+  "반려": "Revise"
 }

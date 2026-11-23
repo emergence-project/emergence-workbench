@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { api, type FeedbackItem } from '../api'
 import { ApproveButton, Compose } from '../FeedbackAnswer'
 import { projectColor } from '../format'
@@ -10,9 +11,11 @@ import { feedbackKindName, REPLY } from '../feedbackTags'
 import { go } from '../router'
 import { agentName, taskLine } from '../taskView'
 import { recordLine } from '../workRecords'
-import { TaskCard } from '../WorkTasks'
+import { sendJudgment, TaskCard } from '../WorkTasks'
+import { qk } from '../queries'
+import { approveEach, TurnGroupHead } from '../TurnGroup'
 import { Sheet } from './Sheet'
-import { TURN_GROUPS, useTurns, type TurnItem } from './turns'
+import { isConfirm, TURN_GROUPS, useTurns, type TurnItem } from './turns'
 
 /**
  * 폰의 첫 화면 「내 차례」 (10/31 사용자 결정 "안 A · 내 차례 먼저", 시안 https://claude.ai/artifact/M7D5NatDAN9agDCJTmPpop ①②).
@@ -26,16 +29,22 @@ export function PhoneTurns({ onSaved }: { onSaved(m: string): void }) {
   // 카드에서 바로 보낸 답: 끝날 때까지 그 카드의 단추를 꺼서 두 번 보내지 않게 (맥 피드백 화면의 busy와 같다)
   const [busy, setBusy] = useState<string | null>(null)
   const sheet = open ? items.find((x) => x.key === open) : undefined
+  // 결정 필요는 지금처럼 종류마다 카드, 확인만은 아래에 한 줄씩 (11/23 시안 turn-split ④)
+  const decide = items.filter((x) => !isConfirm(x))
+  const confirm = items.filter(isConfirm)
+  const client = useQueryClient()
+  const approve = (x: TurnItem): Promise<unknown> => x.kind === 'feedback' ? api.reviewFeedback(x.item.key, '승인')
+    : x.kind === 'task' ? sendJudgment(x.rid, x.task, 'approve', {}, () => undefined, () => client.invalidateQueries({ queryKey: qk.tasks(x.rid) })) : Promise.resolve()
   const act = (key: string, send: () => Promise<unknown>) => {
     setError(null); setBusy(key)
     send().catch((e: Error) => setError(e.message)).finally(() => setBusy(null))
   }
   return (
     <main className="stage full ph-turns" data-ui="내 차례">
-      <div className="ph-head"><h1>{t('내 차례', 'Your turn')}</h1>{items.length > 0 && <span className="muted">{t(`${items.length}개`, `${items.length}`)}</span>}</div>
+      <div className="ph-head"><h1>{t('내 차례', 'Your turn')}</h1>{items.length > 0 && <span className="muted">{confirm.length ? t(`결정 ${decide.length} · 확인 ${confirm.length}`, `Decide ${decide.length} · Confirm ${confirm.length}`) : t(`${items.length}개`, `${items.length}`)}</span>}</div>
       {error && <div className="banner danger" role="alert">{error}</div>}
       {TURN_GROUPS.map((g) => {
-        const list = items.filter((x) => x.kind === g)
+        const list = decide.filter((x) => x.kind === g)
         return list.length > 0 && (
           <section key={g} className="ph-group" data-ui="내 차례 묶음" data-ui-item={g}>
             <h2><span className="turn-dot" aria-hidden />{GROUP_NAME[g]()} · {list.length}</h2>
@@ -43,6 +52,10 @@ export function PhoneTurns({ onSaved }: { onSaved(m: string): void }) {
           </section>
         )
       })}
+      {confirm.length > 0 && <section className="ph-group" data-ui="확인만 묶음">
+        <TurnGroupHead pale count={confirm.length} onApproveAll={async () => { await approveEach(confirm, approve); onSaved(t('모두 승인했습니다', 'Approved all')) }} />
+        {confirm.map((x) => <ConfirmLine key={x.key} x={x} onOpen={() => setOpen(x.key)} busy={busy === x.key} onApprove={() => act(x.key, () => approve(x))} />)}
+      </section>}
       {!items.length && <p className="empty ph-empty">{loading ? t('불러오는 중…', 'Loading…') : t('지금 내 차례인 것이 없습니다. 피드백의 답, 에이전트의 질문, 맡긴 일의 결과가 오면 여기에 보입니다.', 'Nothing is waiting for you. Feedback answers, agent questions and delegated task results show up here.')}</p>}
       {sheet && <TurnSheet x={sheet} onClose={() => setOpen(null)} onSaved={onSaved} />}
     </main>
@@ -100,6 +113,21 @@ function TurnCard({ x, onOpen, busy, act }: { x: TurnItem; onOpen(): void; busy:
         {body && <span className="ph-body">{body}</span>}
       </button>
       {buttons && <div className="ph-btns">{buttons}</div>}
+    </article>
+  )
+}
+
+/** 확인만 한 줄: 제목 · 승인 하나. 줄을 누르면 시트(질문 · 반려 · 승인)가 올라온다 */
+function ConfirmLine({ x, onOpen, busy, onApprove }: { x: TurnItem; onOpen(): void; busy: boolean; onApprove(): void }) {
+  const title = x.kind === 'feedback' ? feedbackTitle(x.item) : x.kind === 'task' ? x.task.title : ''
+  return (
+    <article className="ph-confirm-row" data-ui="확인만 줄">
+      <button className="ph-confirm-main" onClick={onOpen}>
+        <span className="turn-dot pale" aria-hidden />
+        <span className="ph-chip">{x.kind === 'feedback' ? t('피드백', 'Feedback') : t('맡긴 일', 'Task')}</span>
+        <span className="ph-confirm-title">{title}</span>
+      </button>
+      <button className="btn sm" data-ui="승인" disabled={busy} onClick={onApprove}>{t('승인', 'Approve')}</button>
     </article>
   )
 }

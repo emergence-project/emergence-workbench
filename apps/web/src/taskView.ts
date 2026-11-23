@@ -1,4 +1,4 @@
-import type { BlockStatus, JournalEntry } from '@rw/core'
+import { taskTurn, type BlockStatus, type JournalEntry } from '@rw/core'
 import type { Task, TaskAsk, TaskState } from './api/tasks'
 import type { OpenTodo } from './api/research'
 import { stripDue } from './homeData'
@@ -117,6 +117,12 @@ export function taskLine(t: Task): string {
 /** 판단 · 맡긴 일 목록의 순서: 사용자 차례는 오래 기다린 것부터, 나머지는 최근 것부터 */
 export function judgeOrder(tasks: Task[]): Task[] {
   return tasks.filter(needsJudgment).sort((a, b) => (stampMs(a.resultAt) ?? a.mtime) - (stampMs(b.resultAt) ?? b.mtime))
+}
+
+/** 사용자 차례인 맡긴 일을 결정 필요 · 확인만으로 (11/23). 확인만 = 종결 조건을 통과했고 답할 물음이 없는 결과. 순서는 judgeOrder */
+export function splitJudge(tasks: Task[]): { decide: Task[]; confirm: Task[] } {
+  const list = judgeOrder(tasks)
+  return { decide: list.filter((x) => taskTurn(x) !== 'confirm'), confirm: list.filter((x) => taskTurn(x) === 'confirm') }
 }
 
 /**

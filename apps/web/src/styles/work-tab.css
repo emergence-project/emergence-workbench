@@ -206,3 +206,10 @@
   .tk-wh { flex-direction: column; gap: 2px; }
   .tk-wh b { padding: 0 3px; font-size: var(--fs-xs); }
 }
+/* 확인만 줄 (11/23 시안 turn-split): 옅은 바탕 한 줄, 줄을 누르면 펼치고(판단 카드) 오른쪽 수정 요청 · 승인은 펼치지 않고 바로 */
+.tk.tk-confirm { background: var(--bg-side); }
+.tk-confirm-line { display: flex; align-items: center; }
+.tk-confirm-line .tk-row { flex: 1; min-width: 0; grid-template-columns: 14px minmax(0, 1fr) auto; }
+.tk-confirm-line .tk-title { font-weight: var(--fw-normal); }
+.tk-confirm-act { display: flex; align-items: center; gap: var(--sp-3); flex: none; padding-right: var(--sp-4); }
+.tk-confirm .tk-sendback { padding: 0 var(--sp-4) var(--sp-3); }

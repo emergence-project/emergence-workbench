@@ -1,7 +1,7 @@
 import { t } from './i18n'
 import { describe, expect, it } from 'vitest'
 import type { Task } from './api/tasks'
-import { agentPrompt, briefCounts, cardAsks, cardConclusion, durationText, judgeFace, judgeOrder, openTaskId, shortStamp, splitReport, taskLine, taskRowKey, taskTiming, weekItems } from './taskView'
+import { agentPrompt, briefCounts, cardAsks, cardConclusion, durationText, judgeFace, judgeOrder, openTaskId, shortStamp, splitJudge, splitReport, taskLine, taskRowKey, taskTiming, weekItems } from './taskView'
 
 const task = (over: Partial<Task>): Task => ({
   id: '2026-10-05-x', file: 'workbench/tasks/2026-10-05-x.md', title: 'x', agent: 'claude-code', created: '2026-10-05 09:10', state: 'working', task: '일',
@@ -80,5 +80,16 @@ describe('맡긴 일 화면 말', () => {
     expect(openTaskId(taskRowKey('2026-10-15-renyi-noninteger'))).toBe('2026-10-15-renyi-noninteger')
     expect(openTaskId('topic-renyi/c-20261015-2243')).toBeNull()
     expect(openTaskId(null)).toBeNull()
+  })
+})
+
+describe('내 차례 두 묶음 (11/23)', () => {
+  it('splitJudge: 통과한 결과는 확인만, 나머지 판단 대기는 결정 필요, 진행 중은 빠진다', () => {
+    const pass = task({ id: 'p', state: 'result', endCheck: 'pass', resultAt: '2026-10-06 12:00' })
+    const fail = task({ id: 'f', state: 'result', endCheck: 'fail', resultAt: '2026-10-05 12:00' })
+    const prop = task({ id: 'q', state: 'proposed' })
+    const res = splitJudge([pass, fail, prop, task({ id: 'w' })])
+    expect(res.confirm.map((x) => x.id)).toEqual(['p'])
+    expect(res.decide.map((x) => x.id).sort()).toEqual(['f', 'q'])
   })
 })

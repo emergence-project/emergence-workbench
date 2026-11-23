@@ -12,3 +12,5 @@
 .fbp-inapp.need { color: var(--s-blocked); }
 /* 새로 온 것 (11/23): 답할 것이 아닌 소식은 수 없이 파란 점. 알림 종의 새 소식 점과 같은 색 */
 .rail-btn .rail-new { position: absolute; top: 5px; right: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--s-progress); box-shadow: 0 0 0 2px var(--bg); pointer-events: none; }
+/* 확인만 남은 수 (11/23): 결정할 것이 없으면 옅은 바탕에 주황 글자. 결정 수가 있으면 그 수만 진하게 */
+.rail-count.pale { background: var(--tc-orange); color: var(--s-blocked); }
