@@ -778,7 +778,7 @@ export function AgentPage({ id, onSaved, side }: { id?: string; onSaved(m: strin
         {id === CENTRAL_PAGE ? <CentralStart /> : id
           ? <div className="ac-page">
             <ChatView key={id} id={id} pane={col.work} onPane={col.togglePane} onChanges={() => col.show('changes')} tools={col.tools} onDeleted={() => go({ page: 'agent' })} onSaved={onSaved} />
-            {col.work && <WorkColumn key={id} id={id} onSaved={onSaved} tab={col.tab ?? 'info'} tabs={<ChatSideTabs id={id} col={col} />} />}{col.terminal(<ChatSideTabs id={id} col={col} />)}
+            {col.work && <WorkColumn id={id} onSaved={onSaved} tab={col.tab ?? 'info'} tabs={<ChatSideTabs id={id} col={col} />} />}{col.terminal(<ChatSideTabs id={id} col={col} />)}
           </div>
           : <div className="scroll"><div className="page-body ac-start">
             <h1 className="ac-h">{t('새 대화', 'New conversation')}</h1>
