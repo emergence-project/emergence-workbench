@@ -345,7 +345,8 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
     setBusy(true); setFail(null)
     try {
       const ok = await onSubmit({ text: v, view: screenLine(), ...(all.length && { attach: all }), ...(images.length && { images: images.map(({ type, data, name }) => ({ type, data, name: name.slice(0, 200) })) }) })
-      if (ok) { setText(''); setCaret(0); setAttach([]); setImages([]) }
+      // 새 대화는 보내자마자 그 대화 화면으로 옮겨 가 이 입력란이 먼저 사라진다(setText가 닿지 않는다): 적던 글을 여기서 지운다
+      if (ok) { if (keep) unsent.delete(keep); setText(''); setCaret(0); setAttach([]); setImages([]) }
     } catch (e) { setFail((e as Error).message) } finally { setBusy(false) }
   }
   const sendKey = useCmdEnter(() => void submit())

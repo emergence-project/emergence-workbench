@@ -3,7 +3,7 @@ import { AboutFixTab } from './AboutFix'
 import { AboutSide, markChanges, useAboutChanges, type Picked, type SideTab } from './AboutHistorySide'
 import { HistoryButton } from './NoteHistory'
 import { InfoOrAgent } from './AgentSide'
-import { closeRight, openRight, useRightMode } from './noteScreen'
+import { closeRight, openRight, rightModeNow, useRightMode } from './noteScreen'
 import { ABOUT_PARTS, type AboutPart, type AboutSection, COLOR_ROWS, partOf, sectionAnchor, SYMBOL_GROUPS } from './aboutContent'
 import { checkKey, checkState, lastPr, prsSince, useAboutChecks, type AboutCheckState } from './aboutChecks'
 import type { AboutCheck, AboutChecks } from './api'
@@ -42,6 +42,8 @@ export function AboutPage({ part, anchor, rightOpen, onSaved }: { part?: string;
   // 오른쪽 사이드바가 열려 있고 에이전트 · 터미널이 아닌 갈래면 이력 · 수정이 보인다 (AgentSide.tsx의 InfoOrAgent)
   const mode = useRightMode()
   const side = rightOpen && mode !== 'agent' && mode !== 'terminal'
+  // 이력 · 수정을 연다. 에이전트 · 터미널을 보던 때만 갈래를 바꾼다: 「기록」을 「정보」로 바꿔 적으면 프로젝트의 오른쪽 사이드바가 다음에 정보로 열린다
+  const openSide = () => openRight(rightModeNow() === 'agent' || rightModeNow() === 'terminal' ? 'info' : rightModeNow())
   const [tab, setTab] = useState<SideTab>(tabOn)
   const [picked, setPicked] = useState<Picked | null>(null)
   // 다른 쪽의 「확인 n」을 누르면 쪽을 옮긴 뒤 고를 줄
@@ -58,7 +60,7 @@ export function AboutPage({ part, anchor, rightOpen, onSaved }: { part?: string;
       const ns = i >= 0 ? todo(i) : []
       if (!ns.length) return
       const v = { n: Math.max(...ns), sec: i }
-      openRight('info'); setTab('history'); keepTab('history')
+      openSide(); setTab('history'); keepTab('history')
       if (x.id !== p.id) pending.current = v
       else setPicked(v)
       if (x.id !== p.id || i !== at) go({ page: 'about', part: x.id, ...(i > 0 && { anchor: sectionAnchor(x.sections[i]!, i) }) })
@@ -67,7 +69,7 @@ export function AboutPage({ part, anchor, rightOpen, onSaved }: { part?: string;
     return () => window.removeEventListener(REVIEW_EVENT, on)
   }, [checks, p.id, at])
   const sec = at >= 0 ? p.sections![at] : undefined
-  const showSide = (v: boolean) => { if (v) openRight('info'); else closeRight() }
+  const showSide = (v: boolean) => { if (v) openSide(); else closeRight() }
   useEffect(() => { if (!side) setPicked(null) }, [side])
   const showTab = (v: SideTab) => { setTab(v); keepTab(v); if (v === 'fix') setPicked(null) }
   // 줄을 고르면 그 절로 간다

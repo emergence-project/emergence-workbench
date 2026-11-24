@@ -29,6 +29,8 @@ const mode = tiny<RightMode>(normalizeRightMode(store.get<string>(MODE_KEY, 'inf
 /** 에이전트 · 터미널 탭은 기억하지 않는다: 다시 열면 정보나 기록에서 시작한다(예전 패널도 닫힌 채 시작했다) */
 export function setRightMode(m: RightMode) { mode.set(m); if (m === 'info' || m === 'records') store.set(MODE_KEY, m) }
 export const useRightMode = () => useSyncExternalStore(mode.subscribe, mode.get)
+/** 터미널 갈래에서 나간다: 마지막에 본 정보 · 기록으로. 터미널 갈래에는 갈래 아이콘 줄이 없어 닫기 단추(TerminalPane.tsx의 SideTerminalClose)가 부른다 */
+export const leaveTerminal = () => setRightMode(normalizeRightMode(store.get<string>(MODE_KEY, 'info')))
 /** 지금 고른 갈래 (OPEN_RIGHT를 듣는 쪽이 읽는다) */
 export const rightModeNow = () => mode.get()
 

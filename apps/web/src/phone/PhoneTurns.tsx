@@ -56,7 +56,7 @@ export function PhoneTurns({ onSaved }: { onSaved(m: string): void }) {
         <TurnGroupHead pale count={confirm.length} onApproveAll={async () => { await approveEach(confirm, approve); onSaved(t('모두 승인했습니다', 'Approved all')) }} />
         {confirm.map((x) => <ConfirmLine key={x.key} x={x} onOpen={() => setOpen(x.key)} busy={busy === x.key} onApprove={() => act(x.key, () => approve(x))} />)}
       </section>}
-      {!items.length && <p className="empty ph-empty">{loading ? t('불러오는 중…', 'Loading…') : t('지금 내 차례인 것이 없습니다. 피드백의 답, 에이전트의 질문, 맡긴 일의 결과가 오면 여기에 보입니다.', 'Nothing is waiting for you. Feedback answers, agent questions and delegated task results show up here.')}</p>}
+      {!items.length && <p className="empty ph-empty">{loading ? t('불러오는 중…', 'Loading…') : t('지금 내 차례인 것이 없습니다. 피드백의 답, 에이전트의 질문, 맡긴 일의 결과, 흐름의 방향 보고가 오면 여기에 보입니다.', 'Nothing is waiting for you. Feedback answers, agent questions, delegated task results and flow direction reports show up here.')}</p>}
       {sheet && <TurnSheet x={sheet} onClose={() => setOpen(null)} onSaved={onSaved} />}
     </main>
   )
@@ -66,6 +66,7 @@ const GROUP_NAME: Record<TurnItem['kind'], () => string> = {
   feedback: () => t('피드백 답', 'Feedback answers'),
   record: () => t('에이전트 질문', 'Agent questions'),
   task: () => t('맡긴 일 결과', 'Delegated task results'),
+  flow: () => t('흐름 결정', 'Flow decisions'),
   edits: () => t('수정 검토', 'Edit review'),
 }
 
@@ -99,12 +100,16 @@ function TurnCard({ x, onOpen, busy, act }: { x: TurnItem; onOpen(): void; busy:
     meta = <><Chip rid={x.rid} name={x.project} /><span className="ph-agent">{agentName(x.task.agent)}</span><span>{taskLine(x.task)}</span></>
     title = x.task.title
     body = x.task.conclusion
+  } else if (x.kind === 'flow') {
+    meta = <Chip rid={x.rid} name={x.project} />
+    title = t(`결정을 기다리는 흐름 ${x.n}개`, `${x.n} flow(s) awaiting your decision`)
+    body = t('방향 보고를 보고 계속 · 좁히기 · 종료를 정합니다.', 'Read the direction report and decide to continue, narrow or close.')
   } else {
     meta = <Chip rid={x.rid} name={x.project} />
     title = t(`에이전트가 고친 노트 ${x.n}개`, `${x.n} notes edited by agents`)
     body = t('맥에서 변경사항을 보고 받거나 되돌립니다.', 'Review the changes and keep or undo them.')
   }
-  const open = x.kind === 'edits' ? () => go({ page: 'edits', rid: x.rid }) : onOpen
+  const open = x.kind === 'edits' ? () => go({ page: 'edits', rid: x.rid }) : x.kind === 'flow' ? () => go({ page: 'problems', rid: x.rid }) : onOpen
   return (
     <article className="ph-card" data-ui="내 차례 카드">
       <button className="ph-card-main" onClick={open}>
