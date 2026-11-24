@@ -72,19 +72,23 @@ function targetsIn(dir: string): string[] {
   return fs.readdirSync(dir).filter((n) => n.endsWith('.md') && !n.startsWith('.') && !isBackupCopy(n)).map((n) => n.slice(0, -3)).filter((x) => TARGET_RE.test(x)).sort()
 }
 
-/** from 파일의 기록 ids를 to 파일 끝으로 옮긴다. to에 이미 있는 id는 다시 쓰지 않고 from에서만 뺀다. 옮긴 수 */
-function move(from: string, to: string, ids: Set<string>): number {
-  if (!fs.existsSync(from)) return 0
+/** from 파일의 기록 ids를 to 파일 끝으로 옮긴다. to에 같은 id · 같은 글이 이미 있으면 다시 쓰지 않고 from에서만 뺀다.
+ *  같은 id인데 글이 다르면 옮기지 않고 from에 그대로 둔다(빼면 그 글이 어디에도 남지 않는다). 옮긴 id들 */
+function move(from: string, to: string, ids: Set<string>): string[] {
+  if (!fs.existsSync(from)) return []
   const src = split(fs.readFileSync(from, 'utf8'))
   const moving = src.sections.filter((s) => ids.has(s.id))
-  if (!moving.length) return 0
+  if (!moving.length) return []
   const dst = fs.existsSync(to) ? split(fs.readFileSync(to, 'utf8')) : { head: padded(src.head), sections: [] }
-  const have = new Set(dst.sections.map((s) => s.id))
-  const added = moving.filter((s) => !have.has(s.id)).map((s) => ({ id: s.id, lines: padded(s.lines) }))
+  const text = (lines: string[]) => padded(lines).join('\n')
+  const have = new Map(dst.sections.map((s) => [s.id, text(s.lines)]))
+  const gone = new Set(moving.filter((s) => !have.has(s.id) || have.get(s.id) === text(s.lines)))
+  if (!gone.size) return []
+  const added = [...gone].filter((s) => !have.has(s.id)).map((s) => ({ id: s.id, lines: padded(s.lines) }))
   fs.mkdirSync(path.dirname(to), { recursive: true })
   if (added.length) writeAtomic(to, join(dst.sections.length ? [...dst.head] : padded(dst.head), [...dst.sections.map((s) => ({ ...s, lines: padded(s.lines) })), ...added]))
-  writeAtomic(from, join(src.head, src.sections.filter((s) => !ids.has(s.id))))
-  return moving.length
+  writeAtomic(from, join(src.head, src.sections.filter((s) => !gone.has(s))))
+  return [...gone].map((s) => s.id)
 }
 
 export interface ArchiveMove { target: string; ids: string[] }
@@ -98,8 +102,7 @@ export function archivePlan(root: string, now = Date.now(), days = ARCHIVE_AFTER
 /** 오래된 완료 기록을 보관 파일로 옮긴다. 무엇을 옮겼는지 돌려준다(되돌리기에 쓴다) */
 export function archiveRecords(root: string, now = Date.now(), days = ARCHIVE_AFTER_DAYS): ArchiveMove[] {
   const plan = archivePlan(root, now, days)
-  for (const m of plan) move(commentsFile(root, m.target), archiveFile(root, m.target), new Set(m.ids))
-  return plan
+  return plan.map((m) => ({ target: m.target, ids: move(commentsFile(root, m.target), archiveFile(root, m.target), new Set(m.ids)) })).filter((m) => m.ids.length)
 }
 
 /** 보관한 기록을 원래 파일로 되돌린다. 되돌린 수 */
@@ -108,7 +111,7 @@ export function restoreRecords(root: string, moves: ArchiveMove[]): number {
   for (const m of moves) {
     const from = archiveFile(root, m.target)
     if (!fs.existsSync(from)) throw new WorkbenchError(404, t(`보관한 기록이 없음: ${m.target}`, `No archived records: ${m.target}`))
-    n += move(from, commentsFile(root, m.target), new Set(m.ids))
+    n += move(from, commentsFile(root, m.target), new Set(m.ids)).length
     // 다 꺼낸 보관 파일은 머리만 남으므로 지운다
     if (!split(fs.readFileSync(from, 'utf8')).sections.length) fs.rmSync(from)
   }
