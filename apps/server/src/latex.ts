@@ -57,6 +57,13 @@ export const noLatexmk = (): string => (process.platform === 'win32'
   ? t('latexmk를 실행하지 못했습니다. PDF를 만들려면 TeX가 있어야 합니다: MiKTeX나 TeX Live를 설치한 뒤 계정 › TeX에서 「다시 확인」을 눌러 주세요.', 'Could not run latexmk. Making PDFs needs TeX: install MiKTeX or TeX Live, then press "Check again" under Account › TeX.')
   : t('latexmk를 실행하지 못했습니다. PDF를 만들려면 TeX가 있어야 합니다: MacTeX를 설치한 뒤 계정 › TeX에서 「다시 확인」을 눌러 주세요.', 'Could not run latexmk. Making PDFs needs TeX: install MacTeX, then press "Check again" under Account › TeX.'))
 
+/** 시간 한도에 걸려 멈춘 컴파일의 종료 코드. 실행하지 못한 것(-1)과 가른다: 죽인 자식은 코드가 없어 -1이 되고, 그러면 TeX가 있는데도 설치하라고 안내한다 */
+export const COMPILE_STOPPED = -1000
+export const compileStopped = (ms: number): string => {
+  const min = Math.round(ms / 60_000)
+  return t(`컴파일이 ${min}분 안에 끝나지 않아 멈췄습니다. 다시 컴파일해 보고, 또 멈추면 로그를 확인하세요.`, `The build did not finish within ${min} min and was stopped. Try again, and check the log if it stops again.`)
+}
+
 /**
  * 컴파일 성공 판단.
  * - latexmk의 실패 코드만으로는 판단하지 않는다: 한 번만 돌리게(max_repeat=1) 했기 때문에, 첫 컴파일처럼
@@ -67,7 +74,7 @@ export const noLatexmk = (): string => (process.platform === 'win32'
 export function judgeCompile(r: { hasPdf: boolean; fresh: boolean; exitCode: number; problems: CompileResult['problems'] }): { ok: boolean; problems: CompileResult['problems'] } {
   const upToDate = r.hasPdf && !r.fresh && r.exitCode === 0
   if (r.fresh || upToDate || r.problems.length > 0) return { ok: r.problems.length === 0, problems: r.problems }
-  const message = r.exitCode === -1 ? noLatexmk() : t('PDF를 새로 만들지 못했습니다. 로그를 확인하세요.', 'Could not build a new PDF. Check the log.')
+  const message = r.exitCode === -1 ? noLatexmk() : r.exitCode === COMPILE_STOPPED ? compileStopped(COMPILE_TIMEOUT_MS) : t('PDF를 새로 만들지 못했습니다. 로그를 확인하세요.', 'Could not build a new PDF. Check the log.')
   return { ok: false, problems: [{ file: 'main.tex', line: 0, message, inBlock: false }] }
 }
 
@@ -98,8 +105,9 @@ export function runLatexmk(dir: string, args: string[], force = false): Promise<
       env: { ...process.env, max_print_line: '10000' },
       stdio: 'ignore',
     })
-    const timer = setTimeout(() => child.kill('SIGKILL'), COMPILE_TIMEOUT_MS)
-    child.on('close', (code) => { clearTimeout(timer); resolve(code ?? -1) })
+    let stopped = false
+    const timer = setTimeout(() => { stopped = true; child.kill('SIGKILL') }, COMPILE_TIMEOUT_MS)
+    child.on('close', (code) => { clearTimeout(timer); resolve(stopped ? COMPILE_STOPPED : code ?? -1) })
     child.on('error', () => { clearTimeout(timer); resolve(-1) })
   })
 }

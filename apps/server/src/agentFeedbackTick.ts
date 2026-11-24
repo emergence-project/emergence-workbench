@@ -49,7 +49,7 @@ export class FeedbackChats extends SharedChats {
         // 앱 고치기 대화는 저절로 합치지 않으므로, 사용자가 합쳤는지 본다
         const w = this.workOf(c) ?? app
         if (!c.feedback && !c.merged && c.worktree && c.branch && w.prMerged) {
-          const m = await w.prMerged(c.worktree, c.branch)
+          const m = await w.prMerged(c.worktree, c.branch, c.pr?.number)
           if (m) { c.merged = m.sha || 'merged'; this.touch(c) }
         }
         if (c.merged) {

@@ -5,7 +5,7 @@ import { promisify } from 'node:util'
 import { buildFrontMatter, buildSettingTex, canonicalNoteFile, isBodyOnly, sameNoteFile, markdownToLatex, markRecords, resolveRecordMarks, PDF_RECORDS_PREAMBLE, type RecordMark, MD_PREAMBLE, parseLatexErrors, type Author, parseSynctexEdit, parseSynctexView, type LatexTemplate, type PdfBox, frontMatterLines } from '@rw/core'
 import { hashOf, writeAtomic, isInside } from './fsutil.js'
 import { hasFrontMatter, hasMaketitle, needsBodyOnly, NOTE_MACROS } from './noteBody.js'
-import { isCompletePdf, noLatexmk, type CompileResult, type Engine } from './latex.js'
+import { COMPILE_STOPPED, compileStopped, isCompletePdf, noLatexmk, type CompileResult, type Engine } from './latex.js'
 import { placeTemplateFiles, SHARED_MACROS, templateFilePath } from './latexFiles.js'
 import { beginInputs, fileStamp, finishInputs, inputsChanged, recordedInputs, type PdfState, type ShownPdf, type SuccessfulInputs } from './manuscriptFreshness.js'
 import { bibliographyLines, libraryCitedBib, LIBRARY_CITED_BIB, noteBibFiles } from './noteBib.js'
@@ -469,8 +469,9 @@ async function doCompile(wb: Workbench, key: string, readOptions: () => Manuscri
       // 원고 폴더에서 돌려 \input·그림 경로가 원래대로 풀리게 하고, bibtex가 원고 폴더의 .bib를 찾게 한다.
       // 빌드 폴더를 앞에 두어 감싸는 main의 \input{setting}이 빌드 폴더의 setting.tex를 찾는다
       const child = spawn('latexmk', args, { cwd: dir, env: { ...process.env, max_print_line: '10000', BIBINPUTS: `${dir}${path.delimiter}`, TEXINPUTS: target === path.basename(main) ? `${dir}${path.delimiter}` : `${out}${path.delimiter}${dir}${path.delimiter}` }, stdio: 'ignore' })
-      const timer = setTimeout(() => child.kill('SIGKILL'), COMPILE_TIMEOUT_MS)
-      child.on('close', (c) => { clearTimeout(timer); resolve(c ?? -1) })
+      let stopped = false
+      const timer = setTimeout(() => { stopped = true; child.kill('SIGKILL') }, COMPILE_TIMEOUT_MS)
+      child.on('close', (c) => { clearTimeout(timer); resolve(stopped ? COMPILE_STOPPED : c ?? -1) })
       child.on('error', () => { clearTimeout(timer); resolve(-1) })
     })
     const logFile = path.join(out, `${base}.log`)
@@ -484,7 +485,7 @@ async function doCompile(wb: Workbench, key: string, readOptions: () => Manuscri
     const hasPdf = isCompletePdf(pdf)
     if (!hasPdf && fs.existsSync(pdf)) problems.unshift({ file: path.relative(repo, main), line: 0, message: t('PDF가 끝까지 만들어지지 않았습니다 (그림 파일을 찾지 못했을 수 있음). 아래 오류를 먼저 고치세요.', 'The PDF was not finished (a figure file may be missing). Fix the errors below first.'), inBlock: false })
     const ok = code === 0 && hasPdf && problems.length === 0
-    if (!ok && problems.length === 0) problems.push({ file: path.relative(repo, main), line: 0, message: code === -1 ? noLatexmk() : t('PDF를 새로 만들지 못했습니다. 로그를 확인하세요.', 'Could not make a new PDF. Check the log.'), inBlock: false })
+    if (!ok && problems.length === 0) problems.push({ file: path.relative(repo, main), line: 0, message: code === -1 ? noLatexmk() : code === COMPILE_STOPPED ? compileStopped(COMPILE_TIMEOUT_MS) : t('PDF를 새로 만들지 못했습니다. 로그를 확인하세요.', 'Could not make a new PDF. Check the log.'), inBlock: false })
     result = { ok, durationMs: Date.now() - started, hasPdf, problems, logTail: log.split('\n').slice(-40).join('\n'), ...(explicit.marks.length && { records: { added: explicit.marks.length, failed: false } }) }
     const at = new Date().toISOString()
     // 오류가 있어도 이번에 끝까지 만든 PDF는 그대로 보여 준다 (10/5 사용자 "오류가 나면 오류가 나는대로 보여줘").
