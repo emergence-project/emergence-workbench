@@ -13,7 +13,7 @@ import { go, type Route } from './router'
 import { StatusDot } from './StatusDot'
 import { store } from './store'
 import { josa, t } from './i18n'
-import { TerminalPane, useTerminalAvailable } from './TerminalPane'
+import { SideTerminalClose, TerminalPane, useTerminalAvailable } from './TerminalPane'
 
 /**
  * 오른쪽 사이드바: 정보 · 기록 · 에이전트 (10/22 안 A). 갈래는 사이드바 맨 위 아이콘 줄로 고른다(11/24, RightModeTabs. 11/21~11/23에는 상단바 아이콘). 갈래를 바꿔도 적던 내용은 남긴다.
@@ -35,7 +35,7 @@ export function RightSidebar({ info, records, agent, terminalRid }: { info: Reac
       {mode === 'info' && <div className="rs-scroll">{info}</div>}
       <div className="rs-col" hidden={mode !== 'records'}>{records}</div>
       {mode === 'agent' && agent && <div className="rs-col">{agent}</div>}
-      {terminal && (termOpened || mode === 'terminal') && <div className="rs-col" hidden={mode !== 'terminal'}><TerminalPane key={terminalRid} rid={terminalRid} attach /></div>}
+      {terminal && (termOpened || mode === 'terminal') && <div className="rs-col" hidden={mode !== 'terminal'}><TerminalPane key={terminalRid} rid={terminalRid} attach tools={<SideTerminalClose />} /></div>}
     </div>
   )
 }

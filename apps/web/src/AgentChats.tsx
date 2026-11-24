@@ -731,7 +731,7 @@ export function WorkColumn({ id, onSaved, tab = 'info', tabs }: { id: string; on
     <WorkAside>
       {tabs}
       {tab === 'changes' ? (hasEdits && !chat.machine ? <><h3>{t('변경사항', 'Changes')}</h3><Changes chat={chat} onSaved={onSaved} /></> : <span className="muted ac-hint">{t('아직 변경사항이 없습니다', 'Nothing has changed yet')}</span>)
-        : tab === 'review' ? <ReviewPane chat={chat} onError={onSaved} />
+        : tab === 'review' && isClaude(chat.agent) && !chat.machine ? <ReviewPane chat={chat} onError={onSaved} />
           : <>
       <ChatInfo chat={chat} />
       <section data-ui="잡은 파일">
@@ -778,7 +778,7 @@ export function AgentPage({ id, onSaved, side }: { id?: string; onSaved(m: strin
         {id === CENTRAL_PAGE ? <CentralStart /> : id
           ? <div className="ac-page">
             <ChatView key={id} id={id} pane={col.work} onPane={col.togglePane} onChanges={() => col.show('changes')} tools={col.tools} onDeleted={() => go({ page: 'agent' })} onSaved={onSaved} />
-            {col.work && <WorkColumn id={id} onSaved={onSaved} tab={col.tab ?? 'info'} tabs={<ChatSideTabs id={id} col={col} />} />}{col.terminal(<ChatSideTabs id={id} col={col} />)}
+            {col.work && <WorkColumn key={id} id={id} onSaved={onSaved} tab={col.tab ?? 'info'} tabs={<ChatSideTabs id={id} col={col} />} />}{col.terminal(<ChatSideTabs id={id} col={col} />)}
           </div>
           : <div className="scroll"><div className="page-body ac-start">
             <h1 className="ac-h">{t('새 대화', 'New conversation')}</h1>

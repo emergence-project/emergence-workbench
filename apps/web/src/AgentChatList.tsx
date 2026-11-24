@@ -110,7 +110,7 @@ export function AgentSide({ id }: { id?: string }) {
           </button>
           {menu && <div className="menu ac-target-menu" role="menu" data-ui="대상 메뉴">
             {targets.map((r, i) => <div key={r}>{(i === 1 || r === LIBRARY_RID || (i > 1 && targets[i - 1] === APP_RID)) && <hr className="ac-target-sep" />}
-              <button role="menuitemradio" aria-checked={r === at} className={r === at ? 'on' : ''} onClick={() => { setTarget(r); setMenu(false) }}>
+              <button role="menuitemradio" aria-checked={r === at} className={r === at ? 'on' : ''} onClick={() => { setTarget(r); setPicked([]); setMenu(false) }}>
                 <span className="label">{targetName(r, projects)}</span><span className="n">{(r === ALL ? live : live.filter((c) => c.rid === r)).length}</span>
               </button></div>)}
           </div>}

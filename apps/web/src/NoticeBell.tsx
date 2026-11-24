@@ -4,12 +4,11 @@
 // 종의 수는 답할 것만 센다(레일의 주황 수와 같은 뜻). 읽지 않은 소식만 있으면 무채색 점. 줄을 누르면 그 화면으로 가서 처리한다(목록 안에서 답하거나 승인하지 않는다: 실수 막기)
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { LIBRARY_RID } from '@rw/core'
+import { LIBRARY_RID, userTurn } from '@rw/core'
 import type { RecordTidy, RecordTurn } from '@rw/core/contract/comments'
 import { api, APP_RID, CENTRAL_RID, type ChatRow, type FeedbackItem, type ProjectIssues } from './api'
 import { useChatList, stateName } from './AgentChats'
 import { asksMe, isUnseen, useSeen } from './agentSeen'
-import { feedbackBucket } from './feedbackBuckets'
 import { feedbackSummary } from './feedbackFormat'
 import { projectColor } from './format'
 import { t } from './i18n'
@@ -94,9 +93,11 @@ export function noticesOf({ chats = [], feedback = [], errors = [], records = []
     else if (c.state === 'error' || unseen(c)) news.push({ key: `agent:${c.id}:${c.updated}`, kind: 'chat', need: false, at: c.updated, place, text: `「${c.title}」 ${c.state === 'idle' ? t('종료 · 아직 열어 보지 않음', 'Done · not opened yet') : stateName(c)}`, open: () => go({ page: 'agent', id: c.id }) })
   }
   for (const e of feedback) {
-    if (feedbackBucket(e, now) !== '확인 필요') continue
+    // 결정을 묻는 답만 답할 것. 결과를 알린 답(확인만)은 소식: 종의 수가 레일 · 피드백 화면의 「결정」 수와 같다 (11/23 결정 필요 · 확인만)
+    const turn = userTurn(e, now)
+    if (!turn) continue
     const at = e.status?.handled_at ?? `${e.date}T${e.time}`
-    need.push({ key: `feedback:${e.key}:${at}`, kind: 'feedback', need: true, at, place: APP_RID, text: feedbackSummary(e.status?.clean ?? e.text), open: () => go({ page: 'feedback', key: e.key }) })
+    ;(turn === 'answer' ? need : news).push({ key: `feedback:${e.key}:${at}`, kind: 'feedback', need: turn === 'answer', at, place: APP_RID, text: feedbackSummary(e.status?.clean ?? e.text), open: () => go({ page: 'feedback', key: e.key }) })
   }
   for (const e of errors) news.push({ key: `error:${e.at}`, kind: 'error', need: false, at: e.at, text: e.text })
   const newest = (a: Notice, b: Notice) => ms(b.at) - ms(a.at)

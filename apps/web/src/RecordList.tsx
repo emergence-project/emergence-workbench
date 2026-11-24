@@ -370,7 +370,8 @@ function RecordReply({ keep, busy, asked, onReply, onCancel }: { keep: string; b
   // 적던 답은 다른 화면을 보고 와도 남는다 (보내면 지움, 앱을 다시 열면 없음)
   const [text, setText] = useState(() => unsentReplies.get(keep) ?? '')
   useEffect(() => { if (text) unsentReplies.set(keep, text); else unsentReplies.delete(keep) }, [keep, text])
-  const send = async () => { if (text.trim() && !busy && await onReply(text.trim())) setText('') }
+  // 보내면 이 칸이 먼저 사라져(답하기 접힘 · 내 차례 풀림) setText가 닿지 않는다: 적던 글을 여기서 지운다
+  const send = async () => { if (text.trim() && !busy && await onReply(text.trim())) { unsentReplies.delete(keep); setText('') } }
   const sendKey = useCmdEnter(() => void send())
   const label = asked ? t('에이전트에게 답하기', 'Answer the agent') : t('이어서 묻거나 덧붙이기', 'Ask more or add to it')
   return <div className="fbp-compose record-reply" data-ui="이어 쓰기" onKeyDown={sendKey.onKeyDown} onCompositionEnd={sendKey.onCompositionEnd}>

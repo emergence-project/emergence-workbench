@@ -15,7 +15,7 @@ import { RightModeTabs } from './RightModeTabs'
 import { qk } from './queries'
 import { go } from './router'
 import { store } from './store'
-import { TerminalPane, useTerminalAvailable } from './TerminalPane'
+import { SideTerminalClose, TerminalPane, useTerminalAvailable } from './TerminalPane'
 export { useTerminalAvailable } from './TerminalPane'
 
 const KEY = 'rw-agent-panel-all'
@@ -79,13 +79,13 @@ function ServerSkewNote() {
 }
 
 /** 프로젝트 밖 화면의 터미널: rid의 폴더(중앙은 앱 저장소, 못 찾으면 홈)에서 연다. rid를 아직 모르면(대화 목록을 받는 중) 기다린다.
- *  한 번 열면 다른 갈래 · 다른 대화로 가도 셸을 그대로 둔다 */
-function useSideTerminal(mode: RightMode, rid: string | null = CENTRAL_RID) {
+ *  한 번 열면 다른 갈래 · 다른 대화로 가도 셸을 그대로 둔다. close: 닫기 단추로 터미널 갈래에서 나갈 수 있게 (터미널뿐인 칸에는 두지 않는다) */
+function useSideTerminal(mode: RightMode, rid: string | null = CENTRAL_RID, close = true) {
   const able = useTerminalAvailable()
   const [opened, setOpened] = useState(false)
   useEffect(() => { if (able && mode === 'terminal' && rid !== null) setOpened(true) }, [able, mode, rid])
   const on = able && mode === 'terminal'
-  return { able, on, pane: able && opened && <div className="rs-col" hidden={!on}><TerminalPane rid={rid ?? undefined} /></div> }
+  return { able, on, pane: able && opened && <div className="rs-col" hidden={!on}><TerminalPane rid={rid ?? undefined} tools={close ? <SideTerminalClose /> : undefined} /></div> }
 }
 
 /** 에이전트 화면에서 연 대화의 프로젝트 (중앙 · 대화를 고르지 않음은 중앙). 목록을 받는 중이면 null */
@@ -118,7 +118,7 @@ export function InfoOrAgent({ ui, onSaved, infoClass, children }: { ui: string; 
 export function AgentSideBody({ onSaved, terminalOnly, chatId }: { onSaved(m: string): void; terminalOnly?: boolean; chatId?: string }) {
   const chosen = useRightMode()
   const chatRid = useChatRid(terminalOnly ? chatId : undefined)
-  const term = useSideTerminal(terminalOnly ? 'terminal' : chosen, chatRid)
+  const term = useSideTerminal(terminalOnly ? 'terminal' : chosen, chatRid, !terminalOnly)
   if (terminalOnly) return term.pane
   return <>
     {!term.on && <GlobalAgentPanel onSaved={onSaved} />}
