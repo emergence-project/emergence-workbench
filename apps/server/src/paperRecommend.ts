@@ -88,7 +88,8 @@ export function interleave<T extends S2Hit>(lists: T[][]): T[] {
 }
 
 /** 마지막으로 물은 기준과 그 답. failed면 받지 못한 것(status = 바깥이 오류로 답한 HTTP 상태) */
-let kept: { seeds: string; at: number; picks: Pick[]; failed?: { status?: number } } | null = null
+/** partial: 일부 기준은 받지 못했다(한도 · 연결). 받은 것은 보이되 RETRY_MS 뒤에 다시 묻는다 */
+let kept: { seeds: string; at: number; picks: Pick[]; failed?: { status?: number }; partial?: boolean } | null = null
 /** 테스트가 저장해 둔 결과를 비운다 */
 export function forgetRecommendations(): void { kept = null }
 
@@ -106,7 +107,7 @@ export async function recommendPapers(papers: PaperRow[], now = Date.now(), inte
   const key = seeds.map((x) => `${x.id}@${x.from ?? ''}`).sort().join(' ')
   if (kept && kept.seeds === key) {
     if (kept.failed && now - kept.at < RETRY_MS) return failed(kept.failed.status)
-    if (!kept.failed && now - kept.at < KEEP_MS) return { picks: fresh(kept.picks), seeds: seeds.length, offline: false, ...also }
+    if (!kept.failed && now - kept.at < (kept.partial ? RETRY_MS : KEEP_MS)) return { picks: fresh(kept.picks), seeds: seeds.length, offline: false, ...also }
   }
   try {
     const answers = await Promise.allSettled(seeds.map(async ({ id: seed, from }): Promise<Pick[]> => {
@@ -125,7 +126,7 @@ export async function recommendPapers(papers: PaperRow[], now = Date.now(), inte
       return failed(status)
     }
     const picks = interleave(got)
-    kept = { seeds: key, at: now, picks }
+    kept = { seeds: key, at: now, picks, ...(got.length < answers.length && { partial: true }) }
     return { picks: fresh(picks), seeds: seeds.length, offline: false, ...also }
   } catch {
     kept = { seeds: key, at: now, picks: [], failed: {} }

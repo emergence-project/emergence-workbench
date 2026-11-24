@@ -190,7 +190,7 @@ export class AgentChats {
         delete c.tasks
         delete c.compacting
         delete c.draft
-        for (const it of c.items) if ((it.kind === 'side' && it.answer === undefined || it.kind === 'review' && it.text === undefined) && !it.error) it.error = t('앱이 다시 켜져 답하지 못했습니다', 'Not answered because the app restarted')
+        for (const it of c.items) if ((it.kind === 'side' && it.answer === undefined || (it.kind === 'review' || it.kind === 'member') && it.text === undefined) && !it.error) it.error = t('앱이 다시 켜져 답하지 못했습니다', 'Not answered because the app restarted')
         // 줄 선 대화는 저장해 둔 차례로 다시 줄을 선다 (예전엔 "이어서"만 받아 사용자의 새 지시를 잃고 "이미 답했다"고 끝났다, 11/19)
         if (c.state === 'queued' && c.turn) this.queue.push({ id: c.id, ...c.turn })
         else if (LIVE.has(c.state)) {
