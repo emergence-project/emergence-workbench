@@ -18,6 +18,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import zlib from 'node:zlib'
 import { CENTRAL_RID, ChatItem, ChatRow, type CentralArchived, type Chat } from '@rw/core/contract/agentChats'
+import { agentAsks } from '@rw/core'
 import { AgentChats, LIVE, rowOf, type Stored } from './agentChats.js'
 import { packFile } from './agentTidy.js'
 import { machineName } from './backup.js'
@@ -168,6 +169,7 @@ export class SharedChats extends AgentChats {
     if (!undo && c.archived) throw new WorkbenchError(409, t('이미 보관함에 있습니다', 'Already archived'))
     if (undo && !c.archived) throw new WorkbenchError(409, t('보관함에 없습니다', 'Not archived'))
     if (LIVE.has(c.state)) throw new WorkbenchError(409, t('일하는 중이라 보관하지 않습니다. 끝나기를 기다리세요', 'Still working; wait until it finishes before archiving'))
+    if (!undo && agentAsks(c.items)) throw new WorkbenchError(409, t('에이전트가 사용자에게 묻고 답을 기다리는 대화라 보관하지 않습니다', 'The agent asked the user and waits for an answer; not archived'))
     this.archive(c.id, !undo)
     return { id: c.id, title: c.title }
   }
@@ -177,6 +179,7 @@ export class SharedChats extends AgentChats {
     if (!f) throw new WorkbenchError(404, t('그런 대화가 없습니다', 'No such conversation'))
     if (!undo && f.archived) throw new WorkbenchError(409, t(`${f.machine}에서 이미 보관했습니다`, `Already archived on ${f.machine}`))
     if (undo && !f.archived) throw new WorkbenchError(409, t(`${f.machine}에서 보관함에 있지 않습니다`, `Not archived on ${f.machine}`))
+    if (!undo && f.row.asks) throw new WorkbenchError(409, t('에이전트가 사용자에게 묻고 답을 기다리는 대화라 보관하지 않습니다', 'The agent asked the user and waits for an answer; not archived'))
     if (this.pendingAsks().some((x) => x.id === id)) throw new WorkbenchError(409, t(`이미 ${f.machine}에 청했습니다. 다음 맞추기를 기다리세요`, `Already asked of ${f.machine}; wait for its next sync`))
     const ask: ArchiveAsk = { machine: f.machine, id, title: f.row.title, reason: reason.trim().slice(0, 300), at: new Date().toISOString(), ...(undo && { undo: true }) }
     fs.appendFileSync(path.join(this.deps.dir, ASKS_FILE), `\n${JSON.stringify(ask)}`)

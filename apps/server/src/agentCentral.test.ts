@@ -20,7 +20,9 @@ describe('중앙 대화의 허락 규칙', () => {
   it('읽기 · 하위 대화 도구는 허락하고, 고치기 · 기록 쓰기 · 앱 올리기는 하위 대화에 맡기라고 막고, 목록 밖 명령은 우회 허락으로 묻는다', () => {
     for (const tool of ['read_note', 'project_status', 'chat_open', 'chat_send', 'chat_list', 'chat_close']) expect(judge(ctx(), `${W}${tool}`, {}).kind, tool).toBe('allow')
     expect(judge(ctx(), 'Read', { file_path: '/w/app/CLAUDE.md' }).kind).toBe('allow')
-    for (const command of ['npm i', 'ls > a.txt']) expect(judge(ctx(), 'Bash', { command }).kind, command).toBe('ask')
+    for (const command of ['npm i', 'ls > /tmp/a.txt']) expect(judge(ctx(), 'Bash', { command }).kind, command).toBe('ask')
+    // 임시 폴더 밖 파일 쓰기는 허락으로도 풀지 않는다 (11/24)
+    expect(judge(ctx(), 'Bash', { command: 'ls > a.txt' }).kind).toBe('deny')
     for (const [tool, input] of [['Edit', { file_path: '/w/app/a.ts' }], [`${W}edit_note`, {}], [`${W}add_record`, {}], [`${W}add_journal`, {}], [`${W}app_submit`, {}], [`${W}feedback_answer`, {}]] as const) {
       const v = judge(ctx(), tool, input)
       expect(v.kind, tool).toBe('deny')
