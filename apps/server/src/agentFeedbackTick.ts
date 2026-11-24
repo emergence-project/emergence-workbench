@@ -10,6 +10,7 @@ import { LIVE, handedAt, lastTouched, type Stored } from './agentChats.js'
 import { SharedChats } from './agentShare.js'
 import { feedbackAgainPrompt } from './agentPrompts.js'
 import { answerMockups, listAllFeedback, setFeedbackReview, writeFeedbackAnswer, type FeedbackListItem } from './feedback.js'
+import { dropMockups } from './feedbackMockups.js'
 import { bundlesOf, handOffPlan, keysOf } from './feedbackGroups.js'
 import { feedbackVerdictError } from './feedbackVerdict.js'
 import { HERE, t } from './i18n.js'
@@ -226,6 +227,7 @@ export class FeedbackChats extends SharedChats {
       pictures = e.picture && fs.existsSync(path.join(fb.dir, e.picture)) ? [e.picture, name] : undefined
     }
     if (b.verdict) setFeedbackReview(fb.dir, key, b.verdict, b.verdictNote || undefined)
+    if (b.dropMockups?.length) dropMockups(fb.dir, key, b.dropMockups)
     const r = writeFeedbackAnswer(fb.dir, key, {
       ...(b.state && { state: b.state }),
       ...(b.note && { note: b.note }),

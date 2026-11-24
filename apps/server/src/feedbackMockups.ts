@@ -4,6 +4,8 @@ import { FEEDBACK_MISSES, type FeedbackReply, type FeedbackRevision } from '@rw/
 import type { FeedbackAnswerBody } from '@rw/core/contract/agentChats'
 import { localDate, localTime } from './fsutil.js'
 import { t } from './i18n.js'
+import YAML from 'yaml'
+import { editYamlFile, STATUS_FILE } from './feedback.js'
 import { WorkbenchError } from './workbench.js'
 
 /**
@@ -102,4 +104,36 @@ export function answerMockups(b: FeedbackAnswerBody, worktree: string | undefine
     ...(mockups && { mockups }),
     ...(b.replies && { replies: b.replies.map((r) => { const m = copy(r.mockups); return { to: r.to, note: r.note, ...(m && { mockups: m }) } }) }),
   }
+}
+
+/**
+ * 쓰지 않게 된 시안을 그 항목의 피드백 답에서 뗀다 (11/24 사용자 「적용도 안 됐고 반영할 예정도 아니니 전후 그림만」).
+ * 피드백 답은 에이전트가 쓴 것이라 에이전트가 뗄 수 있다. 떼는 것은 mockups 칸(지금 처리 · 지난 처리 revised · 답 replies)의
+ * 그 시안 경로뿐이고, 사용자의 원문 · 판정 · 코멘트와 전후 그림(pictures)은 건드리지 않는다. 그림 파일은 지우지 않는다(이력).
+ * 이름은 시안 이름(확장자 · 날짜 없이, 예 agent-side-views). 뗀 경로 수를 돌려준다
+ */
+export function dropMockups(fbDir: string, key: string, names: string[]): number {
+  const stems = new Set(names.map((n) => n.replace(/\.[a-z]+$/i, '').replace(/^\d{4}-\d{2}-\d{2}-/, '')))
+  const hit = (p: unknown) => typeof p === 'string' && stems.has(path.basename(p, path.extname(p)).replace(/^\d{4}-\d{2}-\d{2}-\d{4}-mockup-/, ''))
+  return editYamlFile(fbDir, STATUS_FILE, (doc) => {
+    const item = doc.get(key, true)
+    if (!YAML.isMap(item)) throw new WorkbenchError(404, t('그 항목의 피드백 답이 없습니다', 'That item has no feedback answer'))
+    let n = 0
+    const clean = (m: unknown) => {
+      if (!YAML.isMap(m)) return
+      const seq = m.get('mockups', true)
+      if (!YAML.isSeq(seq)) return
+      const keep = seq.items.filter((x) => !(YAML.isScalar(x) && hit(x.value)))
+      n += seq.items.length - keep.length
+      if (keep.length) seq.items = keep
+      else m.delete('mockups')
+    }
+    clean(item)
+    for (const list of ['revised', 'replies']) {
+      const seq = item.get(list, true)
+      if (YAML.isSeq(seq)) for (const x of seq.items) clean(x)
+    }
+    if (!n) throw new WorkbenchError(400, t(`그 이름의 시안이 이 항목에 없습니다: ${[...stems].join(', ')}`, `No mockup by that name on this item: ${[...stems].join(', ')}`))
+    return n
+  })
 }

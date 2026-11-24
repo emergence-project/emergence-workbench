@@ -370,9 +370,11 @@ export const FeedbackAnswerBody = z.object({
   after: z.string().regex(/^[\w-]+$/).max(80).optional(),
   mockups: MockupNames.optional(),
   replies: z.array(z.object({ to: z.string().min(1), note: z.string().trim().min(1).max(4000), mockups: MockupNames.optional() }).strict()).max(20).optional(),
+  /** 쓰지 않게 된 시안을 이 항목의 피드백 답(지금 · revised · replies)에서 뗀다 (11/24). 그림 · 원문 · 판정 · 코멘트는 그대로 */
+  dropMockups: MockupNames.optional(),
   verdict: z.enum(FEEDBACK_VERDICTS).optional(),
   verdictNote: z.string().trim().max(4000).optional(),
-}).strict().refine((b) => b.state ? !!b.note : !!b.replies?.length || !!b.mockups?.length || !!b.verdict, { message: 'state needs note; without state send replies, mockups or verdict' })
+}).strict().refine((b) => b.state ? !!b.note : !!b.replies?.length || !!b.mockups?.length || !!b.dropMockups?.length || !!b.verdict, { message: 'state needs note; without state send replies, mockups, dropMockups or verdict' })
 export const FeedbackAnswered = z.object({ key: z.string(), state: z.string().optional(), verdict: z.string().optional(), pictures: z.array(z.string()).optional(), replies: z.number() }).strict()
 
 export type ChatScope = z.infer<typeof ChatScope>
