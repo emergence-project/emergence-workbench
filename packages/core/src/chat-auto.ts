@@ -102,8 +102,38 @@ export function segments(cmd: string): string[] {
   return out.map((s) => s.trim()).filter(Boolean)
 }
 
+/**
+ * 작은따옴표 안의 $ ` ( ) 를 가린다: 셸은 그 안을 글자 그대로 읽으므로 치환이 아니다. 가리지 않으면 아래 정규식이
+ * `echo '$(echo ' ; rm -rf x ; echo ')'`의 두 따옴표 글을 치환 하나로 짝지어, 그 사이의 명령을 통째로 가린다.
+ * 문맥을 따라간다: 큰따옴표 안에서는 ' 가 글자지만, 그 안의 $( … ) 안에서는 다시 따옴표다
+ */
+function maskLiteral(cmd: string): string {
+  let out = ''
+  // 문맥 더미: p = 따옴표 밖(맨 바깥 · $( ) 안, 값은 열린 괄호 수), d = 큰따옴표 안, b = 백틱 안
+  const stack: { k: 'p' | 'd' | 'b'; n: number }[] = [{ k: 'p', n: 0 }]
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i]!, top = stack.at(-1)!
+    if (ch === '\\' && i + 1 < cmd.length) { out += ch + cmd[++i]; continue }
+    if (ch === '$' && cmd[i + 1] === '(') { stack.push({ k: 'p', n: 0 }); out += '$('; i++; continue }
+    if (ch === '`') { if (top.k === 'b') stack.pop(); else stack.push({ k: 'b', n: 0 }); out += ch; continue }
+    if (top.k === 'd') { if (ch === '"') stack.pop(); out += ch; continue }
+    if (ch === "'") {
+      const end = cmd.indexOf("'", i + 1)
+      out += `'${cmd.slice(i + 1, end < 0 ? undefined : end).replace(/[$\`()]/g, '_')}${end < 0 ? '' : "'"}`
+      i = end < 0 ? cmd.length : end
+      continue
+    }
+    if (ch === '"') stack.push({ k: 'd', n: 0 })
+    else if (top.k === 'p' && ch === '(') top.n++
+    else if (top.k === 'p' && ch === ')') { if (top.n > 0) top.n--; else if (stack.length > 1) stack.pop() }
+    out += ch
+  }
+  return out
+}
+
 /** $( … ) · ` … ` 를 안쪽부터 하나씩 꺼내 자리표(SUBST)로 바꾼다. left = 다 풀지 못하고 남았는지 (짝이 안 맞거나 너무 깊다) */
-export function substitutions(cmd: string, o: { proc?: boolean } = {}): { inner: string[]; flat: string; left: boolean } {
+export function substitutions(raw: string, o: { proc?: boolean } = {}): { inner: string[]; flat: string; left: boolean } {
+  const cmd = maskLiteral(raw)
   const open = o.proc ? /[$<>]\(([^()`]*)\)|`([^`]*)`/ : /\$\(([^()`]*)\)|`([^`]*)`/
   const inner: string[] = []
   let flat = cmd
@@ -165,7 +195,7 @@ export function commandKind(cmd: string, o: { cwd: string; inside(abs: string): 
   if (sub.left) bump('run')
   for (const seg of segments(sub.flat)) {
     // 쓰기 돌려보내기: > 파일 · 2> 파일 · &> 파일 (2>&1 · >/dev/null은 빼고)
-    for (const m of seg.matchAll(/>>?\|?(?:&(?![\d-]))?\s*([^\s;&|<>]+)/g)) {
+    for (const m of seg.matchAll(/>>?\|?(?:&(?!(?:\d+|-)(?=[\s;&|)<>]|$)))?\s*([^\s;&|<>]+)/g)) {
       const target = m[1]!
       if (target === '/dev/null') continue
       bump(touchesOutside(target, o) ? 'outside' : 'edit')
@@ -198,7 +228,8 @@ function wrapped(prog: string, args: string[]): (string | string[])[] {
     const out: string[][] = []
     for (let i = 0; i < args.length; i++) {
       if (!/^-(exec|execdir|ok|okdir)$/.test(args[i]!)) continue
-      const end = args.findIndex((a, j) => j > i && (a === ';' || a === '+'))
+      // find는 「{} +」일 때만 +에서 끝난다: 홀로 선 +(sort -t + …) 뒤의 인자를 놓치지 않게
+      const end = args.findIndex((a, j) => j > i && (a === ';' || (a === '+' && args[j - 1] === '{}')))
       const inner = args.slice(i + 1, end < 0 ? undefined : end)
       if (inner.length) out.push(inner)
     }
@@ -218,8 +249,23 @@ function xargsCommand(args: string[]): string[] {
   return args.slice(i)
 }
 
+/** git의 전역 옵션(-C <폴더> · -c k=v 와 붙여 쓴 꼴 · 다른 -옵션)을 뗀, 하위 명령부터의 인자 */
+function gitArgs(args: string[]): string[] {
+  let i = 0
+  while (i < args.length && args[i]!.startsWith('-')) i += args[i] === '-C' || args[i] === '-c' ? 2 : 1
+  return args.slice(i)
+}
+
 function kindOf(prog: string, args: string[]): ChatKind {
   if (prog === 'git') {
+    // -C <폴더> · -c k=v 의 값은 하위 명령이 아니다: 건너뛰고 찾는다 (git -C . clean -fdx)
+    const bare = gitArgs(args)
+    if (bare.length !== args.length) {
+      const k = kindOf('git', bare)
+      // -c k=v 는 pager · 편집기 같은 프로그램을 바꿔 돌릴 수 있다: 읽는 하위 명령이어도 실행으로
+      const config = args.slice(0, args.length - bare.length).some((a) => a === '-c' || a.startsWith('--config-env'))
+      return config && WEIGHT[k] < WEIGHT.run ? 'run' : k
+    }
     const sub = args.find((a) => !a.startsWith('-')) ?? ''
     if (GIT_OUTSIDE.has(sub)) return 'outside'
     if (GIT_DELETE.has(sub)) {
@@ -254,7 +300,8 @@ function kindOf(prog: string, args: string[]): ChatKind {
   const positional = args.filter((a) => !a.startsWith('-'))
   const shortHas = (ch: string) => args.some((a) => /^-[a-zA-Z]+/.test(a) && a.slice(1).includes(ch))
   // sed: -i와 w 명령(파일 쓰기)
-  if (prog === 'sed') return args.some((a) => /^-i/.test(a) || a === '--in-place' || (!a.startsWith('-') && /(^|[;{}/\s])w\s+[^\s;]/.test(a))) ? 'edit' : 'read'
+  // -Ei · -ni처럼 붙여 쓴 꼴과 주소 뒤의 w(1,5w 파일 · $w 파일)도
+  if (prog === 'sed') return args.some((a) => /^-[a-zA-Z]*i/.test(a) || /^--in-place/.test(a) || (!a.startsWith('-') && /(^|[;{}/\s\d$!])w\s+[^\s;]/.test(a))) ? 'edit' : 'read'
   // awk의 system() · 명령으로 잇기(| · getline) · 파일 쓰기는 실행으로
   if (prog === 'awk') return args.some((a) => /system\s*\(|getline|\|\s*"|"\s*\||print[^;}|]*>/.test(a)) ? 'run' : 'read'
   if (prog === 'find') {
@@ -266,7 +313,7 @@ function kindOf(prog: string, args: string[]): ChatKind {
   if (prog === 'rg' && args.some((a) => /^--(pre|hostname-bin)(=|$)/.test(a))) return 'run'
   if (prog === 'sort' && args.some((a) => /^--compress-program/.test(a))) return 'run'
   if (prog === 'sort' && (shortHas('o') || args.some((a) => /^--output(=|$)/.test(a)))) return 'edit'
-  if (prog === 'tree' && args.some((a) => /^-(o|R)/.test(a))) return 'edit'
+  if (prog === 'tree' && args.some((a) => /^-[a-zA-Z]*[oR]/.test(a))) return 'edit'
   if (prog === 'uniq' && positional.length > 1) return 'edit'
   if (prog === 'xxd' && shortHas('r')) return 'edit'
   if (prog === 'yq' && (shortHas('i') || args.some((a) => /^--inplace/.test(a)))) return 'edit'
@@ -314,7 +361,7 @@ function normalize(abs: string): string {
 function programName(w: string[]): string {
   const prog = w[0]!.split('/').pop()!
   if (/^(npm|pnpm|yarn|bun|uv|make|cargo|go)$/.test(prog)) return [prog, ...w.slice(1).filter((a) => !a.startsWith('-')).slice(0, prog === 'npm' && w[1] === 'run' ? 2 : 1)].join(' ')
-  if (prog === 'git') return ['git', w.slice(1).find((a) => !a.startsWith('-')) ?? ''].join(' ').trim()
+  if (prog === 'git') return ['git', gitArgs(w.slice(1)).find((a) => !a.startsWith('-')) ?? ''].join(' ').trim()
   return prog
 }
 

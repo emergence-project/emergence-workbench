@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { stateOnlyCommand } from './chat-readonly.js'
+import { stateOnlyCommand, touchesSecret } from './chat-readonly.js'
 
 describe('상태만 보는 명령 (중앙 대화)', () => {
   it('상태만 보는 명령은 이어도 묻지 않는다', () => {
@@ -158,4 +158,38 @@ describe('셸이 낱말을 펼쳐 판정을 비켜 가는 길 (11/21 보안 검�
     for (const c of ['git log \\\n --oneline -3', 'rg --glob=*.ts foo', 'find . -name "*.txt" -exec uniq {} \\;', 'find . -name "*.md" -exec wc -l {} +', "echo 'a\\\nb'"]) ok(c)
   })
 
+})
+
+describe('묻지 않고 지나가던 꼴 (11/24 검토)', () => {
+  it('작은따옴표 안의 $( · 백틱 사이에 낀 명령, find -exec의 홀로 선 +, 붙여 쓴 짧은 옵션, >&2file', () => {
+    for (const c of [
+      "echo '$(echo ' ; rm -rf x ; echo ')'",
+      "echo '`echo ' ; rm -rf x ; echo '`'",
+      'find f.txt -exec sort -t + -o out.txt {} \\;',
+      'find . -maxdepth 0 -exec git log -S + --output=victim.txt \\;',
+      'git grep -lOrm TODO',
+      'tree -ao out.txt',
+      'ps -axE',
+      'echo x >&2file',
+      'echo x >&2026-11-24.md',
+    ]) expect(stateOnlyCommand(c), c).toBe('no')
+  })
+  it('보통 꼴은 그대로 지나간다', () => {
+    for (const c of [
+      "find . -name '*.ts' -exec grep -l foo {} +",
+      "echo '$(date)'",
+      'echo x >&2',
+      'ls 2>&1',
+      'git grep -n TODO',
+      'tree -a',
+      'ps -ax',
+    ]) expect(stateOnlyCommand(c), c).toBe('ok')
+  })
+})
+
+describe('비밀이 든 곳을 건드리는 명령 (자동 모드에서 한 번 묻는다)', () => {
+  it('명령 줄의 낱말마다 본다: 앞에 ./ 가 없어도, cd로 들어가도', () => {
+    for (const c of ['cat .env', 'grep KEY .env.local', 'cat ~/.netrc | grep machine', 'cd ~/.aws && cat config', 'cat ./.env', '/u/p/.env']) expect(touchesSecret(c), c).toBe(true)
+    for (const c of ['cat README.md', 'ls src/environment.ts', 'pnpm test', 'echo .envrc-notes']) expect(touchesSecret(c), c).toBe(false)
+  })
 })

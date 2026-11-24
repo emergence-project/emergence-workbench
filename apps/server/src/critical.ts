@@ -7,7 +7,7 @@
  */
 export const CRITICAL = [
   // squash 합치기는 중앙 · 하위 대화가 CI 통과 뒤 직접 한다 (11/19 "중앙은 깃 편집 권한"): squash가 아닌 합치기와 main에 바로 푸시만 남긴다
-  { key: 'merge', ko: 'squash가 아닌 PR 합치기 · main에 바로 푸시', en: 'merging a pull request other than by squash, or pushing straight to main', re: /\bgh\s+pr\s+merge\b(?!.*(--squash\b|\s-s\b))|\bgit\s+push\b.*\b(main|master)\b/i },
+  { key: 'merge', ko: 'squash가 아닌 PR 합치기 · main에 바로 푸시', en: 'merging a pull request other than by squash, or pushing straight to main', re: /\bgh\s+pr\s+merge\b(?!.*(--squash\b|\s-s\b))|\bgit(?:\s+(?:-[Cc]\s+\S+|--?[\w-]+(?:=\S+)?))*\s+push\b.*\b(main|master)\b/i },
   { key: 'restart', ko: '앱 다시 시작', en: 'restarting the app', re: /service:restart|launchctl|\brestart\b|다시 시작|재시작/i },
   { key: 'delete', ko: '지우기 · 덮어쓰기', en: 'deleting or overwriting', re: /\brm\s|\brmdir\b|\bgit\s+(reset\s+--hard|clean|checkout\s+--|restore)\b|--force\b|\bpush\s+-f\b|overwrite|덮어|지우/i },
   { key: 'outside', ko: '외부로 내보내기', en: 'sending something outside', re: /\b(curl|wget|scp|rsync|ssh)\b|\bnpm\s+publish\b|\bgh\s+(issue|release|gist|api|pr\s+(comment|review|close|edit))\b/i },

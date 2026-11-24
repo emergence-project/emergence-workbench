@@ -60,6 +60,46 @@ describe('명령이 하는 일', () => {
   })
 })
 
+describe('묻지 않고 지나가던 꼴 (11/24 검토)', () => {
+  it('작은따옴표 안의 $( · 백틱은 치환이 아니다: 그 사이에 낀 명령을 가리지 않는다', () => {
+    expect(k("echo '$(echo ' ; rm -rf x ; echo ')'")).toBe('delete')
+    expect(k("echo '`echo ' ; rm -rf x ; echo '`'")).toBe('delete')
+    expect(k(`echo "$(echo '$(echo ' ; rm -rf x ; echo ')')"`)).toBe('delete')
+    // 보통 꼴은 그대로
+    expect(k("echo '$(date)'")).toBe('read')
+    expect(k('echo "$(date)"')).toBe('read')
+    expect(k(`echo "it's $(date)"`)).toBe('read')
+    expect(k('echo "$(rm -rf x)"')).toBe('delete')
+  })
+  it('git -C <폴더> · -c k=v 뒤의 하위 명령을 본다', () => {
+    expect(k('git -C . clean -fdx')).toBe('delete')
+    expect(k('git -C . reset --hard HEAD~3')).toBe('delete')
+    expect(k('git -C . push --force origin main')).toBe('outside')
+    expect(k('git -c core.pager=cat push origin HEAD')).toBe('outside')
+    expect(k('git -C . status')).toBe('read')
+    expect(k('git --no-pager log -3')).toBe('read')
+    expect(k('git -c core.pager=cat log')).toBe('run')
+  })
+  it('find -exec는 「{} +」일 때만 +에서 끝난다: 홀로 선 + 뒤의 인자도 본다', () => {
+    expect(k('find . -exec rm -rf + x {} \\;')).toBe('delete')
+  })
+  it('붙여 쓴 짧은 옵션: sed -Ei · sed의 주소 뒤 w · tree -ao', () => {
+    expect(k("sed -Ei '' 's/a/b/' file.txt")).toBe('edit')
+    expect(k("sed -ni 's/a/b/p' file.txt")).toBe('edit')
+    expect(k("sed -n '1,5w out.txt' f")).toBe('edit')
+    expect(k("sed -n '1,5p' f")).toBe('read')
+    expect(k("sed -E 's/a/b/' f")).toBe('read')
+    expect(k('tree -ao out.txt')).toBe('edit')
+    expect(k('tree -a')).toBe('read')
+  })
+  it('>&2file은 fd 복제가 아니라 파일에 쓰기', () => {
+    expect(k('echo x >&2file')).toBe('edit')
+    expect(k('echo x >&2026-11-24.md')).toBe('edit')
+    expect(k('echo x >&2')).toBe('read')
+    expect(k('ls 2>&1 | head')).toBe('read')
+  })
+})
+
 describe('토글 기본값', () => {
   it('권한 이름마다', () => {
     expect(presetAuto('read', 'ask')).toEqual({ read: true, run: false, web: false })
