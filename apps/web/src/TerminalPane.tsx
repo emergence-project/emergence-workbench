@@ -8,7 +8,7 @@ import { TerminalOutput, terminalApi, type TerminalInput } from './api'
 import { sendToAgent } from './ChatComposer'
 import { t } from './i18n'
 import { Icon } from './icons'
-import { openRight } from './noteScreen'
+import { leaveTerminal, openRight } from './noteScreen'
 import { qk } from './queries'
 
 /** 이 화면에서 터미널을 쓸 수 있는지 (모르는 동안은 false) */
@@ -30,6 +30,11 @@ export function putInTerminal(text: string) {
   waiting = text.replace(/\s+$/, '')
   openRight('terminal')
   window.dispatchEvent(new CustomEvent(TERMINAL_PUT))
+}
+
+/** 오른쪽 사이드바 터미널의 닫기: 터미널 갈래에는 갈래 아이콘 줄이 없어, 이 단추가 정보 · 기록 · 에이전트로 돌아가는 길이다 (셸은 그대로 둔다) */
+export function SideTerminalClose() {
+  return <button className="icon-btn sm" data-ui="터미널 닫기" data-tip={t('닫기 (셸은 그대로)', 'Close (the shell keeps running)')} aria-label={t('닫기', 'Close')} onClick={leaveTerminal}>{Icon.x}</button>
 }
 
 type State = { k: 'connecting' } | { k: 'open'; cwd: string } | { k: 'exit'; code: number } | { k: 'error'; message: string } | { k: 'closed' }

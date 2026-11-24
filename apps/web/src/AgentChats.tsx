@@ -731,7 +731,7 @@ export function WorkColumn({ id, onSaved, tab = 'info', tabs }: { id: string; on
     <WorkAside>
       {tabs}
       {tab === 'changes' ? (hasEdits && !chat.machine ? <><h3>{t('변경사항', 'Changes')}</h3><Changes chat={chat} onSaved={onSaved} /></> : <span className="muted ac-hint">{t('아직 변경사항이 없습니다', 'Nothing has changed yet')}</span>)
-        : tab === 'review' ? <ReviewPane chat={chat} onError={onSaved} />
+        : tab === 'review' && isClaude(chat.agent) && !chat.machine ? <ReviewPane chat={chat} onError={onSaved} />
           : <>
       <ChatInfo chat={chat} />
       <section data-ui="잡은 파일">

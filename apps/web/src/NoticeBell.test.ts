@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ChatRow } from './api'
+import type { ChatRow, FeedbackItem } from './api'
 import { isUnseenIn, type Seen } from './agentSeen'
 import { needCount, noticesOf, unread } from './NoticeBell'
 
@@ -87,5 +87,18 @@ describe('알림 종: 읽은 소식은 빠진다 (11/23 피드백 "읽고 나서
     }, now)
     const seen = [list.find((n) => n.text === '읽은 오류')!.key, list.find((n) => n.need)!.key]
     expect(unread(list, seen).map((n) => n.text)).toEqual(['물음', '새 오류'])
+  })
+})
+
+describe('알림 종: 피드백은 결정할 것만 답할 것 (11/23 결정 필요 · 확인만)', () => {
+  const item = (key: string, o: Partial<FeedbackItem>) => ({ key, n: 1, date: '2026-11-19', time: '09:00', kind: '수정', target: '홈', text: key, ...o }) as FeedbackItem
+  it('결정을 묻는 답은 답할 것, 결과를 알린 답(확인만)은 소식: 종의 수가 레일의 피드백 수와 같다', () => {
+    const list = noticesOf({ feedback: [
+      item('묻는 답', { status: { state: '확인 필요', ask: '폴더까지 지울까요?', handled_at: '2026-11-19T10:00' } }),
+      item('알린 답', { status: { state: '반영', handled_at: '2026-11-19T11:00' } }),
+      item('처리 전', {}),
+    ] }, now)
+    expect(list.map((n) => [n.text, n.need])).toEqual([['묻는 답', true], ['알린 답', false]])
+    expect(needCount(list)).toBe(1)
   })
 })

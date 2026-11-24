@@ -87,6 +87,8 @@ export function MemoComposer({ target, targetLabel, autoFocus, compact, keepDraf
     setBusy(true)
     try {
       await onSave(todo ? 'todo' : 'memo', text.trim(), target)
+      // 저장하면 창이 먼저 닫혀(QuickMemo) 아래 setText가 닿지 않는다: 적던 글을 여기서 지운다
+      if (keepDraft) quickDrafts.delete(target)
       setText(''); setTodo(false); setError(null)
     } catch (e) {
       setError((e as Error).message)
