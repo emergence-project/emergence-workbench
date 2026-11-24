@@ -42,7 +42,8 @@ export interface AppWork {
   /** 그 브랜치의 PR이 main과 부딪혀 합칠 수 없는지 (모르면 false) */
   conflicted?(dir: string, branch: string): Promise<boolean>
   /** 그 브랜치의 PR을 누가(사용자 · 다른 대화) 이미 합쳤으면 그 번호와 합친 커밋 (중앙이 하위 대화를 닫으려고). 아니면 없음 */
-  prMerged?(dir: string, branch: string): Promise<{ number: number; sha: string } | undefined>
+  /** number: 그 대화가 지금 연 PR. 같은 브랜치로 PR을 다시 열면(합친 뒤 다시 맡긴 대화) 옛 합쳐진 PR이 먼저 나오므로 번호로 가린다 */
+  prMerged?(dir: string, branch: string, number?: number): Promise<{ number: number; sha: string } | undefined>
   /** 그 브랜치의 마지막 CI가 찍은 화면 그림 하나 (산출물 shots의 <name>.png). 없으면 null */
   shot(dir: string, branch: string, name: string): Promise<Buffer | null>
   /** 관리자 개인 규칙 파일 (맥 사본이 있으면 안내에 적는다) */
@@ -300,9 +301,9 @@ export function appWorktrees(root: string, base: string, rules?: string, profile
       const v = JSON.parse(await gh(dir, ['pr', 'view', String(pr.number), '--json', 'mergeable'])) as { mergeable?: string }
       return v.mergeable === 'CONFLICTING'
     },
-    async prMerged(dir, branch) {
+    async prMerged(dir, branch, number) {
       // 오래된 대화는 작업 폴더가 지워졌을 수 있다: 그때는 앱 저장소에서 묻는다 (11/20, 10/22 대화가 합쳐진 PR로 파일을 계속 잡음)
-      const m = MergedPrs.parse(JSON.parse(await gh(fs.existsSync(dir) ? dir : root, ['pr', 'list', '--state', 'merged', '--head', branch, '--json', 'number,mergeCommit'])))[0]
+      const m = MergedPrs.parse(JSON.parse(await gh(fs.existsSync(dir) ? dir : root, ['pr', 'list', '--state', 'merged', '--head', branch, '--json', 'number,mergeCommit']))).find((x) => number === undefined || x.number === number)
       return m && { number: m.number, sha: m.mergeCommit?.oid ?? '' }
     },
     async shot(dir, branch, name) {

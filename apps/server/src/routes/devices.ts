@@ -121,7 +121,8 @@ export function registerDevices(app: FastifyInstance, ctx: RouteContext, deps: D
     const rec = parseBody(C.DeviceBeat, req.body)
     const { logout, feedback, drop } = hub.beat(rec)
     const me = { ...deviceForBackup(ctx), this: false, online: true, live: true, server: true }
-    return { devices: [me, ...hub.live().filter((d) => d.name !== rec.name)], logout, ...(feedback.length && { feedback }), ...(drop.length && { drop }) }
+    // 서버 자신은 맨 앞의 지금 값 하나만: 「이 기기를 서버로」 때 한 번 넣은 낡은 줄이 뒤에 또 실리면 받는 쪽이 그것으로 덮어 서버가 꺼진 것으로 보인다
+    return { devices: [me, ...hub.live().filter((d) => d.name !== rec.name && d.name !== me.name)], logout, ...(feedback.length && { feedback }), ...(drop.length && { drop }) }
   })
   app.post('/api/devices/remote-logout', replies(C.DeviceOk), async (req): Promise<C.DeviceOk> => {
     checkKey(req)
