@@ -42,7 +42,7 @@ const GIT: Record<string, Rule> = {
   worktree: (a) => a[0] === 'list',
   submodule: (a) => a.length === 0 || a[0] === 'status',
   // -O · --open-files-in-pager는 지정한 프로그램을 돌린다
-  grep: (a) => !a.some((x) => /^-O/.test(x) || longOpt('--open-files-in-pager')(x)),
+  grep: (a) => !a.some((x) => /^-[a-zA-Z]*O/.test(x) || longOpt('--open-files-in-pager')(x)),
   branch: (a) => a.every((x) => /^(-a|-r|-v|-vv|--all|--remotes|--list|-l|--show-current|--verbose)$/.test(x)),
   remote: (a) => a.length === 0 || a.every((x) => x === '-v') || /^(show|get-url)$/.test(a[0] ?? ''),
   reflog: (a) => a.length === 0 || a[0] === 'show' || a[0]!.startsWith('-'),
@@ -145,7 +145,8 @@ const findRule: Rule = (a) => {
     const x = a[i]!
     if (/^-(ok|okdir|delete|fprint|fprint0|fprintf|fls)$/.test(x)) return false
     if (x !== '-exec' && x !== '-execdir') continue
-    const end = a.findIndex((y, j) => j > i && (y === ';' || y === '+'))
+    // find는 「{} +」일 때만 +에서 끝난다: 홀로 선 +(sort -t + -o 파일) 뒤의 인자를 놓치지 않게
+    const end = a.findIndex((y, j) => j > i && (y === ';' || (y === '+' && a[j - 1] === '{}')))
     if (end < 0) return false
     const [prog, ...args] = a.slice(i + 1, end)
     if (!prog || prog === 'find' || (prog.includes('/') && !/^\/(usr\/)?bin\/[^/]+$/.test(prog))) return false
@@ -267,7 +268,7 @@ const PROGRAMS: Record<string, Rule> = {
   // 파일을 쓰거나 다른 프로그램을 돌리는 옵션은 뺀다. 짧은 옵션은 붙여 쓴 꼴(-ofile · -uo)도 막는다
   sort: (a) => !a.some((x) => longOpt('--output', '--compress-program')(x) || /^-[a-zA-Z]*o/.test(x)),
   // -R은 폴더마다 -o 00Tree.html을 쓴다
-  tree: (a) => !a.some((x) => /^-(o|R)/.test(x)),
+  tree: (a) => !a.some((x) => /^-[a-zA-Z]*[oR]/.test(x)),
   rg: without('--pre', '--hostname-bin'),
   // -C는 magic 파일을 컴파일해 쓴다
   file: (a) => !a.some((x) => /^-[a-zA-Z]*C/.test(x) || longOpt('--compile')(x)),
@@ -278,7 +279,7 @@ const PROGRAMS: Record<string, Rule> = {
   find: findRule,
   sysctl: (a) => !a.some((x) => x.includes('=') || /^-\w*w/.test(x)),
   // ps e · -E는 다른 프로세스의 환경 변수(열쇠)를 보인다
-  ps: (a) => !a.some((x) => x === '-E' || x.includes('$') || (!x.startsWith('-') && /e/.test(x))),
+  ps: (a) => !a.some((x) => /^-[a-zA-Z]*E/.test(x) || x.includes('$') || (!x.startsWith('-') && /e/.test(x))),
   top: (a) => a.includes('-l'),
   // -l은 실제로 메모리 압박을 건다
   memory_pressure: (a) => a.length === 0 || (a.length === 1 && a[0] === '-Q'),
@@ -302,10 +303,11 @@ const SECRET = /(^|\/)\.(ssh|aws|gnupg|netrc|docker|kube)(\/|$)|\.config\/gh(\/|
 /** 앱의 개인 설정 · 대화 기록 폴더와 키체인 꺼내기: 자동 모드에서도 읽기 전에 한 번 묻는다 (11/23) */
 const APP_SECRET = /research-workspace\/personal\/_(settings|chats)(\/|$)|\bsecurity\s+(find|dump|export)-/
 /** 경로나 명령이 비밀이 든 곳을 건드리는지 (자동 모드의 읽기 · 명령 판정) */
-export const touchesSecret = (text: string) => SECRET.test(text) || APP_SECRET.test(text)
+/** 명령 줄이면 낱말마다도 본다: SECRET은 경로의 처음(^)을 보므로 줄 전체에 대면 `cat .env` · `cd ~/.aws`를 놓친다 */
+export const touchesSecret = (text: string) => SECRET.test(text) || APP_SECRET.test(text) || (/\s/.test(text) && text.split(/[\s'"=;|&<>()]+/).some((w) => !!w && SECRET.test(w)))
 
 /** 파일로 쓰지 않는 돌려보내기 (오류를 합치기 · 버리기) */
-const HARMLESS_REDIRECT = /(?:\d?>&\d|&>\s*\/dev\/null|\d?>>?\s*\/dev\/null)/g
+const HARMLESS_REDIRECT = /(?:\d?>&\d+(?=[\s;&|)<>]|$)|&>\s*\/dev\/null|\d?>>?\s*\/dev\/null)/g
 
 /** 따옴표 안과 \\ 뒤 글자를 지운 글 (문법 기호를 찾을 때). \\" 는 따옴표를 열지 않는다 */
 function bare(cmd: string): string {

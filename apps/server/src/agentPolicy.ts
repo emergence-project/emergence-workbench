@@ -146,7 +146,8 @@ export function describeStep(ctx: Pick<PolicyCtx, 'rid' | 'scope' | 'repo'>, too
  * 앱 고치기 대화에서 에이전트가 직접 하지 않는 명령: 올리기 · PR · 합치기는 앱이(app_submit · app_merge, 합치기 설정),
  * 실사용 앱 서비스는 사용자가 다룬다. 나머지(시험 · 형식 검사 · 화면 그림 · 커밋 · main 받기)는 작업 폴더에서 돌린다.
  */
-export const APP_OWNED = /\bgit\s+push\b|\bgh\s+(pr|release|repo|workflow|api)\b|\bservice:|\blaunchctl\b|\bgit\s+worktree\b/
+// git과 하위 명령 사이의 전역 옵션(-C <폴더> · -c k=v · --no-pager)을 건너뛴다: `git -C . push`가 비켜 가지 않게
+export const APP_OWNED = /\bgit(?:\s+(?:-[Cc]\s+\S+|--?[\w-]+(?:=\S+)?))*\s+(push|worktree)\b|\bgh\s+(pr|release|repo|workflow|api)\b|\bservice:|\blaunchctl\b/
 
 /**
  * 중앙 대화 (11/16 "중앙 에이전트"): 읽기와 하위 대화 열기 · 보내기 · 닫기만. 고치기 · 명령 · 기록 쓰기는 막고,
@@ -406,7 +407,8 @@ function judgeCommand(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
 }
 
 /** pnpm install --frozen-lockfile: 잠금 파일 그대로 까는 것이라 새 꾸러미를 받지 않는다 (작업 폴더를 처음 열 때) */
-const FROZEN_INSTALL = /^\s*pnpm\s+(install|i)\s+(--[\w-]+\s*)*$/
+// (--옵션\s*)* 꼴은 맞지 않는 긴 줄에서 되짚기가 폭발한다(옵션 28개에 6초): 옵션 사이 빈칸을 꼭 하나 이상으로
+const FROZEN_INSTALL = /^\s*pnpm\s+(install|i)(\s+--[\w-]+)*\s*$/
 
 /**
  * 자동 모드의 명령 (11/23 사용자 "클로드 자동 모드처럼"): 읽기는 어디든, 작업 폴더 안의 편집 · 실행은 묻지 않는다.
