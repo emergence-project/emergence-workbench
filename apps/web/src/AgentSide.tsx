@@ -10,7 +10,8 @@ import { CENTRAL_PAGE, CentralLine } from './CentralChat'
 import { t } from './i18n'
 import { screenLine } from './screenView'
 import { Icon } from './icons'
-import { useOfferRightModes, useRightMode, type RightMode } from './noteScreen'
+import { useRightMode, type RightMode } from './noteScreen'
+import { RightModeTabs } from './RightModeTabs'
 import { qk } from './queries'
 import { go } from './router'
 import { store } from './store'
@@ -95,17 +96,17 @@ function useChatRid(id: string | undefined): string | null {
   return list.find((c) => c.id === id)?.rid ?? CENTRAL_RID
 }
 
-/** 자기 오른쪽 사이드바가 있는 화면(지식 · 논문 · 그림 첫 화면, 소개의 이력 · 수정)의 사이드바: 상단바의 갈래 아이콘(정보 · 에이전트, 11/21 안 A)으로 그 화면 정보와 에이전트를 오간다.
- *  터미널은 상단바 아이콘에 없다(11/23: 에이전트 대화 창 안). 코드 블록 「터미널에서 실행」만 이 칸을 터미널로 연다.
+/** 자기 오른쪽 사이드바가 있는 화면(지식 · 논문 · 그림 첫 화면, 소개의 이력 · 수정)의 사이드바: 사이드바 맨 위 갈래 아이콘(정보 · 에이전트, 11/24 RightModeTabs)으로 그 화면 정보와 에이전트를 오간다.
+ *  터미널은 갈래 아이콘에 없다(11/23: 에이전트 대화 창 안). 코드 블록 「터미널에서 실행」만 이 칸을 터미널로 연다.
  *  고른 갈래는 노트 화면의 오른쪽 사이드바 갈래와 같은 기억(noteScreen) */
 export function InfoOrAgent({ ui, onSaved, infoClass, children }: { ui: string; onSaved(m: string): void; infoClass?: string; children: ReactNode }) {
   const chosen = useRightMode()
   const term = useSideTerminal(chosen)
   const mode: RightMode = chosen === 'agent' || term.on ? chosen : 'info'
   const side = mode !== 'info'
-  useOfferRightModes(['info', 'agent'], mode)
   return (
     <aside className={`kh-side kh-side-tabs${side ? ' kh-side-agent' : infoClass ? ` ${infoClass}` : ''}`} data-ui={mode === 'agent' ? '에이전트 사이드바' : mode === 'terminal' ? '터미널 사이드바' : ui}>
+      {mode !== 'terminal' && <RightModeTabs modes={['info', 'agent']} mode={mode} />}
       {mode === 'agent' ? <GlobalAgentPanel onSaved={onSaved} /> : mode === 'info' && children}
       {term.pane}
     </aside>
@@ -118,7 +119,6 @@ export function AgentSideBody({ onSaved, terminalOnly, chatId }: { onSaved(m: st
   const chosen = useRightMode()
   const chatRid = useChatRid(terminalOnly ? chatId : undefined)
   const term = useSideTerminal(terminalOnly ? 'terminal' : chosen, chatRid)
-  useOfferRightModes(terminalOnly ? ['terminal'] : ['agent'], terminalOnly || term.on ? 'terminal' : 'agent')
   if (terminalOnly) return term.pane
   return <>
     {!term.on && <GlobalAgentPanel onSaved={onSaved} />}

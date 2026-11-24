@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { papersApi, type PaperPeek } from './api'
 import { t } from './i18n'
+import { InfoOrAgent } from './AgentSide'
 import { PdfElsewhere } from './PdfElsewhere'
 import { PdfView } from './PdfView'
 import { PAPERS_CHANGED } from './PapersPage'
@@ -19,7 +20,7 @@ export function readPaper(p: { id: string; title: string; authors: string[] }) {
   go({ page: 'shelf', read: p.id })
 }
 
-export function PaperRead({ id, onSaved }: { id: string; onSaved(m: string): void }) {
+export function PaperRead({ id, rightOpen, onSaved }: { id: string; rightOpen: boolean; onSaved(m: string): void }) {
   const [peek, setPeek] = useState<PaperPeek | null>(null)
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -44,7 +45,7 @@ export function PaperRead({ id, onSaved }: { id: string; onSaved(m: string): voi
     } catch (e) { onSaved(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
   }
   return (
-    <main className="stage full pl with-side pl-open" data-ui="넣기 전 논문">
+    <main className={`stage full pl pl-open${rightOpen ? ' with-side' : ''}`} data-ui="넣기 전 논문">
       <section className="pane">
         <div className="pane-head" data-ui="머리줄">
           <span className="crumb"><button className="a" onClick={() => go({ page: 'shelf' })}>{t('논문', 'Papers')}</button> › <b title={title}>{title}</b></span>
@@ -56,7 +57,8 @@ export function PaperRead({ id, onSaved }: { id: string; onSaved(m: string): voi
           ? <PdfView url={papersApi.peekPdfUrl(arxiv)} highlight={NO_BOXES} onPick={() => undefined} sideToc={`read:${arxiv}`} />
           : <div className="scroll pr-none"><p className="empty">{t('arXiv 논문이 아니어서 넣기 전에는 PDF를 받지 않습니다.', 'Not an arXiv paper, so no PDF before adding.')} <PdfElsewhere doi={peek?.doi ?? id} title={title} /></p></div>}
       </section>
-      <aside className="pane pl-rs" data-ui="넣기 전 논문 정보" aria-label={t('논문 정보', 'Paper info')}>
+      {/* 정보 칸은 오른쪽 사이드바의 정보 갈래 (11/24): 상단바 단추로 여닫고, 맨 위 아이콘 줄로 에이전트와 오간다 */}
+      {rightOpen && <InfoOrAgent ui="넣기 전 논문 정보" infoClass="pl-rs" onSaved={onSaved}>
         <div className="scroll pr-info">
           <h2 className="pr-title">{title}</h2>
           {authors.length > 0 && <p className="muted">{authors.join(', ')}</p>}
@@ -67,7 +69,7 @@ export function PaperRead({ id, onSaved }: { id: string; onSaved(m: string): voi
           <p className="muted">{[arxiv && `arXiv:${arxiv}`, peek?.doi && `doi:${peek.doi}`].filter(Boolean).join(' · ')}</p>
           <p className="muted pr-hint">{t('하이라이트 · 메모는 「＋ 추가」로 넣은 뒤에 씁니다.', 'Highlights and memos work after "＋ Add".')}</p>
         </div>
-      </aside>
+      </InfoOrAgent>}
     </main>
   )
 }

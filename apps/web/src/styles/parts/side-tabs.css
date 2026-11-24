@@ -1,5 +1,5 @@
 /* 사이드바 맨 위 탭 (10/18 결정 "사이드바 탭과 수"): 왼쪽 "프로젝트 | 목차" · "지식 | 목차"(SectionToc.tsx).
-   (오른쪽 사이드바 갈래는 11/21부터 상단바 아이콘 .tb-modes, TopBar.tsx.) 사이드바마다 같은 자리 · 같은 크기이고 탭은 폭에 꽉 찬다. 목차가 없는 화면에서는 "목차"가 흐리다(.segmented button:disabled) */
+   (오른쪽 사이드바 갈래는 아래 .rs-modes.) 사이드바마다 같은 자리 · 같은 크기이고 탭은 폭에 꽉 찬다. 목차가 없는 화면에서는 "목차"가 흐리다(.segmented button:disabled) */
 .side-tabbar { flex: none; padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--line); }
 .segmented.full { display: flex; width: 100%; }
 .segmented.full > button { flex: 1; justify-content: center; min-width: 0; white-space: nowrap; }
@@ -8,3 +8,9 @@
 /* 목차 탭: 사이드바 높이를 모두 쓴다 */
 .side-toc.side-toc-full { flex: 1 1 0; min-height: 0; margin: 0; padding-left: 0; border-left: 0; overflow-y: auto; }
 .side-toc-full .toc-row { flex: none; }
+/* 오른쪽 사이드바 맨 위 갈래 아이콘 줄 (11/24 「상단바에는 늘 필요한 것만」, RightModeTabs.tsx): 정보 · 기록 · 에이전트.
+   단추 모양은 에이전트 대화 창의 아이콘 줄(.ac-side-tab)과 같고, 칸의 옆 여백을 넘어 경계선이 끝까지 간다 */
+.rs-modes { flex: none; display: flex; align-items: center; gap: 2px; padding: var(--sp-1) var(--sp-2); border-bottom: 1px solid var(--line); }
+.kh-side > .rs-modes { margin: calc(-1 * var(--sp-5)) calc(-1 * var(--sp-4)) 0; }
+.kh-side.kh-side-agent > .rs-modes { margin: calc(-1 * var(--sp-3)) 0 0; }
+.kh-side.about-rs > .rs-modes { margin: 0; }
