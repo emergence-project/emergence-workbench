@@ -6,7 +6,7 @@ import crypto from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import { CENTRAL_RID, type ChatMode, type ChatScope, type ChatWrite } from '@rw/core/contract/agentChats'
-import { autoOf, commandKind, LIBRARY_RID, neverBypass, runProgram, runPrograms, stateOnlyCommand, touchesSecret, type ChatAutoValues, type ChatKind, type NeverBypass } from '@rw/core'
+import { autoOf, commandKind, LIBRARY_RID, neverBypass, writesFiles, runProgram, runPrograms, stateOnlyCommand, touchesSecret, type ChatAutoValues, type ChatKind, type NeverBypass } from '@rw/core'
 import { commandCritical } from './critical.js'
 import { isInside } from './fsutil.js'
 import { t } from './i18n.js'
@@ -156,7 +156,7 @@ export const APP_OWNED = /\bgit\s+push\b|\bgh\s+(pr|release|repo|workflow|api)\b
  * 파일을 바꾸는 checkout · merge · pull · stash 등은 막힌다. 중앙이 띄운 보조 에이전트도 같은 판정을 거친다.
  * 그 밖(웹 등)은 보통 규칙대로. undefined = 보통 규칙으로.
  * 우회 (11/20 "언제나 막기보다 사용자 허락으로 푸는 길"): 목록에 없는 명령은 막지 않고 명령 · 까닭 · 폴더를 보이며 묻는다.
- * 허락은 한 번, 또는 이 대화에서 바로 그 명령만 늘. 자동 허락 · 시간 초과 기본값은 없고, neverBypass는 허락해도 막는다
+ * 허락은 한 번, 또는 이 대화에서 바로 그 명령만 늘. 자동 허락 · 시간 초과 기본값은 없고, neverBypass와 임시 폴더 밖 파일 쓰기(writesFiles, 11/24)는 허락해도 막는다
  */
 function judgeCentral(ctx: PolicyCtx, tool: string, input: Record<string, unknown>): Verdict | undefined {
   const name = tool.startsWith(MCP) ? tool.slice(MCP.length) : ''
@@ -167,6 +167,8 @@ function judgeCentral(ctx: PolicyCtx, tool: string, input: Record<string, unknow
     if (seen === 'sensitive') return { kind: 'ask', summary: clip(cmd), key: `Bash:${cmd}`, label: t(`비밀이 든 곳 읽기 · ${clip(cmd, 80)}`, `Read secrets · ${clip(cmd, 80)}`), does: 'read', once: true }
     const never = neverBypass(cmd)
     if (never) return neverVerdict(never)
+    // 파일 쓰기는 허락으로도 풀지 않는다 (11/24: 중앙이 우회로 앱 코드를 heredoc으로 쓰며 명령마다 허락을 물었다). 임시 폴더는 된다
+    if (writesFiles(cmd)) return centralWrites
     if (cmd.trim()) return bypassAsk(ctx, cmd, str(input.description))
   }
   const writes = name ? RESEARCH_WRITES.has(name) || name === APP_SUBMIT || name === APP_CHECKS || name === APP_MERGE || name === FEEDBACK_ANSWER : tool === 'Bash' || (FILE_WRITE_TOOLS as readonly string[]).includes(tool)
@@ -176,6 +178,12 @@ function judgeCentral(ctx: PolicyCtx, tool: string, input: Record<string, unknow
     reason: t('중앙 대화는 파일을 고치거나 명령을 돌리지 않고 하위 대화에 맡깁니다 (상태 보기와 git · gh 커밋 · 푸시 · PR · 합치기는 됩니다)', 'The central conversation does not edit files or run commands; it hands work to a sub-conversation (looking at state and git/gh commit, push, PR and merge are fine)'),
     message: `You are the central conversation: you read and orchestrate. Commands that only look at state run directly (ls, cat, grep, find (with -exec only for these read commands), which, ps, sysctl -n, vm_stat, top -l 1, git log/status/diff/show, git -C <dir> remote get-url, gh pr view/checks, gh run view --log, gh repo list/view, gh api GET without -f/-F unless -X GET, npm ls, python3 -I -c with read-only code that takes file names from sys.argv, python3 -I -m json.tool <file>), joined with |, && or ; and inside for … in …; do …; done loops over literal words or globs, without writing redirects (> file), heredocs, env-variable prefixes or command-running programs (xargs, sh -c, awk, sed). Git and gh changes also run directly: git add/commit -m/branch/fetch/tag, git push <remote> <branch> (name the branch; not main), gh pr create/edit/ready, gh pr merge --squash. Pushing straight to main (or a push that names no branch) and gh pr comment ask the user first. Blocked: force pushes, deleting remote branches, git branch -D, reset, clean, and anything that changes files in your folder (checkout, switch, merge, rebase, pull, stash, restore), because your folder is the running app's checkout. To change or run anything else, open a sub-conversation with ${MCP}chat_open (role app, project or feedback) or send to an existing one with ${MCP}chat_send.`,
   }
+}
+
+const centralWrites: Verdict = {
+  kind: 'deny',
+  reason: t('중앙 대화는 파일을 쓰지 않습니다. 고칠 일은 앱 고치기 · 프로젝트 대화에 맡깁니다', 'The central conversation does not write files; it hands edits to an app or project conversation'),
+  message: `Writing files (redirects, heredocs into files, cp/mv/tee, sed -i, scripts that write) is not available to the central conversation, not even with the user's permission: your folder is the running app's checkout. Do not try another form of the same write and do not probe the guard. Open a sub-conversation with ${MCP}chat_open (role app for app code, project for research files) or send the work to an existing one with ${MCP}chat_send. Files under /tmp are fine for your own scratch notes.`,
 }
 
 const NEVER: Record<NeverBypass, [string, string]> = {

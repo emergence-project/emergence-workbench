@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { inTemp, neverBypass } from './chat-bypass.js'
+import { inTemp, neverBypass, writesFiles } from './chat-bypass.js'
 
 describe('중앙 대화의 우회: 허락해도 돌리지 않는 명령', () => {
   it('허락하면 돌릴 수 있는 명령', () => {
@@ -49,5 +49,24 @@ describe('이음표와 겹친 치환 (11/20 보안 검토)', () => {
     expect(neverBypass('ls & git push --force')).toBe('force-push')
     expect(neverBypass('echo "$(echo $(git reset --hard))"')).toBe('reset-hard')
     expect(neverBypass('make 2>&1 | tail')).toBeUndefined()
+  })
+})
+
+describe('writesFiles', () => {
+  it('sees writes outside temp folders', () => {
+    expect(writesFiles("cat > apps/server/src/a.ts <<'EOF'\nx\nEOF")).toBe(true)
+    expect(writesFiles('echo hi >> notes.md')).toBe(true)
+    expect(writesFiles('tee src/a.ts')).toBe(true)
+    expect(writesFiles("sed -i '' 's/a/b/' src/a.ts")).toBe(true)
+    expect(writesFiles('cp a.ts src/b.ts')).toBe(true)
+    expect(writesFiles(`python3 -c "open('a','w').write('x')"`)).toBe(true)
+  })
+  it('lets temp files, sinks and reads through', () => {
+    expect(writesFiles("cat > /tmp/probe.txt <<'EOF'\nx\nEOF")).toBe(false)
+    expect(writesFiles('pnpm test 2>&1 | tail -5')).toBe(false)
+    expect(writesFiles('ls > /dev/null 2>&1')).toBe(false)
+    expect(writesFiles('git log --oneline -5')).toBe(false)
+    expect(writesFiles('mkdir -p /tmp/x && cp a /tmp/x/')).toBe(false)
+    expect(writesFiles("cat > /tmp/p.ts <<'EOF'\nconst f = (x) => x > 1\nEOF\nls")).toBe(false)
   })
 })

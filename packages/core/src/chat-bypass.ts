@@ -91,3 +91,33 @@ export function neverBypass(cmd: string, depth = 0): NeverBypass | undefined {
   }
   return undefined
 }
+
+/** 버려지는 곳 · 표준 출력 */
+const SINK = /^(\/dev\/(null|stdout|stderr|tty)|&\d)$/
+const keep = (p: string) => SINK.test(p) || inTemp(p)
+
+/**
+ * 임시 폴더 밖의 파일을 쓰는 명령인가 (11/24: 중앙 대화가 우회 허락으로 앱 코드를 직접 쓰려 했다. 중앙의 폴더는 실사용 앱이라
+ * 파일 쓰기는 허락으로도 풀지 않고 하위 대화에 맡긴다). 돌려보내기(> · >> · heredoc을 받는 파일) · 쓰는 프로그램 · sed -i · 쓰는 코드를 본다
+ */
+export function writesFiles(cmd0: string, depth = 0): boolean {
+  if (depth > 4) return false
+  // heredoc 본문(코드 속 => 등)은 명령이 아니다
+  const cmd = cmd0.replace(/(<<-?\s*['"]?(\w+)['"]?[^\n]*)\n[\s\S]*?\n\s*\2\s*(?=\n|$)/g, '$1')
+  for (const part of substitutions(cmd).inner) if (writesFiles(part, depth + 1)) return true
+  for (const m of cmd.matchAll(/(?:^|[^<0-9&])\d?>>?\|?\s*("[^"]*"|'[^']*'|[^\s;&|<>]+)/g)) if (!keep(m[1]!.replace(/^["']|["']$/g, ''))) return true
+  for (const seg of segments(cmd)) {
+    let w = words(seg.replace(/\d?>>?\|?\s*("[^"]*"|'[^']*'|[^\s;&|<>]+)/g, ' ').replace(/&>\s*\S+/g, ' '))
+    while (w.length && (/^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0]!) || /^(env|sudo|nohup|time|command|nice|exec|timeout|gtimeout)$/.test(w[0]!.split('/').pop()!))) w = w.slice(1)
+    if (!w.length) continue
+    const prog = w[0]!.split('/').pop()!
+    const a = w.slice(1)
+    if (/^(sh|bash|zsh|dash)$/.test(prog)) { const c = a.findIndex((x) => /^-\w*c\w*$/.test(x)); if (c >= 0 && writesFiles(a[c + 1] ?? '', depth + 1)) return true; continue }
+    if (prog === 'eval') { if (writesFiles(a.join(' '), depth + 1)) return true; continue }
+    const writes = WRITERS[prog]
+    if (writes && writes(a.filter((x) => !x.startsWith('-'))).some((x) => !keep(x))) return true
+    if (/^(sed|gsed|perl)$/.test(prog) && a.some((x) => /^(-i|--in-place|-\w*i)/.test(x))) return true
+    if (INLINE.test(prog) && a.some((x) => WRITE_CODE.test(x))) return true
+  }
+  return false
+}

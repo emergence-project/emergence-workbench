@@ -213,6 +213,8 @@ export const ChatRow = z.object({
    */
   live: z.boolean().optional(),
   tasks: z.number().optional(),
+  /** 끝난 차례의 마지막 글이 사용자에게 묻는 말: 답할 때까지 내 차례(답 기다림)이고 저절로 보관하지 않는다 (11/24, chat-asks.ts) */
+  asks: z.boolean().optional(),
   compacting: z.boolean().optional(),
   /** 에이전트가 지금 쓰는 중인 글 (다 쓰면 대화 줄이 되고 지워진다. 기록에는 남기지 않는다) */
   draft: z.string().optional(),
