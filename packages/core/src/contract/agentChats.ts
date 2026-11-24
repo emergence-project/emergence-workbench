@@ -94,7 +94,7 @@ export const DEBATE_STAGES = ['answer', 'critique', 'revise', 'sum'] as const
 export type DebateStage = (typeof DEBATE_STAGES)[number]
 export const ChatItem = z.discriminatedUnion('kind', [
   /** queued = 일하는 중에 보내 다음 차례에 읽을 지시, auto = 사용자가 아니라 앱이 중앙 대화를 깨운 알림 (하위 대화가 끝남 · CI 실패 · PR 합쳐짐, 11/18) */
-  z.object({ kind: z.literal('user'), at: z.string(), text: z.string(), attach: z.array(Attach).optional(), images: z.number().optional(), imageNames: z.array(z.string()).optional(), queued: z.boolean().optional(), point: z.string().optional(), auto: z.boolean().optional() }).strict(),
+  z.object({ kind: z.literal('user'), at: z.string(), text: z.string(), attach: z.array(Attach).optional(), images: z.number().optional(), imageNames: z.array(z.string()).optional(), queued: z.boolean().optional(), point: z.string().optional(), auto: z.boolean().optional(), /** 사용자가 친 말이 아님: central = 중앙이 chat_send로 전함, app = 앱이 알림 (승인 문, 11/24) */ from: z.enum(['central', 'app']).optional() }).strict(),
   z.object({ kind: z.literal('text'), at: z.string(), text: z.string(), sub: z.boolean().optional() }).strict(),
   /** 에이전트가 쓴 도구 한 번. outside = 범위 밖을 읽음, sub = 서브에이전트가 씀 */
   z.object({ kind: z.literal('step'), at: z.string(), tool: z.string(), summary: z.string(), outside: z.boolean().optional(), sub: z.boolean().optional() }).strict(),
