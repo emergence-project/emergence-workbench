@@ -1,3 +1,4 @@
+import { InfoOrAgent } from './AgentSide'
 import { PaperFind } from './PaperFind'
 import { PaperTitle, titleText } from './PaperTitle'
 import { PdfElsewhere } from './PdfElsewhere'
@@ -151,7 +152,7 @@ export function showRecentPapers() {
 
 // ---------- 화면 ----------
 
-export function PapersPage({ filter: routeFilter, open, onSaved }: { filter?: PaperFilter; open?: string; onSaved(m: string): void }) {
+export function PapersPage({ filter: routeFilter, open, rightOpen = true, onSaved }: { filter?: PaperFilter; open?: string; rightOpen?: boolean; onSaved(m: string): void }) {
   const { tree } = useSubjects()
   const [data, error] = usePapers()
   const q = useQuery()
@@ -209,7 +210,7 @@ export function PapersPage({ filter: routeFilter, open, onSaved }: { filter?: Pa
     return () => cancelAnimationFrame(frame)
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 정보 창이 열렸는지만 본다
   }, [picked, !!paper])
-  if (open && opened) return <PaperOpen paper={opened} data={data!} ctx={ctx} onSaved={onSaved} />
+  if (open && opened) return <PaperOpen paper={opened} data={data!} ctx={ctx} rightOpen={rightOpen} onSaved={onSaved} />
   const filterLabel = filter?.startsWith('subject:') ? ctx.subjectName(filter.slice(8)) : filter?.startsWith('project:') ? ctx.projectTitle(filter.slice(8)) : FILTERS.find((f) => f.id === filter)?.label
   // 표에 없는 열로 정렬하면(첫 화면 "최근 더한 논문") 무엇으로 정렬했는지 머리줄에 적는다
   const sortNote = view === 'list' && !order.includes(sort.col) ? colOf(sort.col)?.label : undefined
@@ -522,7 +523,7 @@ function PaperInfo({ paper, projects, ctx, opened, onSaved }: { paper: PaperRow;
  * 논문 하나 열기 (10/5 저녁 고침): 가운데 PDF, 오른쪽에 정보 | 코멘트.
  * PDF와 코멘트는 연구노트 PDF와 같은 부품(Comments.tsx). 형광펜 네 색, 글을 고르지 않고 남긴 코멘트·질문은 논문 전체에 대한 것.
  */
-function PaperOpen({ paper, data, ctx, onSaved }: { paper: PaperRow; data: PaperList; ctx: Ctx; onSaved(m: string): void }) {
+function PaperOpen({ paper, data, ctx, rightOpen, onSaved }: { paper: PaperRow; data: PaperList; ctx: Ctx; rightOpen: boolean; onSaved(m: string): void }) {
   const [side, setSideState] = useState<'info' | 'comments'>(() => (store.get<string>(SIDE_KEY, 'comments') === 'info' ? 'info' : 'comments'))
   const setSide = (v: 'info' | 'comments') => { setSideState(v); store.set(SIDE_KEY, v) }
   const target = libraryPaperTarget(paper.key, `논문 ${paper.title}`)
@@ -534,7 +535,7 @@ function PaperOpen({ paper, data, ctx, onSaved }: { paper: PaperRow; data: Paper
     return () => window.removeEventListener(OPEN_CONTEXT, open)
   }, [])
   return (
-    <main className="stage full pl with-side pl-open" data-ui="논문 열기">
+    <main className={`stage full pl pl-open${rightOpen ? ' with-side' : ''}`} data-ui="논문 열기">
       <section className="pane">
         <div className="pane-head" data-ui="머리줄">
           <span className="crumb"><button className="a" onClick={() => go({ page: 'shelf' })}>{t('논문', 'Papers')}</button> › <b title={titleText(paper.title)}><PaperTitle title={paper.title} /></b></span>
@@ -543,7 +544,8 @@ function PaperOpen({ paper, data, ctx, onSaved }: { paper: PaperRow; data: Paper
         </div>
         <CommentablePdf rid={LIBRARY} target={target} url={paper.pdf.where === 'none' ? null : papersApi.pdfUrl(paper.key)} highlight={NO_BOXES} onPick={() => undefined} remember={paper.key} sideToc={`paper:${paper.key}`} />
       </section>
-      <aside className="pane pl-rs" data-ui="논문 열기 오른쪽" aria-label={t('논문 정보와 코멘트', 'Paper info and comments')}>
+      {/* 오른쪽 사이드바의 정보 갈래 (11/24): 상단바 단추로 여닫고, 맨 위 아이콘 줄로 에이전트와 오간다. 안의 정보 · 정리는 이 논문의 두 쪽 */}
+      {rightOpen && <InfoOrAgent ui="논문 열기 오른쪽" infoClass="pl-rs" onSaved={onSaved}>
         <div className="rs-head">
           <div className="segmented small" role="radiogroup" aria-label={t('오른쪽 사이드바', 'Right sidebar')}>
             <button className={side === 'info' ? 'on' : ''} role="radio" aria-checked={side === 'info'} onClick={() => setSide('info')}>{t('정보', 'Info')}</button>
@@ -551,7 +553,7 @@ function PaperOpen({ paper, data, ctx, onSaved }: { paper: PaperRow; data: Paper
           </div>
         </div>
         {side === 'info' ? <PaperInfo paper={paper} projects={data.projects} ctx={ctx} opened onSaved={onSaved} /> : <div className="rs-col"><CommentsPanel rid={LIBRARY} target={target} /></div>}
-      </aside>
+      </InfoOrAgent>}
     </main>
   )
 }

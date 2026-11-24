@@ -94,12 +94,13 @@ export const GLOBAL_PAGES: {
   // 논문 라이브러리 (10/5). 10/6 L2: 첫 화면(PapersHome)과 목록(PapersPage)
   { page: 'shelf', label: '논문', name: t('논문', 'Papers'), aria: t('논문', 'Papers'), tip: t('논문 — 라이브러리의 논문과 책, PDF', 'Papers: papers, books and PDFs in the library'), icon: Icon.papers, rail: 'top',
     side: (p) => <PapersSide filter={p.route.page === 'shelf' ? p.route.filter : undefined} list={isListRoute(p.route) || (p.route.page === 'shelf' && (!!p.route.open || !!p.route.read))} open={p.route.page === 'shelf' && (!!p.route.open || !!p.route.read)} />,
-    right: (r) => r.page === 'shelf' && !r.open && !r.read && !isListRoute(r),
+    // 연 논문 · 넣기 전 논문의 정보 칸도 오른쪽 사이드바 (11/24: 상단바 단추로 여닫고 맨 위 아이콘 줄로 정보 · 에이전트)
+    right: (r) => r.page === 'shelf' && (!!r.open || !!r.read || !isListRoute(r)),
     render: (p) => (p.route.page === 'shelf' && p.route.read
-      ? <PaperRead id={p.route.read} onSaved={p.onSaved} />
+      ? <PaperRead id={p.route.read} rightOpen={p.rightOpen} onSaved={p.onSaved} />
       : p.route.page === 'shelf' && !p.route.open && !isListRoute(p.route)
       ? <PapersHome info={p.library} rightOpen={p.rightOpen} onSaved={p.onSaved} />
-      : <PapersPage filter={p.route.page === 'shelf' ? p.route.filter : undefined} open={p.route.page === 'shelf' ? p.route.open : undefined} onSaved={p.onSaved} />) },
+      : <PapersPage filter={p.route.page === 'shelf' ? p.route.filter : undefined} open={p.route.page === 'shelf' ? p.route.open : undefined} rightOpen={p.rightOpen} onSaved={p.onSaved} />) },
   // 그림 라이브러리 (10/5, 10/4 19:10 피드백 "반복해서 쓰는 그림을 공용 자산으로"). 10/6 L2: 첫 화면(FiguresHome)과 목록(FiguresPage)
   { page: 'figures', label: '그림', name: t('그림', 'Figures'), aria: t('그림', 'Figures'), tip: t('그림 — 노트에서 함께 쓰는 tikz · svg 그림', 'Figures: tikz and svg figures shared across notes'), icon: Icon.figures, rail: 'top',
     side: (p) => <FiguresSide filter={p.route.page === 'figures' ? (p.route.open ? figureListFilter() : p.route.filter) : undefined} list={isListRoute(p.route) || (p.route.page === 'figures' && !!p.route.open)} />,

@@ -7,7 +7,8 @@ import { Icon } from './icons'
 import { shortLabel } from './notes'
 import { LOOSE_NOTES_LABEL, NO_KIND_LABEL, NOTE_KIND_LABEL, noteKindChoices } from './noteKinds'
 import { NoteHistorySide, useNoteHistory } from './NoteHistory'
-import { headWriterOf, useOfferRightModes, useRightMode, type RightMode } from './noteScreen'
+import { headWriterOf, useRightMode, type RightMode } from './noteScreen'
+import { RightModeTabs } from './RightModeTabs'
 import { go, type Route } from './router'
 import { StatusDot } from './StatusDot'
 import { store } from './store'
@@ -15,7 +16,7 @@ import { josa, t } from './i18n'
 import { TerminalPane, useTerminalAvailable } from './TerminalPane'
 
 /**
- * 오른쪽 사이드바: 정보 · 기록 · 에이전트 (10/22 안 A). 갈래는 상단바 아이콘으로 고른다(11/21 안 A, useOfferRightModes). 갈래를 바꿔도 적던 내용은 남긴다.
+ * 오른쪽 사이드바: 정보 · 기록 · 에이전트 (10/22 안 A). 갈래는 사이드바 맨 위 아이콘 줄로 고른다(11/24, RightModeTabs. 11/21~11/23에는 상단바 아이콘). 갈래를 바꿔도 적던 내용은 남긴다.
  * 에이전트 탭은 이 프로젝트의 대화(레일 › 에이전트와 같은 목록)이고, 패널 자리를 작업 화면 아래로 옮겼으면 그 자리를 알린다.
  * 터미널 칸(terminalRid가 있고 이 컴퓨터에서 연 화면일 때)은 그 프로젝트 폴더의 셸로, 코드 블록 「터미널에서 실행」만 연다(상단바 아이콘은 11/23에 뺌). 한 번 열면 다른 갈래로 가도 셸을 그대로 둔다
  */
@@ -26,12 +27,11 @@ export function RightSidebar({ info, records, agent, terminalRid }: { info: Reac
   const mode = (chosen === 'agent' && !agent) || (chosen === 'terminal' && !terminal) ? 'info' : chosen
   const [termOpened, setTermOpened] = useState(false)
   useEffect(() => { if (mode === 'terminal') setTermOpened(true) }, [mode])
-  // 갈래 단추는 상단바에 (11/21 안 A, TopBar.tsx의 RightModeIcons)
-  // 터미널은 상단바 아이콘에 두지 않는다(11/23: 터미널은 에이전트 대화 창 안). 코드 블록 「터미널에서 실행」(openRight)만 이 칸을 연다
+  // 터미널은 갈래 아이콘에 두지 않는다(11/23: 터미널은 에이전트 대화 창 안). 코드 블록 「터미널에서 실행」(openRight)만 이 칸을 연다
   const modes: RightMode[] = ['info', 'records', ...(agent ? ['agent' as const] : [])]
-  useOfferRightModes(modes, mode)
   return (
     <div className="rs" data-ui="오른쪽 사이드바">
+      {mode !== 'terminal' && <RightModeTabs modes={modes} mode={mode} />}
       {mode === 'info' && <div className="rs-scroll">{info}</div>}
       <div className="rs-col" hidden={mode !== 'records'}>{records}</div>
       {mode === 'agent' && agent && <div className="rs-col">{agent}</div>}
