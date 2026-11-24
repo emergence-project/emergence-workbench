@@ -49,7 +49,7 @@ export function ChatInfo({ chat }: { chat: Chat }) {
 }
 
 /** 사이드바 맨 위 아이콘 줄 (11/23 시안 chat-head-icons 안 B, chat-resolve-circle 2, side-icons-review-changes 안 가): 왼쪽에 이 대화 · 검토(돋보기 안 체크, 검토자가 있는 Claude 대화),
- *  오른쪽 끝에 변경사항(파일 ± 아이콘, 고친 곳이 있으면 초록 점, +n −n은 툴팁) · 터미널. 토론 · 중앙은 세부 패널이 한 칸뿐이라 그 칸과 터미널만 */
+ *  오른쪽 끝에 변경사항(둥근 네모 안 ±, 고친 곳이 있으면 초록 점, +n −n은 툴팁) · 터미널. 토론 · 중앙은 세부 패널이 한 칸뿐이라 그 칸과 터미널만 */
 export function ChatSideTabs({ id, col }: { id: string; col: ReturnType<typeof useSideColumn> }) {
   const chat = useChat(id).data
   const reviewers = useReviewers()
@@ -62,7 +62,7 @@ export function ChatSideTabs({ id, col }: { id: string; col: ReturnType<typeof u
     ...(single ? [] : [
       ...(reviewers.length > 0 && isClaude(chat.agent) && !chat.machine ? [tab('review', '검토 칸 버튼', Icon.inspect, t('검토', 'Review'), t('검토 (Codex · Gemini가 각자 읽기만 하며 검토 · 지난 검토)', 'Review (Codex, Gemini each review read-only; past reviews)'))] : []),
     ]),
-    ...(single ? [] : [{ ...tab('changes', '변경사항 칸 버튼', <>{Icon.review}{(added > 0 || removed > 0) && <i className="ac-side-dot" />}</>, t('변경사항', 'Changes'), added || removed ? t(`변경사항 +${added} −${removed}`, `Changes +${added} −${removed}`) : t('변경사항 (아직 없음)', 'Changes (none yet)')), end: true }]),
+    ...(single ? [] : [{ ...tab('changes', '변경사항 칸 버튼', <>{Icon.diff}{(added > 0 || removed > 0) && <i className="ac-side-dot" />}</>, t('변경사항', 'Changes'), added || removed ? t(`변경사항 +${added} −${removed}`, `Changes +${added} −${removed}`) : t('변경사항 (아직 없음)', 'Changes (none yet)')), end: true }]),
     ...(col.termTab ? [{ ...col.termTab, end: single || undefined }] : []),
   ]
   return <SideTabs tabs={tabs} />

@@ -21,6 +21,8 @@ export const Icon = {
   /** 프로젝트 정보: i가 든 둥근 네모 (소개의 i는 동그라미) */
   projectInfo: <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M12 11v5.5M12 7.6v.1" /></svg>,
   /** 수정 검토: ± 문서 (바뀐 곳 검토, GitHub diff와 같은 그림). 돋보기는 검색만 */
+  /** 둥근 네모 안 ±: 에이전트 대화 사이드바의 변경사항 (11/24 시안 side-icons-review-changes 박스 ±) */
+  diff: <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M9 9.5h6M12 6.5v6M9 16h6" /></svg>,
   review: <svg viewBox="0 0 24 24"><path d="M14.5 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V7.5z" /><path d="M9 10.5h6M12 7.5v6M9 17h6" /></svg>,
   /** 이력 보기: 시계 (소개 · 노트 툴바 오른쪽, 11/11 안 C′) */
   history: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><path d="M12 8v4l3 2" /></svg>,
