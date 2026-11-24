@@ -13,4 +13,4 @@
 .rs-modes { flex: none; display: flex; align-items: center; gap: 2px; padding: var(--sp-1) var(--sp-2); border-bottom: 1px solid var(--line); }
 .kh-side > .rs-modes { margin: calc(-1 * var(--sp-5)) calc(-1 * var(--sp-4)) 0; }
 .kh-side.kh-side-agent > .rs-modes { margin: calc(-1 * var(--sp-3)) 0 0; }
-.kh-side.about-rs > .rs-modes, .kh-side.pl-rs > .rs-modes { margin: 0; }
+.kh-side.about-rs > .rs-modes { margin: 0; }
