@@ -49,7 +49,7 @@ code:
 | web | `apps/web/src/feedbackDraft.ts` | 적던 글 보존 |
 | web | `apps/web/src/feedbackFocus.tsx` | 항목 하나의 주소 `#/feedback/<키>`: 필터를 풀고 그 항목을 펼쳐 그 자리로 내리기 |
 
-처리 · 답에 붙인 시안(`mockups`)은 `apps/server/src/feedbackMockups.ts`가 에이전트 작업 폴더 `mockups/`에서 `pictures/`로 옮겨 적고, `apps/web/src/FeedbackMockups.tsx`가 작은 그림 · html 새 창 · 「이 시안으로 진행」 · 「논의」로 보이고, 크게 넘겨 보기는 전후 그림과 함께 `FeedbackViewer.tsx`가 맡는다. 작업 폴더가 없는 앱이면 시안 파일을 `pictures/`에 바로 두고 `mockups`에 이름만 적어도 된다.
+처리 · 답에 붙인 시안(`mockups`)은 `apps/server/src/feedbackMockups.ts`가 에이전트 작업 폴더 `mockups/`에서 `pictures/`로 옮겨 적고, `apps/web/src/FeedbackMockups.tsx`가 작은 그림 · html 새 창 · 「이 시안으로 진행」 · 「논의」로 보이고, 크게 넘겨 보기는 전후 그림과 함께 `FeedbackViewer.tsx`가 맡는다. 작업 폴더가 없는 앱이면 시안 파일을 `pictures/`에 바로 두고 `mockups`에 이름만 적어도 된다. 쓰지 않을 시안은 `dropMockups`(같은 파일)가 그 항목의 답(지금 처리 · `revised` · `replies`)의 `mockups`에서만 떼고, 원문 · 판정 · 코멘트 · 전후 그림(`pictures`)과 그림 파일은 건드리지 않는다(11/24, `feedback_answer`의 `dropMockups`).
 
 ## 옮기는 순서
 
