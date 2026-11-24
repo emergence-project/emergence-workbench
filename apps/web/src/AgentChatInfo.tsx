@@ -13,12 +13,12 @@ import { EFFORT_NAME, effortLabel } from './ChatComposer'
 import { costName, useChat } from './AgentChats'
 import { tokensName } from './agentTokens'
 
-/** 요약하는 선(없으면 맥락 창)의 이만큼 차면 곧 요약된다고 알린다 */
+/** 요약하는 선(없으면 컨텍스트 창)의 이만큼 차면 곧 요약된다고 알린다 */
 const COMPACT_HINT = 0.8
 
 /**
  * 「이 대화」 칸 (10/28 20:10 피드백 "컨텍스트 윈도우, 기본정보등이 다 있으면", 시안 1절):
- * 맥락 창 막대 · 모델 · 범위 · 쓴 토큰과 가격 · 일한 시간 · 시작과 마지막 · 작업 폴더(앱 고치기). 차례가 끝나기 전에도 보인다
+ * 컨텍스트 창 막대 · 모델 · 범위 · 쓴 토큰과 가격 · 일한 시간 · 시작과 마지막 · 작업 폴더(앱 고치기). 차례가 끝나기 전에도 보인다
  */
 export function ChatInfo({ chat }: { chat: Chat }) {
   const models = useModels(chat.agent)
@@ -36,7 +36,7 @@ export function ChatInfo({ chat }: { chat: Chat }) {
     <section className="ac-info" data-ui="이 대화 정보">
       <h3>{t('이 대화', 'This conversation')}</h3>
       <div className="ac-work-row"><span>{t('컨텍스트', 'Context')}</span>
-        <span className="muted" title={context?.compactAt ? t(`${tokensName(context.compactAt)}쯤 되면 앞 내용을 요약합니다 (모델 맥락 창 ${tokensName(context.window)})`, `Summarized around ${tokensName(context.compactAt)} (model context window ${tokensName(context.window)})`) : undefined}>{context ? `${tokensName(context.used)} / ${tokensName(limit)} · ${Math.round(share * 100)}%` : t('첫 차례가 끝나면 보입니다', 'Shown after the first turn')}</span></div>
+        <span className="muted" title={context?.compactAt ? t(`${tokensName(context.compactAt)}쯤 되면 앞 내용을 요약합니다 (모델 컨텍스트 창 ${tokensName(context.window)})`, `Summarized around ${tokensName(context.compactAt)} (model context window ${tokensName(context.window)})`) : undefined}>{context ? `${tokensName(context.used)} / ${tokensName(limit)} · ${Math.round(share * 100)}%` : t('첫 차례가 끝나면 보입니다', 'Shown after the first turn')}</span></div>
       {context && <div className="ac-meter" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(share * 100)} aria-label={t('컨텍스트', 'Context')}><i style={{ width: `${share * 100}%` }} /></div>}
       {context && share >= COMPACT_HINT && isClaude(chat.agent) && <span className="muted ac-hint">{context.compactAt ? t('곧 앞 내용을 자동으로 요약합니다. 나눌 만한 곳이면 /compact로 먼저 요약할 수 있습니다', 'Earlier turns will be summarized soon. At a good break, /compact summarizes them now') : t('컨텍스트가 많이 찼습니다. /compact로 앞 내용을 요약할 수 있습니다', 'The context window is nearly full. /compact summarizes earlier turns')}</span>}
       <dl className="ac-info-list">
