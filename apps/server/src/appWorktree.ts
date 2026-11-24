@@ -399,9 +399,10 @@ export function notStarted(r: AppChecks, selfHosted?: boolean): AppChecks {
   return { ...r, log: 'No check has started yet: the self-hosted runner (Mac mini) is off or busy with other runs. Tell the user instead of waiting again.' }
 }
 
-/** 앱 고치기 대화의 환경: 대화마다 다른 화면 그림 포트, 맥의 Chrome (playwright 브라우저를 받지 않아도 되게) */
+/** 앱 고치기 대화의 환경: 대화마다 다른 화면 그림 포트, 맥의 Chrome (playwright 브라우저를 받지 않아도 되게),
+ * 반 크기 그림(SHOTS_SCALE=1: 에이전트가 읽는 그림 한 장이 약 3천 → 1.2천 토큰, 11/23. 전후 그림은 CI 산출물이라 그대로 2배) */
 export function appEnv(id: string): Record<string, string> {
   const n = parseInt(crypto.createHash('sha1').update(id).digest('hex').slice(0, 6), 16)
   const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-  return { SHOTS_PORT: String(8200 + (n % 600)), ...(!process.env.CHROMIUM_PATH && fs.existsSync(chrome) && { CHROMIUM_PATH: chrome }) }
+  return { SHOTS_PORT: String(8200 + (n % 600)), SHOTS_SCALE: '1', ...(!process.env.CHROMIUM_PATH && fs.existsSync(chrome) && { CHROMIUM_PATH: chrome }) }
 }

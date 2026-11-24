@@ -188,7 +188,7 @@ describe('SDK 메시지', () => {
     expect(eventsOf({ type: 'system', subtype: 'background_tasks_changed', tasks: [{}, { ambient: true }] })).toEqual([{ type: 'tasks', count: 1 }])
     // 토큰(캐시 포함)과 마지막 요청의 맥락 크기 · 맥락 창
     expect(eventsOf({ type: 'result', subtype: 'success', is_error: false, usage: { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 100, cache_creation_input_tokens: 20 }, modelUsage: { 'claude-opus-5-5': { contextWindow: 200_000 } } }, 3_000))
-      .toEqual([{ type: 'result', ok: true, tokens: { in: 130, out: 5 }, context: { used: 3_000, window: 200_000 } }])
+      .toEqual([{ type: 'result', ok: true, tokens: { in: 130, out: 5 }, context: { used: 3_000, window: 200_000, compactAt: 167_000 } }])
   })
   it('모델 목록: 이름 · 실제 id · 받는 생각 깊이, 계약에 맞지 않는 id · 깊이는 뺀다', () => {
     expect(choicesOf([

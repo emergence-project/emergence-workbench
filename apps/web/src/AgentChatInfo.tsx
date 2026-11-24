@@ -10,14 +10,15 @@ import { scopeName } from './AgentProjectPick'
 import { AgentChip, effortsOf, familyName, familyOf, isClaude, useModels } from './AgentPick'
 import { useReviewers } from './AgentReview'
 import { EFFORT_NAME, effortLabel } from './ChatComposer'
-import { costName, tokensName, useChat } from './AgentChats'
+import { costName, useChat } from './AgentChats'
+import { tokensName } from './agentTokens'
 
-/** 맥락 창이 이만큼 차면 /compact를 권한다 */
+/** 요약하는 선(없으면 컨텍스트 창)의 이만큼 차면 곧 요약된다고 알린다 */
 const COMPACT_HINT = 0.8
 
 /**
  * 「이 대화」 칸 (10/28 20:10 피드백 "컨텍스트 윈도우, 기본정보등이 다 있으면", 시안 1절):
- * 맥락 창 막대 · 모델 · 범위 · 쓴 토큰과 가격 · 일한 시간 · 시작과 마지막 · 작업 폴더(앱 고치기). 차례가 끝나기 전에도 보인다
+ * 컨텍스트 창 막대 · 모델 · 범위 · 쓴 토큰과 가격 · 일한 시간 · 시작과 마지막 · 작업 폴더(앱 고치기). 차례가 끝나기 전에도 보인다
  */
 export function ChatInfo({ chat }: { chat: Chat }) {
   const models = useModels(chat.agent)
@@ -27,15 +28,17 @@ export function ChatInfo({ chat }: { chat: Chat }) {
   const secs = results.reduce((s, r) => s + (r.seconds ?? 0), 0)
   const tokens = results.reduce((s, r) => s + (r.tokens ? r.tokens.in + r.tokens.out : 0), 0)
   const context = [...results].reverse().find((r) => r.context)?.context
-  const share = context ? Math.min(1, context.used / context.window) : 0
+  // 막대는 요약하는 선까지 (11/23: 1M 창 대비 9%로 보이다 갑자기 요약돼서)
+  const limit = context ? context.compactAt ?? context.window : 0
+  const share = context ? Math.min(1, context.used / limit) : 0
   const when = (iso: string) => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
   return (
     <section className="ac-info" data-ui="이 대화 정보">
       <h3>{t('이 대화', 'This conversation')}</h3>
       <div className="ac-work-row"><span>{t('컨텍스트', 'Context')}</span>
-        <span className="muted">{context ? `${tokensName(context.used)} / ${tokensName(context.window)} · ${Math.round(share * 100)}%` : t('첫 차례가 끝나면 보입니다', 'Shown after the first turn')}</span></div>
+        <span className="muted" title={context?.compactAt ? t(`${tokensName(context.compactAt)}쯤 되면 앞 내용을 요약합니다 (모델 컨텍스트 창 ${tokensName(context.window)})`, `Summarized around ${tokensName(context.compactAt)} (model context window ${tokensName(context.window)})`) : undefined}>{context ? `${tokensName(context.used)} / ${tokensName(limit)} · ${Math.round(share * 100)}%` : t('첫 차례가 끝나면 보입니다', 'Shown after the first turn')}</span></div>
       {context && <div className="ac-meter" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(share * 100)} aria-label={t('컨텍스트', 'Context')}><i style={{ width: `${share * 100}%` }} /></div>}
-      {context && share >= COMPACT_HINT && isClaude(chat.agent) && <span className="muted ac-hint">{t('컨텍스트가 많이 찼습니다. /compact로 앞 내용을 요약할 수 있습니다', 'The context window is nearly full. /compact summarizes earlier turns')}</span>}
+      {context && share >= COMPACT_HINT && isClaude(chat.agent) && <span className="muted ac-hint">{context.compactAt ? t('곧 앞 내용을 자동으로 요약합니다. 나눌 만한 곳이면 /compact로 먼저 요약할 수 있습니다', 'Earlier turns will be summarized soon. At a good break, /compact summarizes them now') : t('컨텍스트가 많이 찼습니다. /compact로 앞 내용을 요약할 수 있습니다', 'The context window is nearly full. /compact summarizes earlier turns')}</span>}
       <dl className="ac-info-list">
         <dt>{t('모델', 'Model')}</dt><dd><AgentChip agent={chat.agent} /> {familyName(chat.model, models)}{isClaude(chat.agent) ? effortsOf(chat.model, models).length > 0 && ` · ${EFFORT_NAME[chat.effort]}` : familyOf(chat.model, models).suffix && ` · ${effortLabel(familyOf(chat.model, models).suffix)}`}</dd>
         <dt>{t('범위', 'Scope')}</dt><dd>{scopeName(chat.scope, topics)}</dd>

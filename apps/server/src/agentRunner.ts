@@ -36,8 +36,12 @@ const inputOf = (u: Usage) => (u.input_tokens ?? 0) + (u.cache_read_input_tokens
 /**
  * 맥락이 이만큼 되면 앞 내용을 요약한다 (토큰, Claude Code의 CLAUDE_CODE_AUTO_COMPACT_WINDOW, 10만부터).
  * 긴 대화 하나가 차례마다 앞 내용 전체(29만 토큰까지)를 다시 읽어 값이 커져서 (10/22) 1M 모델도 이쯤에서 줄인다.
+ * 12만이면 Claude Code가 응답 몫을 남겨 9만 남짓에서 줄여, 그림 몇 장 본 대화도 금방 요약돼 20만으로 올린다 (11/23 사용자 결정).
+ * 앞 내용은 캐시 읽기(기본 값의 0.05배)라 20만을 다 채워도 한 요청에 약 $0.04 (Opus 5.5).
  */
-export const AUTO_COMPACT_WINDOW = 120_000
+export const AUTO_COMPACT_WINDOW = 200_000
+/** Claude Code는 응답 몫(약 2만)과 여유(약 1.3만)를 남기고 줄인다: 12만일 때 8.7만에서 줄었다 (11/23 대화 기록). 화면의 「요약하는 선」은 이만큼 뺀 값 */
+export const COMPACT_RESERVE = 33_000
 
 type Sdk = {
   type: string; uuid?: string; user_message_uuid?: string; user_message_uuids?: string[]; subtype?: string; session_id?: string; message?: { content?: unknown }; parent_tool_use_id?: string | null; is_error?: boolean
@@ -79,7 +83,7 @@ export function eventsOf(m: Sdk, context?: number): RunEvent[] {
       ...(typeof m.total_cost_usd === 'number' && { cost: m.total_cost_usd }),
       ...(typeof m.duration_ms === 'number' && { seconds: Math.round(m.duration_ms / 1000) }),
       ...(m.usage && { tokens: { in: inputOf(m.usage), out: m.usage.output_tokens ?? 0 } }),
-      ...(context && window && { context: { used: context, window } }),
+      ...(context && window && { context: { used: context, window, compactAt: Math.min(window, AUTO_COMPACT_WINDOW) - COMPACT_RESERVE } }),
       ...(error && { error }),
     }]
   }

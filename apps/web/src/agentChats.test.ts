@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { commentMessage } from './AgentChanges'
-import { effortsOf, notifyWhy, tokensName, fitEffort, modelName } from './AgentChats'
+import { effortsOf, notifyWhy, fitEffort, modelName } from './AgentChats'
+import { tokensName } from './agentTokens'
 import { chatLog, procName, procSummary, stepsSummary } from './WorkLog'
 import { fitMenu, menuAt, nextTrust, sideQuestion, trustOf } from './ChatComposer'
 import { familyName, familyOf, modelFamilies, pickFamily, readyAgent } from './AgentPick'

@@ -401,7 +401,7 @@
 
 화면을 바꾼 PR은 맥에서 해당 샘플을 **1200×735 · 1440×900 × 라이트 · 다크**로 찍어 아래 체크리스트를 직접 본다. 분류 화면을 바꾸면 `--sample subjects`도 같은 조합으로 본다. 저장 위치는 `SHOTS_DIR=shots/<샘플>-<크기>-<테마>`로 나눠 전후 그림이 서로 덮이지 않게 한다. 구조만 옮긴 L2b 화면은 동일한 샘플·크기·테마의 전후 바이트를 비교한다.
 
-`SHOTS_PORT`·`SHOTS_SKIP_BUILD`·`CHROMIUM_PATH`·`SHOTS_DIR`은 실행 환경 설정이다. 예전 `SHOTS_VIEWPORT`·`SHOTS_SCHEME`·`SHOTS_SUBJECTS`도 호환을 위해 받지만, 같은 항목의 CLI 옵션이 우선한다. 선택 옵션 전체는 `pnpm shots --help`로 본다.
+`SHOTS_PORT`·`SHOTS_SKIP_BUILD`·`CHROMIUM_PATH`·`SHOTS_DIR`은 실행 환경 설정이다. `--scale 1`(`SHOTS_SCALE=1`)은 그림을 반 크기(1배)로 찍는다: 앱 고치기 대화가 이 값으로 찍어 에이전트가 읽는 그림 한 장이 약 3천 → 1.2천 토큰이 된다(11/23). 기본은 2배이고 CI와 전후 그림도 2배다. 바이트 비교는 같은 배율끼리만 한다. 예전 `SHOTS_VIEWPORT`·`SHOTS_SCHEME`·`SHOTS_SUBJECTS`도 호환을 위해 받지만, 같은 항목의 CLI 옵션이 우선한다. 선택 옵션 전체는 `pnpm shots --help`로 본다.
 
 TeX CI는 `tex.yml`의 파일 변경 조건에 맞는 PR에서 기존 서버 테스트를 돌린다. `blockCompile.test.ts`와 `block-header.ts`·서식 선택·그림·본문·참고문헌·서식 파일 의존성도 조건에 포함한다. 일반 CI의 `pnpm test`는 TeX가 없으면 실제 컴파일을 건너뛴다. TeX가 걸리는 PR의 실제 컴파일은 맥에서 확인한다. `node scripts/ci/check-tex-coverage.mjs`는 실제 TeX guard(`hasLatex`)를 쓰는 테스트를 하위 폴더까지 찾고 컴파일 입력 파일·서식과 함께 변경 조건 누락을 검사한다. 새 컴파일 입력 도우미는 그 검사 파일의 `TEX_INPUT_FILES`에 더한다. 변경 조건은 일반 경로·`*`·`**`를 쓰며, 누락 검사는 지원하는 Node 22 초기 버전에서도 실행된다. 이 가벼운 검사는 `pnpm test`에 포함되며 TeX 설치·컴파일·촬영을 추가하지 않는다.
 

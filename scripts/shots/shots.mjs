@@ -21,7 +21,7 @@ const base = `http://127.0.0.1:${port}/`
 const options = parseShotOptions(process.argv.slice(2))
 if (options.help) { console.log(SHOTS_HELP); process.exit(0) }
 const SCREENS = selectScreens(options.sample)
-console.log(`화면 검사: ${options.viewport.width}×${options.viewport.height} · ${options.theme} · ${options.sample} · ${SCREENS.length}개`)
+console.log(`화면 검사: ${options.viewport.width}×${options.viewport.height}${options.scale === 1 ? ' · 1x' : ''} · ${options.theme} · ${options.sample} · ${SCREENS.length}개`)
 
 function run(cmd, args, env = {}) {
   return new Promise((resolve, reject) => {
@@ -62,7 +62,7 @@ try {
 
   fs.mkdirSync(out, { recursive: true })
   const browser = process.env.SHOTS_BROWSER === 'webkit' ? await webkit.launch() : await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {})
-  const page = await browser.newPage({ viewport: options.viewport, deviceScaleFactor: 2, reducedMotion: 'reduce', colorScheme: screenScheme(options.theme, SCREENS[0]?.[0] ?? '') })
+  const page = await browser.newPage({ viewport: options.viewport, deviceScaleFactor: options.scale, reducedMotion: 'reduce', colorScheme: screenScheme(options.theme, SCREENS[0]?.[0] ?? '') })
   // Start in the capture language, so the first screen does not load in the browser language and reload (i18n.ts)
   await page.addInitScript((language) => { try { if (!localStorage.getItem('rw-ui')) localStorage.setItem('rw-ui', JSON.stringify({ language })) } catch { /* ignore */ } }, options.lang)
   // Sample conversations finished before the page opened: count them as not checked yet, so the agent screens show the unread dot and badge (agentSeen.ts)
@@ -368,7 +368,7 @@ try {
   }
   // 폰 (10/30, styles/phone.css): 폭 390의 따로 연 창에서 찍는다. 폰은 사이드바를 닫아 기억하므로 위 화면들과 저장소를 나누지 않는다
   if (options.sample !== 'subjects') {
-    const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2, reducedMotion: 'reduce', colorScheme: 'light' })
+    const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: options.scale, reducedMotion: 'reduce', colorScheme: 'light' })
     await phone.addInitScript((language) => { try { if (!localStorage.getItem('rw-ui')) localStorage.setItem('rw-ui', JSON.stringify({ language })) } catch { /* ignore */ } }, options.lang)
     phone.on('pageerror', (e) => problems.push(`${current}: ${e.message}`))
     phone.on('console', (m) => { if (m.type() === 'error' && !expected(m)) problems.push(`${current}: console ${m.text()} ${m.location().url ?? ''}`) })
