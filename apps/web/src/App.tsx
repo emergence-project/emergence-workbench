@@ -31,7 +31,7 @@ import { commentsChanged, manuscriptTarget, OPEN_CONTEXT, targetOfTab } from './
 import { figuresMaybeChanged } from './figureEmbed'
 import { LibraryNote } from './Library'
 import { QuickMemo } from './memo'
-import { CLOSE_RIGHT, OPEN_RIGHT, setRightMode, useRightMode, useTopBarModes } from './noteScreen'
+import { CLOSE_RIGHT, OPEN_RIGHT, setRightMode, useRightMode } from './noteScreen'
 import { RecordsPanel } from './RecordsPanel'
 import { recordPdfTab, recordRoute } from './recordsPanelHelpers'
 import { NoInfo, NoteInfo, RightSidebar } from './RightSidebar'
@@ -256,7 +256,7 @@ export function App() {
   // 오른쪽 사이드바가 없는 전역 화면은 그 자리에서 에이전트와 대화한다 (11/16 "모든 페이지에서 오른쪽 사이드바로", AgentSide.tsx). 에이전트 화면(새 대화 · 중앙)은 터미널만 (이 컴퓨터에서 연 화면, 11/19). 대화를 연 에이전트 화면은 대화 머리의 「>_」가 오른쪽 칸을 터미널로 바꾸고 「터미널에서 실행」도 그 칸이 받는다 (WorkAside.tsx의 useSideColumn, 11/19 B1)
   const terminalHere = useTerminalAvailable(), agentCol = agentColHere.current = route.page === 'agent' && !!route.id && route.id !== CENTRAL_PAGE, agentSideAble = agentSideHere.current = globalPage && !globalRightAble && (route.page !== 'agent' || (terminalHere && !agentCol)), agentSideShown = agentSideAble && agentSide
   const showSide = (!globalPage && !!rid && sideOpen) || (!!globalSide && sideOpen)
-  const rightOpenNow = globalPage ? (agentSideAble ? agentSide : globalRight) : layout.ctx, toggleRight = () => { if (agentSideAble) setAgentSide((v) => !v); else if (globalPage) setGlobalRight((v) => !v); else setLayout((l) => ({ ...l, ctx: !l.ctx })) }, rightModes = useTopBarModes(rightOpenNow, toggleRight, agentSideAble ? [] : [globalRightAble ? 'info' : 'info,records', 'agent'])
+  const rightOpenNow = globalPage ? (agentSideAble ? agentSide : globalRight) : layout.ctx, toggleRight = () => { if (agentSideAble) setAgentSide((v) => !v); else if (globalPage) setGlobalRight((v) => !v); else setLayout((l) => ({ ...l, ctx: !l.ctx })) }
   // 왼쪽 사이드바 폭: 오른쪽 경계를 끌어 바꾸고, 두 번 누르면 처음 폭 (10/29 09:15 피드백: 오른쪽처럼 폭 조절)
   const [sideW, setSideW] = useState(() => { try { const v = Number(localStorage.getItem('rw-side-width')); return v >= SIDE_MIN && v <= SIDE_MAX ? v : SIDE_W } catch { return SIDE_W } })
   const saveSideW = (w: number) => { setSideW(w); try { localStorage.setItem('rw-side-width', String(w)) } catch { /* 저장 못 해도 이번에는 바뀐다 */ } }
@@ -461,7 +461,7 @@ export function App() {
       )}
       <TopBar crumbs={crumbs} heading={!pageH1} leftToggle={(!!rid && !globalPage) || !!globalSide} sideOpen={sideOpen} onSide={() => setSideOpen((v) => !v)}
         project={!!rid && !globalPage} split={workspaceVisibility(layout, route.page, workspaceDragging).shown.length === 2} onSplit={() => setLayout((l) => toggleSplit(l, route.page))} rightToggle={(!!rid && !globalPage) || globalRightAble || agentSideAble}
-        rightOpen={rightOpenNow} onRight={toggleRight} {...rightModes} search={search} onSearch={() => setSearch(true)}
+        rightOpen={rightOpenNow} onRight={toggleRight} search={search} onSearch={() => setSearch(true)}
         feedback={feedback} onFeedback={() => setFeedback((v) => !v)} />
 
       <div className={`body${showSide ? '' : ' no-side'}${agentSideShown ? ' with-agent' : ''}`} style={{ '--side-w': `${sideW}px` } as React.CSSProperties}>
