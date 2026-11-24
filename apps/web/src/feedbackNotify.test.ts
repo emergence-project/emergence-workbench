@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { FeedbackItem } from './api'
+import { userTurn } from '@rw/core'
 import { newTurns, turnBody } from './feedbackNotify'
 
 const NOW = new Date('2026-10-31T12:00').getTime()
@@ -18,6 +19,11 @@ describe('피드백 알림 (10/31 시안 7절)', () => {
   it('다시 처리되어 또 확인 필요가 되면 다시 알린다', () => {
     const again = { ...asked, status: { ...asked.status!, handled_at: '2026-10-31T11:30' } }
     expect(newTurns(new Set(['물음@2026-10-31T11:00']), [again], NOW).map((e) => e.key)).toEqual(['물음'])
+  })
+  it('반영이 끝나 승인만 남은 것(확인만)은 알리지 않는다 (11/23)', () => {
+    const fixed = entry('반영', { status: { state: '반영', note: '글자를 키웠다', handled_at: '2026-10-31T11:00' } })
+    expect(userTurn(fixed, NOW)).toBe('confirm')
+    expect(newTurns(new Set(), [fixed, asked], NOW).map((e) => e.key)).toEqual(['물음'])
   })
   it('알림 글은 상태와 묻는 것', () => {
     expect(turnBody(asked)).toBe('확인 필요 · 권한을 하는 일로 나눌까요?')

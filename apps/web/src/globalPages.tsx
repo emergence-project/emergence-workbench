@@ -133,7 +133,9 @@ export const GLOBAL_PAGES: {
   // 개념노트의 에이전트 고침 검토 (10/8): 띠 버튼 없이 지식 첫 화면 점검에서 연다. 연구노트의 고침은 프로젝트의 고침 검토 화면(10/14)
   { page: 'review', label: '고침 검토', name: t('수정 검토', 'Edit review'), aria: t('개념노트 수정 검토', 'Review concept note edits'), tip: t('개념노트 수정 검토', 'Review concept note edits'), icon: Icon.review, rail: 'none',
     render: (p) => <Lazy><AgentEditsPage selected={p.route.page === 'review' ? p.route.key : undefined} version={p.version} onSaved={p.onSaved} /></Lazy> },
-  { page: 'about', label: '소개', name: t('소개', 'About'), aria: t('이 앱 소개', 'About'), tip: t('이 앱 소개', 'About'), icon: Icon.info, rail: 'bottom', render: (p) => <AboutPage part={p.route.page === 'about' ? p.route.part : undefined} anchor={p.route.page === 'about' ? p.route.anchor : undefined} />,
+  { page: 'about', label: '소개', name: t('소개', 'About'), aria: t('이 앱 소개', 'About'), tip: t('이 앱 소개', 'About'), icon: Icon.info, rail: 'bottom', render: (p) => <AboutPage part={p.route.page === 'about' ? p.route.part : undefined} anchor={p.route.page === 'about' ? p.route.anchor : undefined} rightOpen={p.rightOpen} onSaved={p.onSaved} />,
+    // 이력 · 수정은 앱의 오른쪽 사이드바 한 칸 (11/24 피드백: 에이전트 사이드바와 둘이 함께 열리던 것을 하나로)
+    right: (r) => r.page === 'about',
     side: (p) => <AboutSidebar part={p.route.page === 'about' ? p.route.part : undefined} anchor={p.route.page === 'about' ? p.route.anchor : undefined} />,
     badge: () => <AboutRailCount />, railTo: aboutRailRoute },
   // 계정 (11/19 사용자 "설정 톱니 위에 두고, 계정 페이지는 유일한 페이지로"): GitHub · 동기화 · 구글 · Claude 계정을 한 페이지에서

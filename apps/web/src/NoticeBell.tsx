@@ -1,5 +1,5 @@
 // 상단바 알림 종 (11/20 시안 4절 안 B "알림 아이콘을 두고, 최근 알림을 모아보는게 어떨까?"), 11/23 다시 짬 (시안 「알림: 답할 것 먼저, 소식은 그 아래」):
-// 알림은 두 가지다. 「답할 것」은 답하거나 정해야 끝난다(읽어도 남고, 며칠이 지나도 남는다). 「소식」은 열어 보거나 7일이 지나면 끝난다.
+// 알림은 두 가지다. 「답할 것」은 답하거나 정해야 끝난다(읽어도 남고, 며칠이 지나도 남는다). 「소식」은 열어 보거나 7일이 지나면 끝나 목록에서 빠진다.
 // 한 목록에 답할 것 먼저, 굵은 줄, 그 아래 소식을 새것부터. 줄마다 곳(프로젝트 · 지식 라이브러리 · 앱 개발)과 종류를 적고, 곳은 고르기 상자 「전체」로 거른다.
 // 종의 수는 답할 것만 센다(레일의 주황 수와 같은 뜻). 읽지 않은 소식만 있으면 무채색 점. 줄을 누르면 그 화면으로 가서 처리한다(목록 안에서 답하거나 승인하지 않는다: 실수 막기)
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
@@ -103,6 +103,9 @@ export function noticesOf({ chats = [], feedback = [], errors = [], records = []
   return [...need.sort(newest), ...news.filter((n) => !n.at || now - ms(n.at) < WEEK).sort(newest)]
 }
 
+/** 목록에 보일 알림: 답할 것은 끝날 때까지, 소식은 읽기 전까지 (11/23 피드백 "읽기만 하면 되는 알림은 읽고 나서 사라져야") */
+export const unread = (list: Notice[], seen: readonly string[]) => list.filter((n) => n.need || !seen.includes(n.key))
+
 /** 종의 수: 답할 것만 (한 줄이 여럿이면 그 수만큼) */
 export const needCount = (list: Notice[]) => list.reduce((n, x) => n + (x.need ? x.n ?? 1 : 0), 0)
 
@@ -133,22 +136,23 @@ export function NoticeBell() {
   // 대화를 열어 보면(본 기록이 바뀌면) 그 알림이 빠진다
   const agentSeen = useSeen()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const all = useMemo(() => noticesOf({ chats, feedback: fb, errors: store.get(ERRORS, []), records, tidy, issues, counts, unseen: isUnseen }), [chats, fb, records, tidy, issues, counts, errorsTick, agentSeen])
+  const every = useMemo(() => noticesOf({ chats, feedback: fb, errors: store.get(ERRORS, []), records, tidy, issues, counts, unseen: isUnseen }), [chats, fb, records, tidy, issues, counts, errorsTick, agentSeen])
+  // 읽은 소식은 목록에서 빠진다
+  const all = useMemo(() => unread(every, seen), [every, seen])
   const placeName = (id: string) => (id === APP_RID ? t('앱 개발', 'App development') : id === LIBRARY_RID ? t('지식 라이브러리', 'Knowledge library') : id === PAPERS ? t('논문 라이브러리', 'Paper library') : id === FIGURES ? t('그림 라이브러리', 'Figure library') : id === NETWORK ? t('네트워킹', 'Networking') : projects?.find((p) => p.id === id)?.title ?? id)
   const placeIcon = (id: string) => (PLACE_ICON[id] ? <span className="tb-bell-pi" aria-hidden>{PLACE_ICON[id]}</span> : <i className="tb-bell-pc" style={{ background: projectColor(id) }} aria-hidden />)
-  const fresh = (n: Notice) => !n.need && !seen.includes(n.key)
+  const fresh = (n: Notice) => !n.need
   // 고를 곳은 알림이 있는 곳만: 앱 개발 · 지식 라이브러리 먼저가 아니라 답할 것이 많은 곳부터
   const places = useMemo(() => {
     const by = new Map<string, { need: number; fresh: boolean }>()
     for (const n of all) if (n.place) { const p = by.get(n.place) ?? { need: 0, fresh: false }; by.set(n.place, { need: p.need + (n.need ? n.n ?? 1 : 0), fresh: p.fresh || fresh(n) }) }
     return [...by].map(([id, v]) => ({ id, ...v })).sort((a, b) => b.need - a.need)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [all, seen])
+  }, [all])
   const place = places.some((p) => p.id === picked) ? picked : ''
   const list = place ? all.filter((n) => n.place === place) : all
   const count = needCount(all)
   const unreadNews = all.filter(fresh)
-  const mark = (keys: string[]) => { const next = [...new Set([...seen, ...keys])].slice(-400); store.set(SEEN, next); setSeen(next) }
+  const mark = (keys: string[]) => { const next = [...new Set([...seen, ...keys])].slice(-1000); store.set(SEEN, next); setSeen(next) }
   const shown = more ? list : list.slice(0, Math.max(FIRST, list.filter((n) => n.need).length))
   const label = count ? t(`알림 · 답할 것 ${count}`, `Notifications, ${count} to answer`) : unreadNews.length ? t(`알림 · 새 소식 ${unreadNews.length}`, `Notifications, ${unreadNews.length} new`) : t('알림', 'Notifications')
   return (
@@ -170,11 +174,11 @@ export function NoticeBell() {
           {list.length > 0 && <div className="tb-bell-sum" data-ui="알림 요약">
             <span className="turn-dot" aria-hidden />{t(`답할 것 ${needCount(list)}`, `${needCount(list)} to answer`)}<span aria-hidden>·</span><span className="tb-bell-dot on" aria-hidden />{t(`새 소식 ${list.filter(fresh).length}`, `${list.filter(fresh).length} new`)}
           </div>}
-          {!list.length && <div className="muted tb-bell-none">{t('답할 것도, 지난 7일의 소식도 없습니다', 'Nothing to answer and no news in the last 7 days')}</div>}
+          {!list.length && <div className="muted tb-bell-none">{t('답할 것도, 새 소식도 없습니다', 'Nothing to answer and no new news')}</div>}
           {shown.map((n, i) => (
-            <button key={n.key} role="menuitem" className={`tb-bell-item${n.need ? ' need' : fresh(n) ? ' unread' : ''}${!n.need && shown[i - 1]?.need ? ' first-news' : ''}`} disabled={!n.open && !fresh(n)}
+            <button key={n.key} role="menuitem" className={`tb-bell-item${n.need ? ' need' : fresh(n) ? ' unread' : ''}${!n.need && shown[i - 1]?.need ? ' first-news' : ''}`}
               onClick={() => { if (!n.need) mark([n.key]); if (n.open) { setOpen(false); n.open() } }}>
-              {n.need ? <span className="turn-dot" role="img" aria-label={t('답할 것', 'To answer')} /> : <span className="tb-bell-dot" role="img" aria-label={fresh(n) ? t('새 소식', 'New') : t('읽음', 'Read')} />}
+              {n.need ? <span className="turn-dot" role="img" aria-label={t('답할 것', 'To answer')} /> : <span className="tb-bell-dot" role="img" aria-label={t('새 소식', 'New')} />}
               <span className="tb-bell-kind">
                 {n.place && <span className="tb-bell-where">{placeIcon(n.place)}<span>{placeName(n.place)}</span></span>}
                 <span className={`tag${n.kind === 'error' ? ' error-text' : ''}`}>{KIND_NAME[n.kind]}</span>

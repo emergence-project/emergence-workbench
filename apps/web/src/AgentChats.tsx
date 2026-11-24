@@ -18,6 +18,7 @@ import { ChatInfo, ChatSideTabs } from './AgentChatInfo'
 import { chatLog, isAgentStep, ProcLine, secondsName, type Step } from './WorkLog'
 import { inBackground, isUnseen, myTurn, shownState, useMarkSeen, useSeen } from './agentSeen'
 import { useDismiss } from './useDismiss'
+import { Changes, openChangeFile } from './AgentChanges'
 import { flash } from './flash'
 import { openRecordComposer } from './RecordContext'
 import { useRecords } from './projectQueries'
@@ -346,7 +347,7 @@ function TodoBar({ todos }: { todos: Todo[] }) {
   )
 }
 
-const reviewOf = (rid: string, file: string) => go({ page: 'review', key: `note:${rid}:${file}` })
+export const reviewOf = (rid: string, file: string) => go({ page: 'review', key: `note:${rid}:${file}` })
 
 /** 노트 고침: 대화 안에는 한 줄(무엇을 · +n −n), 바뀐 곳은 오른쪽 칸과 수정 검토에서 */
 function EditLine({ chat, it, onChanges }: { chat: Chat; it: Extract<ChatItem, { kind: 'edit' }>; onChanges?(): void }) {
@@ -358,7 +359,7 @@ function EditLine({ chat, it, onChanges }: { chat: Chat; it: Extract<ChatItem, {
       <span className="ac-edit-what">{it.via === 'command' ? t('명령으로 고침', 'Changed by a command') : chat.rid === APP_RID ? t('파일 고침', 'Edited file') : t('노트 고침', 'Edited')}</span>
       <span className="mono ac-file" title={it.file}>{it.file}</span>
       <Delta added={it.added} removed={it.removed} />
-      {onChanges && <button className="a ac-edit-go" data-ui="바뀐 곳 보기" onClick={onChanges}>{t('변경사항 보기', 'View changes')}</button>}
+      {onChanges && <button className="a ac-edit-go" data-ui="바뀐 곳 보기" onClick={() => { openChangeFile(chat.id, it.file); onChanges() }}>{t('변경사항 보기', 'View changes')}</button>}
       {inline && <button className="a ac-edit-go" data-ui="바뀐 곳 보기" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? t('고친 곳 접기', 'Hide changes') : t('고친 곳 검토 ›', 'Review changes ›')}</button>}
       {it.reason && <span className="muted ac-hint ac-edit-why">{it.reason}</span>}
       {inline && open && <div className="ac-edit-inline"><InlineEdits rid={chat.rid} files={[it.file]} /></div>}
@@ -704,76 +705,6 @@ export function NewChat({ rid: fixed, note, onCreated }: { rid?: string; note?: 
 }
 
 // ---------- 오른쪽 세부 패널: 바뀐 곳 · 작업 (에이전트 화면) ----------
-
-type Edit = Extract<ChatItem, { kind: 'edit' }>
-
-/** 바뀐 곳에 단 코멘트를 에이전트에게 보낼 지시로 */
-export function commentMessage(notes: { file: string; old: string; new: string; text: string }[]): ChatMessageBody {
-  return {
-    text: [t('변경사항에 코멘트를 달았습니다. 하나씩 반영해 주세요.', 'I commented on the changes. Please address each one.'), ...notes.map((n, i) => `${i + 1}. ${n.file}: ${n.text}`)].join('\n'),
-    attach: notes.map((n) => ({ kind: 'selection' as const, ref: n.file, label: (n.new || n.old).slice(0, 40), text: [n.old && `- ${n.old}`, n.new && `+ ${n.new}`].filter(Boolean).join('\n').slice(0, 4000) })),
-  }
-}
-
-/** 바뀐 곳: 파일마다 고친 문단(− · +), 문단을 누르면 코멘트, 모아서 에이전트에게 보내기. 승인 · 되돌리기는 수정 검토에서(파일 줄 오른쪽 「수정 검토 ›」, 10/28 21:39 정렬) */
-function Changes({ chat, onSaved }: { chat: Chat; onSaved(m: string): void }) {
-  const client = useQueryClient()
-  const edits = chat.items.filter((i): i is Edit => i.kind === 'edit')
-  const [notes, setNotes] = useState<Record<string, string>>({})
-  const [open, setOpen] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [fail, setFail] = useState<string | null>(null)
-  const files = [...new Set(edits.map((e) => e.file))]
-  const ready = Object.entries(notes).filter(([, v]) => v.trim())
-  const send = async () => {
-    const list = ready.map(([k, v]) => { const [ei, pi] = k.split(':').map(Number); const e = edits[ei!]!; const p = e.parts[pi!]!; return { file: e.file, old: p.old, new: p.new, text: v.trim() } })
-    setBusy(true); setFail(null)
-    try {
-      client.setQueryData(qk.agentChat(chat.id), await agentChatsApi.send(chat.id, commentMessage(list)))
-      setNotes({}); setOpen(null)
-      onSaved(t('코멘트를 에이전트에게 보냈습니다', 'Comments sent to the agent'))
-    } catch (e) { setFail((e as Error).message) } finally { setBusy(false) }
-  }
-  if (!edits.length) return null
-  return (
-    <section className="ac-changes" data-ui="바뀐 곳">
-      {files.map((f) => {
-        const mine = edits.map((e, ei) => ({ e, ei })).filter((x) => x.e.file === f)
-        return (
-          <div key={f} className="ac-change-file">
-            <div className="ac-work-row">
-              <span className="mono ac-file" title={f}>{f}</span>
-              <Delta added={mine.reduce((s, x) => s + x.e.added, 0)} removed={mine.reduce((s, x) => s + x.e.removed, 0)} />
-              {chat.rid !== APP_RID && <button className="a ac-change-review" data-ui="수정 검토로" title={t('수정 검토에서 승인 · 되돌리기', 'Approve or revert in edit review')} onClick={() => reviewOf(chat.rid, f)}>{t('수정 검토 ›', 'Edit review ›')}</button>}
-            </div>
-            {mine.map(({ e, ei }) => e.parts.map((p, pi) => {
-              const k = `${ei}:${pi}`
-              return (
-                <div key={k} className={`ac-diff ac-diff-part${open === k ? ' on' : ''}`}>
-                  <button className="ac-diff-hit" data-ui="바뀐 곳 코멘트" aria-expanded={open === k} title={t('눌러서 코멘트', 'Click to comment')} onClick={() => setOpen(open === k ? null : k)}>
-                    {p.old && <div className="ac-diff-old"><span aria-hidden>− </span>{p.old}</div>}
-                    {p.new && <div className="ac-diff-new"><span aria-hidden>+ </span>{p.new}</div>}
-                  </button>
-                  {notes[k]?.trim() && open !== k && <div className="ac-diff-note"><b>{t('나', 'Me')}</b> · {notes[k]}</div>}
-                  {open === k && <textarea className="ac-diff-input" rows={2} autoFocus value={notes[k] ?? ''} placeholder={t('이 고침에 코멘트', 'Comment on this change')} aria-label={t('코멘트', 'Comment')}
-                    onChange={(ev) => setNotes({ ...notes, [k]: ev.target.value })}
-                    onKeyDown={(ev) => { if (ev.key === 'Escape') { ev.preventDefault(); setOpen(null) } }} />}
-                </div>
-              )
-            }))}
-            {mine.at(-1)?.e.reason && <span className="muted ac-hint">{mine.at(-1)!.e.reason}</span>}
-          </div>
-        )
-      })}
-      {fail && <span className="error-text ac-hint">{fail}</span>}
-      <div className="ac-card-row">
-        <span className="muted ac-hint">{ready.length ? t(`코멘트 ${ready.length}개`, `${ready.length} comment(s)`) : t('문단을 누르면 코멘트를 답니다', 'Click a change to comment')}</span>
-        <span className="sp" />
-        <button className="btn primary sm" data-ui="코멘트 보내기" disabled={!ready.length || busy} onClick={() => void send()}>{t('에이전트에게 보내기', 'Send to the agent')}</button>
-      </div>
-    </section>
-  )
-}
 
 const PERM_OPEN_KEY = 'rw-agent-perm-open'
 /** 세부 패널: 이 대화(맥락 창 · 기본 정보) · 바뀐 곳(있으면) · 잡은 파일(다른 대화 것도) · 이 대화의 허락 · 하위 에이전트 */

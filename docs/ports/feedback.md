@@ -43,6 +43,7 @@ code:
 | web | `apps/web/src/FeedbackMode.tsx` | 피드백 모드: 부위(`data-ui`) 강조, 누른 부위 · 화면 그림 · 고른 글 모으기 |
 | web | `apps/web/src/FeedbackSend.tsx` | 남기기 창: 유형 고르기(필수) · 글 · 그림 |
 | web | `apps/web/src/FeedbackPage.tsx` | 모아 보기 표: 확인 필요 · 대기 · 완료 · 전체, 줄 펼치기 |
+| web | `apps/web/src/FeedbackTurnSplit.tsx` · `TurnGroup.tsx` | 확인 필요를 결정 필요(답할 것) · 확인만(`userTurn` 'confirm': 반영 끝, 줄 끝 반려 · 승인, 확인 창 없는 「모두 승인」)으로 나눔. 레일 수 · 맥 알림은 결정 필요만 (11/23) |
 | web | `apps/web/src/FeedbackAnswer.tsx` | 처리에 답하기: 승인 · 반려 · 진행 · 중단 · 논의, 코멘트 (`Compose`의 `prefix`로 크게 본 그림에서 보낸 글 앞에 「후 그림:」 등을 붙인다) |
 | web | `apps/web/src/FeedbackViewer.tsx` | 전후 그림과 시안을 한 창으로 크게 보기(11/23): 위 줄에서 전 · 후 · 시안 고르기, 오른쪽에 대화와 답 칸, 대화 칸 접기 |
 | web | `apps/web/src/feedbackDraft.ts` | 적던 글 보존 |
@@ -58,7 +59,7 @@ code:
 
 - 저절로 맡기기와 컴퓨터 사이 맡음 표시(`apps/server/src/agentFeedbackTick.ts`, `feedbackClaims.ts`) — 에이전트 대화([agent-chat.md](agent-chat.md))가 있어야 한다. 서버 컴퓨터를 정했으면 맡기기 · 자동 처리 설정은 서버 한 곳의 것이다: 다른 맥은 맡기기 요청을 서버로 넘기고(`routes/chatPlace.ts`), 툴바의 「자동 처리」(`FeedbackSend.tsx`)와 설정은 서버의 값을 읽고 쓴다(`routes/settings.ts`, `serverRelay.ts`, 11/20). 피드백 돕기(`helper`, 설정 › 기기 관리 · 11/23)를 켠 맥이면 「자동 처리」 풀이에 서버가 넘칠 때 이 맥이 돕는다고 적는다
 - 묶어 맡기기(`apps/server/src/feedbackGroups.ts`, 11/19): 같은 화면의 수정끼리, 질문 · 제안끼리 한 대화에(5개까지). 대화마다 작업 폴더 · 규칙 읽기 · PR · CI를 다시 하지 않으려고
-- 저절로 맡기기에서 코멘트 · 답을 저장하면 그 항목의 앞 대화에 이어 바로 답한다(11/20). 줄 밑 「답하는 중 · 대화 보기」는 `apps/web/src/FeedbackAgentLine.tsx`, 대화에서 사용자가 말한 판정(진행 · 승인 · 반려 · 중단 · 논의)은 `feedback_answer`의 `verdict`로 적는다(`apps/server/src/feedbackVerdict.ts`)
+- 저절로 맡기기에서 코멘트 · 답을 저장하면 그 항목의 앞 대화에 이어 바로 답한다(11/20). 맡은 대화는 주고받은 대화 옆 「맡은 대화」 칸(`apps/web/src/FeedbackChat.tsx`, 11/23: 머리 줄 상태 · 맡김 · PR · 대화 보기 · 멈추기, 아래 이 항목 몫의 글. 묶음이면 `feedbackChatPart.ts`가 `feedback_answer` 기록 줄의 key로 나눈 몫만, key가 없는 옛 대화는 전부), 「에이전트에게 맡기기」와 맡은 대화 찾기는 `apps/web/src/FeedbackAgentLine.tsx`, 대화에서 사용자가 말한 판정(진행 · 승인 · 반려 · 중단 · 논의)은 `feedback_answer`의 `verdict`로 적는다(`apps/server/src/feedbackVerdict.ts`)
 - 중계 서버로 다른 사람의 피드백 받기(`relay/`, `feedbackRelay.ts`)
 - 소개 절 확인(`feedback/about.yaml`, `aboutChecks.ts`)
 

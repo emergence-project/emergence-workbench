@@ -73,7 +73,7 @@ export function RailProjects({ box, ids, order, researches, rid, issues, draggin
     if (top !== menu.top) setMenu({ top })
   }, [menu])
   const hiddenCount = hidden.reduce((s, id) => s + (issues.counts[id] ?? 0), 0)
-  const count = (id: string) => <ProjectRailCount n={issues.counts[id]} tasks={issues.tasks[id]} edits={issues.edits[id]} records={issues.records[id]} problems={issues.problems[id]} />
+  const count = (id: string) => <ProjectRailCount n={issues.counts[id]} tasks={issues.tasks[id]} edits={issues.edits[id]} records={issues.records[id]} problems={issues.problems[id]} confirm={issues.confirm[id]} />
   const tip = (r: ResearchListItem) => `${r.title}  ${PROJECT_KIND_LABEL[r.kind]}${r.fields.length ? ` ${r.fields.map((f) => `#${f}`).join(' ')}` : ''}`
   return (
       <div ref={box} className="rail-projects" data-ui="프로젝트 버튼들" {...dropProps}>

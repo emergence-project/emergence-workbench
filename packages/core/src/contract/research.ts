@@ -97,6 +97,8 @@ export const ProjectIssues = z.object({
   records: z.record(z.string(), z.number()),
   /** 결정을 기다리는 흐름(workbench/problems/)의 방향 보고 (11/11) */
   problems: z.record(z.string(), z.number()),
+  /** 종결 조건을 통과해 승인만 남은 맡긴 일 (11/23). counts에 넣지 않는다: 레일 · 탭 · 알림은 결정할 것만 센다 */
+  confirm: z.record(z.string(), z.number()),
 }).strict()
 
 // ---------- 프로젝트 요약 (GET /researches/:rid) ----------

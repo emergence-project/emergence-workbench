@@ -19,12 +19,15 @@ describe('중앙을 저절로 깨우기', () => {
   let mem: Mem = { free: 0.9, total: 32 * GB }
   const seen: RunInput[] = []
   let release: (() => void) | undefined
-  // [web] = 웹 읽기 허락을 기다림, [rm] = 지우기 허락을 기다림, [hold] = release까지 일하는 중
+  // [web] = 웹 읽기 허락을 기다림, [odd] = 모르는 도구 허락을 기다림(자동 모드도 묻는다), [rm] = 지우기 허락을 기다림, [hold] = release까지 일하는 중
   const fake: AgentRunner = async function* (input): AsyncIterable<RunEvent> {
     seen.push(input)
     yield { type: 'session', id: `s${seen.length}` }
     if (input.prompt.includes('[web]')) {
       const d = await input.canUseTool('WebFetch', { url: 'https://example.com/doc', prompt: '읽기' })
+      yield { type: 'text', text: d.allow ? 'ran' : 'declined' }
+    } else if (input.prompt.includes('[odd]')) {
+      const d = await input.canUseTool('Mystery', { what: 'x' })
       yield { type: 'text', text: d.allow ? 'ran' : 'declined' }
     } else if (input.prompt.includes('[rm]')) {
       const d = await input.canUseTool('Bash', { command: 'rm out.txt' })
@@ -167,7 +170,7 @@ describe('중앙을 저절로 깨우기', () => {
 
   it('크리티컬하지 않은 허락은 중앙이 답하고(카드에 표시), 크리티컬한 것은 막아 사용자에게 남긴다', async () => {
     const { chats } = await make(60_000)
-    const run = await chats.openKid({ role: 'app', title: '돌리기', task: '[web]' })
+    const run = await chats.openKid({ role: 'app', title: '돌리기', task: '[odd]' })
     const del = await chats.openKid({ role: 'project', project: 'chiral', title: '지우기', task: '[rm]' })
     await vi.waitFor(() => expect(chats.centralState().kids.filter((k) => k.state === 'waiting')).toHaveLength(2))
     const kids = chats.centralState().kids

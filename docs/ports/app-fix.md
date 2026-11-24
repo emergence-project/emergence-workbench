@@ -40,7 +40,7 @@ code:
 | 층 | 파일 | 맡은 일 |
 | --- | --- | --- |
 | server | `apps/server/src/appWorktree.ts` | 작업 폴더 만들기 · 치우기, `submit`(커밋 · 빠른 검사 · 올리기 · PR), `checks`(gh pr checks), `merge`(squash, 제목 "<PR 제목> (#n)"), `conflicted`, `diff`(명령으로 고친 파일 찾기), 되감기 찍기 · 되돌리기 |
-| server | `apps/server/src/agentPolicy.ts` (`judgeApp` · `APP_OWNED`) | 앱 고치기 대화의 허락 판정: 작업 폴더 밖 · 다른 PR이 고친 파일 · 앱이 맡는 명령은 막고, 권한 이름대로 묻는다 |
+| server | `apps/server/src/agentPolicy.ts` (`judgeApp` · `APP_OWNED`) | 앱 고치기 대화의 허락 판정: 작업 폴더 밖 · 다른 PR이 고친 파일 · 앱이 맡는 명령은 막고, 권한 이름대로 묻는다. 앱 고치기 · 피드백 대화는 「자동」으로 연다(`agentCentral.ts` · `agentFeedbackTick.ts`, 11/23): 크리티컬한 일만 묻는다 |
 | server | `apps/server/src/agentChats.ts` (`appSubmit` · `appChecks`) · `agentCentral.ts` (`appMerge`) | 도구 셋의 몸통. 합치기는 CI · 충돌을 다시 보고 거절할 까닭을 돌려준다 |
 | server | `apps/server/src/agentFeedbackTick.ts` | 1분마다: CI 빨강이면 다시 보내기(두 번), 설정대로 합치기, 반영됨 표시, 끝난 대화 보관, 저절로 맡기기(자리가 남는 만큼 한 번에, 저장 · 자동 켜기 바로 뒤에도. 서버로 정한 컴퓨터가 따로 있으면 맡지 않는다: `serverRelay.ts`. 서버의 자리가 차면 피드백 돕기를 켠 맥에 맡긴다: `DeviceHub.free` · `assign`, 11/23). 중앙이 깊은 검토로 보류한 PR(`held`)은 합치지 않는다(11/23, `agentCentralReview.ts`) |
 | server | `apps/server/src/feedbackClaims.ts` | 맡음 표시(`feedback/handoff.yaml`) 쓰기 · 읽기 · 세 시간 뒤 풀기 |

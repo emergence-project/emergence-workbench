@@ -253,6 +253,12 @@ describe('STATUS.md와 파일 감시', () => {
     const after = await issues()
     expect(after.tasks['sample-research']).toBe(2)
     expect(after.counts['sample-research']).toBe(before.counts['sample-research'] + 2)
+    // 종결 조건을 통과하고 물음이 없는 결과는 확인만: tasks · counts에서 빠지고 confirm으로 센다 (11/23)
+    fs.writeFileSync(path.join(dir(), `${a.id}.md`), fs.readFileSync(path.join(dir(), `${a.id}.md`), 'utf8').replace('state: result', 'state: result\nend-check: pass'))
+    const passed = await issues()
+    expect(passed.tasks['sample-research']).toBe(1)
+    expect(passed.confirm['sample-research']).toBe(1)
+    expect(passed.counts['sample-research']).toBe(before.counts['sample-research'] + 1)
   })
 
   it('workbench/tasks/의 .md가 바뀌면 알린다', () => {

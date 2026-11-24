@@ -31,7 +31,7 @@ import { commentsChanged, manuscriptTarget, OPEN_CONTEXT, targetOfTab } from './
 import { figuresMaybeChanged } from './figureEmbed'
 import { LibraryNote } from './Library'
 import { QuickMemo } from './memo'
-import { OPEN_RIGHT, setRightMode, useRightMode, useTopBarModes } from './noteScreen'
+import { CLOSE_RIGHT, OPEN_RIGHT, setRightMode, useRightMode, useTopBarModes } from './noteScreen'
 import { RecordsPanel } from './RecordsPanel'
 import { recordPdfTab, recordRoute } from './recordsPanelHelpers'
 import { NoInfo, NoteInfo, RightSidebar } from './RightSidebar'
@@ -55,7 +55,7 @@ import { batchInvalidation, invalidationKeys, qk, slowInvalidationKeys } from '.
 import { recordWrites } from './useRecordActions'
 import { noteOfRoute, ResearchNav } from './Sidebar'
 import { store } from './store'
-import { usePhone, usePhoneCloses, useLeftSide, useStoredFlag } from './phoneLayout'
+import { usePhone, usePhoneCloses, useGlobalRight, useLeftSide, useStoredFlag } from './phoneLayout'
 import { applyUi, cachedUi } from './ui'
 import { FLASH_EVENT, noteError, type FlashAction, type FlashMessage } from './flash'
 import { useProjectRemove } from './projectRemove'
@@ -121,20 +121,19 @@ export function App() {
   const [recordOpenRequest, setRecordOpenRequest] = useState<WorkspaceOpenRequest | null>(null)
   const workspaceDragging = useWorkspaceDragging()
   // 프로젝트 밖 화면의 오른쪽 사이드바 (라이브러리 정보 등, globalPages.tsx의 right). 프로젝트의 것(layout.ctx)과 따로 기억한다
-  const [globalRight, setGlobalRight] = useStoredFlag('rw-global-right', true), globalRightHere = useRef(false), [agentSide, setAgentSide] = useStoredFlag('rw-agent-side', false), agentSideHere = useRef(false), agentColHere = useRef(false) // 아래 globalRightAble · agentSideAble
+  const [globalRight, setGlobalRight, closeGlobalRight] = useGlobalRight(route.page === 'about'), globalRightHere = useRef(false), [agentSide, setAgentSide] = useStoredFlag('rw-agent-side', false), agentSideHere = useRef(false), agentColHere = useRef(false) // 아래 globalRightAble · agentSideAble
   // 질문을 남기면 답이 붙는 오른쪽 사이드바를 적기 갈래로 연다 (Comments.tsx의 OPEN_CONTEXT), 노트 도구 줄의 말풍선 (noteScreen.ts의 OPEN_RIGHT). 지식 화면 등은 그 화면의 것 (11/5 19:50)
   useEffect(() => {
     const openCtx = () => setLayout((l) => (l.ctx ? l : { ...l, ctx: true })), open = () => { if (agentColHere.current) return; if (agentSideHere.current) setAgentSide(true); else if (globalRightHere.current) setGlobalRight(true); else openCtx() }
     const ask = () => { setRightMode('records'); open() }
     // 노트의 고른 글 메뉴 「에이전트에게」 (ChatComposer.tsx의 sendToAgent): 오른쪽 사이드바의 에이전트 탭(아래 자리면 아래 패널)을 연다
     const agent = () => { setRightMode('agent'); if (store.get<AgentPlace>('rw-agent-place', 'right') === 'right') openCtx(); else setAgentPanel(true) }
-    window.addEventListener(OPEN_CONTEXT, ask)
-    window.addEventListener(OPEN_RIGHT, open)
-    window.addEventListener(AGENT_OPEN, agent)
-    return () => { window.removeEventListener(OPEN_CONTEXT, ask); window.removeEventListener(OPEN_RIGHT, open); window.removeEventListener(AGENT_OPEN, agent) }
+    const close = () => { if (agentSideHere.current) setAgentSide(false); else if (globalRightHere.current) setGlobalRight(false); else setLayout((l) => (l.ctx ? { ...l, ctx: false } : l)) }
+    window.addEventListener(OPEN_CONTEXT, ask); window.addEventListener(OPEN_RIGHT, open); window.addEventListener(CLOSE_RIGHT, close); window.addEventListener(AGENT_OPEN, agent)
+    return () => { window.removeEventListener(OPEN_CONTEXT, ask); window.removeEventListener(OPEN_RIGHT, open); window.removeEventListener(CLOSE_RIGHT, close); window.removeEventListener(AGENT_OPEN, agent) }
   }, [setLayout, setGlobalRight, setAgentSide])
   const [sideOpen, setSideOpen, closeSides] = useLeftSide(route.page === 'agent')
-  usePhoneCloses(usePhone(), JSON.stringify(route), () => { closeSides(); setGlobalRight(false); setAgentSide(false); setLayout((l) => (l.ctx ? { ...l, ctx: false } : l)) })
+  usePhoneCloses(usePhone(), JSON.stringify(route), () => { closeSides(); closeGlobalRight(); setAgentSide(false); setLayout((l) => (l.ctx ? { ...l, ctx: false } : l)) })
   const onGlobalPage = useRef(false)
   onGlobalPage.current = route.page === 'home' || !!globalPageOf(route.page)
   const [quickMemo, setQuickMemo] = useState(false); const [feedback, setFeedback] = useState(false)
@@ -487,7 +486,7 @@ export function App() {
           ) : current && <>
             {/* 프로젝트 이름은 제목줄에만 둔다 (10/3 피드백: 중복 없애기) */}
             <div className="side-scroll project-side-scroll">
-              {summary && rapi ? <ResearchNav rid={current.id} rapi={rapi} route={route} kind={current.kind} askCount={issues.records[current.id] ?? 0} taskCount={issues.tasks[current.id] ?? 0} manuscripts={manuscripts} topics={topics} notes={notes}
+              {summary && rapi ? <ResearchNav rid={current.id} rapi={rapi} route={route} kind={current.kind} askCount={issues.records[current.id] ?? 0} taskCount={issues.tasks[current.id] ?? 0} confirmCount={issues.confirm[current.id] ?? 0} manuscripts={manuscripts} topics={topics} notes={notes}
                 materials={rapi && <MaterialsNav rid={current.id} rapi={rapi} route={route} onSaved={flash} library={library} onLibraryChanged={libraryChanged} />} /> : <div className="empty space-empty">{current.problem ?? (error ? t('프로젝트를 읽지 못했습니다.', 'Could not read the project.') : t('불러오는 중…', 'Loading…'))}</div>}
             </div>
           </>}

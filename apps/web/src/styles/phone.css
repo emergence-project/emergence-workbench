@@ -150,3 +150,7 @@
 .ph-memo-project { height: var(--input-h-lg); font-size: var(--fs-md); }
 .ph-memo-text { font-size: var(--fs-md); }
 .ph-memo-save { align-self: stretch; justify-content: center; height: var(--input-h-lg); }
+/* 내 차례의 확인만 한 줄 (11/23): 옅은 고리 점 · 제목 · 승인 */
+.ph-confirm-row { display: flex; align-items: center; gap: var(--sp-2); padding-right: var(--sp-3); border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--bg-side); color: var(--text-2); }
+.ph-confirm-main { display: flex; align-items: center; gap: var(--sp-2); flex: 1; min-width: 0; padding: var(--sp-3); border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ph-confirm-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
