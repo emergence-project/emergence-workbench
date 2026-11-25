@@ -3,7 +3,7 @@
 이 문서는 인계용이다. main에 합치지 않고, 아래 일이 끝나면 이 브랜치(`claude/dogfood-week-fixes`)와 함께 지운다.
 
 - 한 일: main `376b1730`(#679)까지 이번 주 커밋을 갈래 다섯으로 검토하고, 예제 모드(`pnpm dev`)에서 직접 써 보며 버그를 찾아 고쳤다.
-- 상태: 묶음 넷을 PR #680 · #681 · #682 · #683으로 열어 CI 초록 뒤 모두 합쳤다(11/24). 빠졌던 수정 하나는 #684로 합쳤다(11/25, main `3cdfa046`). 실사용 앱도 다시 시작했다.
+- 상태: 묶음 넷을 PR #680 · #681 · #682 · #683으로 열어 CI 초록 뒤 모두 합쳤다(11/24). 빠졌던 수정 하나는 #684로, 3.1절 "놓치는 것"은 #688 · #690으로 합쳤다(11/25, main `810448d3`). 실사용 앱도 다시 시작했다.
 - 남은 일: (1) 3절의 고치지 않은 버그, (2) 4절의 개선사항 가운데 사용자가 고른 것.
 - 이 브랜치의 코드는 이제 낡았다: 네 커밋은 main에 들어갔고, 그중 빠졌던 `WorkColumn key`는 11/25에 #684로 따로 들어갔다(아래). 이 문서만 본다.
 
@@ -92,24 +92,31 @@ PR을 열 때 지킬 것:
 
 설계가 필요하거나 범위가 커서 남겼다. 검토에서 나온 것이므로 **고치기 전에 재현부터** 한다. 위쪽이 더 급하다.
 
-### 3.1 명령 분류기 (`packages/core/src/chat-auto.ts` · `chat-readonly.ts` · `chat-bypass.ts`)
+### 3.1 명령 분류기 (`packages/core/src/chat-auto.ts` · `chat-readonly.ts` · `chat-bypass.ts` · `chat-shell.ts`)
 
-놓치는 것:
+**"놓치는 것"은 11/25에 고쳤다**: #688(#681이 만든 회귀: 작은따옴표 안을 가린 채 판정해 `python3 -c 'exec(…)'`가 중앙에서 통과) · #690(아래 목록 전부와, 별도 검토에서 나온 주석 · 치환 안 따옴표로 뒤 명령 숨기기, 치환 출력이 옵션이 되는 꼴, `gh` 붙여 쓴 옵션 등). 셸 글 읽기는 `chat-shell.ts`로 옮겼다. 고친 것: zsh의 `=( )` · 무늬 꼬리표 · `$=x`, 파이썬 주석 안 따옴표, 겹쳐 감싼 지우기, `< 밖 경로`와 따옴표로 싼 받는 곳, `neverBypass`의 묶음 · `find` · `xargs`, `$'…'` 따옴표, `heads/main` 푸시, graphql 질의 치환, 토큰 변수 `echo`, `&> 파일`, 읽는 도구의 `~` 경로.
 
-- zsh 전용 문법(`=(명령)`, glob qualifier의 `e:'…':`, `$=x`)을 명령으로 보지 않는다.
-- `python3 -c` 안의 실행(주석 `#`이 문자열 가리기를 헷갈리게 하는 꼴 포함).
-- 겹쳐 감싼 지우기: `find -exec sh -c '…'`, `xargs -I{} sh -c '…'`, `find -exec env …`, `time -p …` 안의 `rm`이 "지우기"로 올라가지 않는다.
-- `cat < <저장소 밖 경로>`를 밖 읽기로 보지 않는다. 작은따옴표로 싼 절대 경로 리디렉션 대상도.
-- `neverBypass`가 `( … )` · `{ …; }` · `xargs` · `find` 꼴을 놓친다. `commandKind`가 `$'…'` 따옴표를 모른다.
-- 낮음: `git push origin x:heads/main`, `gh api graphql -f query="$(…)"`, 토큰 환경 변수 `echo`, `writesFiles`의 `&> 파일`.
-- 덜 확실: 도구 `Read`의 `~` 경로 풀기, `Glob` 패턴이 저장소 밖으로 나가는 꼴.
+아직 놓치는 것 (#690의 별도 검토에서 나왔고 고치지 않음. 재현부터):
 
-반대로 과하게 잡는 것(읽기 전용 대화가 막히거나 매번 물음):
+- 보통 대화 판정(`commandKind`)이 「읽기」 · 「실행」으로 두는 지우기 · 폴더 밖:
+  - zsh 문법: 이름 없는 함수 `() { rm -rf x }`, `{ … } always { … }`, 앞말 `noglob` · `=rm` · `repeat 1`, `case x in x) rm …;; esac`, `${(e)…}`, `read 'a[$(…)]'`.
+  - 펼침으로 만든 옵션: `find . -{delete,print}`, `find . ${:--delete}`, `find . -del${u}ete`, `echo -delete | read x; find . $x`, `env -S'rm -rf x'`.
+  - 따옴표 없는 구분자의 히어독 본문은 `$( )`가 펼쳐진다: `cat <<E⏎echo '$(rm -rf x)'⏎E`.
+  - 폴더 밖 경로: `cat /tmp/../etc/passwd`, `cat {/etc/passwd,}`, `cat $PWD/../other/x`, `for f in /etc/*; do cat $f; done`, `echo hi >!~/.zshrc`, `dd if=a of=~/.zshrc`.
+  - 그 밖: `sh -ce '…'` · `bash -c -- '…'`, `xargs -J % rm -rf %`, `git --git-dir .git clean -fdx`, `git reset --har`(옵션 줄임꼴), `sed -n 's/x/y/gw out' f` · `sed -n -e'w out' f`, `awk -v c='rm x' 'BEGIN{print 1|c}'`, `xxd a b`, `git reflog expire`.
+- `neverBypass`: 위와 같은 앞말 · 줄임꼴(`git push --mirr`, `--del main`), `f=--force; git push origin main $f`, `git push {--force,origin,main}`, `git -C workbench checkout -- .`, `git update-ref -d refs/heads/main`, `rm -rf /tmp/a/{.,}./{.,}./Users/…`, `rm -rf $TMPDIRx/…`, `ksh -c '…'`.
+- 중앙 목록에서 덜 확실한 것: `gh pr create --body-file <로컬 파일>`(로컬 파일을 공개 PR에 올림).
+- 값을 모르는 변수(`find . $x`에서 `$x`가 무늬 · 명령 결과)는 따라가지 않는다. `python3 -c` 안에서 지우는 코드는 「실행」이다.
 
-- 따옴표 안의 `>`(`grep "=>"`)를 파일 쓰기로 본다.
+과하게 잡는 것(읽기 전용 대화가 막히거나 매번 물음):
+
+- ~~따옴표 안의 `>`(`grep "=>"`)를 파일 쓰기로 본다.~~ #690에서 함께 고쳐졌다.
 - `'\.ts$'` 같은 정규식의 `$`를 변수로 본다.
 - `cd x && ../..` 꼴 경로를 저장소 밖으로 본다.
 - 셸 내장 명령이 "실행"이 된다. `gh run view` · `gh pr view`를 매번 묻는다.
+- `/`로 시작하는 따옴표 글을 경로로 본다: `sed -n '/foo/p' f`, `awk '/foo/ {print}' f`, `grep '/usr' f`가 「외부」.
+- `x=1; echo $x`와 `git commit -m "$(cat <<'EOF' … EOF)"`가 「실행」.
+- 11/25부터 중앙은 치환을 옵션 있는 프로그램에 넘기는 명령(`git log $(git describe …)..HEAD`, `gh pr view $(…)`)을 묻는다(`git merge-base` · `git rev-parse` 출력을 git에 넘기는 것만 통과). 안전 쪽으로 정한 것이지만 잦으면 허용할 안쪽 명령을 늘린다.
 
 ### 3.2 중앙 · 피드백 처리 (`apps/server/src/agentCentral*.ts` · `agentFeedbackTick.ts` · `appWorktree.ts`)
 
