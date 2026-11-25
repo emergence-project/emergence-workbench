@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useCmdEnter } from './cmdEnter'
 import { Dialog } from './dialogs'
 import { t } from './i18n'
 
@@ -76,8 +77,11 @@ function AskTextDialog({ p, done }: { p: AskText; done(v: string | null): void }
   const [value, setValue] = useState(p.initial ?? '')
   const input = useRef<HTMLInputElement & HTMLTextAreaElement>(null)
   useEffect(() => { input.current?.focus(); input.current?.select() }, [])
+  // 여러 줄은 ⌘↵로 끝낸다 (한글을 친 직후면 조합이 끝난 뒤에), 한 줄은 ↵
+  const sendKey = useCmdEnter(() => done(value))
   const onKey = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && (!p.multiline || e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); done(value) }
+    if (p.multiline) sendKey.onKeyDown(e)
+    else if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); done(value) }
   }
   return (
     <Dialog ui="입력" title={p.title} onClose={() => done(null)} footer={<>
@@ -86,7 +90,7 @@ function AskTextDialog({ p, done }: { p: AskText; done(v: string | null): void }
     </>}>
       <label className="field">{p.label && <span>{p.label}</span>}
         {p.multiline
-          ? <textarea ref={input} rows={3} value={value} placeholder={p.placeholder} onChange={(e) => setValue(e.target.value)} onKeyDown={onKey} />
+          ? <textarea ref={input} rows={3} value={value} placeholder={p.placeholder} onChange={(e) => setValue(e.target.value)} onKeyDown={onKey} onCompositionEnd={sendKey.onCompositionEnd} />
           : <input ref={input} value={value} placeholder={p.placeholder} onChange={(e) => setValue(e.target.value)} onKeyDown={onKey} />}
       </label>
       {p.hint && <p className="muted ask-hint">{p.hint}</p>}

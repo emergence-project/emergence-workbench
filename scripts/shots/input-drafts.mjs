@@ -3,7 +3,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { chromium, request } from 'playwright-core'
 
-// Browser regressions; every write from the page is intercepted. The last case alone creates two sandbox conversations through the API.
+// Browser regressions; every write from the page is intercepted. Only the conversation cases (changes draft, say box) create sandbox conversations through the API.
 // pnpm test:browser (browser-check.mjs) builds, starts a fresh sandbox and runs this; CI runs it on every PR.
 // Against a sandbox that is already running: node scripts/shots/input-drafts.mjs <url> <output-directory>.
 assert(process.argv[2], 'Usage: node scripts/shots/input-drafts.mjs <loopback-sandbox-url> [output-directory]')
@@ -68,6 +68,25 @@ async function taskPage(page, answers = [], responseGate, asks = original.asks) 
   await page.goto(`${base.href}#/r/${encodeURIComponent(rid)}/k/${taskId}`)
   await page.getByRole('textbox', { name: '2번에 덧붙일 말', exact: true }).waitFor()
   return { started, reads: () => reads, writes: () => writes, task: () => task, change: (patch) => { task = { ...task, ...patch } } }
+}
+/** 한글을 친 직후의 ⌘↵: 조합 중인 글자 → ⌘↵ → 조합 끝 (실제 입력기의 차례). 키는 isComposing으로 간다 */
+async function sendKeyWhileComposing(page, syllable) {
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Input.imeSetComposition', { text: syllable, selectionStart: syllable.length, selectionEnd: syllable.length })
+  for (const type of ['keyDown', 'keyUp']) await cdp.send('Input.dispatchKeyEvent', { type, key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, modifiers: 4 })
+  await cdp.send('Input.insertText', { text: syllable })
+  await cdp.detach()
+}
+/** 화면이 보낸 쓰기 요청을 모은다 (서버에는 닿지 않는다) */
+async function catchWrites(page) {
+  const sent = []
+  await page.route(`${base.origin}/api/**`, (route) => {
+    const r = route.request()
+    if (['GET', 'HEAD', 'OPTIONS'].includes(r.method())) return route.fallback()
+    sent.push({ path: new URL(r.url()).pathname, body: r.postDataJSON() })
+    return route.fulfill({ status: 500, json: { error: 'Injected write failure' } })
+  })
+  return sent
 }
 async function searchPage(page, handler) {
   await page.route(`${base.origin}/api/search/catalog`, (route) => route.fulfill({ json: { items: [], library: true } }))
@@ -245,6 +264,41 @@ try {
     assert.equal(await page.locator('.ac-diff-input, .ac-diff-note').count(), 0, 'The comment draft followed into another conversation')
     assert.equal(await page.locator('[data-ui="코멘트 보내기"]').isDisabled(), true)
     assert.equal(await page.locator('[data-ui="에이전트"] .ac-chat').count(), 1, 'The previous conversation stayed on screen')
+  })
+  // 한글을 친 직후 ⌘↵: 조합 중이라고 키를 버리면 보내지지 않는다. 조합이 끝난 글까지 넣어 보낸다
+  await caseOf('central-talk-sends-after-korean-composition', async (page) => {
+    const sent = await catchWrites(page)
+    await page.goto(`${base.href}#/settings`)
+    await page.locator('[data-ui="맥락 칸 켜고 끄기"]').click()
+    const box = page.locator('[data-ui="중앙에게 말하기"] textarea')
+    await box.click()
+    await page.keyboard.type('중앙에게 ')
+    await sendKeyWhileComposing(page, '말')
+    await eventually(() => sent.length > 0, '⌘↵ right after Korean composition did not send to Central')
+    assert.equal(sent[0].body.text, '중앙에게 말')
+  })
+  await caseOf('ask-say-box-sends-after-korean-composition', async (page) => {
+    const id = (await (await api.post('/api/agent-chats', { data: { rid, text: '켐페 확인 계산을 차수 7까지 돌려 줘', scope: { kind: 'project' }, mode: 'edit' } })).json()).chat.id
+    await eventually(async () => (await (await api.get(`/api/agent-chats/${id}`)).json()).chat.items.some((x) => x.kind === 'ask' && !x.answer), 'The sandbox conversation did not ask')
+    const sent = await catchWrites(page)
+    await page.goto(`${base.href}#/agent/${encodeURIComponent(id)}`)
+    await page.locator('[data-ui="다르게 말하기"]').click()
+    await page.locator('.ac-say-box textarea').click()
+    await page.keyboard.type('다르게 ')
+    await sendKeyWhileComposing(page, '해')
+    await eventually(() => sent.some((w) => w.path.endsWith('/answer')), '⌘↵ right after Korean composition did not send the answer')
+    assert.equal(sent.find((w) => w.path.endsWith('/answer')).body.note, '다르게 해')
+  })
+  await caseOf('work-composer-saves-after-korean-composition', async (page) => {
+    const sent = await catchWrites(page)
+    await page.goto(`${base.href}#/r/${encodeURIComponent(rid)}/log`)
+    await page.locator('[data-ui="기록 거르기"]').getByRole('button', { name: '메모', exact: true }).click()
+    const box = page.locator('[data-ui="기록 화면"] [data-ui="메모 입력"] textarea')
+    await box.click()
+    await page.keyboard.type('기록 ')
+    await sendKeyWhileComposing(page, '글')
+    await eventually(() => sent.length > 0, '⌘↵ right after Korean composition did not save the record')
+    assert.equal(sent[0].body.text, '기록 글')
   })
 } finally { await browser.close(); await api.dispose() }
 await fs.writeFile(`${out}/results.json`, JSON.stringify({ base: base.href, checks }, null, 2))
