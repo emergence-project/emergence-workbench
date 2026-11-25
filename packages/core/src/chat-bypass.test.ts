@@ -45,9 +45,21 @@ describe('중앙 대화의 우회: 허락해도 돌리지 않는 명령', () => 
       ['git update-ref -d refs/heads/main', 'delete-main'], ['git -C workbench checkout -- .', 'workbench-write'], ['git -C ../x/workbench clean -fd', 'workbench-write'],
       ['rm -rf /tmp/a/{.,}./{.,}./Users/u/Documents', 'rm-outside-temp'], ['rm -rf $TMPDIRx/Users/u/Documents', 'rm-outside-temp'], ['rm -rf {/tmp/a,~/b}', 'rm-outside-temp'],
     ] as const) expect(neverBypass(c), c).toBe(why)
-    for (const c of ['git push --follow-tags origin x', 'git push --no-verify origin x', 'git reset --soft HEAD~1', 'git -C workbench status', 'rm -rf /tmp/a/{b,c}', 'rm -rf $TMPDIR/x', 'git update-ref -d refs/heads/old',
+    for (const c of ['git push --follow-tags origin x', 'git push --no-verify origin x', 'git reset --soft HEAD~1', 'git -C workbench status', 'rm -rf /tmp/a/{b,c}', 'rm -rf /tmp/shots-{1..3}', 'rm -rf $TMPDIR/x', 'git update-ref -d refs/heads/old',
       'noglob git push origin x', 'f=origin; git push $f x'])
       expect(neverBypass(c), c).toBeUndefined()
+  })
+  // 11/25 셋째 검토
+  it('여러 뜻으로 읽힐 수 있으면 무거운 쪽으로, 펼침의 나머지', () => {
+    for (const [c, why] of [
+      [`echo "a $(echo "<<'true' ")"\necho \`git push --force origin main\`\ntrue`, 'force-push'], ["echo ${(e):-'$(git push --force)'}", 'force-push'],
+      ['git push --forc{e..e} origin main', 'force-push'], ['git push --force{,}{,}{,}{,}{,} origin main', 'force-push'], ['git push $u--force origin main', 'force-push'],
+      ['git push --for$()ce origin main', 'force-push'], ["bash -c -e 'git push --force'", 'force-push'], ['git --attr-source HEAD push --force origin main', 'force-push'],
+      ['git --config-env a.b=HOME reset --hard', 'reset-hard'], ['for o in a b c d e f g h i j k l m n p q --force; do git push origin x $o; done', 'force-push'],
+      ['rm -rf /tmp/a { /Users/u/Documents', 'rm-outside-temp'], ['rm -rf ${HOME:-/tmp/a/b}', 'rm-outside-temp'], ['find ${HOME:-/tmp/a} -delete', 'rm-outside-temp'],
+      ['rm -rf /tmp/a/.$u./.$u./Users/u/Documents', 'rm-outside-temp'], [`rm -rf /tmp/a/${'{.,}'.repeat(12)}./x`, 'rm-outside-temp'], ['tee /tmp/x { workbench/a', 'workbench-write'],
+    ] as const) expect(neverBypass(c), c).toBe(why)
+    for (const c of ['rm -rf /tmp/a { /Users/u/Documents', 'tee /tmp/x { workbench/a']) expect(writesFiles(c), c).toBe(true)
   })
   it('되돌리기 어려운 git', () => {
     for (const [c, why] of [

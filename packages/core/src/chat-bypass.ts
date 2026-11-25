@@ -6,7 +6,7 @@
  * 옵션 줄임꼴(--har), 펼쳐서 만드는 옵션({--force,x} · --for${u}ce), 글자 그대로 적은 값의 변수(f=--force; git push $f)도 같은 것으로 읽는다
  */
 import { GIT_VALUE, leading, noteVars, variants, wrapped } from './chat-auto.js'
-import { expandWords, longOpt, prepare, redirects, segments, splitGroups, substitutions, words } from './chat-shell.js'
+import { alternatives, evalFlags, expandBraces, expandWords, hasBraces, heredocVariant, longOpt, prepare, redirects, segments, splitGroups, substitutions, words } from './chat-shell.js'
 
 export type NeverBypass = 'force-push' | 'reset-hard' | 'delete-main' | 'rm-outside-temp' | 'workbench-write'
 
@@ -17,10 +17,18 @@ const positional = (a: string[]) => a.filter((x) => !x.startsWith('-'))
 const short = (a: string[], ch: string) => a.some((x) => /^-[a-zA-Z]+$/.test(x) && x.includes(ch))
 const wb = (x: string) => /(^|\/)workbench(\/|$)/.test(x)
 
-/** 임시 폴더 안 (그 폴더 자체는 아님). 상대 경로 · .. · 변수는 어디인지 모르니 밖으로 본다 */
+/**
+ * 임시 폴더 안 (그 폴더 자체는 아님). 상대 경로 · .. · 변수는 어디인지 모르니 밖으로 본다.
+ * 중괄호는 펼쳐서 본다: /tmp/a/{b,c} 는 안이고, {/tmp/a,~/b} · /tmp/a/{.,}./{.,}./Users 는 밖이다. 다 펼치지 못할 만큼 많으면 밖으로
+ */
 export function inTemp(p: string): boolean {
-  // 중괄호는 펼치면 .. 가 될 수 있다 ({.,}./). $TMPDIR 는 바로 뒤에 / 가 올 때만: $TMPDIRx 는 다른(빈) 변수다
-  if (p.includes('..') || /[{}]/.test(p)) return false
+  const all = expandBraces([p])
+  return !all.some(hasBraces) && all.every(inTempOne)
+}
+function inTempOne(p: string): boolean {
+  if (p.includes('..')) return false
+  // 경로 가운데의 변수는 무엇이 될지 모른다 (/tmp/a/.$u./ 는 .. 가 된다). $TMPDIR 는 바로 뒤에 / 가 올 때만: $TMPDIRx 는 다른(빈) 변수다
+  if (/\$/.test(p.replace(/^\$(?:TMPDIR|\{TMPDIR\})(?=\/)/, ''))) return false
   return /^(\/private)?\/tmp\/[^/]+|^(\/private)?\/var\/folders\/[^/]+\/[^/]+\/T\/[^/]+|^\$(?:TMPDIR|\{TMPDIR\})\/[^/]+/.test(p)
 }
 
@@ -93,10 +101,17 @@ const inFind = (inner: string[], roots: string[]) => inner.flatMap((x) => (x ===
 
 const SHELL = /^(sh|bash|zsh|dash|ksh|fish)$/
 
+/** 적힌 낱말로도, 셸이 펼쳐 만들 수 있는 낱말로도 본다: git push {--force,origin,main} · --for${u}ce · rm -rf /tmp/a/{.,}./… */
 function segment(w0: string[], depth: number): NeverBypass | undefined {
-  if (depth > 14) return undefined
-  // 셸이 펼쳐 만들 낱말로 본다: git push {--force,origin,main} · --for${u}ce · rm -rf /tmp/a/{.,}./…
-  const w = expandWords(unwrap(w0))
+  for (const w of alternatives(unwrap(w0))) {
+    const hit = segmentWords(w, depth)
+    if (hit) return hit
+  }
+  return undefined
+}
+
+function segmentWords(w: string[], depth: number): NeverBypass | undefined {
+  if (depth > 40) return undefined
   if (!w.length) return undefined
   const prog = w[0]!.split('/').pop()!
   const a = w.slice(1)
@@ -130,11 +145,20 @@ function segment(w0: string[], depth: number): NeverBypass | undefined {
 
 /** 허락해도 돌리지 않는 명령이면 그 까닭, 아니면 undefined */
 export function neverBypass(cmd0: string, depth = 0): NeverBypass | undefined {
-  if (depth > 12) return undefined
+  // 히어독으로도 읽어 본다 (본문의 따옴표가 뒤 명령을 가리는 꼴). 원래 글에서 걸리면 그것으로
+  const hit = neverCore(cmd0, depth)
+  if (hit) return hit
+  const alt = depth < 3 ? heredocVariant(cmd0) : null
+  return alt === null ? undefined : neverCore(alt, depth)
+}
+
+function neverCore(cmd0: string, depth: number): NeverBypass | undefined {
+  if (depth > 40) return undefined
   // 셸이 읽는 대로 고쳐 쓴 글로 본다: 줄 잇기, git push $'--force', 주석 · $'…' 안의 따옴표로 뒤 명령 숨기기
   const cmd = prepare(cmd0)
   // 겹친 $( $( … ) )도 안쪽부터 본다
-  for (const part of substitutions(cmd).inner) {
+  // zsh의 ${(e)…} 도 안의 글을 돌린다
+  for (const part of [...substitutions(cmd).inner, ...evalFlags(cmd)]) {
     const r = neverBypass(part, depth + 1)
     if (r) return r
   }
@@ -145,13 +169,13 @@ export function neverBypass(cmd0: string, depth = 0): NeverBypass | undefined {
     if (expandWords(r.out).some(wb)) return 'workbench-write'
     const all = words(r.rest)
     // 글자 그대로 적은 값의 변수는 그 값을 넣어서도 본다: f=--force; git push origin main $f
-    for (const v of variants(seg, vars) ?? []) {
+    for (const v of variants(seg, vars)) {
       const hit = neverBypass(v, depth + 1)
       if (hit) return hit
     }
     noteVars(all, vars)
-    // `{ true } always { git push --force }` · `() { … }`: ; 없이 닫힌 묶음도 하나씩
-    for (const group of splitGroups(all)) {
+    // `{ true } always { git push --force }` · `() { … }`: ; 없이 닫힌 묶음으로도 나눠 보고, 나누지 않고도 본다(인자로 쓴 { 는 낱말이다)
+    for (const group of [all, ...splitGroups(all)]) {
       const hit = segment(group, depth)
       if (hit) return hit
     }
@@ -168,7 +192,13 @@ const keep = (p: string) => SINK.test(p) || inTemp(p)
  * 파일 쓰기는 허락으로도 풀지 않고 하위 대화에 맡긴다). 돌려보내기(> · >> · heredoc을 받는 파일) · 쓰는 프로그램 · sed -i · 쓰는 코드를 본다
  */
 export function writesFiles(cmd0: string, depth = 0): boolean {
-  if (depth > 12) return false
+  if (writesCore(cmd0, depth)) return true
+  const alt = depth < 3 ? heredocVariant(cmd0) : null
+  return alt !== null && writesCore(alt, depth)
+}
+
+function writesCore(cmd0: string, depth: number): boolean {
+  if (depth > 40) return false
   // heredoc 본문(코드 속 => 등)은 명령이 아니다
   const cmd = prepare(cmd0).replace(/(<<-?\s*['"]?(\w+)['"]?[^\n]*)\n[\s\S]*?\n\s*\2\s*(?=\n|$)/g, '$1')
   for (const part of substitutions(cmd).inner) if (writesFiles(part, depth + 1)) return true
@@ -176,14 +206,16 @@ export function writesFiles(cmd0: string, depth = 0): boolean {
     const r = redirects(seg)
     // > · >> · &> · &>> 가 받는 파일 (11/25: &> 파일을 보지 못했다)
     if (expandWords(r.out).some((x) => !keep(x))) return true
-    if (splitGroups(words(r.rest)).some((group) => writesWords(group, depth))) return true
+    const all = words(r.rest)
+    if ([all, ...splitGroups(all)].some((group) => writesWords(group, depth))) return true
   }
   return false
 }
 
-function writesWords(w0: string[], depth: number): boolean {
-  if (depth > 14) return false
-  const w = expandWords(unwrap(w0))
+const writesWords = (w0: string[], depth: number): boolean => alternatives(unwrap(w0)).some((w) => writesExpanded(w, depth))
+
+function writesExpanded(w: string[], depth: number): boolean {
+  if (depth > 40) return false
   if (!w.length) return false
   const prog = w[0]!.split('/').pop()!
   const a = w.slice(1)

@@ -3,7 +3,7 @@
  * 명령 한 줄이 무엇을 하는지 판정하고(commandKind), 권한 이름마다의 「자동 허용」 기본값(presetAuto)을 둔다.
  * 서버의 허락 판정(agentChats.ts judge)과 화면의 토글(AgentChats.tsx)이 함께 쓴다.
  */
-import { expandWords, longOpt, qualifierRuns, qualifiers, redirects, segments, splitGroups, substitutions, unmask, words } from './chat-shell.js'
+import { alternatives, evalFlags, expandWords, heredocVariant, longOpt, qualifierRuns, qualifiers, redirects, segments, splitGroups, substitutions, unmask, words } from './chat-shell.js'
 
 // 셸 글 읽기는 chat-shell.ts로 옮겼다: 여기서 가져다 쓰던 곳을 위해 그대로 내보낸다
 export { bare, joinLines, prepare, redirects, segments, substitutions, unmask, words } from './chat-shell.js'
@@ -89,7 +89,7 @@ export function leading(all: string[]): { rest: string[]; env: boolean } {
       w = w.slice(1)
       while (w.length && w[0]!.startsWith('-')) {
         // env -S'rm -rf x' · -S 'rm -rf x': 그 글을 낱말로 쪼개 돌린다
-        const split = /^(?:-S|--split-string=?)(.*)$/s.exec(w[0]!)
+        const split = /^(?:-[a-zA-Z]*S|--split-string=?)(.*)$/s.exec(w[0]!)
         if (split) { w = [...words(split[1] || (w[1] ?? '')), ...w.slice(split[1] ? 1 : 2)]; break }
         w = w.slice(/^-[uCP]$/.test(w[0]!) ? 2 : 1)
       }
@@ -100,6 +100,7 @@ export function leading(all: string[]): { rest: string[]; env: boolean } {
     else if (w.length > 1 && w[0] === '()') w = w.slice(1)
     else if (w.length > 3 && w[0] === 'case' && w[2] === 'in') w = w.slice(3)
     else if (w.length > 1 && /^\(?[^()\s]*\)$/.test(w[0]!)) w = w.slice(1)
+    else if (w.length > 2 && w[1] === ')') w = w.slice(2)
     else if (w.length && /^(if|then|else|elif|do|while|until|always|coproc|!|\{|\()$/.test(w[0]!)) w = w.slice(1)
     else if (w.length && /^[({]+[^({]/.test(w[0]!)) w = [w[0]!.replace(/^[({]+/, ''), ...w.slice(1)]
     else break
@@ -127,6 +128,15 @@ type Where = { cwd: string; inside(abs: string): boolean; home?: string }
 const DEPTH_MAX = 40
 
 export function commandKind(cmd: string, o: Where, depth = 0): ChatKind {
+  const kind = kindCore(cmd, o, depth)
+  // 히어독으로도 읽어 보고 무거운 쪽을 쓴다 (본문의 따옴표가 뒤 명령을 가리는 꼴, 본문에서 펼쳐지는 $( … ))
+  // (겹친 깊이마다 두 번씩 읽으면 일이 곱절로 불어나므로 바깥 몇 겹에서만. 안쪽의 히어독은 바깥에서 읽을 때 함께 읽힌다)
+  const alt = depth < 3 ? heredocVariant(cmd) : null
+  const other = alt === null ? kind : kindCore(alt, o, depth)
+  return WEIGHT[other] > WEIGHT[kind] ? other : kind
+}
+
+function kindCore(cmd: string, o: Where, depth: number): ChatKind {
   if (depth > DEPTH_MAX) return 'outside'
   let worst: ChatKind = 'read'
   const bump = (k: ChatKind) => { if (WEIGHT[k] > WEIGHT[worst]) worst = k }
@@ -148,14 +158,14 @@ export function commandKind(cmd: string, o: Where, depth = 0): ChatKind {
     }
     const all = words(r.rest)
     // 글자 그대로 적은 값의 변수는 그 값을 넣어서도 본다: for x in -delete; do find . $x; done
-    const tried = variants(unmask(seg), vars)
-    if (tried === null) bump('run')
-    else for (const v of tried) bump(commandKind(v, o, depth + 1))
+    for (const v of variants(unmask(seg), vars)) bump(commandKind(v, o, depth + 1))
     noteVars(all, vars)
     // for x in /etc/*: 도는 낱말이 폴더 밖이면 그 변수를 읽는 것도 밖이다
     if (all[0] === 'for' && all[2] === 'in') for (const x of expandWords(all.slice(3))) { const v = pathPart(x); if (looksLikePath(v) && touchesOutside(v, o)) bump('outside') }
     // zsh의 ${(e)…}: 값을 한 번 더 펼친다 (안의 $( … )가 돈다)
-    for (const m of seg.matchAll(/\$\{\(([^)]*)\)([^}]*)\}/g)) if (m[1]!.includes('e')) { bump('run'); bump(commandKind(unmask(m[2]!).replace(/['"]/g, ' '), o, depth + 1)) }
+    for (const text of evalFlags(seg)) { bump('run'); bump(commandKind(text, o, depth + 1)) }
+    // 묶음으로도 나눠 보고(`{ true } always { rm x }`), 나누지 않고도 본다(인자로 쓴 { 는 낱말이다: rm a { b)
+    bump(wordsKind(all, o, 0, depth))
     for (const group of splitGroups(all)) bump(wordsKind(group, o, 0, depth))
   }
   return worst
@@ -170,20 +180,22 @@ function wordsKind(all: string[], o: Where, depth: number, outer: number): ChatK
   const w = lead.rest
   if (!w.length) return worst
   // 프로그램과 인자는 진짜 글로 본다 (가린 글자를 되돌려서). 경로만 가린 채로: 작은따옴표 안의 $HOME 은 글자다
-  // 셸이 펼쳐 만들 낱말(중괄호 · 기본값 · 빈 변수)로 본다: find . -{delete,print} · cat {/etc/passwd,}
-  const ew = expandWords(w)
-  const plain = ew.map(unmask)
-  const prog = plain[0]!.split('/').pop()!
-  const args = plain.slice(1)
-  bump(kindOf(prog, args))
-  // 다른 명령을 감싸 돌리는 것은 안의 명령도 본다: 실행을 자동 허용해도 삭제 · 외부는 묻게 (bash -c "rm -rf x" · find -exec rm · eval).
-  // 낱말로 받은 안의 명령도 같은 길로: find -exec sh -c 'rm …' · xargs env rm · find -exec nice rm (11/25 검토)
-  const inner = wrapped(prog, args)
-  if (depth > 5 && inner.length) bump('run')
-  else for (const x of inner) bump(typeof x === 'string' ? commandKind(x, o, outer + 1) : wordsKind(x, o, depth + 1, outer))
-  // 폴더 밖 경로 (읽기라도 폴더 밖이면 외부)
-  for (const a of ew.slice(1)) { const v = pathPart(a); if (looksLikePath(v) && touchesOutside(v, o)) bump('outside') }
-  if (prog === 'cd' && ew[1] && touchesOutside(ew[1], o)) bump('outside')
+  // 셸이 펼쳐 만들 수 있는 낱말(중괄호 · 기본값 · 빈 변수)로도 보고, 적힌 그대로도 본다: find . -{delete,print} · cat {/etc/passwd,}
+  for (const ew of alternatives(w)) {
+    // 프로그램과 인자는 진짜 글로 본다 (가린 글자를 되돌려서). 경로만 가린 채로: 작은따옴표 안의 $HOME 은 글자다
+    const plain = ew.map(unmask)
+    const prog = (plain[0] ?? '').split('/').pop()!
+    const args = plain.slice(1)
+    bump(kindOf(prog, args))
+    // 다른 명령을 감싸 돌리는 것은 안의 명령도 본다: 실행을 자동 허용해도 삭제 · 외부는 묻게 (bash -c "rm -rf x" · find -exec rm · eval).
+    // 낱말로 받은 안의 명령도 같은 길로: find -exec sh -c 'rm …' · xargs env rm · find -exec nice rm (11/25 검토)
+    const inner = wrapped(prog, args)
+    if (depth > 5 && inner.length) bump('run')
+    else for (const x of inner) bump(typeof x === 'string' ? commandKind(x, o, outer + 1) : wordsKind(x, o, depth + 1, outer))
+    // 폴더 밖 경로 (읽기라도 폴더 밖이면 외부)
+    for (const a of ew.slice(1)) { const v = pathPart(a); if (looksLikePath(v) && touchesOutside(v, o)) bump('outside') }
+    if (prog === 'cd' && ew[1] && touchesOutside(ew[1], o)) bump('outside')
+  }
   return worst
 }
 
@@ -203,18 +215,16 @@ export function noteVars(all: string[], vars: Map<string, string[]>): void {
     if (LITERAL.test(value)) vars.set(name, [value]); else vars.delete(name)
   }
 }
-/** 적어 둔 변수($x · ${x} · zsh의 $=x · $~x)를 값으로 바꾼 글들. 쓰지 않으면 [], 너무 많으면 null */
-export function variants(text: string, vars: Map<string, string[]>): string[] | null {
+/** 적어 둔 변수($x · ${x} · zsh의 $=x · $~x)를 값으로 바꾼 글들. 쓰지 않으면 []. 짝이 너무 많으면 변수 하나씩만 바꾼 글들 */
+export function variants(text: string, vars: Map<string, string[]>): string[] {
+  const re = (name: string) => new RegExp(`\\$(?:[=~^]{0,2}${name}\\b|\\{[=~^]{0,2}${name}\\})`, 'g')
+  const used = [...vars].filter(([name]) => re(name).test(text))
   let out = [text]
-  let hit = false
-  for (const [name, vals] of vars) {
-    const re = () => new RegExp(`\\$(?:[=~^]{0,2}${name}\\b|\\{[=~^]{0,2}${name}\\})`, 'g')
-    if (!re().test(text)) continue
-    hit = true
-    out = out.flatMap((t) => vals.map((v) => t.replace(re(), v)))
-    if (out.length > 16) return null
+  for (const [name, vals] of used) {
+    out = out.flatMap((t) => vals.map((v) => t.replace(re(name), v)))
+    if (out.length > 16) return used.flatMap(([n, vs]) => vs.slice(0, 64).map((v) => text.replace(re(n), v)))
   }
-  return hit ? out : []
+  return used.length ? out : []
 }
 
 /** 감싸 돌리는 안의 명령: 글 한 줄(sh -c · eval)이면 string, 낱말들(find -exec · xargs)이면 string[] */
@@ -222,7 +232,8 @@ export function wrapped(prog: string, args: string[]): (string | string[])[] {
   if (/^(sh|bash|zsh|dash|ksh|fish)$/.test(prog)) {
     // -c 는 다른 글자와 붙여 쓰기도 하고(-ce · -lc), 뒤에 -- 를 두기도 한다
     const i = args.findIndex((a) => /^-[a-zA-Z]*c[a-zA-Z]*$/.test(a))
-    const code = i < 0 ? undefined : args[i + 1] === '--' ? args[i + 2] : args[i + 1]
+    // 명령 글은 -c 뒤의 첫 옵션 아닌 낱말이다 (bash -c -e '…' · bash -c -- '…')
+    const code = i < 0 ? undefined : args.slice(i + 1).find((a) => !a.startsWith('-'))
     return code ? [code] : []
   }
   // eval eval … 은 한 번의 eval과 같다 (겹친 만큼 깊이 들어가지 않게)
@@ -255,7 +266,7 @@ function xargsCommand(args: string[]): string[] {
 }
 
 /** 값을 따로 받는 git의 전역 옵션 */
-export const GIT_VALUE = /^(-C|-c|--git-dir|--work-tree|--namespace|--super-prefix)$/
+export const GIT_VALUE = /^(-C|-c|--git-dir|--work-tree|--namespace|--super-prefix|--attr-source|--config-env)$/
 /** git의 전역 옵션(-C <폴더> · -c k=v · --git-dir <폴더> 와 붙여 쓴 꼴 · 다른 -옵션)을 뗀, 하위 명령부터의 인자 */
 function gitArgs(args: string[]): string[] {
   let i = 0
@@ -309,10 +320,10 @@ function kindOf(prog: string, args: string[]): ChatKind {
   const shortHas = (ch: string) => args.some((a) => /^-[a-zA-Z]+/.test(a) && a.slice(1).includes(ch))
   // sed: -i와 w 명령(파일 쓰기)
   // -Ei · -ni처럼 붙여 쓴 꼴과 주소 뒤의 w(1,5w 파일 · $w 파일)도
-  // s///w 파일 깃발과 -e'w 파일'처럼 붙여 쓴 꼴도
-  if (prog === 'sed') return args.some((a) => /^-[a-zA-Z]*i/.test(a) || /^--in-place/.test(a) || /(^|[;{}/\s\d$!])w\s+[^\s;]|[/|,#:@!%][gpIiM\d]*w\s+\S/.test(a.replace(/^(-e|--expression=)/, ''))) ? 'edit' : 'read'
-  // awk의 system() · 명령으로 잇기(| · getline) · 파일 쓰기는 실행으로
-  if (prog === 'awk') return args.some((a) => /system\s*\(|getline|\|\s*"|"\s*\||print[^;}|]*>|print[^;}\n]*\|/.test(a)) ? 'run' : 'read'
+  // sed: -i와 w 명령(파일 쓰기). 스크립트만 본다(파일 이름 words.txt 의 w 는 아니다): 처음 · ; 뒤의 w, 주소 · s///깃발 뒤의 w
+  if (prog === 'sed') return args.some((a) => /^-[a-zA-Z]*i/.test(a) || /^--in-place/.test(a)) || sedScripts(args).some((x) => /(^|[;{}])\s*w\s*[^\s;]|[/\d$!,|#:@%_][gpIiM\d]*\s*w\s+\S/.test(x)) ? 'edit' : 'read'
+  // awk의 system() · 명령으로 잇기(| · getline) · 파일 쓰기는 실행으로. print … | 명령 은 문자열 밖의 | 만 (printf "%s|%s" 는 아니다)
+  if (prog === 'awk') return args.some((a) => /system\s*\(|getline|\|\s*"|"\s*\||print[^;}|]*>/.test(a) || /print[^;}\n]*\|/.test(a.replace(/"(?:\\.|[^"\\])*"/g, '""'))) ? 'run' : 'read'
   if (prog === 'find') {
     if (args.includes('-delete')) return 'delete'
     if (args.some((a) => /^-(exec|execdir|ok|okdir)$/.test(a))) return 'run'
@@ -325,7 +336,7 @@ function kindOf(prog: string, args: string[]): ChatKind {
   if (prog === 'tree' && args.some((a) => /^-[a-zA-Z]*[oR]/.test(a))) return 'edit'
   if (prog === 'uniq' && positional.length > 1) return 'edit'
   // 둘째 이름은 쓸 파일이다
-  if (prog === 'xxd' && (shortHas('r') || positional.length > 1)) return 'edit'
+  if (prog === 'xxd' && (shortHas('r') || args.filter((a, n) => !a.startsWith('-') && !/^-[lscgon]$/.test(args[n - 1] ?? '')).length > 1)) return 'edit'
   if (prog === 'yq' && (shortHas('i') || args.some((a) => /^--inplace/.test(a)))) return 'edit'
   if (prog === 'pdftotext' && positional.length > 0 && positional[positional.length - 1] !== '-' && !args.includes('-')) return 'edit'
   if (prog === 'xargs') { const inner = xargsCommand(args); return inner.length ? kindOf(inner[0]!.split('/').pop()!, inner.slice(1)) : 'read' }
@@ -341,6 +352,16 @@ function kindOf(prog: string, args: string[]): ChatKind {
   return 'run'
 }
 
+/** sed의 스크립트들: -e 값(-ne'…' 처럼 붙여 쓴 것도) · --expression=값, 없으면 첫 낱말 */
+function sedScripts(args: string[]): string[] {
+  const out: string[] = []
+  for (let n = 0; n < args.length; n++) {
+    const m = /^(?:-[a-zA-Z]*e|--expression=?)(.*)$/s.exec(args[n]!)
+    if (m) out.push(m[1] || (args[++n] ?? ''))
+  }
+  return out.length ? out : args.filter((a) => !a.startsWith('-')).slice(0, 1)
+}
+
 /** 옵션에 붙여 적은 경로도 본다: --file=/etc/x · -f/etc/x · of=/etc/x */
 const pathPart = (a: string) => /^--?[A-Za-z][\w-]*=(.+)$/.exec(a)?.[1] ?? /^-[A-Za-z]([/~].+)$/.exec(a)?.[1] ?? /^[A-Za-z_]\w*=([/~.].*)$/.exec(a)?.[1] ?? a
 /** 가운데의 ../ 로 폴더를 벗어나는 것도 본다 (sub/../../밖) */
@@ -354,8 +375,8 @@ function touchesOutside(p: string, o: Where): boolean {
   const home = o.home ?? ''
   const cwd = o.cwd.replace(/\/$/, '')
   const bare = p.replace(/^"/, '').replace(/^\$\{?HOME\}?/, '~').replace(/^\$(?:PWD(?!\w)|\{PWD\})/, cwd)
-  // ~다른사람 은 그 사람의 홈이다
-  if (/^~[^/]/.test(bare)) return true
+  // ~다른사람 은 그 사람의 홈이다. ${PWD%/*} 처럼 고쳐 펼치는 것은 어디인지 모른다
+  if (/^~[^/]/.test(bare) || /^\$\{?(HOME|PWD)/.test(bare)) return true
   const expanded = bare.startsWith('~') ? `${home}${bare.slice(1)}` : bare
   const abs = normalize(expanded.startsWith('/') ? expanded : `${cwd}/${expanded}`)
   // 임시 폴더는 .. 를 푼 뒤에 본다: /tmp/../etc/passwd 는 임시 폴더가 아니다

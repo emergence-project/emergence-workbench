@@ -145,6 +145,28 @@ describe('명령이 하는 일', () => {
     // 구분자를 따옴표로 싼 히어독의 본문은 글자다: 그 안의 따옴표가 뒤 명령을 숨기지 못한다
     expect(k("cat <<'E'\nit's $(fine)\nE\nrm -rf x")).toBe('delete')
   })
+  // 11/25 셋째 검토: 새로 읽는 규칙(히어독 · 묶음 · 펼침)이 한쪽 뜻으로만 읽어 오히려 가볍게 판정했다. 원래 글과 둘 다 보고 무거운 쪽으로
+  it('여러 뜻으로 읽힐 수 있으면 무거운 쪽으로', () => {
+    for (const c of [
+      // 히어독처럼 보이지만 아닌 << (따옴표 · 주석 안): 뒤 줄은 본문이 아니라 명령이다
+      `echo "a $(echo "<<'true' ")"\necho \`rm -rf x\`\ntrue`, `echo "a $(echo "<<true ")"\nfind . -del''ete\ntrue`, "ls # <<'true'\necho $(rm -rf x)\ntrue", 'cat <<E "a\nb"\nbody\nE\nrm -rf x ; echo "done"',
+      // 인자로 쓴 { 는 묶음이 아니다
+      'rm -rf a { b',
+    ]) expect(k(c), c).toBe('delete')
+    for (const c of ['cat { /etc/passwd', 'cat ${HOME:-x}/.ssh/id_rsa', 'cat ${PWD%/*}/other/secret', 'ls ${HOME%/}']) expect(k(c), c).toBe('outside')
+  })
+  it('펼침의 나머지: 범위 · 여러 겹 중괄호 · 낱말 처음의 빈 변수 · 빈 치환', () => {
+    for (const c of ['find . -{d..d}elete', 'find . -d{e,e}l{e,e}t{e,e}{,}{,}', 'find . $u-delete', 'find . -del$()ete', 'case x in x ) rm -rf y;; esac', "env -iS 'rm -rf x'", "bash -c -e 'rm -rf x'",
+      'git --attr-source HEAD clean -fd', 'rm x{1..3}'])
+      expect(k(c), c).toBe('delete')
+    for (const c of ["sed -n 'wout.txt' a.md", "sed -ne'w out.txt' a.md", "sed -n 's_x_y_w out.txt' a.md", "sed -n -e 1p -e 'w out.txt' a.md"]) expect(k(c), c).toBe('edit')
+    for (const c of ['sed -n 1p words.txt', "sed -n 's/hello world/x/p' a.md", "sed 's/foo/world/' a.md"]) expect(k(c), c).toBe('read')
+  })
+  it('흔한 명령을 더 무겁게 보지 않는다', () => {
+    for (const c of ['tool --out=$PWD/dist/x', 'cc -I$PWD/include a.c', 'tool --out=$d/x.png']) expect(k(c), c).toBe('run')
+    for (const c of ['xxd -l 16 a.bin', 'xxd -s 10 -l 4 a.bin', `awk '{printf "%s|%s\\n", $1, $2}' a.txt`, 'f () { ls }', 'cp a.md{,.bak} && ls']) expect(k(c), c).not.toBe('run')
+    expect(k('xxd -l 16 a.bin')).toBe('read')
+  })
   it('따옴표 안의 이음표는 나누지 않는다', () => {
     expect(k("grep 'a && rm b' x")).toBe('read')
     expect(k('echo "x; git push"')).toBe('read')
