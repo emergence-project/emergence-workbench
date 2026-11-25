@@ -86,15 +86,16 @@ export function leading(all: string[]): { rest: string[]; env: boolean } {
     }
     else if (w.length > 1 && /^-n$/.test(w[0]!) && /^-?\d+$/.test(w[1]!)) w = w.slice(2)
     else if (w.length > 1 && w[0]!.split('/').pop() === 'env') {
-      w = w.slice(1)
+      // 옵션을 자리로 건너뛴다 (하나 뗄 때마다 낱말을 통째로 베끼면 옵션 수의 제곱만큼 걸린다)
+      let at = 1
       let splits = 0
-      while (w.length && w[0]!.startsWith('-')) {
-        // env -S'rm -rf x' · -S 'rm -rf x': 그 글을 낱말로 쪼개 돌린다 (몇 번까지만: 수만 번 이으면 낱말을 그만큼 다시 베낀다)
-        const split = splits++ < 8 ? /^(?:-[a-zA-Z]*S|--split-string=?)(.*)$/s.exec(w[0]!) : null
-        // (쪼갠 것이 다시 옵션이면 계속 뗀다: env -S -- git push · env -S -i git reset)
-        if (split) { w = [...words(split[1] || (w[1] ?? '')), ...w.slice(split[1] ? 1 : 2)]; continue }
-        w = w.slice(/^-[uCP]$/.test(w[0]!) ? 2 : 1)
+      while (at < w.length && w[at]!.startsWith('-')) {
+        // env -S'rm -rf x' · -S 'rm -rf x': 그 글을 낱말로 쪼개 돌린다 (몇 번까지만). 쪼갠 것이 다시 옵션이면 계속 뗀다: env -S -- git push
+        const split = splits < 8 ? /^(?:-[a-zA-Z]*S|--split-string=?)(.*)$/s.exec(w[at]!) : null
+        if (split) { splits++; w = [...words(split[1] || (w[at + 1] ?? '')), ...w.slice(at + (split[1] ? 1 : 2))]; at = 0; continue }
+        at += /^-[uCP]$/.test(w[at]!) ? 2 : 1
       }
+      w = w.slice(at)
     }
     // repeat 3 명령 · =rm (zsh: 그 프로그램의 경로) · 이름 없는 함수 () { … } · case 값 in 무늬) 명령
     else if (w.length > 2 && w[0] === 'repeat') w = w.slice(2)

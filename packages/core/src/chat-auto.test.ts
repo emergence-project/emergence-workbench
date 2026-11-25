@@ -185,7 +185,10 @@ describe('명령이 하는 일', () => {
     expect(k(`${loops}\n${uses}`)).toBe('run')
     const t1 = Date.now()
     expect(['read', 'run']).toContain(k(`env ${'-S '.repeat(60000)}`))
-    expect([t1 - t0, Date.now() - t1].every((ms) => ms < 2500), `${t1 - t0}ms · ${Date.now() - t1}ms`).toBe(true)
+    // (느린 실행기에서도 넉넉히: 고치기 전에는 맥에서 10초씩 걸렸다)
+    expect([t1 - t0, Date.now() - t1].every((ms) => ms < 4000), `${t1 - t0}ms · ${Date.now() - t1}ms`).toBe(true)
+    expect(k("env -u A -S 'rm -rf x'")).toBe('delete')
+    expect(k('env -i -S -- rm x')).toBe('delete')
     // 한도 안에서는 그대로 다 넣어 본다
     expect(k('for x in a b -delete; do find . $x; done')).toBe('delete')
   })
