@@ -104,7 +104,7 @@ async function waitForRestart(old: AppStatus): Promise<boolean> {
     await new Promise((r) => setTimeout(r, 1000))
     try {
       const s = await (await fetch('/api/app/status')).json()
-      if (s.status && startedOf(s.status) !== startedOf(old)) { if (anyUnsent()) { set({ phase: 'idle' }); applyStatus(s) } else location.reload(); return true }
+      if (s.status && startedOf(s.status) !== startedOf(old)) { if (anyUnsent()) { set({ phase: 'idle', message: null }); applyStatus(s) } else location.reload(); return true }
     } catch { /* 다시 시작하는 중 */ }
   }
   return false
@@ -197,7 +197,8 @@ export function AppUpdateRail() {
     const inputs = ['keydown', 'pointerdown', 'wheel'] as const
     for (const e of inputs) window.addEventListener(e, onInput, { passive: true, capture: true })
     const idle = setInterval(() => {
-      if (newScreen(state.status) && Date.now() - lastInput >= SCREEN_IDLE_MS) reloadScreen()
+      // 새 화면 읽기를 미룬 창(적던 글이 있음)도 쉴 때의 다시 시작은 건다: 미룬 동안 받아 둔 새 버전이 기다리지 않게
+      if (newScreen(state.status) && Date.now() - lastInput >= SCREEN_IDLE_MS && !holdsWork()) reloadScreen()
       else if (Date.now() - lastInput >= IDLE_RESTART_MS) void restartWhenIdle()
     }, IDLE_CHECK_MS)
     return () => {
