@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { buildApp } from './app.js'
 import { machineName } from './backup.js'
 import { devicePath, otherDevices, writeDevice, type DeviceRecord } from './devices.js'
-import { DeviceHub, LIVE_MS, SERVER_FILE, mergeDevices, readServerConfig, writeServerConfig } from './deviceServer.js'
+import { DeviceHub, LIVE_MS, SERVER_FILE, mergeDevices, readServerConfig, replyFromServer, writeServerConfig } from './deviceServer.js'
 import { samplePhone } from './phone.js'
 
 let tmp = ''
@@ -139,6 +139,52 @@ describe('서버 (2단계)', () => {
     expect(asked.devices.find((d: { name: string }) => d.name === 'laptop').logout).toBe(true)
     expect((await beat(secret)).json().logout).toBe(true)
     await app.close()
+  })
+
+  // 컴퓨터마다 앱 버전이 다를 수 있다: 새 버전이 더한 칸 때문에 알림이 통째로 거절되면 그 컴퓨터가 꺼진 것으로 보이고 로그아웃 · 피드백 돕기도 전해지지 않는다
+  it('API: 새 버전의 컴퓨터가 모르는 칸을 담아 알려도 받는다 (모르는 칸 · 모르는 계정 종류만 버림)', async () => {
+    const dir = mk()
+    const backup = path.join(dir, 'backup')
+    fs.mkdirSync(backup)
+    const app = buildApp({ configDir: path.join(dir, 'config'), backup: { dir: backup, remote: null }, phone: samplePhone() })
+    await app.inject({ method: 'POST', url: '/api/devices/server' })
+    const secret = readServerConfig([backup])!.secret
+    const newer = {
+      ...rec('laptop', '2026-11-26T10:00:00Z'), uptime: 3600,
+      accounts: [{ kind: 'github', name: 'researcher', scopes: ['repo'] }, { kind: 'gemini', name: 'later' }],
+      helper: { slots: 2, busy: 0, keys: [], paused: false },
+    }
+    const got = await app.inject({ method: 'POST', url: '/api/devices/beat', headers: { 'x-rw-device-key': secret }, payload: newer })
+    expect(got.statusCode).toBe(200)
+    const laptop = (await app.inject({ method: 'GET', url: '/api/devices' })).json().devices.find((d: { name: string }) => d.name === 'laptop')
+    expect(laptop).toMatchObject({ online: true, live: true, helper: { slots: 2, busy: 0 }, accounts: [{ kind: 'github', name: 'researcher' }] })
+    expect(laptop.uptime).toBeUndefined()
+    // 아는 칸의 모양이 틀린 것은 전처럼 거절한다
+    const bad = await app.inject({ method: 'POST', url: '/api/devices/beat', headers: { 'x-rw-device-key': secret }, payload: { ...rec('laptop', '2026-11-26T10:00:00Z'), name: '' } })
+    expect(bad.statusCode).toBe(400)
+    await app.close()
+  })
+
+  it('새 버전 서버의 답도 읽는다: 모르는 칸은 버리고, 읽지 못하는 기기 줄은 그 줄만 뺀다', () => {
+    const dev = (name: string, more: object = {}) => ({ ...rec(name, '2026-11-26T10:00:00Z'), this: false, online: true, live: true, ...more })
+    const got = replyFromServer({
+      devices: [
+        dev('studio', { server: true, load: 0.4, build: { at: '2026-11-26T09:00:00Z', behind: 0, ahead: 2, tag: 'v2' }, helper: { slots: 1, busy: 0, paused: true } }),
+        dev('mini', { accounts: [{ kind: 'github', name: 'researcher', scopes: ['repo'] }, { kind: 'gemini', name: 'later' }] }),
+        dev('later', { seen: 20261126 }),
+      ],
+      logout: true, feedback: ['a/1'], drop: [], notice: '새 버전의 알림',
+    })
+    expect(got).toEqual({
+      devices: [
+        dev('studio', { server: true, build: { at: '2026-11-26T09:00:00Z', behind: 0, ahead: 2 }, helper: { slots: 1, busy: 0 } }),
+        dev('mini', { accounts: [{ kind: 'github', name: 'researcher' }] }),
+      ],
+      logout: true, feedback: ['a/1'], drop: [],
+    })
+    // 꼭 있어야 하는 칸이 없거나 틀리면 전처럼 실패한다 (로그아웃할지를 짐작하지 않는다)
+    expect(() => replyFromServer({ devices: [], logout: 'yes' })).toThrow()
+    expect(() => replyFromServer(null)).toThrow()
   })
 
   it('API: Tailscale에서 HTTPS를 아직 허락하지 않았으면 허락 주소를 오류 글에 담아 돌려준다', async () => {
