@@ -257,7 +257,7 @@ const answeredName = (it: Ask): string => {
 /** 「늘」 버튼 말: 토글이 있는 일은 그 토글을 켠다고, 실행은 그 프로그램을 */
 const ALWAYS_NAME: Partial<Record<NonNullable<Ask['does']>, string>> = {
   read: t('네, 읽기는 늘 (자동 허용 켜기)', 'Yes, always for reading (turn on auto)'),
-  edit: t('네, 편집은 늘 (편집 자동 허용)', 'Yes, always for edits (accept edits)'),
+  edit: t('네, 편집은 늘 (편집 자동 수락)', 'Yes, always for edits (auto-accept edits)'),
   web: t('네, 웹 보기는 늘 (자동 허용 켜기)', 'Yes, always for the web (turn on auto)'),
 }
 const alwaysName = (it: Ask) => (it.does && ALWAYS_NAME[it.does]) || (it.does === 'run' ? t('네, 이 대화에서 이 프로그램은 늘', 'Yes, always for this program here') : t('네, 이 대화에서 이것은 늘', 'Yes, always for this in this conversation'))
@@ -288,7 +288,7 @@ function AskCard({ chat, it, onError }: { chat: Chat; it: Ask; onError(m: string
   )
 }
 
-/** 계획 먼저: 에이전트가 보인 계획. 승인할 때 이어 갈 맡기는 정도(고치기 바로 · 묻고 하기)를 함께 고른다 */
+/** 계획 먼저: 에이전트가 보인 계획. 승인할 때 이어 갈 맡기는 정도(고치기 바로 · 수동)를 함께 고른다 */
 function PlanCard({ chat, it, onError }: { chat: Chat; it: Ask; onError(m: string): void }) {
   const { busy, answer } = useAnswer(chat, it.id, onError)
   return (
@@ -306,8 +306,8 @@ function PlanCard({ chat, it, onError }: { chat: Chat; it: Ask; onError(m: strin
         <Choices busy={busy}
           choices={[
             // 앱 고치기 대화는 노트가 아니라 작업 폴더의 파일을 고친다
-            { label: t('네, 편집 자동 허용', 'Yes, accept edits'), ui: '계획 승인 버튼', run: () => void answer('allow', { mode: 'edit' }) },
-            { label: t('네, 묻고 하기', 'Yes, ask before edits'), ui: '계획 승인 묻기 버튼', run: () => void answer('allow', { mode: 'ask' }) },
+            { label: t('네, 편집 자동 수락', 'Yes, auto-accept edits'), ui: '계획 승인 버튼', run: () => void answer('allow', { mode: 'edit' }) },
+            { label: t('네, 수동', 'Yes, manual'), ui: '계획 승인 묻기 버튼', run: () => void answer('allow', { mode: 'ask' }) },
           ]}
           say={{ label: t('아니요, 이렇게 바꿔서…', 'No, change it like this…'), placeholder: t('계획에서 무엇을 바꿀까요?', 'What should change in the plan?'), send: (note) => void answer('deny', note ? { note } : undefined) }} />
       </>}

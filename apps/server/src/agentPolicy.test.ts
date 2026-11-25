@@ -87,7 +87,7 @@ describe('자동 모드', () => {
     expect(judge(app, 'mcp__workbench__app_submit', { title: 'x' }).kind).toBe('allow')
     expect(judge(app, 'mcp__workbench__app_merge', {}).kind).toBe('allow')
   })
-  it('편집 자동 허용은 그대로: 웹은 묻고, 계획 승인 전과 읽기 전용은 자동이어도 막는다', () => {
+  it('편집 자동 수락은 그대로: 웹은 묻고, 계획 승인 전과 읽기 전용은 자동이어도 막는다', () => {
     expect(judge({ ...app, mode: 'edit' }, 'WebSearch', { query: 'x' }).kind).toBe('ask')
     expect(run('pnpm test', { ...app, write: 'read' }).kind).toBe('deny')
   })

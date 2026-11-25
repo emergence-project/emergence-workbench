@@ -7,7 +7,7 @@
  *   에이전트가 MCP 도구를 묻지 않고 불러도 노트 고치기는 수정 검토 · 범위를 지난다.
  * - 이어 하기: 에이전트가 session/load를 받으면 같은 세션을 다시 연다(앞 기록을 다시 보내는 알림은 버린다).
  * - 멈추기: session/cancel. 끄기(abort)는 프로세스를 닫는다.
- * - Claude만 되는 것: 되돌리기 · 탐색 하위 에이전트 · 계획 모드 · 뒤에서 도는 명령 (대화 줄의 mark를 보내지 않으므로 되돌릴 자리가 생기지 않는다).
+ * - Claude만 되는 것: 되돌리기 · 탐색 하위 에이전트 · 계획 · 뒤에서 도는 명령 (대화 줄의 mark를 보내지 않으므로 되돌릴 자리가 생기지 않는다).
  */
 import { spawn, type ChildProcess } from 'node:child_process'
 import os from 'node:os'

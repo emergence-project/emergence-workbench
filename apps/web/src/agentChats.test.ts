@@ -25,13 +25,13 @@ describe('에이전트 입력란', () => {
     expect(trustOf({ write: 'read', mode: 'edit' })).toBe('read')
     expect(trustOf({ write: 'notes', mode: 'plan' })).toBe('plan')
   })
-  it('⇧⇥는 권한을 Claude Code 차례로 돌린다', () => {
+  it('⇧⇥는 권한을 메뉴 차례(자동 → 수동 → 편집 자동 수락 → 계획 → 읽기 전용)로 돌린다', () => {
+    expect(nextTrust('auto')).toBe('ask')
     expect(nextTrust('ask')).toBe('edit')
-    expect(nextTrust('edit')).toBe('auto')
-    expect(nextTrust('auto')).toBe('plan')
-    expect(nextTrust('auto', false)).toBe('read')
+    expect(nextTrust('edit')).toBe('plan')
+    expect(nextTrust('edit', false)).toBe('read')
     expect(nextTrust('plan')).toBe('read')
-    expect(nextTrust('read')).toBe('ask')
+    expect(nextTrust('read')).toBe('auto')
   })
   it('모델 이름: 기본은 실제 모델을 붙이고, 버전마다 따로, 생각 깊이는 그 모델이 받는 것만', () => {
     const list = [

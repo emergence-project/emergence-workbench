@@ -23,7 +23,7 @@ export const MCP = `mcp__${MCP_NAME}__`
 export const READ_TOOLS = new Set(['Read', 'Glob', 'Grep', 'LS', 'NotebookRead'])
 /** 묻지 않고 두는 것: 스킬 읽기(스킬이 시키는 명령 · 고치기는 같은 규칙을 거친다) · 할 일 목록 · 서브에이전트(그 도구 호출도 같은 규칙을 거친다) · 도구 찾기 · 셸 결과 보기 */
 export const FREE_TOOLS = new Set(['Skill', 'TodoWrite', 'Task', 'Agent', 'ToolSearch', 'BashOutput', 'KillBash', 'KillShell', 'EnterPlanMode'])
-/** 계획 모드에서 계획을 보이는 도구: 계획 승인 카드가 된다 */
+/** 「계획」 권한에서 계획을 보이는 도구: 계획 승인 카드가 된다 */
 export const PLAN_TOOL = 'ExitPlanMode'
 /** 파일을 바로 쓰는 도구: 1단계에서는 막는다 (노트는 edit_note로) */
 export const FILE_WRITE_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'] as const
@@ -376,7 +376,7 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
 
 /**
  * 명령 한 줄 (10/28 사용자 결정 "권한을 명령 대신 하는 일로"): 하는 일로 나눠 토글대로.
- * 읽기 · 실행은 토글이 켜져 있으면 묻지 않고, 편집은 맡기는 정도(편집 자동 허용)가, 삭제 · 외부는 늘 한 번씩 묻는다
+ * 읽기 · 실행은 토글이 켜져 있으면 묻지 않고, 편집은 맡기는 정도(편집 자동 수락)가, 삭제 · 외부는 늘 한 번씩 묻는다
  */
 function judgeCommand(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
   const roots = [ctx.repo, ...ctx.readable]

@@ -12,7 +12,7 @@ export type ChatKind = 'read' | 'edit' | 'delete' | 'run' | 'web' | 'outside'
 export interface ChatAutoValues { read: boolean; run: boolean; web: boolean }
 
 type Mode = 'ask' | 'plan' | 'edit' | 'auto'
-/** 권한 이름(읽기 전용 · 묻고 하기 · 계획 모드 · 편집 자동 허용 · 자동)의 토글 기본값. 편집은 모드가 정한다. 자동은 셋 다 켠다 (11/23) */
+/** 권한 이름(읽기 전용 · 수동 · 계획 · 편집 자동 수락 · 자동)의 토글 기본값. 편집은 모드가 정한다. 자동은 셋 다 켠다 (11/23) */
 export function presetAuto(write: 'read' | 'notes', mode: Mode): ChatAutoValues {
   if (write !== 'read' && mode === 'auto') return { read: true, run: true, web: true }
   if (write === 'read' || mode !== 'ask') return { read: true, run: false, web: false }
