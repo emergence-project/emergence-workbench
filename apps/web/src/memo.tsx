@@ -15,6 +15,7 @@ import { shown, t } from './i18n'
 import { RepoPathContext } from './repoPaths'
 import { textLinks } from './textLinks'
 import { AppLinkCode, AppLinkText } from './AppLinkText'
+import { draftMap } from './unsent'
 export { isNoteTarget } from './journalTargets'
 export { AppLinkProvider } from './AppLinkText'
 
@@ -62,7 +63,7 @@ export function MemoText({ text }: { text: string }) {
 
 /** 메모 입력칸. 빠른 메모 창과 메모 탭이 함께 쓴다 */
 /** 빠른 메모를 Esc · 바깥 누르기로 닫아도 적던 글이 남게: 붙는 곳마다 하나, 저장하면 지운다 (화면을 새로 열면 없어진다) */
-const quickDrafts = new Map<string, string>()
+const quickDrafts = draftMap<string>()
 
 export function MemoComposer({ target, targetLabel, autoFocus, compact, keepDraft, onSave, onEscape }: {
   target: string

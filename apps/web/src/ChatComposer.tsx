@@ -18,6 +18,7 @@ import { accountLabel, useAgentAccounts } from './ClaudeAccountsSettings'
 import type { ComposerRoom } from './CentralRoom'
 import { AgentLogo } from './agentLogos'
 import { AgentChoices, agentOf, agentSwitch, effortsOf, familyName, familyOf, fitEffort, isClaude, modelFamilies, modelName, pickFamily, useModels } from './AgentPick'
+import { draftMap } from './unsent'
 
 /**
  * 에이전트 입력란 (AgentChats.tsx의 대화 · 새 대화 · 패널이 함께 쓴다): / 명령 · @ 붙이기 · 그림,
@@ -198,7 +199,7 @@ export function PopButton({ label, ui, tip, children, wide, down, icon, pill }: 
  * 대화 중에 바꾼 설정은 다음 차례부터 (onSettings)
  */
 /** 보내지 않은 글: 다른 화면을 보고 와도 남게 입력란마다(대화 · 새 대화의 프로젝트) 하나, 보내면 지운다 (화면을 새로 열면 없어진다) */
-const unsent = new Map<string, string>()
+const unsent = draftMap<string>()
 
 export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placeholder, fail: outerFail, fill, autoFocus, agentFixed, lead, room, noTrust, keep }: {
   rid: string

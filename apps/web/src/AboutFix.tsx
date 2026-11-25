@@ -3,6 +3,7 @@ import { api, setAboutCheck } from './api'
 import { putAboutChecks } from './aboutChecks'
 import { t } from './i18n'
 import { Icon } from './icons'
+import { useUnsent } from './unsent'
 
 /**
  * 소개 고치기 탭 (11/20 시안 3절 안 C, 「시안대로 구현하자」).
@@ -110,6 +111,7 @@ export function AboutFixTab({ root, partName, sectionKey }: {
   const [draft, setDraft] = useState('')
   const [basket, setBasket] = useState<(FixChange & { name?: string })[]>([])
   const [wish, setWish] = useState('')
+  useUnsent(basket.length > 0)
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
   const [pick] = useState(() => (el: Element) => {

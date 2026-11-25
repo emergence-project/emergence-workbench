@@ -4,6 +4,7 @@ import { agentChatsApi, APP_RID, type Chat, type ChatItem, type ChatMessageBody 
 import { t } from './i18n'
 import { qk } from './queries'
 import { Delta, reviewOf } from './AgentChats'
+import { useUnsent } from './unsent'
 
 type Edit = Extract<ChatItem, { kind: 'edit' }>
 
@@ -42,6 +43,7 @@ export function Changes({ chat, onSaved }: { chat: Chat; onSaved(m: string): voi
   const edits = chat.items.filter((i): i is Edit => i.kind === 'edit')
   const [notes, setNotes] = useState<Record<string, string>>({})
   const [open, setOpen] = useState<string | null>(null)
+  useUnsent(Object.keys(notes).length > 0)
   const [busy, setBusy] = useState(false)
   const [fail, setFail] = useState<string | null>(null)
   const files = [...new Set(edits.map((e) => e.file))]

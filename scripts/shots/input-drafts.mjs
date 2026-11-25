@@ -88,6 +88,38 @@ async function catchWrites(page) {
   })
   return sent
 }
+/** 앱 업데이트 상태를 흉내 낸다 (예제 모드는 업데이트를 쓰지 않는다). swap: 화면만 바꿔 끼운 새 버전, restart: 서버가 새 버전으로 다시 켜짐 */
+async function appStatus(page) {
+  let running = 'aaaaaaa1', started = 'aaaaaaa1', behind = 0, head = /** @type {string | null} */ (null), restarts = 0
+  const status = () => ({ running, head: head ?? running, branch: 'main', upstream: 'origin/main', behind, blocked: null, incoming: behind ? ['새 커밋'] : [], resolved: [], prepared: head !== null, started })
+  await page.addInitScript(() => {
+    const Native = window.WebSocket
+    window.WebSocket = class extends Native {
+      constructor(...args) { super(.../** @type {[string]} */ (args)); /** @type {any} */ (window).__events = this }
+    }
+  })
+  await page.route(`${base.origin}/api/app/status*`, (route) => route.fulfill({ json: { enabled: true, status: status() } }))
+  // 「업데이트하고 다시 시작」: 받은 것으로 치고 서버가 새 버전으로 다시 켜진다
+  await page.route(`${base.origin}/api/app/update`, (route) => { running = started = 'ddddddd4'; behind = 0; return route.fulfill({ json: { status: status(), restarting: true, message: '업데이트했습니다' } }) })
+  // 쉴 때의 다시 시작: 받아 둔 새 버전으로 서버가 다시 켜진다
+  await page.route(`${base.origin}/api/app/restart`, (route) => { restarts++; running = started = head ?? running; head = null; return route.fulfill({ json: { restarting: true } }) })
+  /** 서버의 앱 알림: 화면이 상태를 다시 읽는다 */
+  const notify = () => page.evaluate(() => /** @type {any} */ (window).__events.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ type: 'app', research: null }) })))
+  return {
+    swap: async (v) => { running = v; await notify() },
+    restart: async (v) => { running = started = v; await notify() },
+    /** 받을 새 버전이 생김: 레일에 새 버전 버튼이 뜬다 */
+    offer: async () => { behind = 1; await notify() },
+    mark: () => page.evaluate(() => { /** @type {any} */ (window).__same = true }),
+    /** 서버가 바뀐 새 버전을 받아 빌드해 둠: 쉴 때 다시 시작한다 */
+    prepare: async (v) => { head = v; await notify() },
+    restarts: () => restarts,
+    notify,
+    /** 이 창이 가려진 것으로: 새 화면은 가려진 창을 바로 새로 고친다. 새로 고쳐지면 표시(__same)가 사라진다 */
+    hide: () => page.evaluate(() => { /** @type {any} */ (window).__same = true; Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' }) }),
+    same: () => page.evaluate(() => /** @type {any} */ (window).__same === true).catch(() => false),
+  }
+}
 async function searchPage(page, handler) {
   await page.route(`${base.origin}/api/search/catalog`, (route) => route.fulfill({ json: { items: [], library: true } }))
   await page.route(`${base.origin}/api/concepts/list?*`, handler)
@@ -299,6 +331,89 @@ try {
     await sendKeyWhileComposing(page, '글')
     await eventually(() => sent.length > 0, '⌘↵ right after Korean composition did not save the record')
     assert.equal(sent[0].body.text, '기록 글')
+  })
+  // 저절로 하는 새로 고침은 적던 글이 있으면 기다린다 (새 화면 · 다시 켜진 서버 둘 다). 글이 없어지면 새로 고친다
+  await caseOf('screen-update-waits-for-typed-draft', async (page) => {
+    const app = await appStatus(page)
+    const first = page.waitForResponse((r) => r.url().includes('/api/app/status'))
+    await page.goto(`${base.href}#/r/${encodeURIComponent(rid)}/log`)
+    await first
+    await page.locator('[data-ui="기록 거르기"]').getByRole('button', { name: '메모', exact: true }).click()
+    const box = page.locator('[data-ui="기록 화면"] [data-ui="메모 입력"] textarea')
+    await box.fill('아직 보내지 않은 글')
+    await app.hide()
+    await app.swap('bbbbbbb2')
+    await eventually(async () => !(await app.same()) || await page.locator('[data-ui="새 버전 버튼"]').count() > 0, 'The new screen status was not read')
+    await delay(300)
+    assert.equal(await app.same(), true, 'The window reloaded itself over a typed draft')
+    assert.equal(await box.inputValue(), '아직 보내지 않은 글')
+    await box.fill('')
+    await app.notify()
+    await eventually(async () => !(await app.same()), 'The window did not reload once the draft was gone')
+  })
+  await caseOf('restart-reload-waits-for-kept-draft', async (page) => {
+    const app = await appStatus(page)
+    const first = page.waitForResponse((r) => r.url().includes('/api/app/status'))
+    await page.goto(`${base.href}#/agent`)
+    await first
+    const box = page.locator('[data-ui="에이전트 입력란"] textarea')
+    await box.fill('다른 화면에 가 있는 동안의 초안')
+    // 입력란이 화면에서 내려가도 초안은 대화마다 남는다: 그 글도 지키는지
+    await page.goto(`${base.href}#/settings`)
+    await page.locator('[data-ui="앱 업데이트"]').waitFor()
+    await app.hide()
+    await app.restart('ccccccc3')
+    await eventually(async () => !(await app.same()) || await page.locator('[data-ui="새 버전 버튼"]').count() > 0, 'The restarted status was not read')
+    await delay(300)
+    assert.equal(await app.same(), true, 'The window reloaded itself over a draft kept for another screen')
+    await page.goto(`${base.href}#/agent`)
+    assert.equal(await box.inputValue(), '다른 화면에 가 있는 동안의 초안')
+  })
+  await caseOf('update-click-keeps-unsent-text', async (page) => {
+    const app = await appStatus(page)
+    const first = page.waitForResponse((r) => r.url().includes('/api/app/status'))
+    await page.goto(`${base.href}#/r/${encodeURIComponent(rid)}/log`)
+    await first
+    await page.locator('[data-ui="기록 거르기"]').getByRole('button', { name: '메모', exact: true }).click()
+    const box = page.locator('[data-ui="기록 화면"] [data-ui="메모 입력"] textarea')
+    await box.fill('업데이트를 누를 때 적혀 있던 글')
+    await app.mark()
+    await app.offer()
+    const button = page.locator('[data-ui="새 버전 버튼"]')
+    await button.click()
+    // 다시 켜진 뒤 이 창은 스스로 읽지 않고, 버튼이 새로 고침으로 남는다
+    await eventually(async () => !(await app.same()) || await button.getAttribute('aria-label').catch(() => null) === '새 화면 · 새로 고침', 'The update did not finish')
+    assert.equal(await app.same(), true, 'The window reloaded itself over a typed draft after the update')
+    assert.equal(await box.inputValue(), '업데이트를 누를 때 적혀 있던 글')
+    await button.click()
+    await eventually(async () => !(await app.same()), 'The reload button did not reload')
+  })
+  // 새 화면 읽기를 미룬 창도 쉴 때의 다시 시작은 건다 (서버가 다시 켜져도 이 창의 글은 남는다). 시계는 흉내 낸다
+  await caseOf('idle-restart-is-not-held-by-a-draft', async (page) => {
+    const app = await appStatus(page)
+    await page.clock.install()
+    const first = page.waitForResponse((r) => r.url().includes('/api/app/status'))
+    await page.goto(`${base.href}#/r/${encodeURIComponent(rid)}/log`)
+    await first
+    await page.locator('[data-ui="기록 거르기"]').getByRole('button', { name: '메모', exact: true }).click()
+    const box = page.locator('[data-ui="기록 화면"] [data-ui="메모 입력"] textarea')
+    await box.fill('쉬는 동안에도 남아야 하는 글')
+    await app.mark()
+    const button = page.locator('[data-ui="새 버전 버튼"]')
+    await app.swap('bbbbbbb2')
+    await button.waitFor()
+    await app.prepare('eeeeeee5')
+    await eventually(async () => await button.getAttribute('aria-label') === '새 버전 · 다시 시작', 'The prepared version was not read')
+    // 5분 넘게 입력이 없다: 쉬는지 보는 시계(30초마다)가 한 번 돈다
+    await page.clock.fastForward(6 * 60_000)
+    // 5분마다의 새 버전 확인과 겹친 차례는 건너뛰므로 다음 차례(30초 뒤)까지 본다
+    for (let i = 0; i < 4 && app.restarts() === 0; i++) { await delay(200); if (app.restarts() === 0) await page.clock.runFor(31_000) }
+    await eventually(() => app.restarts() === 1, 'The idle restart was held back by a draft')
+    // 다시 켜졌는지 1초마다 본다
+    for (let i = 0; i < 5 && await button.getAttribute('aria-label').catch(() => null) !== '새 화면 · 새로 고침'; i++) { await page.clock.runFor(1100); await delay(100) }
+    assert.equal(await app.same(), true, 'The window reloaded itself over a typed draft after the idle restart')
+    assert.equal(await button.getAttribute('aria-label'), '새 화면 · 새로 고침')
+    assert.equal(await box.inputValue(), '쉬는 동안에도 남아야 하는 글')
   })
 } finally { await browser.close(); await api.dispose() }
 await fs.writeFile(`${out}/results.json`, JSON.stringify({ base: base.href, checks }, null, 2))

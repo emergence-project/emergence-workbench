@@ -18,6 +18,7 @@ import {
 } from './taskView'
 import { t } from './i18n'
 import { MarkIcon } from './marks'
+import { draftMap } from './unsent'
 
 /**
  * 기록 화면의 맡긴 일 (10/7 사용자 결정, 시안 v31. 10/21 작업 탭을 기록 안으로 합침): 브리핑 · 한 주 달력, 판단 카드, 맡긴 일 목록, 맡기기 창.
@@ -310,7 +311,7 @@ export type TaskDraft = Partial<NewTask> & { mode?: 'new' | 'proposal' | 'next';
  * 다음 지시를 고쳐 맡길 때와 종결 조건 제안을 고쳐 승인할 때도 같은 창을 쓴다.
  */
 /** 새로 맡기는 창을 Esc · 바깥 누르기로 닫아도 적던 것이 남게: 프로젝트마다 하나, 맡기면 지운다 (화면을 새로 열면 없어진다) */
-const keptTasks = new Map<string, TaskDraft & { endMode?: 'self' | 'agent' }>()
+const keptTasks = draftMap<TaskDraft & { endMode?: 'self' | 'agent' }>()
 
 export function TaskDialog({ rid, topics, draft: given, onClose, onSaved, reload }: {
   rid: string; topics: Topic[]; draft: TaskDraft; onClose(): void; onSaved: Saved; reload(): unknown
