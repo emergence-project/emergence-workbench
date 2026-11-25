@@ -34,7 +34,6 @@
     "service:status": "zsh scripts/service.sh status",
     "service:logs": "zsh scripts/service.sh logs",
     "service:uninstall": "zsh scripts/service.sh uninstall",
-    "test:autosave-close": "node scripts/shots/autosave-close.mjs",
     "test:browser": "node scripts/shots/browser-check.mjs",
     "test:scripts": "node --test scripts/remote/*.test.mjs",
     "shots": "node scripts/shots/shots.mjs",
