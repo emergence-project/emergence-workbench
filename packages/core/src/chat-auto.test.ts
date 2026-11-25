@@ -178,6 +178,17 @@ describe('명령이 하는 일', () => {
     // 다 넣어 보지 못할 만큼 많으면 모르는 것으로: 실행
     expect(k(`for a in ${'x '.repeat(20)}; do for b in ${'y '.repeat(20)}; do find . $a$b; done; done`)).toBe('run')
   })
+  it('값이 많은 변수를 수백 번 써도, env -S 를 수만 번 이어도 바로 답한다', () => {
+    const loops = Array.from({ length: 12 }, (_, i) => `for v${i} in ${Array.from({ length: 256 }, (_, n) => `w${n}`).join(' ')}; do`).join(' ')
+    const uses = `echo ${Array.from({ length: 12 }, (_, i) => `$v${i}`).join(' ')}\n`.repeat(600)
+    const t0 = Date.now()
+    expect(k(`${loops}\n${uses}`)).toBe('run')
+    const t1 = Date.now()
+    expect(['read', 'run']).toContain(k(`env ${'-S '.repeat(60000)}`))
+    expect([t1 - t0, Date.now() - t1].every((ms) => ms < 2500), `${t1 - t0}ms · ${Date.now() - t1}ms`).toBe(true)
+    // 한도 안에서는 그대로 다 넣어 본다
+    expect(k('for x in a b -delete; do find . $x; done')).toBe('delete')
+  })
   it('중괄호가 수십 겹이어도 바로 답한다 (다 펼치지 못하면 폴더 밖으로)', () => {
     const t0 = Date.now()
     for (const c of [`cat /u/p/${'{a,b}'.repeat(30)}`, `ls ../p/x${'{a,b}'.repeat(30)}`, `echo hi > /u/p/o${'{a,b}'.repeat(30)}`]) expect(k(c), c).toBe('outside')

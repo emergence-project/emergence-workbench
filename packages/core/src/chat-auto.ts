@@ -87,9 +87,10 @@ export function leading(all: string[]): { rest: string[]; env: boolean } {
     else if (w.length > 1 && /^-n$/.test(w[0]!) && /^-?\d+$/.test(w[1]!)) w = w.slice(2)
     else if (w.length > 1 && w[0]!.split('/').pop() === 'env') {
       w = w.slice(1)
+      let splits = 0
       while (w.length && w[0]!.startsWith('-')) {
-        // env -S'rm -rf x' · -S 'rm -rf x': 그 글을 낱말로 쪼개 돌린다
-        const split = /^(?:-[a-zA-Z]*S|--split-string=?)(.*)$/s.exec(w[0]!)
+        // env -S'rm -rf x' · -S 'rm -rf x': 그 글을 낱말로 쪼개 돌린다 (몇 번까지만: 수만 번 이으면 낱말을 그만큼 다시 베낀다)
+        const split = splits++ < 8 ? /^(?:-[a-zA-Z]*S|--split-string=?)(.*)$/s.exec(w[0]!) : null
         // (쪼갠 것이 다시 옵션이면 계속 뗀다: env -S -- git push · env -S -i git reset)
         if (split) { w = [...words(split[1] || (w[1] ?? '')), ...w.slice(split[1] ? 1 : 2)]; continue }
         w = w.slice(/^-[uCP]$/.test(w[0]!) ? 2 : 1)
@@ -127,6 +128,8 @@ type Where = { cwd: string; inside(abs: string): boolean; home?: string }
 
 /** 치환이 겹친 깊이의 한도: 넘으면 따라가지 않고 가장 무겁게 본다 */
 const DEPTH_MAX = 40
+/** 한 줄에서 변수에 값을 넣어 다시 판정하는 횟수의 한도 */
+export const VARIANTS_MAX = 600
 
 export function commandKind(cmd: string, o: Where, depth = 0): ChatKind {
   let kind = kindCore(cmd, o, depth)
@@ -148,6 +151,8 @@ function kindCore(cmd: string, o: Where, depth: number): ChatKind {
   for (const part of sub.inner) bump(commandKind(part, o, depth + 1))
   if (sub.left) bump('run')
   const vars = new Map<string, string[]>()
+  // 변수에 값을 넣어 보는 횟수의 한도 (줄 전체에서): 값이 수백 개인 변수를 수백 번 쓰면 그 곱만큼 다시 판정하게 된다
+  let budget = VARIANTS_MAX
   for (const seg of segments(sub.flat)) {
     const r = redirects(seg)
     // 쓰기 돌려보내기: > 파일 · 2> 파일 · &> 파일 (2>&1 · >/dev/null은 빼고)
@@ -161,10 +166,11 @@ function kindCore(cmd: string, o: Where, depth: number): ChatKind {
     }
     const all = words(r.rest)
     // 글자 그대로 적은 값의 변수는 그 값을 넣어서도 본다: for x in -delete; do find . $x; done
-    const tried = variants(unmask(seg), vars)
-    // 다 넣어 보지 못했으면(짝이 너무 많다) 무엇이 될지 모르니 실행으로
+    const tried = variants(unmask(seg), vars, Math.min(256, budget))
+    // 다 넣어 보지 못했으면(짝이 너무 많다 · 한도를 다 썼다) 무엇이 될지 모르니 실행으로
     if (tried.partial) bump('run')
     for (const v of tried.texts) bump(commandKind(v, o, depth + 1))
+    budget = Math.max(0, budget - tried.texts.length)
     noteVars(all, vars)
     // for x in /etc/*: 도는 낱말이 폴더 밖이면 그 변수를 읽는 것도 밖이다
     if (all[0] === 'for' && all[2] === 'in') for (const x of expandWords(all.slice(3))) { const v = pathPart(x); if (looksLikePath(v) && touchesOutside(v, o)) bump('outside') }
@@ -225,13 +231,15 @@ export function noteVars(all: string[], vars: Map<string, string[]>): void {
  * 적어 둔 변수($x · ${x} · zsh의 $=x · $~x)를 값으로 바꾼 글들 (쓰지 않으면 없음).
  * 짝이 너무 많으면 변수 하나씩만 바꾼 글들을 주고 partial = true: 다 넣어 본 것이 아니다
  */
-export function variants(text: string, vars: Map<string, string[]>): { texts: string[]; partial: boolean } {
+export function variants(text: string, vars: Map<string, string[]>, limit = 256): { texts: string[]; partial: boolean } {
+  if (!vars.size || !text.includes('$')) return { texts: [], partial: false }
   const re = (name: string) => new RegExp(`\\$(?:[=~^]{0,2}${name}\\b|\\{[=~^]{0,2}${name}\\})`, 'g')
   const used = [...vars].filter(([name]) => re(name).test(text))
   let out = [text]
   for (const [name, vals] of used) {
+    // 곱하기 전에 센다: 넘으면 변수 하나씩만 바꾼 글 몇 개로
+    if (out.length * vals.length > limit) return { texts: used.flatMap(([n, vs]) => vs.slice(0, 64).map((v) => text.replace(re(n), v))).slice(0, Math.min(limit, 128)), partial: true }
     out = out.flatMap((t) => vals.map((v) => t.replace(re(name), v)))
-    if (out.length > 256) return { texts: used.flatMap(([n, vs]) => vs.slice(0, 256).map((v) => text.replace(re(n), v))).slice(0, 512), partial: true }
   }
   return { texts: used.length ? out : [], partial: false }
 }

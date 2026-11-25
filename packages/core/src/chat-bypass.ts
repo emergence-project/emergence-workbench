@@ -5,7 +5,7 @@
  * 셸 감싸기(sh -c · eval · xargs · find -exec · env · sudo …), 묶음(( … ) · { …; })과 $( … ) 안쪽도 같은 규칙으로 본다.
  * 옵션 줄임꼴(--har), 펼쳐서 만드는 옵션({--force,x} · --for${u}ce), 글자 그대로 적은 값의 변수(f=--force; git push $f)도 같은 것으로 읽는다
  */
-import { GIT_VALUE, leading, noteVars, variants, wrapped } from './chat-auto.js'
+import { GIT_VALUE, VARIANTS_MAX, leading, noteVars, variants, wrapped } from './chat-auto.js'
 import { alternatives, evalFlags, expandBraces, expandWords, hasBraces, heredocVariants, longOpt, prepare, redirects, segments, splitGroups, substitutions, words } from './chat-shell.js'
 
 export type NeverBypass = 'force-push' | 'reset-hard' | 'delete-main' | 'rm-outside-temp' | 'workbench-write'
@@ -170,6 +170,7 @@ function neverCore(cmd0: string, depth: number): NeverBypass | undefined {
     if (r) return r
   }
   const vars = new Map<string, string[]>()
+  let budget = VARIANTS_MAX
   for (const seg of segments(cmd)) {
     const r = redirects(seg)
     // 파일로 돌려보내기: 받는 곳이 workbench/ 안이면
@@ -177,7 +178,9 @@ function neverCore(cmd0: string, depth: number): NeverBypass | undefined {
     if ([...r.out, ...expandWords(r.out)].some(wb)) return 'workbench-write'
     const all = words(r.rest)
     // 글자 그대로 적은 값의 변수는 그 값을 넣어서도 본다: f=--force; git push origin main $f
-    for (const v of variants(seg, vars).texts) {
+    const tried = variants(seg, vars, Math.min(256, budget)).texts
+    budget = Math.max(0, budget - tried.length)
+    for (const v of tried) {
       const hit = neverBypass(v, depth + 1)
       if (hit) return hit
     }
