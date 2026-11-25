@@ -49,6 +49,9 @@ describe('상태만 보는 명령 (중앙 대화)', () => {
     expect(stateOnlyCommand('git status # 지금 상태')).toBe('ok')
     expect(stateOnlyCommand(`echo $(echo ")")`)).toBe('ok')
   })
+  it('히어독처럼 보이는 << 뒤의 줄도 명령으로 본다', () => {
+    for (const c of [`echo "a $(echo "<<'true' ")"\necho \`rm -rf x\`\ntrue`, `echo "a $(echo "<<true ")"\nfind . -del''ete\ntrue`]) expect(stateOnlyCommand(c), c).toBe('no')
+  })
   it('수천 겹 겹친 따옴표 · 치환은 넘어지지 않고 막는다', () => {
     for (const c of ['echo "$('.repeat(5000), `${'echo "$('.repeat(5000)}ls${')"'.repeat(5000)}`]) expect(stateOnlyCommand(c)).toBe('no')
   })

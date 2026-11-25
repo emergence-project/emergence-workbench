@@ -123,6 +123,50 @@ export function joinLines(cmd: string): string {
 }
 
 /**
+ * 히어독으로 읽은 글들: 본문의 따옴표를 빈칸으로 바꾼 것 (히어독이 없으면 빈 목록). 본문에서 따옴표는 글자라, 그대로 읽으면
+ * `cat <<E⏎it's⏎E⏎rm -rf x`의 ' 가 뒤 명령을 따옴표 안으로 가져간다. 구분자에 따옴표가 없으면(<<E) 본문의 $( … ) · ` … ` 는
+ * 펼쳐지므로 두고, 따옴표로 쌌으면(<<'E') 본문은 글자 그대로라 $ · ` · \\ 도 지운다.
+ * 원래 글을 대신하지 않는다 (11/25 셋째 검토): << 가 정말 히어독인지는 여기서 다 알 수 없어서(따옴표 · 주석 안의 <<),
+ * 받는 쪽은 원래 글과 이 글을 둘 다 판정해 무거운 쪽을 쓴다. 한쪽으로만 읽으면 본문으로 잘못 본 줄의 명령이 가려진다
+ */
+export function heredocVariants(cmd0: string): string[] {
+  const cmd = joinLines(cmd0)
+  if (!cmd.includes('<<')) return []
+  const out: string[] = []
+  // 앞의 << 몇 개는 히어독이 아닌 것으로도 읽어 본다 (주석 · 따옴표 안의 << 가 진짜 히어독 앞에 있을 때)
+  for (let skip = 0; skip < 4; skip++) {
+    const v = heredocQuotes(cmd, skip)
+    if (v === null) break
+    if (v !== cmd && !out.includes(v)) out.push(v)
+  }
+  return out
+}
+/** 앞의 skip개는 건너뛰고, 그 뒤의 << 를 히어독으로 읽어 본문의 따옴표를 지운 글. << 가 skip개보다 많지 않으면 null */
+function heredocQuotes(cmd: string, skip: number): string | null {
+  let out = ''
+  let pos = 0
+  let seen = 0
+  for (let n = 0; n < 50; n++) {
+    const rest = cmd.slice(pos)
+    const m = /(?<!<)<<(?!<)(-?)[ \t]*([^\s;&|<>()]+)/.exec(bare(rest))
+    if (!m) break
+    const opEnd = m.index + m[0].length
+    seen++
+    const raw = rest.slice(opEnd - m[2]!.length, opEnd)
+    const delim = words(raw)[0] ?? raw
+    const nl = rest.indexOf('\n', opEnd)
+    const lines = nl < 0 ? [] : rest.slice(nl + 1).split('\n')
+    const end = lines.findIndex((l) => (m[1] ? l.replace(/^\t+/, '') : l) === delim)
+    // 히어독으로 읽지 않는 것(건너뛸 것 · 끝 줄이 없는 것)은 그대로 두고 그 뒤부터 다시 찾는다
+    if (seen <= skip || end < 0) { out += rest.slice(0, opEnd); pos += opEnd; continue }
+    const strip = /['"\\]/.test(raw) ? /['"`\\$]/g : /['"]/g
+    out += rest.slice(0, nl + 1) + [...lines.slice(0, end).map((l) => l.replace(strip, ' ')), lines[end]].join('\n')
+    pos += nl + 1 + lines.slice(0, end + 1).join('\n').length
+  }
+  return skip > 0 && seen <= skip ? null : out + cmd.slice(pos)
+}
+
+/**
  * 판정하기 전에 글을 셸이 읽는 대로 고쳐 쓴다 (11/25 검토). 다른 판정은 「'」가 따옴표를 열고 다음 「'」에서 닫힌다고만 읽으므로,
  * 셸이 다르게 읽는 자리에서는 따옴표의 짝이 어긋나 그 사이의 명령이 따옴표 안으로 숨는다:
  * - 줄 잇기(\\ + 줄바꿈)를 지운다.
@@ -329,4 +373,94 @@ export function substitutions(raw: string, o: { proc?: boolean } = {}): { inner:
     i = end
   }
   return { inner, flat: maskLiteral(out), left }
+}
+
+/** 긴 옵션의 줄임꼴도 같은 옵션으로 본다 (git · getopt_long은 --outp=x 를 --output=x 로, --har 를 --hard 로 읽는다) */
+export const longOpt = (...names: string[]) => (x: string) => {
+  const k = x.split('=')[0]!
+  return k.length >= 3 && k.startsWith('--') && names.some((n) => n.startsWith(k))
+}
+
+/** 중괄호 안의 글이 펼쳐지는 꼴이면 그 낱말들: a,b,c · 1..3 · a..c. 아니면 null ({} · ${x} 의 x 등) */
+function braceAlts(body: string): string[] | null {
+  if (body.includes(',')) return body.split(',')
+  const num = /^(-?\d+)\.\.(-?\d+)$/.exec(body)
+  const chr = /^([A-Za-z])\.\.([A-Za-z])$/.exec(body)
+  const [from, to] = num ? [Number(num[1]), Number(num[2])] : chr ? [chr[1]!.charCodeAt(0), chr[2]!.charCodeAt(0)] : [0, -1]
+  if ((!num && !chr) || Math.abs(to - from) > 64) return null
+  const out: string[] = []
+  for (let n = from; from <= to ? n <= to : n >= to; n += from <= to ? 1 : -1) out.push(num ? String(n) : String.fromCharCode(n))
+  return out
+}
+/** 낱말의 첫 중괄호 묶음을 펼친 낱말들 (없으면 null). 변수 ${x} 의 중괄호는 아니다 */
+function braceOnce(x: string, force = false): string[] | null {
+  // 빈칸 · 큰따옴표가 든 낱말은 따옴표로 싼 글(JSON · awk 코드)일 때가 많아 펼치지 않는다. force면 그래도 펼친다
+  if (!force && /[\s"]/.test(x)) return null
+  for (const m of x.matchAll(/\{([^{}]*)\}/g)) {
+    if (x[m.index - 1] === '$') continue
+    const alts = braceAlts(m[1]!)
+    if (alts) return alts.map((alt) => `${x.slice(0, m.index)}${alt}${x.slice(m.index + m[0].length)}`)
+  }
+  return null
+}
+/** 펼칠 중괄호가 (아직) 남아 있는 낱말인지 */
+export const hasBraces = (x: string) => braceOnce(x, true) !== null
+
+/** 빈 것일 수 있는 것: 변수($u · ${u}) · 빈 치환($() · `` · 자리표). 뒤에 / 가 오는 경로 머리($PWD/…)는 아니다 */
+const MAYBE_EMPTY = /\$\{[A-Za-z_]\w*\}(?!\/)|\$[A-Za-z_]\w*(?!\/)|\$\(\)|``|SUBST/g
+/**
+ * 셸이 낱말을 펼쳐 만들 수 있는 꼴을 미리 펼친 낱말들 (11/25 검토: 펼친 뒤에야 옵션 · 경로가 되는 꼴을 읽지 못했다):
+ * - 중괄호: -{delete,print} → -delete -print, {/etc/passwd,} → /etc/passwd 와 빈 낱말, -{d..d}elete → -delete
+ * - 기본값: ${x:--delete} · ${:--delete} → -delete
+ * - 옵션 이름 안의 변수 · 빈 치환은 빈 것으로도 읽는다: -del${u}ete · $u-delete · -del$()ete → -delete (값 쪽 --out=$PWD/x 는 둔다)
+ * 그럴 수도 있다는 것이지 늘 그렇지는 않다(${HOME:-x} 는 보통 $HOME 이다): 받는 쪽은 alternatives로 원래 낱말과 둘 다 본다
+ */
+export function expandWords(w: string[]): string[] {
+  const out = w.map((x) => {
+    const d = x.replace(/\$\{[A-Za-z_]?\w*:?[-=+]([^{}]*)\}/g, '$1')
+    const eq = d.indexOf('=')
+    const name = (eq < 0 ? d : d.slice(0, eq)).replace(MAYBE_EMPTY, '')
+    return name.startsWith('-') ? name + (eq < 0 ? '' : d.slice(eq)) : d
+  })
+  return expandBraces(out)
+}
+/** 중괄호만 펼친 낱말들. 너무 많으면 펼치다 만 채로 돌려준다 (hasBraces로 알 수 있다) */
+export function expandBraces(w: string[], force = false): string[] {
+  let out = w
+  for (let round = 0; round < 12; round++) {
+    let grew = false
+    const next = out.flatMap((x) => { const alts = braceOnce(x, force); if (alts) grew = true; return alts ?? [x] })
+    if (!grew || next.length > 512) break
+    out = next
+  }
+  return out
+}
+/** 판정해 볼 낱말 묶음들: 원래 낱말, 그리고 펼친 것이 다르면 그것들도. 받는 쪽은 그중 무거운 판정을 쓴다 */
+export function alternatives(w: string[]): string[][] {
+  // 적힌 그대로 · 중괄호만 펼친 것(따옴표가 없으면 늘 이렇게 된다) · 기본값과 빈 변수까지 넣은 것(그럴 수도 있다)
+  const out: string[][] = []
+  for (const x of [w, expandBraces(w), expandWords(w)]) if (!out.some((y) => y.length === x.length && y.every((v, i) => v === x[i]))) out.push(x)
+  return out
+}
+
+/**
+ * 낱말들을 묶음의 경계( { · } · () · } 뒤의 always )에서 나눈 것: zsh는 `{ true } always { rm x }` · `() { rm x }`처럼 ; 없이도 묶음을 닫는다.
+ * { 는 명령 자리에서만 묶음이고 인자 자리에서는 낱말이다(rm a { b): 받는 쪽은 나누지 않은 낱말과 둘 다 본다
+ */
+export function splitGroups(w: string[]): string[][] {
+  const out: string[][] = [[]]
+  let closed = false
+  for (const x of w) {
+    // 함수 정의 f () { … } 의 이름은 명령이 아니다
+    if (x === '()' && out.at(-1)!.length === 1) out.pop()
+    // always 는 닫힌 묶음 바로 뒤에서만 경계다 (grep --color always 의 always 는 값이다)
+    if (x === '{' || x === '}' || x === '()' || (x === 'always' && closed)) out.push([]); else { if (!out.length) out.push([]); out.at(-1)!.push(x) }
+    closed = x === '}'
+  }
+  return out.filter((g) => g.length)
+}
+
+/** zsh의 ${(e)…}: 값을 한 번 더 펼친다 (안의 $( … )가 돈다). 그 값의 글들 (따옴표는 벗겨서) */
+export function evalFlags(text: string): string[] {
+  return [...text.matchAll(/\$\{\(([^)]*)\)([^}]*)\}/g)].filter((m) => m[1]!.includes('e')).map((m) => unmask(m[2]!).replace(/['"]/g, ' '))
 }

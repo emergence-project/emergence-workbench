@@ -4,7 +4,7 @@
  * 바꿀 수 있는 문법(파일로 돌려보내기 · 히어독 · 백그라운드 · 환경 변수 앞말 · 다른 명령을 돌리는 프로그램)은 막는다.
  * ok = 묻지 않고, sensitive = 비밀이 든 곳(~/.ssh · .env …)을 보니 한 번 묻고, no = 막는다
  */
-import { bare, joinLines, segments, substitutions, unmask, words } from './chat-shell.js'
+import { bare, joinLines, longOpt, segments, substitutions, unmask, words } from './chat-shell.js'
 
 export type StateOnly = 'ok' | 'sensitive' | 'no'
 
@@ -26,12 +26,6 @@ const sub = (allowed: Record<string, Rule>, bad: string[] = []): Rule => (args) 
 /** 파일 이름으로 펼쳐지는 글자 */
 const GLOB = (x: string) => /[*?[]/.test(x)
 const versionOnly: Rule = (args) => args.length === 1 && /^(-v|-V|--version)$/.test(args[0]!)
-/** 긴 옵션의 줄임꼴도 같은 옵션으로 본다 (git · getopt_long은 --outp=x 를 --output=x 로 읽는다) */
-const longOpt = (...names: string[]) => (x: string) => {
-  const k = x.split('=')[0]!
-  return k.length >= 3 && k.startsWith('--') && names.some((n) => n.startsWith(k))
-}
-
 const GIT: Record<string, Rule> = {
   log: any, status: any, diff: any, show: any, blame: any, 'ls-files': any, 'rev-parse': any, describe: any, shortlog: any, 'ls-tree': any,
   'cat-file': any, 'merge-base': any, 'name-rev': any, whatchanged: any, 'rev-list': any, 'for-each-ref': any, 'show-ref': any,
