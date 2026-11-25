@@ -17,6 +17,67 @@ describe('상태만 보는 명령 (중앙 대화)', () => {
     expect(stateOnlyCommand(`python3 -I -c 'import json, sys; print(json.load(open(sys.argv[1]))["a"])' a.json`)).toBe('ok')
     expect(stateOnlyCommand("grep -n '$(x)' a.md")).toBe('ok')
   })
+  // 11/25 검토 "분류기가 놓치는 것"
+  it('zsh 전용 문법: =( ) · 무늬 꼬리표 · $=x 는 막는다', () => {
+    for (const c of ['cat =(rm -rf x)', 'diff =(ls) =(ls)', "ls *(e:'rm -rf x':)", 'ls *(+f)', 'ls *(.)', '(cd x && ls)',
+      'for x in ". -delete"; do find $=x; done', 'for x in a; do find . $~x; done', 'for x in a; do sort $^x; done'])
+      expect(stateOnlyCommand(c), c).toBe('no')
+    // 따옴표 · \\ 로 싼 괄호는 글자다
+    for (const c of ['grep -E "(a|b)" x.md', 'find . \\( -name a -o -name b \\)', "echo 'f(x)'"]) expect(stateOnlyCommand(c), c).toBe('ok')
+  })
+  it('파이썬 주석 안의 따옴표로 open의 둘째 값을 숨기지 못한다', () => {
+    expect(stateOnlyCommand(`python3 -I -c "import sys\nopen(sys.argv[1] # '\n, 'w') # ')" a.txt`)).toBe('no')
+    expect(stateOnlyCommand(`python3 -I -c "import sys\nprint(len(sys.argv)) # count\nprint(1)"`)).toBe('ok')
+  })
+  it('gh api graphql: 질의를 변수 · 치환으로 넣으면 안을 볼 수 없어 막는다', () => {
+    for (const c of ['gh api graphql -f query="$(cat q.txt)"', 'gh api graphql -f query="$Q"']) expect(stateOnlyCommand(c), c).toBe('no')
+    expect(stateOnlyCommand("gh api graphql -f query='{ viewer { login } }'")).toBe('ok')
+  })
+  it('열쇠가 든 환경 변수를 펼치면 한 번 묻는다', () => {
+    for (const c of ['echo $GITHUB_TOKEN', 'printf %s "$ANTHROPIC_API_KEY"', 'echo ${GH_TOKEN} | wc -c', 'echo $AWS_SECRET_ACCESS_KEY']) expect(stateOnlyCommand(c), c).toBe('sensitive')
+    for (const c of ['echo $HOME', 'echo $MAX_TOKENS', 'echo $TOKENIZER_PATH']) expect(stateOnlyCommand(c), c).toBe('ok')
+    expect(touchesSecret('curl -H "Authorization: Bearer $GITHUB_TOKEN" https://x')).toBe(true)
+    expect(touchesSecret('echo $PWD')).toBe(false)
+  })
+  it('중앙의 푸시: heads/main 도 main이다', () => {
+    for (const c of ['git push origin x:heads/main', 'git push origin heads/main', 'git push origin x:refs/heads/master']) expect(stateOnlyCommand(c, { gitWrites: true }), c).toBe('no')
+    expect(stateOnlyCommand('git push origin x:heads/feature', { gitWrites: true })).toBe('ok')
+  })
+  // 11/25 별도 검토: 상태 보기로 통과하던 꼴
+  it('주석 · 치환 안의 따옴표로 뒤 명령을 숨기지 못한다', () => {
+    for (const c of ["git status # '\ngit push --force origin main # '", `echo $(echo ")" ; rm -rf x) '"'`, "ls # '\nrm -rf x # '"]) expect(stateOnlyCommand(c), c).toBe('no')
+    expect(stateOnlyCommand('git status # 지금 상태')).toBe('ok')
+    expect(stateOnlyCommand(`echo $(echo ")")`)).toBe('ok')
+  })
+  it('수천 겹 겹친 따옴표 · 치환은 넘어지지 않고 막는다', () => {
+    for (const c of ['echo "$('.repeat(5000), `${'echo "$('.repeat(5000)}ls${')"'.repeat(5000)}`]) expect(stateOnlyCommand(c)).toBe('no')
+  })
+  it('펼친 값이 옵션이 되는 꼴: 변수 고치기 · 치환 출력', () => {
+    for (const c of [
+      'for x in a-delete; do find . ${x#a}; done', 'for x in a; do find . $x:s/a/-delete/; done', 'find . ${PWD##*}-delete', 'for x in a; do sort $x[1]; done',
+      "find . -name x$(printf ' -o -delete')", "sort a$(printf ' -o out')", 'git grep $(git log -1 --format=-Orm) TODO', 'git log $(git log -1 --format=--output=README.md)',
+    ]) expect(stateOnlyCommand(c), c).toBe('no')
+    for (const c of ['git log $(git merge-base main HEAD)..HEAD --oneline', 'git diff $(git merge-base origin/main HEAD)', 'echo $(git rev-parse HEAD)', 'for f in a.md b.md; do sort $f; done', 'ls $(git rev-parse --show-toplevel)'])
+      expect(stateOnlyCommand(c), c).toBe('ok')
+  })
+  it('파이썬: _ 로 시작하는 이름 · 다른 모듈에서 꺼낸 모듈은 막는다', () => {
+    for (const c of [
+      `python3 -I -c 'from collections import _sys; print(_sys.argv)'`, `python3 -I -c 'from pprint import _sys; _sys.modules["o"+"s"].system("id")'`,
+      `python3 -I -c "from pprint import (\n_sys)\nprint(_sys.path)"`, `python3 -I -c 'from json import codecs; codecs.open("r", "w")'`,
+    ]) expect(stateOnlyCommand(c), c).toBe('no')
+    expect(stateOnlyCommand(`python3 -I -c 'import json, sys; d = json.load(open(sys.argv[1])); print(len(d), d.get("a_b"))' a.json`)).toBe('ok')
+  })
+  it('gh: 붙여 쓴 짧은 옵션은 읽지 않고 막는다', () => {
+    for (const c of ['gh api -iXDELETE repos/o/r/git/refs/heads/main', 'gh api repos/o/r/issues -if title=x', "gh api /graphql -if query='mutation{x}'", 'gh auth status -at', 'gh pr view 1 -cw'])
+      expect(stateOnlyCommand(c), c).toBe('no')
+    for (const c of ['gh api -XGET repos/o/r/pulls', 'gh api repos/o/r -q .name', 'gh auth status']) expect(stateOnlyCommand(c), c).toBe('ok')
+  })
+  it('git fetch의 강제 · 로컬 가지로 받기, jq의 환경 변수', () => {
+    for (const c of ['git fetch -fu origin x:main', 'git fetch origin x:main', 'git fetch --force origin']) expect(stateOnlyCommand(c, { gitWrites: true }), c).toBe('no')
+    for (const c of ['git fetch origin', 'git fetch --prune origin main']) expect(stateOnlyCommand(c, { gitWrites: true }), c).toBe('ok')
+    for (const c of ['jq -n env', "jq -n '$ENV.GITHUB_TOKEN'", 'jq -r env.HOME a.json']) expect(stateOnlyCommand(c), c).toBe('no')
+    expect(stateOnlyCommand("jq '.environment' a.json")).toBe('ok')
+  })
   it('바꾸거나 다른 명령을 돌릴 수 있으면 막는다', () => {
     for (const c of [
       'npm i', 'npm install -g x', 'git commit -m x', 'git log && git push', 'ls > a.txt', 'echo x >> a', 'cat <<EOF', 'echo $(rm -rf x)', 'echo `touch a`',
