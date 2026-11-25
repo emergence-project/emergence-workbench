@@ -3,7 +3,7 @@
 이 문서는 인계용이다. main에 합치지 않고, 아래 일이 끝나면 이 브랜치(`claude/dogfood-week-fixes`)와 함께 지운다.
 
 - 한 일: main `376b1730`(#679)까지 이번 주 커밋을 갈래 다섯으로 검토하고, 예제 모드(`pnpm dev`)에서 직접 써 보며 버그를 찾아 고쳤다.
-- 상태: 묶음 넷을 PR #680 · #681 · #682 · #683으로 열어 CI 초록 뒤 모두 합쳤다(11/24). 빠졌던 수정 하나는 #684로, 3.1절 "놓치는 것"은 #688 · #690으로 합쳤다(11/25, main `810448d3`). 실사용 앱도 다시 시작했다.
+- 상태: 묶음 넷을 PR #680 · #681 · #682 · #683으로 열어 CI 초록 뒤 모두 합쳤다(11/24). 빠졌던 수정 하나는 #684로, 3.1절 "놓치는 것"은 #688 · #690 · #691로 합쳤다(11/25, main `7160d008`). 실사용 앱도 다시 시작했다.
 - 남은 일: (1) 3절의 고치지 않은 버그, (2) 4절의 개선사항 가운데 사용자가 고른 것.
 - 이 브랜치의 코드는 이제 낡았다: 네 커밋은 main에 들어갔고, 그중 빠졌던 `WorkColumn key`는 11/25에 #684로 따로 들어갔다(아래). 이 문서만 본다.
 
@@ -96,17 +96,20 @@ PR을 열 때 지킬 것:
 
 **"놓치는 것"은 11/25에 고쳤다**: #688(#681이 만든 회귀: 작은따옴표 안을 가린 채 판정해 `python3 -c 'exec(…)'`가 중앙에서 통과) · #690(아래 목록 전부와, 별도 검토에서 나온 주석 · 치환 안 따옴표로 뒤 명령 숨기기, 치환 출력이 옵션이 되는 꼴, `gh` 붙여 쓴 옵션 등). 셸 글 읽기는 `chat-shell.ts`로 옮겼다. 고친 것: zsh의 `=( )` · 무늬 꼬리표 · `$=x`, 파이썬 주석 안 따옴표, 겹쳐 감싼 지우기, `< 밖 경로`와 따옴표로 싼 받는 곳, `neverBypass`의 묶음 · `find` · `xargs`, `$'…'` 따옴표, `heads/main` 푸시, graphql 질의 치환, 토큰 변수 `echo`, `&> 파일`, 읽는 도구의 `~` 경로.
 
-아직 놓치는 것 (#690의 별도 검토에서 나왔고 고치지 않음. 재현부터):
+**#690의 별도 검토에서 남았던 것도 11/25에 #691로 고쳤다**: zsh의 앞말 · 묶음(`noglob` · `=rm` · `repeat` · 이름 없는 함수 · `always` · `case`), 셸이 펼쳐서 만드는 낱말(중괄호 · 기본값 · 빈 변수), 히어독 본문, 옵션 줄임꼴, `/tmp/../` · `$PWD/..` 경로, `sed` · `awk` · `xxd`의 쓰는 쓰임, `neverBypass`의 변수에 담은 옵션. 여러 뜻으로 읽힐 수 있는 글(히어독 · 묶음 · 펼침)은 원래 글과 새로 읽은 글을 **둘 다 판정해 무거운 쪽**을 쓴다(한쪽으로만 읽으면 가려진다: 검토에서 두 번 나옴). 판정을 고칠 때는 main의 코드와 나란히 돌려 더 가벼워진 줄이 없는지 본다(검토 에이전트와 PR 본문의 방법).
 
-- 보통 대화 판정(`commandKind`)이 「읽기」 · 「실행」으로 두는 지우기 · 폴더 밖:
-  - zsh 문법: 이름 없는 함수 `() { rm -rf x }`, `{ … } always { … }`, 앞말 `noglob` · `=rm` · `repeat 1`, `case x in x) rm …;; esac`, `${(e)…}`, `read 'a[$(…)]'`.
-  - 펼침으로 만든 옵션: `find . -{delete,print}`, `find . ${:--delete}`, `find . -del${u}ete`, `echo -delete | read x; find . $x`, `env -S'rm -rf x'`.
-  - 따옴표 없는 구분자의 히어독 본문은 `$( )`가 펼쳐진다: `cat <<E⏎echo '$(rm -rf x)'⏎E`.
-  - 폴더 밖 경로: `cat /tmp/../etc/passwd`, `cat {/etc/passwd,}`, `cat $PWD/../other/x`, `for f in /etc/*; do cat $f; done`, `echo hi >!~/.zshrc`, `dd if=a of=~/.zshrc`.
-  - 그 밖: `sh -ce '…'` · `bash -c -- '…'`, `xargs -J % rm -rf %`, `git --git-dir .git clean -fdx`, `git reset --har`(옵션 줄임꼴), `sed -n 's/x/y/gw out' f` · `sed -n -e'w out' f`, `awk -v c='rm x' 'BEGIN{print 1|c}'`, `xxd a b`, `git reflog expire`.
-- `neverBypass`: 위와 같은 앞말 · 줄임꼴(`git push --mirr`, `--del main`), `f=--force; git push origin main $f`, `git push {--force,origin,main}`, `git -C workbench checkout -- .`, `git update-ref -d refs/heads/main`, `rm -rf /tmp/a/{.,}./{.,}./Users/…`, `rm -rf $TMPDIRx/…`, `ksh -c '…'`.
+아직 놓치는 것 (#691의 마지막 검토에서 나왔고 main에도 있던 것. 재현부터):
+
+- 빈 변수와 기본값이 한 줄에 함께 있는 꼴: `rm -rf$u ${HOME:-/tmp/a/b}`, `find ${HOME:-/tmp/a} $u-delete`(옵션이 보이는 읽기가 `$HOME`도 기본값으로 바꾼다).
+- 묶음 `( … )` 안에서 정한 변수: `( for x in -delete; do find . $x; done )`, `(f=--force; git push origin main $f)`.
+- 값을 파이프로 읽어 넣는 꼴 `echo -delete | read x; find . $x`, 옵션 안에서 변수 뒤에 따옴표 글이 붙는 꼴 `-del$u"ete"`, `read 'a[$(…)]'`.
+- sed의 `w`가 주소 · 깃발에 붙은 꼴: `sed -n '1wout.txt' f`, `sed -n 's/x/y/wout.txt' f`.
+- 경로 앞의 빈 변수: `cat $u/etc/passwd`. 따옴표 친 빈칸이 든 중괄호: `cat {/etc/passwd,"a b"}`.
+- 가짜 `<<`가 넷 이상 앞선 히어독, `sh -c "…"` 안의 가짜 `<<` 뒤 히어독, 한 줄의 둘째 히어독.
+- 치환이 40겹을 넘으면 `neverBypass`가 따라가지 않는다. `fd -x rm`은 「읽기」다.
 - 중앙 목록에서 덜 확실한 것: `gh pr create --body-file <로컬 파일>`(로컬 파일을 공개 PR에 올림).
 - 값을 모르는 변수(`find . $x`에서 `$x`가 무늬 · 명령 결과)는 따라가지 않는다. `python3 -c` 안에서 지우는 코드는 「실행」이다.
+- 느린 입력: 앞말(`time` · `noglob` · `A=1` …)을 수만 번 이은 줄은 낱말을 하나 뗄 때마다 베껴 초 단위로 걸린다(`leading()`, main에도 있던 것. `env`의 옵션만 고쳤다).
 
 과하게 잡는 것(읽기 전용 대화가 막히거나 매번 물음):
 
@@ -115,6 +118,7 @@ PR을 열 때 지킬 것:
 - `cd x && ../..` 꼴 경로를 저장소 밖으로 본다.
 - 셸 내장 명령이 "실행"이 된다. `gh run view` · `gh pr view`를 매번 묻는다.
 - `/`로 시작하는 따옴표 글을 경로로 본다: `sed -n '/foo/p' f`, `awk '/foo/ {print}' f`, `grep '/usr' f`가 「외부」.
+- 따옴표로 싼 중괄호도 펼쳐 본다: `echo '{/x,/y}'`가 「외부」(드묾).
 - `x=1; echo $x`와 `git commit -m "$(cat <<'EOF' … EOF)"`가 「실행」.
 - 11/25부터 중앙은 치환을 옵션 있는 프로그램에 넘기는 명령(`git log $(git describe …)..HEAD`, `gh pr view $(…)`)을 묻는다(`git merge-base` · `git rev-parse` 출력을 git에 넘기는 것만 통과). 안전 쪽으로 정한 것이지만 잦으면 허용할 안쪽 명령을 늘린다.
 
