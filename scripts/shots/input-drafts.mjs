@@ -4,7 +4,8 @@ import path from 'node:path'
 import { chromium, request } from 'playwright-core'
 
 // Browser regressions; every write from the page is intercepted. The last case alone creates two sandbox conversations through the API.
-// Run against a built sandbox: node scripts/shots/input-drafts.mjs <url> <output-directory>.
+// pnpm test:browser (browser-check.mjs) builds, starts a fresh sandbox and runs this; CI runs it on every PR.
+// Against a sandbox that is already running: node scripts/shots/input-drafts.mjs <url> <output-directory>.
 assert(process.argv[2], 'Usage: node scripts/shots/input-drafts.mjs <loopback-sandbox-url> [output-directory]')
 const base = new URL(process.argv[2])
 assert(['http:', 'https:'].includes(base.protocol) && ['127.0.0.1', 'localhost', '[::1]'].includes(base.hostname))

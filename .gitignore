@@ -9,6 +9,7 @@ dist-old/
 .sandbox-en/
 .sandbox-shots/
 .sandbox-shots-en/
+.sandbox-browser/
 /shots/
 # 앱 고치기 대화가 만든 시안 (대화 화면이 보여 준다, routes/agentMockups.ts)
 /mockups/
