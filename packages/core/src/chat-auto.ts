@@ -107,7 +107,18 @@ export function segments(cmd: string): string[] {
  * `echo '$(echo ' ; rm -rf x ; echo ')'`의 두 따옴표 글을 치환 하나로 짝지어, 그 사이의 명령을 통째로 가린다.
  * 문맥을 따라간다: 큰따옴표 안에서는 ' 가 글자지만, 그 안의 $( … ) 안에서는 다시 따옴표다
  */
-function maskLiteral(cmd: string): string {
+const MASKED: Record<string, string> = { $: '\uE000', '`': '\uE001', '(': '\uE002', ')': '\uE003' }
+const UNMASKED: Record<string, string> = Object.fromEntries(Object.entries(MASKED).map(([k, v]) => [v, k]))
+/**
+ * 가린 글자를 되돌린다. 가림은 치환을 찾는 정규식만을 위한 것이다: 낱말로 나눈 뒤의 판정(프로그램 이름 · 옵션 · sh -c 안의 명령 ·
+ * awk · python 코드)은 되돌린 진짜 글로 해야 한다. 되돌리지 않으면 `awk '{system("rm x")}'`가 읽기로, `python3 -c 'exec(…)'`가
+ * 상태 보기로 통했다 (11/25: #681이 _ 로 가리면서 생긴 구멍)
+ */
+export const unmask = (s: string): string => s.replace(/[\uE000-\uE003]/g, (ch) => UNMASKED[ch]!)
+
+function maskLiteral(cmd0: string): string {
+  // 가림에 쓰는 글자가 처음부터 들어 있으면 되돌릴 때 $ ( ) 로 바뀐다: 다른 글자로 바꿔 둔다
+  const cmd = cmd0.replace(/[\uE000-\uE003]/g, '?')
   let out = ''
   // 문맥 더미: p = 따옴표 밖(맨 바깥 · $( ) 안, 값은 열린 괄호 수), d = 큰따옴표 안, b = 백틱 안
   const stack: { k: 'p' | 'd' | 'b'; n: number }[] = [{ k: 'p', n: 0 }]
@@ -119,7 +130,7 @@ function maskLiteral(cmd: string): string {
     if (top.k === 'd') { if (ch === '"') stack.pop(); out += ch; continue }
     if (ch === "'") {
       const end = cmd.indexOf("'", i + 1)
-      out += `'${cmd.slice(i + 1, end < 0 ? undefined : end).replace(/[$\`()]/g, '_')}${end < 0 ? '' : "'"}`
+      out += `'${cmd.slice(i + 1, end < 0 ? undefined : end).replace(/[$\`()]/g, (ch) => MASKED[ch]!)}${end < 0 ? '' : "'"}`
       i = end < 0 ? cmd.length : end
       continue
     }
@@ -141,7 +152,8 @@ export function substitutions(raw: string, o: { proc?: boolean } = {}): { inner:
     // proc: <( … ) · >( … ) 도 안의 명령을 돌린다 (cat <(rm x)가 읽기로 보이지 않게)
     const m = open.exec(flat)
     if (!m) break
-    inner.push(m[1] ?? m[2] ?? '')
+    // 안쪽 글은 되돌려 준다: 받는 쪽이 그 글로 다시 판정하며 문맥에 맞게 새로 가린다
+    inner.push(unmask(m[1] ?? m[2] ?? ''))
     flat = `${flat.slice(0, m.index)}SUBST${flat.slice(m.index + m[0].length)}`
   }
   return { inner, flat, left: (o.proc ? /[$<>]\(|`/ : /\$\(|`/).test(flat) }
@@ -205,14 +217,16 @@ export function commandKind(cmd: string, o: { cwd: string; inside(abs: string): 
     if (lead.env) bump('run')
     w = lead.rest
     if (!w.length) continue
-    const prog = w[0]!.split('/').pop()!
-    const args = w.slice(1)
+    // 프로그램과 인자는 진짜 글로 본다 (가린 글자를 되돌려서). 경로만 가린 채로: 작은따옴표 안의 $HOME 은 글자다
+    const plain = w.map(unmask)
+    const prog = plain[0]!.split('/').pop()!
+    const args = plain.slice(1)
     bump(kindOf(prog, args))
     // 다른 명령을 감싸 돌리는 것은 안의 명령도 본다: 실행을 자동 허용해도 삭제 · 외부는 묻게 (bash -c "rm -rf x" · find -exec rm · eval)
     for (const inner of wrapped(prog, args)) bump(typeof inner === 'string' ? commandKind(inner, o) : kindOf(inner[0]!.split('/').pop()!, inner.slice(1)))
     // 폴더 밖 경로 (읽기라도 폴더 밖이면 외부)
-    for (const a of args) { const v = pathPart(a); if (looksLikePath(v) && touchesOutside(v, o)) bump('outside') }
-    if (prog === 'cd' && args[0] && touchesOutside(args[0], o)) bump('outside')
+    for (const a of w.slice(1)) { const v = pathPart(a); if (looksLikePath(v) && touchesOutside(v, o)) bump('outside') }
+    if (prog === 'cd' && w[1] && touchesOutside(w[1], o)) bump('outside')
   }
   return worst
 }
@@ -374,7 +388,7 @@ export function runPrograms(cmd: string): string[] {
   const sub = substitutions(cmd, { proc: true })
   for (const part of sub.inner) for (const p of runPrograms(part)) if (!out.includes(p)) out.push(p)
   for (const seg of segments(sub.flat)) {
-    const all = words(seg.replace(/(?:\d|&)?>>?\|?&?\s*[^\s<>]+/g, ' ').replace(/<\s*\S+/g, ' '))
+    const all = words(seg.replace(/(?:\d|&)?>>?\|?&?\s*[^\s<>]+/g, ' ').replace(/<\s*\S+/g, ' ')).map(unmask)
     const { rest: w, env } = leading(all)
     if (!w.length) continue
     const prog = w[0]!.split('/').pop()!

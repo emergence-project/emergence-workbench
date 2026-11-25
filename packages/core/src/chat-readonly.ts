@@ -4,7 +4,7 @@
  * 바꿀 수 있는 문법(파일로 돌려보내기 · 히어독 · 백그라운드 · 환경 변수 앞말 · 다른 명령을 돌리는 프로그램)은 막는다.
  * ok = 묻지 않고, sensitive = 비밀이 든 곳(~/.ssh · .env …)을 보니 한 번 묻고, no = 막는다
  */
-import { segments, substitutions, words } from './chat-auto.js'
+import { segments, substitutions, unmask, words } from './chat-auto.js'
 
 export type StateOnly = 'ok' | 'sensitive' | 'no'
 
@@ -401,7 +401,8 @@ export function stateOnlyCommand(raw: string, o: { gitWrites?: boolean } = {}, d
   // 홀로 선 & (백그라운드)
   if (/(^|[^&])&([^&]|$)/.test(noRedirect.replace(/&&/g, '  '))) return 'no'
   for (const seg of segments(flat)) {
-    let w = words(seg.replace(HARMLESS_REDIRECT, ' ').replace(/<\s*/g, ' '))
+    // 규칙은 진짜 글을 본다: 작은따옴표 안을 가린 채로 두면 python -c 'exec(…)' 의 exec( 가 보이지 않는다
+    let w = words(seg.replace(HARMLESS_REDIRECT, ' ').replace(/<\s*/g, ' ')).map(unmask)
     // for 반복문 (11/20): for 이름 in 낱말…; do 명령; done. 낱말은 글자 그대로 적은 것만(-로 시작하거나 $ · $( ) 가 들면
     // 반복 변수가 옵션이 될 수 있어 막는다). do 뒤 명령은 같은 목록으로 본다
     if (w[0] === 'for') {
