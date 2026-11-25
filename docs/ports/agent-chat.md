@@ -37,7 +37,7 @@ code:
 | server | `apps/server/src/routes/agentChats.ts` | HTTP 경로 `/api/agent-chats/*` |
 | web | `apps/web/src/api/agentChats.ts` | 위 경로의 클라이언트 |
 | web | `apps/web/src/AgentChats.tsx` | 대화 화면: 목록 · 항목 그리기 · 허락 카드 · 고친 파일 |
-| web | `apps/web/src/AgentChanges.tsx` | 사이드바 「변경사항」 칸 `Changes`: 파일마다 접힌 줄(› 이름 +n −n)로 시작해 눌러서 펼치고, 머리 줄 「모두 펼치기 · 접기」. 펼친 파일은 대화마다 메모리에 기억(`openChangeFile`: 대화 줄 「변경사항 보기」가 그 파일을 펼쳐 둠), 코멘트를 쓰는 파일은 접히지 않음. 문단을 누르면 코멘트, 모아서 `commentMessage`로 에이전트에게 보냄 |
+| web | `apps/web/src/AgentChanges.tsx` | 사이드바 「변경사항」 칸 `Changes`: 파일마다 접힌 줄(› 이름 +n −n)로 시작해 눌러서 펼치고, 머리 줄 「모두 펼치기 · 접기」. 펼친 파일은 대화마다 메모리에 기억(`openChangeFile`: 대화 줄 「변경사항 보기」가 그 파일을 펼쳐 둠), 코멘트를 쓰는 파일은 접히지 않음. 문단을 누르면 코멘트, 모아서 `commentMessage`로 에이전트에게 보냄. 쓰던 코멘트는 그 대화에만 남게 칸(`WorkColumn`)을 대화마다 새로 만든다(키는 대화 칸 `ChatView`의 키와 달라야 한다. 같으면 앞 대화가 화면에 남는다) |
 | web | `apps/web/src/WorkLog.tsx` | 작업 로그: 대화 줄을 본문과 로그로 나누는 순수 함수 `chatLog`(생각 · 이어진 도구 묶음 = 로그 한 줄, 이어진 과정 = 대화의 「과정 n–m」 한 줄), 대화 안에서 그 자리에 펼치는 「과정」 줄 `ProcLine`(11/20 시안 2절: 세부 패널의 작업 로그는 없앰) |
 | web | `apps/web/src/WorkAside.tsx` | 대화 오른쪽 칸(사이드바): 세부 패널과 터미널 중 하나(`useSideColumn`). 대화 머리에는 사이드바 여닫기만, 칸 맨 위 아이콘 줄 `SideTabs`(왼쪽 이 대화 · 검토(돋보기 안 체크), 오른쪽 끝 `end` 칸부터 변경사항(둥근 네모 안 ± 아이콘과 초록 점, 수는 툴팁) · 터미널, 11/23)로 칸을 고른다. 터미널은 옮길 앱에 셸이 있을 때만 |
 | web | `apps/web/src/AgentChatInfo.tsx` | 「이 대화」 칸 `ChatInfo`와 사이드바 아이콘 줄의 단추 목록 `ChatSideTabs`(검토는 검토자(Codex · Gemini)가 있는 Claude 대화에만, `AgentReview.tsx`의 `ReviewPane`이 검토자 고르기 · 실행과 지난 검토) |
