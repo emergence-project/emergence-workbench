@@ -258,14 +258,18 @@ function maskLiteral(cmd0: string): string {
   return out
 }
 
+/** 따옴표와 치환이 서로 겹친 깊이의 한도: 넘으면 짝을 찾지 못한 것으로 본다 (받는 쪽이 무겁게 본다). 수천 겹이면 되부르기가 넘친다 */
+const NEST_MAX = 100
+
 /** i = 여는 ( 의 자리. 짝이 맞는 ) 의 자리 (없으면 -1). 따옴표 · \\ · 안쪽 괄호를 지킨다: 따옴표 친 ) 는 닫는 괄호가 아니다 */
-function closeParen(cmd: string, i: number): number {
+function closeParen(cmd: string, i: number, nest = 0): number {
+  if (nest > NEST_MAX) return -1
   let depth = 0
   for (let j = i; j < cmd.length; j++) {
     const ch = cmd[j]!
     if (ch === '\\') { j++; continue }
     if (ch === "'" || ch === '"' || ch === '`') {
-      const end = ch === "'" ? cmd.indexOf("'", j + 1) : ch === '"' ? closeDouble(cmd, j) : closeTick(cmd, j)
+      const end = ch === "'" ? cmd.indexOf("'", j + 1) : ch === '"' ? closeDouble(cmd, j, nest + 1) : closeTick(cmd, j)
       if (end < 0) return -1
       j = end
     }
@@ -275,13 +279,14 @@ function closeParen(cmd: string, i: number): number {
   return -1
 }
 /** i = 여는 " 의 자리. 닫는 " 의 자리 (없으면 -1). 안의 $( … ) · ` … ` 속 따옴표는 이 따옴표를 닫지 않는다 */
-function closeDouble(cmd: string, i: number): number {
+function closeDouble(cmd: string, i: number, nest = 0): number {
+  if (nest > NEST_MAX) return -1
   for (let j = i + 1; j < cmd.length; j++) {
     const ch = cmd[j]!
     if (ch === '\\') { j++; continue }
     if (ch === '"') return j
     if (ch !== '`' && !(ch === '$' && cmd[j + 1] === '(')) continue
-    const end = ch === '`' ? closeTick(cmd, j) : closeParen(cmd, j + 1)
+    const end = ch === '`' ? closeTick(cmd, j) : closeParen(cmd, j + 1, nest + 1)
     if (end < 0) return -1
     j = end
   }

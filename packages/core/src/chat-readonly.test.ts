@@ -49,6 +49,9 @@ describe('상태만 보는 명령 (중앙 대화)', () => {
     expect(stateOnlyCommand('git status # 지금 상태')).toBe('ok')
     expect(stateOnlyCommand(`echo $(echo ")")`)).toBe('ok')
   })
+  it('수천 겹 겹친 따옴표 · 치환은 넘어지지 않고 막는다', () => {
+    for (const c of ['echo "$('.repeat(5000), `${'echo "$('.repeat(5000)}ls${')"'.repeat(5000)}`]) expect(stateOnlyCommand(c)).toBe('no')
+  })
   it('펼친 값이 옵션이 되는 꼴: 변수 고치기 · 치환 출력', () => {
     for (const c of [
       'for x in a-delete; do find . ${x#a}; done', 'for x in a; do find . $x:s/a/-delete/; done', 'find . ${PWD##*}-delete', 'for x in a; do sort $x[1]; done',

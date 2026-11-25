@@ -64,6 +64,11 @@ describe('명령이 하는 일', () => {
     expect(k("echo '# not a comment' ; ls")).toBe('read')
     expect(k('echo a#b $# ${#x} ; ls')).toBe('read')
   })
+  it('수천 겹 겹쳐도 넘어지지 않고 무겁게 본다', () => {
+    for (const c of ['echo "$('.repeat(5000), `${'echo "$('.repeat(5000)}rm -rf x${')"'.repeat(5000)}`, `${'cat <('.repeat(20000)}ls${')'.repeat(20000)}`, `${'sh -c '.repeat(2000)}ls`])
+      expect(['run', 'delete', 'outside']).toContain(k(c))
+    expect(runPrograms(`${'echo $('.repeat(3000)}ls${')'.repeat(3000)}`)).toEqual([])
+  })
   it('앞말은 경로로 적어도, 옵션이 붙어도 뗀다', () => {
     for (const c of ['/usr/bin/time rm -rf x', 'command -p rm x', 'nohup -- rm x', 'nice -10 rm x', 'nice -n5 rm x', 'exec -a name rm x', '/usr/bin/nohup rm x']) expect(k(c), c).toBe('delete')
     expect(k('command -v rm')).toBe('read')

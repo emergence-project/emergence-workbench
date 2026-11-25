@@ -105,12 +105,16 @@ export function leading(words: string[]): { rest: string[]; env: boolean } {
  */
 type Where = { cwd: string; inside(abs: string): boolean; home?: string }
 
-export function commandKind(cmd: string, o: Where): ChatKind {
+/** 치환이 겹친 깊이의 한도: 넘으면 따라가지 않고 가장 무겁게 본다 */
+const DEPTH_MAX = 40
+
+export function commandKind(cmd: string, o: Where, depth = 0): ChatKind {
+  if (depth > DEPTH_MAX) return 'outside'
   let worst: ChatKind = 'read'
   const bump = (k: ChatKind) => { if (WEIGHT[k] > WEIGHT[worst]) worst = k }
   // $( … ) · ` … ` 안의 명령도 본다 (겹친 것은 안쪽부터). 다 풀지 못하면 무엇을 돌리는지 모르니 실행으로
   const sub = substitutions(cmd, { proc: true })
-  for (const part of sub.inner) bump(commandKind(part, o))
+  for (const part of sub.inner) bump(commandKind(part, o, depth + 1))
   if (sub.left) bump('run')
   const vars = new Map<string, string[]>()
   for (const seg of segments(sub.flat)) {
@@ -122,21 +126,21 @@ export function commandKind(cmd: string, o: Where): ChatKind {
     for (const q of qualifiers(seg)) {
       const runs = qualifierRuns(q)
       if (runs.calls || runs.code.length) bump('run')
-      for (const code of runs.code) bump(commandKind(code, o))
+      for (const code of runs.code) bump(commandKind(code, o, depth + 1))
     }
     const all = words(r.rest)
     // 글자 그대로 적은 값의 변수는 그 값을 넣어서도 본다: for x in -delete; do find . $x; done
     const tried = variants(unmask(seg), vars)
     if (tried === null) bump('run')
-    else for (const v of tried) bump(commandKind(v, o))
+    else for (const v of tried) bump(commandKind(v, o, depth + 1))
     noteVars(all, vars)
-    bump(wordsKind(all, o, 0))
+    bump(wordsKind(all, o, 0, depth))
   }
   return worst
 }
 
 /** 낱말로 나눈 명령 하나가 하는 일: 앞말을 떼고, 감싸 돌리는 안의 명령(sh -c · find -exec · xargs · env …)도 끝까지 따라간다 */
-function wordsKind(all: string[], o: Where, depth: number): ChatKind {
+function wordsKind(all: string[], o: Where, depth: number, outer: number): ChatKind {
   let worst: ChatKind = 'read'
   const bump = (k: ChatKind) => { if (WEIGHT[k] > WEIGHT[worst]) worst = k }
   const lead = leading(all)
@@ -152,7 +156,7 @@ function wordsKind(all: string[], o: Where, depth: number): ChatKind {
   // 낱말로 받은 안의 명령도 같은 길로: find -exec sh -c 'rm …' · xargs env rm · find -exec nice rm (11/25 검토)
   const inner = wrapped(prog, args)
   if (depth > 5 && inner.length) bump('run')
-  else for (const x of inner) bump(typeof x === 'string' ? commandKind(x, o) : wordsKind(x, o, depth + 1))
+  else for (const x of inner) bump(typeof x === 'string' ? commandKind(x, o, outer + 1) : wordsKind(x, o, depth + 1, outer))
   // 폴더 밖 경로 (읽기라도 폴더 밖이면 외부)
   for (const a of w.slice(1)) { const v = pathPart(a); if (looksLikePath(v) && touchesOutside(v, o)) bump('outside') }
   if (prog === 'cd' && w[1] && touchesOutside(w[1], o)) bump('outside')
@@ -344,10 +348,11 @@ function programName(w: string[]): string {
  * 명령 줄에서 읽기가 아닌 것을 하는 프로그램 모두 ($( ) 안도). 「늘」은 이 모두가 허락됐을 때만 묻지 않는다:
  * 첫 프로그램만 보면 「pnpm test 늘」이 `pnpm test && ./deploy.sh`도 묻지 않고 돌린다
  */
-export function runPrograms(cmd: string): string[] {
+export function runPrograms(cmd: string, depth = 0): string[] {
   const out: string[] = []
+  if (depth > DEPTH_MAX) return out
   const sub = substitutions(cmd, { proc: true })
-  for (const part of sub.inner) for (const p of runPrograms(part)) if (!out.includes(p)) out.push(p)
+  for (const part of sub.inner) for (const p of runPrograms(part, depth + 1)) if (!out.includes(p)) out.push(p)
   for (const seg of segments(sub.flat)) {
     const all = words(redirects(seg).rest).map(unmask)
     const { rest: w, env } = leading(all)

@@ -92,6 +92,11 @@ describe('writesFiles', () => {
     for (const c of ['ls &> /dev/null', 'ls &>/tmp/out.txt', 'find /tmp/a -name "*.png" -delete', 'find . -exec wc -l {} +', 'ls | xargs wc -l', 'grep "=>" src/a.ts', '(cd src && ls)'])
       expect(writesFiles(c), c).toBe(false)
   })
+  it('does not throw on thousands of nested quotes', () => {
+    const deep = `${'echo "$('.repeat(5000)}ls${')"'.repeat(5000)}`
+    expect(neverBypass(deep)).toBeUndefined()
+    expect(writesFiles(deep)).toBe(false)
+  })
   it('sees writes inside awk and perl code', () => {
     for (const c of [`awk 'BEGIN{print "x" > "app.ts"}'`, `awk '{print >> "out.txt"}' a`, `perl -e 'open(F, ">app.ts")'`]) expect(writesFiles(c), c).toBe(true)
     expect(writesFiles("awk '$1 > 3 {print $2}' a.txt")).toBe(false)
