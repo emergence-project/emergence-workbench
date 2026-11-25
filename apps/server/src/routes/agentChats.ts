@@ -122,6 +122,8 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
   if (!runner) repeat(app, { first: 5 * 60_000, every: 60 * 60_000, run: () => chats.tidy() })
   // 피드백 대화 돌보기 (CI 빨강 다시 보내기 · 합치기 · 반영됨 · 저절로 맡기기): 1분마다
   if (appWork && ctx.opts.feedbackDir) repeat(app, { first: 60_000, every: 60_000, run: () => chats.tickFeedback() })
+  // 끝난 대화(PR을 합쳤거나 보관한 것)의 작업 폴더 치우기 (11/25): 10분마다. 잃을 것이 있는 폴더는 두고, 시안은 남긴다
+  if (appWork) repeat(app, { first: 2 * 60_000, every: 10 * 60_000, run: () => chats.tidyWorktrees() })
   if (appWork && ctx.opts.feedbackDir) ctx.feedbackSaved = () => void chats.pickFeedback().catch(() => undefined)
   // 피드백 돕기 (11/23 안 A). 서버: 늦은 돕는 맥이 맡은 항목의 맡음을 풀고 다시 맡긴다 (1분마다)
   if (appWork && fbDir) repeat(app, {
