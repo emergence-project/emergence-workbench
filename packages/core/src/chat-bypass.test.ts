@@ -34,6 +34,21 @@ describe('중앙 대화의 우회: 허락해도 돌리지 않는 명령', () => 
       [`awk 'BEGIN{print "x" > "workbench/a.md"}'`, 'workbench-write'], [`perl -e 'open(F, ">workbench/a.md")'`, 'workbench-write'],
     ] as const) expect(neverBypass(c), c).toBe(why)
   })
+  // 11/25 별도 검토의 나머지
+  it('zsh의 앞말 · 묶음, 옵션 줄임꼴, 펼침으로 만든 옵션도 같다', () => {
+    for (const [c, why] of [
+      ['noglob git push --force', 'force-push'], ['=git push --force', 'force-push'], ['repeat 1 git push --force', 'force-push'], ['case x in x) git push --force;; esac', 'force-push'],
+      ['() { git push --force }', 'force-push'], ["ksh -c 'git push --force'", 'force-push'], ["bash -c -- 'git push --force'", 'force-push'], ["sh -ce 'git reset --hard'", 'reset-hard'],
+      ['eval eval eval eval eval eval git push --force', 'force-push'], ['git --git-dir .git push --force', 'force-push'], ['git --work-tree . reset --hard', 'reset-hard'],
+      ['git reset --har', 'reset-hard'], ['git push --mirr origin', 'force-push'], ['git push --forc', 'force-push'], ['git push --force-with-l origin x', 'force-push'], ['git push origin --del main', 'delete-main'],
+      ['f=--force; git push origin main $f', 'force-push'], ['for o in --force; do git push origin x $o; done', 'force-push'], ['git push {--force,origin,main}', 'force-push'], ['git push --for${u}ce', 'force-push'],
+      ['git update-ref -d refs/heads/main', 'delete-main'], ['git -C workbench checkout -- .', 'workbench-write'], ['git -C ../x/workbench clean -fd', 'workbench-write'],
+      ['rm -rf /tmp/a/{.,}./{.,}./Users/u/Documents', 'rm-outside-temp'], ['rm -rf $TMPDIRx/Users/u/Documents', 'rm-outside-temp'], ['rm -rf {/tmp/a,~/b}', 'rm-outside-temp'],
+    ] as const) expect(neverBypass(c), c).toBe(why)
+    for (const c of ['git push --follow-tags origin x', 'git push --no-verify origin x', 'git reset --soft HEAD~1', 'git -C workbench status', 'rm -rf /tmp/a/{b,c}', 'rm -rf $TMPDIR/x', 'git update-ref -d refs/heads/old',
+      'noglob git push origin x', 'f=origin; git push $f x'])
+      expect(neverBypass(c), c).toBeUndefined()
+  })
   it('되돌리기 어려운 git', () => {
     for (const [c, why] of [
       ['git push --force origin main', 'force-push'], ['git push -f', 'force-push'], ['git push -uf origin x', 'force-push'], ['git push origin +main', 'force-push'],

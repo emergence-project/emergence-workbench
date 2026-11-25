@@ -123,15 +123,43 @@ export function joinLines(cmd: string): string {
 }
 
 /**
+ * 히어독 본문의 따옴표를 빈칸으로 바꾼다. 구분자에 따옴표가 없으면(<<E) 본문의 $( … ) · ` … ` 는 펼쳐지므로 그대로 두어 판정이 보게 하고,
+ * 구분자를 따옴표로 쌌으면(<<'E') 본문은 글자 그대로라 $ · ` · \\ 도 함께 지운다. 끝 줄(구분자만 있는 줄)을 찾지 못하면 손대지 않는다
+ */
+function heredocQuotes(cmd: string): string {
+  if (!cmd.includes('<<')) return cmd
+  let out = ''
+  let pos = 0
+  for (let n = 0; n < 50; n++) {
+    const rest = cmd.slice(pos)
+    const m = /(?<!<)<<(?!<)(-?)[ \t]*([^\s;&|<>()]+)/.exec(bare(rest))
+    if (!m) break
+    const opEnd = m.index + m[0].length
+    const raw = rest.slice(opEnd - m[2]!.length, opEnd)
+    const delim = words(raw)[0] ?? raw
+    const nl = rest.indexOf('\n', opEnd)
+    if (nl < 0) break
+    const lines = rest.slice(nl + 1).split('\n')
+    const end = lines.findIndex((l) => (m[1] ? l.replace(/^\t+/, '') : l) === delim)
+    if (end < 0) break
+    const strip = /['"\\]/.test(raw) ? /['"`\\$]/g : /['"]/g
+    out += rest.slice(0, nl + 1) + [...lines.slice(0, end).map((l) => l.replace(strip, ' ')), lines[end]].join('\n')
+    pos += nl + 1 + lines.slice(0, end + 1).join('\n').length
+  }
+  return out + cmd.slice(pos)
+}
+
+/**
  * 판정하기 전에 글을 셸이 읽는 대로 고쳐 쓴다 (11/25 검토). 다른 판정은 「'」가 따옴표를 열고 다음 「'」에서 닫힌다고만 읽으므로,
  * 셸이 다르게 읽는 자리에서는 따옴표의 짝이 어긋나 그 사이의 명령이 따옴표 안으로 숨는다:
  * - 줄 잇기(\\ + 줄바꿈)를 지운다.
  * - $'…' (안의 \\' · \\x72 를 푸는 따옴표) · $"…" 를 보통 따옴표 글로 바꾼다. `echo $'a\\'' ; rm -rf x ; echo '` · `$'\\x72m' -rf x`
  * - 주석(낱말 처음의 # 부터 줄 끝) 안의 따옴표를 지운다. 주석 안의 따옴표는 따옴표가 아니다: `ls # '⏎rm -rf x # '`
+ * - 히어독 본문의 따옴표를 지운다(본문에서 따옴표는 글자다): `cat <<E⏎it's⏎E⏎rm -rf x`의 ' 가 뒤 명령을 따옴표 안으로 가져가지 못하게
  * 문맥을 따라간다: 큰따옴표 안의 $' 와 # 는 글자고, 그 안의 $( … ) 안에서는 다시 따옴표 · 주석이다
  */
 export function prepare(cmd0: string): string {
-  const cmd = joinLines(cmd0)
+  const cmd = heredocQuotes(joinLines(cmd0))
   if (!/\$['"]|#/.test(cmd)) return cmd
   let out = ''
   // 문맥 더미: p = 따옴표 밖(맨 바깥 · $( ) 안, 값은 열린 괄호 수), d = 큰따옴표 안, b = 백틱 안
@@ -329,4 +357,43 @@ export function substitutions(raw: string, o: { proc?: boolean } = {}): { inner:
     i = end
   }
   return { inner, flat: maskLiteral(out), left }
+}
+
+/** 긴 옵션의 줄임꼴도 같은 옵션으로 본다 (git · getopt_long은 --outp=x 를 --output=x 로, --har 를 --hard 로 읽는다) */
+export const longOpt = (...names: string[]) => (x: string) => {
+  const k = x.split('=')[0]!
+  return k.length >= 3 && k.startsWith('--') && names.some((n) => n.startsWith(k))
+}
+
+const BRACE = /^(.*?)\{([^{}]*,[^{}]*)\}(.*)$/s
+/**
+ * 셸이 낱말을 펼쳐 만들 수 있는 꼴을 미리 펼친 낱말들 (11/25 검토: 펼친 뒤에야 옵션 · 경로가 되는 꼴을 읽지 못했다):
+ * - 중괄호: -{delete,print} → -delete -print, {/etc/passwd,} → /etc/passwd 와 빈 낱말
+ * - 기본값: ${x:--delete} · ${:--delete} → -delete
+ * - 옵션 낱말 안의 변수는 빈 것으로도 읽는다: -del${u}ete → -delete
+ * 따옴표로 싼 글은 셸이 펼치지 않지만 여기서는 가리지 못한다(낱말로 나눈 뒤라). 빈칸 · 큰따옴표가 든 낱말만 그대로 둔다
+ */
+export function expandWords(w: string[]): string[] {
+  let out = w.map((x) => {
+    const d = x.replace(/\$\{[A-Za-z_]?\w*:?[-=+]([^{}]*)\}/g, '$1')
+    return d.startsWith('-') ? d.replace(/\$\{[A-Za-z_]\w*\}|\$[A-Za-z_]\w*/g, '') : d
+  })
+  for (let round = 0; round < 4; round++) {
+    const next = out.flatMap((x) => { const m = /[\s"]/.test(x) ? null : BRACE.exec(x); return m ? m[2]!.split(',').map((alt) => `${m[1]}${alt}${m[3]}`) : [x] })
+    if (next.length === out.length || next.length > 256) break
+    out = next
+  }
+  return out
+}
+
+/** 낱말들을 묶음의 경계( { · } · () · always )에서 나눈다: zsh는 `{ true } always { rm x }` · `() { rm x }`처럼 ; 없이도 묶음을 닫는다 */
+export function splitGroups(w: string[]): string[][] {
+  const out: string[][] = [[]]
+  let closed = false
+  for (const x of w) {
+    // always 는 닫힌 묶음 바로 뒤에서만 경계다 (grep --color always 의 always 는 값이다)
+    if (x === '{' || x === '}' || x === '()' || (x === 'always' && closed)) out.push([]); else out.at(-1)!.push(x)
+    closed = x === '}'
+  }
+  return out.filter((g) => g.length)
 }

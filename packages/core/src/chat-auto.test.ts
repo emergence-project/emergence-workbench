@@ -107,6 +107,44 @@ describe('명령이 하는 일', () => {
     expect(k('for f in a.md b.md; do wc -l $f; done')).toBe('read')
     expect(k('for f in *.md; do wc -l $f; done')).toBe('read')
   })
+  // 11/25 별도 검토의 나머지: 「읽기」 · 「실행」으로 남던 지우기 · 폴더 밖
+  it('zsh의 앞말 · 묶음: noglob · =rm · repeat · 이름 없는 함수 · always · case', () => {
+    for (const c of ['noglob rm -rf x', 'nocorrect rm x', '=rm -rf x', 'repeat 2 rm x', 'repeat 2 do rm x; done', '() { rm -rf x }', '() rm -rf x', '{ true } always { rm -rf x }',
+      'case x in x) rm -rf y;; esac', 'case $a in a|b) rm -rf y ;; *) ls ;; esac', '- rm x', "env -S'rm -rf x'", 'env -S "rm -rf x" ls', 'env -u A rm x'])
+      expect(k(c), c).toBe('delete')
+    for (const c of ['noglob ls *.md', 'case x in x) ls;; esac', 'repeat 3 echo a', 'grep --color always x a.md', 'ls --color=always | head', 'echo a - b', 'cat - a.md']) expect(k(c), c).toBe('read')
+  })
+  it('펼침으로 만든 옵션: 중괄호 · 기본값 · 빈 변수', () => {
+    for (const c of ['find . -{delete,print}', 'find . ${:--delete}', 'find . ${x:--delete}', 'find . -del${u}ete', 'git clean -{f,d}', 'rm {a,b}'])
+      expect(k(c), c).toBe('delete')
+    expect(k('git {push,status}')).toBe('outside')
+    expect(k("echo ${(e):-'$(rm -rf y)'}")).toBe('delete')
+    for (const c of ['ls {a,b}.md', 'find . -name "*.{ts,tsx}"', 'echo ${x:-none}', 'cp a.md{,.bak}']) expect(k(c), c).not.toBe('delete')
+  })
+  it('감싸 돌리는 꼴의 나머지: sh -ce · -c -- · xargs -J · git의 값 받는 앞 옵션 · 옵션 줄임꼴', () => {
+    for (const c of ["sh -ce 'rm -rf x'", "bash -c -- 'rm -rf x'", "ksh -c 'rm x'", 'ls | xargs -J % rm -rf %', 'git --git-dir .git clean -fdx', 'git --work-tree . clean -fd', 'git reset --har',
+      'git reset --ha HEAD~1', 'git reflog expire --expire=now --all', 'git reflog delete HEAD@{1}'])
+      expect(k(c), c).toBe('delete')
+    for (const c of ['git reset --soft HEAD~1', 'git reflog', 'git reflog show']) expect(k(c), c).not.toBe('delete')
+  })
+  it('읽는 프로그램의 쓰는 쓰임: sed의 w 깃발 · awk의 명령으로 잇기 · xxd 둘째 이름', () => {
+    for (const c of ["sed -n 's/x/y/gw out.txt' a.md", "sed -n -e'w out.txt' a.md", "sed -n 's|x|y|w out.txt' a.md", 'xxd a.bin b.txt']) expect(k(c), c).toBe('edit')
+    expect(k(`awk -v c='rm -rf x' 'BEGIN{print 1|c}'`)).toBe('run')
+    for (const c of ["sed -n 's/x/y/gp' a.md", "awk '$1 ~ /a|b/ {print $1}' a.txt", 'xxd a.bin']) expect(k(c), c).toBe('read')
+  })
+  it('폴더 밖 경로: /tmp/.. · 중괄호 · $PWD/.. · for 낱말 · >! · of=', () => {
+    for (const c of ['cat /tmp/../etc/passwd', 'cat {/etc/passwd,}', 'cat a.md {b.md,~/c.md}', 'cat $PWD/../other/secret', 'for f in /etc/*; do cat $f; done', 'echo hi > /tmp/../etc/x',
+      'echo hi >!~/.zshrc', 'echo hi > {a,~/x}', 'dd if=a of=/Users/x/.zshrc', 'cat ${PWD}/../../x'])
+      expect(k(c), c).toBe('outside')
+    for (const c of ['cat /tmp/a/../b', 'cat $PWD/a.md', 'for f in *.md sub/*.md; do cat $f; done', 'dd if=a of=b']) expect(k(c), c).not.toBe('outside')
+  })
+  it('따옴표 없는 구분자의 히어독 본문은 치환이 펼쳐진다', () => {
+    expect(k("cat <<E\necho '$(rm -rf x)'\nE")).toBe('delete')
+    expect(k('cat <<-E\n\t"`git push`"\n\tE')).toBe('outside')
+    expect(k("cat <<E\nit's fine\nE\nrm -rf x")).toBe('delete')
+    // 구분자를 따옴표로 싼 히어독의 본문은 글자다: 그 안의 따옴표가 뒤 명령을 숨기지 못한다
+    expect(k("cat <<'E'\nit's $(fine)\nE\nrm -rf x")).toBe('delete')
+  })
   it('따옴표 안의 이음표는 나누지 않는다', () => {
     expect(k("grep 'a && rm b' x")).toBe('read')
     expect(k('echo "x; git push"')).toBe('read')

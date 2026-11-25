@@ -3,7 +3,7 @@
  * 명령 한 줄이 무엇을 하는지 판정하고(commandKind), 권한 이름마다의 「자동 허용」 기본값(presetAuto)을 둔다.
  * 서버의 허락 판정(agentChats.ts judge)과 화면의 토글(AgentChats.tsx)이 함께 쓴다.
  */
-import { qualifierRuns, qualifiers, redirects, segments, substitutions, unmask, words } from './chat-shell.js'
+import { expandWords, longOpt, qualifierRuns, qualifiers, redirects, segments, splitGroups, substitutions, unmask, words } from './chat-shell.js'
 
 // 셸 글 읽기는 chat-shell.ts로 옮겼다: 여기서 가져다 쓰던 곳을 위해 그대로 내보낸다
 export { bare, joinLines, prepare, redirects, segments, substitutions, unmask, words } from './chat-shell.js'
@@ -55,8 +55,8 @@ const INSTALL = /^(install|i|add|remove|uninstall|update|upgrade|publish|link|gl
  * 묶음 말을 떼지 않으면 `for f in a; do rm $f; done`의 rm이 「실행」으로만 보인다. for <이름> in <낱말> · fi · done은 돌리는 것이 없어 빈 것으로.
  * env = 다른 프로그램을 돌리게 할 수 있는 환경 변수가 붙었는지 (GIT_PAGER=… · LESSOPEN=… · PATH=…). 글 모양 변수만 그대로 둔다
  */
-export function leading(words: string[]): { rest: string[]; env: boolean } {
-  let w = words
+export function leading(all: string[]): { rest: string[]; env: boolean } {
+  let w = all
   let env = false
   for (;;) {
     if (w.length && /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0]!)) {
@@ -64,7 +64,9 @@ export function leading(words: string[]): { rest: string[]; env: boolean } {
       w = w.slice(1)
     }
     // 앞말은 경로로 적어도(/usr/bin/time), 옵션이 붙어도(command -p · nohup -- · nice -10 · exec -a 이름) 뗀다 (11/25 검토)
-    else if (w.length && /^(time|nice|nohup|command|builtin|exec)$/.test(w[0]!.split('/').pop()!)) {
+    // zsh의 앞말 noglob · nocorrect · - 도 뒤의 명령을 그대로 돌린다
+    else if (w.length > 1 && w[0] === '-') w = w.slice(1)
+    else if (w.length && /^(time|nice|nohup|command|builtin|exec|noglob|nocorrect)$/.test(w[0]!.split('/').pop()!)) {
       const lookup = w[0]!.split('/').pop() === 'command' && /^-[vV]+$/.test(w[1] ?? '')
       w = w.slice(1)
       // command -v 이름 은 찾아보기만 한다
@@ -83,12 +85,28 @@ export function leading(words: string[]): { rest: string[]; env: boolean } {
       if (timed && w.length && /^\d+(\.\d+)?[smhd]?$/.test(w[0]!)) w = w.slice(1)
     }
     else if (w.length > 1 && /^-n$/.test(w[0]!) && /^-?\d+$/.test(w[1]!)) w = w.slice(2)
-    else if (w.length > 1 && w[0]!.split('/').pop() === 'env') { w = w.slice(1); while (w.length && w[0]!.startsWith('-')) w = w.slice(1) }
-    else if (w.length && /^(if|then|else|elif|do|while|until|!|\{|\()$/.test(w[0]!)) w = w.slice(1)
+    else if (w.length > 1 && w[0]!.split('/').pop() === 'env') {
+      w = w.slice(1)
+      while (w.length && w[0]!.startsWith('-')) {
+        // env -S'rm -rf x' · -S 'rm -rf x': 그 글을 낱말로 쪼개 돌린다
+        const split = /^(?:-S|--split-string=?)(.*)$/s.exec(w[0]!)
+        if (split) { w = [...words(split[1] || (w[1] ?? '')), ...w.slice(split[1] ? 1 : 2)]; break }
+        w = w.slice(/^-[uCP]$/.test(w[0]!) ? 2 : 1)
+      }
+    }
+    // repeat 3 명령 · =rm (zsh: 그 프로그램의 경로) · 이름 없는 함수 () { … } · case 값 in 무늬) 명령
+    else if (w.length > 2 && w[0] === 'repeat') w = w.slice(2)
+    else if (w.length && /^=[A-Za-z_][\w.-]*$/.test(w[0]!)) w = [w[0]!.slice(1), ...w.slice(1)]
+    else if (w.length > 1 && w[0] === '()') w = w.slice(1)
+    else if (w.length > 3 && w[0] === 'case' && w[2] === 'in') w = w.slice(3)
+    else if (w.length > 1 && /^\(?[^()\s]*\)$/.test(w[0]!)) w = w.slice(1)
+    else if (w.length && /^(if|then|else|elif|do|while|until|always|coproc|!|\{|\()$/.test(w[0]!)) w = w.slice(1)
     else if (w.length && /^[({]+[^({]/.test(w[0]!)) w = [w[0]!.replace(/^[({]+/, ''), ...w.slice(1)]
     else break
   }
-  if (w.length && /^(fi|done|\}|\))$/.test(w[0]!)) return { rest: [], env }
+  if (w.length && /^(fi|done|esac|\}|\))$/.test(w[0]!)) return { rest: [], env }
+  // 머리만 있는 것: f() · function f · case 값 in
+  if ((w.length === 1 && /^[A-Za-z_][\w-]*\(\)$/.test(w[0]!)) || (w[0] === 'function' && w.length <= 3) || (w[0] === 'case' && w[2] === 'in' && w.length === 3)) return { rest: [], env }
   if (w[0] === 'for' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(w[1] ?? '') && (w.length === 2 || w[2] === 'in')) return { rest: [], env }
   // 묶음을 닫는 ) 는 떼어 낸다: (cd x && ls) 의 ls)
   while (w.length > 1 && /^[)}]+$/.test(w[w.length - 1]!)) w = w.slice(0, -1)
@@ -134,7 +152,11 @@ export function commandKind(cmd: string, o: Where, depth = 0): ChatKind {
     if (tried === null) bump('run')
     else for (const v of tried) bump(commandKind(v, o, depth + 1))
     noteVars(all, vars)
-    bump(wordsKind(all, o, 0, depth))
+    // for x in /etc/*: 도는 낱말이 폴더 밖이면 그 변수를 읽는 것도 밖이다
+    if (all[0] === 'for' && all[2] === 'in') for (const x of expandWords(all.slice(3))) { const v = pathPart(x); if (looksLikePath(v) && touchesOutside(v, o)) bump('outside') }
+    // zsh의 ${(e)…}: 값을 한 번 더 펼친다 (안의 $( … )가 돈다)
+    for (const m of seg.matchAll(/\$\{\(([^)]*)\)([^}]*)\}/g)) if (m[1]!.includes('e')) { bump('run'); bump(commandKind(unmask(m[2]!).replace(/['"]/g, ' '), o, depth + 1)) }
+    for (const group of splitGroups(all)) bump(wordsKind(group, o, 0, depth))
   }
   return worst
 }
@@ -148,7 +170,9 @@ function wordsKind(all: string[], o: Where, depth: number, outer: number): ChatK
   const w = lead.rest
   if (!w.length) return worst
   // 프로그램과 인자는 진짜 글로 본다 (가린 글자를 되돌려서). 경로만 가린 채로: 작은따옴표 안의 $HOME 은 글자다
-  const plain = w.map(unmask)
+  // 셸이 펼쳐 만들 낱말(중괄호 · 기본값 · 빈 변수)로 본다: find . -{delete,print} · cat {/etc/passwd,}
+  const ew = expandWords(w)
+  const plain = ew.map(unmask)
   const prog = plain[0]!.split('/').pop()!
   const args = plain.slice(1)
   bump(kindOf(prog, args))
@@ -158,15 +182,15 @@ function wordsKind(all: string[], o: Where, depth: number, outer: number): ChatK
   if (depth > 5 && inner.length) bump('run')
   else for (const x of inner) bump(typeof x === 'string' ? commandKind(x, o, outer + 1) : wordsKind(x, o, depth + 1, outer))
   // 폴더 밖 경로 (읽기라도 폴더 밖이면 외부)
-  for (const a of w.slice(1)) { const v = pathPart(a); if (looksLikePath(v) && touchesOutside(v, o)) bump('outside') }
-  if (prog === 'cd' && w[1] && touchesOutside(w[1], o)) bump('outside')
+  for (const a of ew.slice(1)) { const v = pathPart(a); if (looksLikePath(v) && touchesOutside(v, o)) bump('outside') }
+  if (prog === 'cd' && ew[1] && touchesOutside(ew[1], o)) bump('outside')
   return worst
 }
 
 /** 값을 넣어 볼 만한 낱말: 글자 그대로이고(변수 · 치환 · 무늬가 없고) 다시 읽어도 뜻이 바뀌지 않는 글자만 */
 const LITERAL = /^[\w./:,@%+=-]+( [\w./:,@%+=-]+)*$/
 /** for x in a b · x=a 를 적어 둔다. 값이 글자 그대로가 아니면 그 이름은 모르는 것으로 */
-function noteVars(all: string[], vars: Map<string, string[]>): void {
+export function noteVars(all: string[], vars: Map<string, string[]>): void {
   const w = /^(do|then|else|\{)$/.test(all[0] ?? '') ? all.slice(1) : all
   if (w[0] === 'for' && /^[A-Za-z_]\w*$/.test(w[1] ?? '') && w[2] === 'in') {
     const vals = w.slice(3)
@@ -180,7 +204,7 @@ function noteVars(all: string[], vars: Map<string, string[]>): void {
   }
 }
 /** 적어 둔 변수($x · ${x} · zsh의 $=x · $~x)를 값으로 바꾼 글들. 쓰지 않으면 [], 너무 많으면 null */
-function variants(text: string, vars: Map<string, string[]>): string[] | null {
+export function variants(text: string, vars: Map<string, string[]>): string[] | null {
   let out = [text]
   let hit = false
   for (const [name, vals] of vars) {
@@ -196,8 +220,10 @@ function variants(text: string, vars: Map<string, string[]>): string[] | null {
 /** 감싸 돌리는 안의 명령: 글 한 줄(sh -c · eval)이면 string, 낱말들(find -exec · xargs)이면 string[] */
 export function wrapped(prog: string, args: string[]): (string | string[])[] {
   if (/^(sh|bash|zsh|dash|ksh|fish)$/.test(prog)) {
-    const i = args.findIndex((a) => /^-[a-zA-Z]*c$/.test(a))
-    return i >= 0 && args[i + 1] ? [args[i + 1]!] : []
+    // -c 는 다른 글자와 붙여 쓰기도 하고(-ce · -lc), 뒤에 -- 를 두기도 한다
+    const i = args.findIndex((a) => /^-[a-zA-Z]*c[a-zA-Z]*$/.test(a))
+    const code = i < 0 ? undefined : args[i + 1] === '--' ? args[i + 2] : args[i + 1]
+    return code ? [code] : []
   }
   // eval eval … 은 한 번의 eval과 같다 (겹친 만큼 깊이 들어가지 않게)
   if (prog === 'eval') { const rest = args.slice(args.findIndex((x) => x !== 'eval')); return rest.length && rest[0] !== 'eval' ? [rest.join(' ')] : [] }
@@ -221,17 +247,19 @@ export function wrapped(prog: string, args: string[]): (string | string[])[] {
   return []
 }
 
-/** xargs 뒤의 명령: 값을 받는 옵션(-n 1 · -I {} · -P 4 …)의 값은 건너뛴다 */
+/** xargs 뒤의 명령: 값을 받는 옵션(-n 1 · -I {} · -J % · -P 4 …)의 값은 건너뛴다 */
 function xargsCommand(args: string[]): string[] {
   let i = 0
-  while (i < args.length && args[i]!.startsWith('-')) i += /^-[nIPLsdEa]$/.test(args[i]!) ? 2 : 1
+  while (i < args.length && args[i]!.startsWith('-')) i += /^-[nIPLsdEaJRS]$/.test(args[i]!) ? 2 : 1
   return args.slice(i)
 }
 
-/** git의 전역 옵션(-C <폴더> · -c k=v 와 붙여 쓴 꼴 · 다른 -옵션)을 뗀, 하위 명령부터의 인자 */
+/** 값을 따로 받는 git의 전역 옵션 */
+export const GIT_VALUE = /^(-C|-c|--git-dir|--work-tree|--namespace|--super-prefix)$/
+/** git의 전역 옵션(-C <폴더> · -c k=v · --git-dir <폴더> 와 붙여 쓴 꼴 · 다른 -옵션)을 뗀, 하위 명령부터의 인자 */
 function gitArgs(args: string[]): string[] {
   let i = 0
-  while (i < args.length && args[i]!.startsWith('-')) i += args[i] === '-C' || args[i] === '-c' ? 2 : 1
+  while (i < args.length && args[i]!.startsWith('-')) i += GIT_VALUE.test(args[i]!) ? 2 : 1
   return args.slice(i)
 }
 
@@ -251,7 +279,7 @@ function kindOf(prog: string, args: string[]): ChatKind {
       // checkout <브랜치>는 바꾸기, checkout -- <파일> · reset --hard · restore는 고친 것을 버린다
       // checkout -f · checkout <커밋> <파일>도 고친 것을 버린다
       if (sub === 'checkout' && !args.includes('--') && !args.includes('.') && !args.some((a) => /^(-f|--force)$/.test(a)) && (args.filter((a) => !a.startsWith('-')).length <= 2 || args.some((a) => /^(-b|-B|-t|--track|--orphan)$/.test(a)))) return 'edit'
-      if (sub === 'reset' && !args.includes('--hard')) return 'edit'
+      if (sub === 'reset' && !args.some(longOpt('--hard'))) return 'edit'
       if (sub === 'stash' && /^(list|show)$/.test(args[args.indexOf('stash') + 1] ?? '')) return 'read'
       return 'delete'
     }
@@ -272,6 +300,7 @@ function kindOf(prog: string, args: string[]): ChatKind {
     // 다른 프로그램을 돌리는 옵션: grep -O<명령> · --ext-diff
     if (rest.some((a) => /^--(open-files-in-pager|ext-diff)(=|$)/.test(a)) || (sub === 'grep' && rest.some((a) => /^-[a-zA-Z]*O/.test(a)))) return 'run'
     if (rest.some((a) => /^--output(=|$)/.test(a))) return 'edit'
+    if (sub === 'reflog' && /^(expire|delete)$/.test(named[0] ?? '')) return 'delete'
     if (GIT_READ.has(sub)) return 'read'
     return 'run'
   }
@@ -280,9 +309,10 @@ function kindOf(prog: string, args: string[]): ChatKind {
   const shortHas = (ch: string) => args.some((a) => /^-[a-zA-Z]+/.test(a) && a.slice(1).includes(ch))
   // sed: -i와 w 명령(파일 쓰기)
   // -Ei · -ni처럼 붙여 쓴 꼴과 주소 뒤의 w(1,5w 파일 · $w 파일)도
-  if (prog === 'sed') return args.some((a) => /^-[a-zA-Z]*i/.test(a) || /^--in-place/.test(a) || (!a.startsWith('-') && /(^|[;{}/\s\d$!])w\s+[^\s;]/.test(a))) ? 'edit' : 'read'
+  // s///w 파일 깃발과 -e'w 파일'처럼 붙여 쓴 꼴도
+  if (prog === 'sed') return args.some((a) => /^-[a-zA-Z]*i/.test(a) || /^--in-place/.test(a) || /(^|[;{}/\s\d$!])w\s+[^\s;]|[/|,#:@!%][gpIiM\d]*w\s+\S/.test(a.replace(/^(-e|--expression=)/, ''))) ? 'edit' : 'read'
   // awk의 system() · 명령으로 잇기(| · getline) · 파일 쓰기는 실행으로
-  if (prog === 'awk') return args.some((a) => /system\s*\(|getline|\|\s*"|"\s*\||print[^;}|]*>/.test(a)) ? 'run' : 'read'
+  if (prog === 'awk') return args.some((a) => /system\s*\(|getline|\|\s*"|"\s*\||print[^;}|]*>|print[^;}\n]*\|/.test(a)) ? 'run' : 'read'
   if (prog === 'find') {
     if (args.includes('-delete')) return 'delete'
     if (args.some((a) => /^-(exec|execdir|ok|okdir)$/.test(a))) return 'run'
@@ -294,7 +324,8 @@ function kindOf(prog: string, args: string[]): ChatKind {
   if (prog === 'sort' && (shortHas('o') || args.some((a) => /^--output(=|$)/.test(a)))) return 'edit'
   if (prog === 'tree' && args.some((a) => /^-[a-zA-Z]*[oR]/.test(a))) return 'edit'
   if (prog === 'uniq' && positional.length > 1) return 'edit'
-  if (prog === 'xxd' && shortHas('r')) return 'edit'
+  // 둘째 이름은 쓸 파일이다
+  if (prog === 'xxd' && (shortHas('r') || positional.length > 1)) return 'edit'
   if (prog === 'yq' && (shortHas('i') || args.some((a) => /^--inplace/.test(a)))) return 'edit'
   if (prog === 'pdftotext' && positional.length > 0 && positional[positional.length - 1] !== '-' && !args.includes('-')) return 'edit'
   if (prog === 'xargs') { const inner = xargsCommand(args); return inner.length ? kindOf(inner[0]!.split('/').pop()!, inner.slice(1)) : 'read' }
@@ -310,20 +341,26 @@ function kindOf(prog: string, args: string[]): ChatKind {
   return 'run'
 }
 
-/** 옵션에 붙여 적은 경로도 본다: --file=/etc/x · -f/etc/x */
-const pathPart = (a: string) => /^--?[A-Za-z][\w-]*=(.+)$/.exec(a)?.[1] ?? /^-[A-Za-z]([/~].+)$/.exec(a)?.[1] ?? a
+/** 옵션에 붙여 적은 경로도 본다: --file=/etc/x · -f/etc/x · of=/etc/x */
+const pathPart = (a: string) => /^--?[A-Za-z][\w-]*=(.+)$/.exec(a)?.[1] ?? /^-[A-Za-z]([/~].+)$/.exec(a)?.[1] ?? /^[A-Za-z_]\w*=([/~.].*)$/.exec(a)?.[1] ?? a
 /** 가운데의 ../ 로 폴더를 벗어나는 것도 본다 (sub/../../밖) */
-const looksLikePath = (a: string) => a.startsWith('/') || a.startsWith('~') || a.startsWith('..') || a.includes('../') || a.endsWith('/..') || /^"?\$\{?HOME\b/.test(a)
+const looksLikePath = (a: string) => a.startsWith('/') || a.startsWith('~') || a.startsWith('..') || a.includes('../') || a.endsWith('/..') || /^"?\$\{?(HOME|PWD)\b/.test(a)
 
 function touchesOutside(p: string, o: Where): boolean {
-  if (p === '/dev/null' || p.startsWith('/dev/std') || p.startsWith('/tmp/') || p === '/tmp') return false
+  if (p === '/dev/null' || p.startsWith('/dev/std')) return false
+  // 중괄호로 여럿이 되는 경로는 하나라도 밖이면 밖이다 ({a,~/x})
+  const alts = expandWords([p])
+  if (alts.length > 1) return alts.some((x) => touchesOutside(x, o))
   const home = o.home ?? ''
-  const bare = p.replace(/^"/, '').replace(/^\$\{?HOME\}?/, '~')
+  const cwd = o.cwd.replace(/\/$/, '')
+  const bare = p.replace(/^"/, '').replace(/^\$\{?HOME\}?/, '~').replace(/^\$(?:PWD(?!\w)|\{PWD\})/, cwd)
   // ~다른사람 은 그 사람의 홈이다
   if (/^~[^/]/.test(bare)) return true
   const expanded = bare.startsWith('~') ? `${home}${bare.slice(1)}` : bare
-  const abs = expanded.startsWith('/') ? expanded : `${o.cwd.replace(/\/$/, '')}/${expanded}`
-  return !o.inside(normalize(abs))
+  const abs = normalize(expanded.startsWith('/') ? expanded : `${cwd}/${expanded}`)
+  // 임시 폴더는 .. 를 푼 뒤에 본다: /tmp/../etc/passwd 는 임시 폴더가 아니다
+  if (abs === '/tmp' || abs.startsWith('/tmp/')) return false
+  return !o.inside(abs)
 }
 
 /** /a/b/../c → /a/c (따로 path 모듈 없이, core는 브라우저에서도 돈다) */
