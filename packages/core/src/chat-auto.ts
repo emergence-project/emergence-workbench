@@ -3,6 +3,10 @@
  * 명령 한 줄이 무엇을 하는지 판정하고(commandKind), 권한 이름마다의 「자동 허용」 기본값(presetAuto)을 둔다.
  * 서버의 허락 판정(agentChats.ts judge)과 화면의 토글(AgentChats.tsx)이 함께 쓴다.
  */
+import { qualifierRuns, qualifiers, redirects, segments, substitutions, unmask, words } from './chat-shell.js'
+
+// 셸 글 읽기는 chat-shell.ts로 옮겼다: 여기서 가져다 쓰던 곳을 위해 그대로 내보낸다
+export { ansiQuotes, bare, redirects, segments, substitutions, unmask, words } from './chat-shell.js'
 
 export type ChatKind = 'read' | 'edit' | 'delete' | 'run' | 'web' | 'outside'
 export interface ChatAutoValues { read: boolean; run: boolean; web: boolean }
@@ -47,124 +51,11 @@ const GIT_OUTSIDE = new Set(['push', 'clone', 'submodule', 'worktree'])
 const INSTALL = /^(install|i|add|remove|uninstall|update|upgrade|publish|link|global)$/
 
 /**
- * 따옴표와 \\(다음 글자를 글자 그대로)를 지키며 낱말로 나눈다 (작은 셸 흉내, 해석하지 못하면 거칠게).
- * \\를 모르면 `echo \\" > 파일 \\"`의 > 가 따옴표 안으로 보여 판정을 빠져나간다 (11/20 보안 검토)
- */
-export function words(seg: string): string[] {
-  const out: string[] = []
-  let cur = ''
-  let q: string | null = null
-  let any = false
-  for (let i = 0; i < seg.length; i++) {
-    const ch = seg[i]!
-    if (q === "'") { if (ch === q) q = null; else cur += ch; continue }
-    if (q) {
-      if (ch === '\\' && /["\\$`]/.test(seg[i + 1] ?? '')) { cur += seg[++i]; continue }
-      if (ch === q) q = null; else cur += ch
-      continue
-    }
-    if (ch === '\\' && i + 1 < seg.length) { cur += seg[++i]; any = true; continue }
-    if (ch === '"' || ch === "'") { q = ch; any = true; continue }
-    if (/\s/.test(ch)) { if (cur || any) out.push(cur); cur = ''; any = false; continue }
-    cur += ch
-  }
-  if (cur || any) out.push(cur)
-  return out
-}
-
-/**
- * 명령 줄을 이음표(; && || | &, 줄바꿈)로 나눈다. 따옴표 안과 \\ 뒤 글자는 나누지 않는다.
- * 홀로 선 &(뒤에서 돌리기)도 나눈다: `ls & rm -rf x`의 뒤 명령을 놓치지 않게. 2>&1 · &> 의 &는 돌려보내기라 그대로 둔다
- */
-export function segments(cmd: string): string[] {
-  const out: string[] = []
-  let cur = ''
-  let q: string | null = null
-  for (let i = 0; i < cmd.length; i++) {
-    const ch = cmd[i]!
-    if (q) {
-      cur += ch
-      if (q === '"' && ch === '\\' && i + 1 < cmd.length) cur += cmd[++i]
-      else if (ch === q) q = null
-      continue
-    }
-    if (ch === '\\' && i + 1 < cmd.length) { cur += ch + cmd[++i]; continue }
-    if (ch === '"' || ch === "'") { q = ch; cur += ch; continue }
-    const redirect = ch === '&' && (cmd[i + 1] === '>' || /[<>]$/.test(cur))
-    if (ch === ';' || ch === '\n' || ch === '|' || (ch === '&' && !redirect)) {
-      out.push(cur); cur = ''
-      if ((ch === '|' || ch === '&') && cmd[i + 1] === ch) i++
-      continue
-    }
-    cur += ch
-  }
-  out.push(cur)
-  return out.map((s) => s.trim()).filter(Boolean)
-}
-
-/**
- * 작은따옴표 안의 $ ` ( ) 를 가린다: 셸은 그 안을 글자 그대로 읽으므로 치환이 아니다. 가리지 않으면 아래 정규식이
- * `echo '$(echo ' ; rm -rf x ; echo ')'`의 두 따옴표 글을 치환 하나로 짝지어, 그 사이의 명령을 통째로 가린다.
- * 문맥을 따라간다: 큰따옴표 안에서는 ' 가 글자지만, 그 안의 $( … ) 안에서는 다시 따옴표다
- */
-const MASKED: Record<string, string> = { $: '\uE000', '`': '\uE001', '(': '\uE002', ')': '\uE003' }
-const UNMASKED: Record<string, string> = Object.fromEntries(Object.entries(MASKED).map(([k, v]) => [v, k]))
-/**
- * 가린 글자를 되돌린다. 가림은 치환을 찾는 정규식만을 위한 것이다: 낱말로 나눈 뒤의 판정(프로그램 이름 · 옵션 · sh -c 안의 명령 ·
- * awk · python 코드)은 되돌린 진짜 글로 해야 한다. 되돌리지 않으면 `awk '{system("rm x")}'`가 읽기로, `python3 -c 'exec(…)'`가
- * 상태 보기로 통했다 (11/25: #681이 _ 로 가리면서 생긴 구멍)
- */
-export const unmask = (s: string): string => s.replace(/[\uE000-\uE003]/g, (ch) => UNMASKED[ch]!)
-
-function maskLiteral(cmd0: string): string {
-  // 가림에 쓰는 글자가 처음부터 들어 있으면 되돌릴 때 $ ( ) 로 바뀐다: 다른 글자로 바꿔 둔다
-  const cmd = cmd0.replace(/[\uE000-\uE003]/g, '?')
-  let out = ''
-  // 문맥 더미: p = 따옴표 밖(맨 바깥 · $( ) 안, 값은 열린 괄호 수), d = 큰따옴표 안, b = 백틱 안
-  const stack: { k: 'p' | 'd' | 'b'; n: number }[] = [{ k: 'p', n: 0 }]
-  for (let i = 0; i < cmd.length; i++) {
-    const ch = cmd[i]!, top = stack.at(-1)!
-    if (ch === '\\' && i + 1 < cmd.length) { out += ch + cmd[++i]; continue }
-    if (ch === '$' && cmd[i + 1] === '(') { stack.push({ k: 'p', n: 0 }); out += '$('; i++; continue }
-    if (ch === '`') { if (top.k === 'b') stack.pop(); else stack.push({ k: 'b', n: 0 }); out += ch; continue }
-    if (top.k === 'd') { if (ch === '"') stack.pop(); out += ch; continue }
-    if (ch === "'") {
-      const end = cmd.indexOf("'", i + 1)
-      out += `'${cmd.slice(i + 1, end < 0 ? undefined : end).replace(/[$\`()]/g, (ch) => MASKED[ch]!)}${end < 0 ? '' : "'"}`
-      i = end < 0 ? cmd.length : end
-      continue
-    }
-    if (ch === '"') stack.push({ k: 'd', n: 0 })
-    else if (top.k === 'p' && ch === '(') top.n++
-    else if (top.k === 'p' && ch === ')') { if (top.n > 0) top.n--; else if (stack.length > 1) stack.pop() }
-    out += ch
-  }
-  return out
-}
-
-/** $( … ) · ` … ` 를 안쪽부터 하나씩 꺼내 자리표(SUBST)로 바꾼다. left = 다 풀지 못하고 남았는지 (짝이 안 맞거나 너무 깊다) */
-export function substitutions(raw: string, o: { proc?: boolean } = {}): { inner: string[]; flat: string; left: boolean } {
-  const cmd = maskLiteral(raw)
-  const open = o.proc ? /[$<>]\(([^()`]*)\)|`([^`]*)`/ : /\$\(([^()`]*)\)|`([^`]*)`/
-  const inner: string[] = []
-  let flat = cmd
-  for (let n = 0; n < 20; n++) {
-    // proc: <( … ) · >( … ) 도 안의 명령을 돌린다 (cat <(rm x)가 읽기로 보이지 않게)
-    const m = open.exec(flat)
-    if (!m) break
-    // 안쪽 글은 되돌려 준다: 받는 쪽이 그 글로 다시 판정하며 문맥에 맞게 새로 가린다
-    inner.push(unmask(m[1] ?? m[2] ?? ''))
-    flat = `${flat.slice(0, m.index)}SUBST${flat.slice(m.index + m[0].length)}`
-  }
-  return { inner, flat, left: (o.proc ? /[$<>]\(|`/ : /\$\(|`/).test(flat) }
-}
-
-/**
  * 명령 앞의 말을 떼어 낸다: 환경 변수(A=1 cmd), 시간 재기 · env 같은 앞말, 셸의 묶음 말(then · do · ( · { · !).
  * 묶음 말을 떼지 않으면 `for f in a; do rm $f; done`의 rm이 「실행」으로만 보인다. for <이름> in <낱말> · fi · done은 돌리는 것이 없어 빈 것으로.
  * env = 다른 프로그램을 돌리게 할 수 있는 환경 변수가 붙었는지 (GIT_PAGER=… · LESSOPEN=… · PATH=…). 글 모양 변수만 그대로 둔다
  */
-function leading(words: string[]): { rest: string[]; env: boolean } {
+export function leading(words: string[]): { rest: string[]; env: boolean } {
   let w = words
   let env = false
   for (;;) {
@@ -172,12 +63,21 @@ function leading(words: string[]): { rest: string[]; env: boolean } {
       if (!/^(LC_[A-Z]+|LANG|LANGUAGE|TZ|NO_COLOR|FORCE_COLOR|CLICOLOR|CLICOLOR_FORCE|COLUMNS|LINES|TERM)=/.test(w[0]!)) env = true
       w = w.slice(1)
     }
-    else if (w.length && /^(time|nice|nohup|command|builtin|exec)$/.test(w[0]!)) w = w.slice(1)
+    else if (w.length && /^(time|nice|nohup|command|builtin|exec)$/.test(w[0]!)) {
+      const timed = w[0] === 'time'
+      w = w.slice(1)
+      // time -p rm x: 옵션을 건너뛴다
+      while (timed && w.length > 1 && /^-[plhav]+$/.test(w[0]!)) w = w.slice(1)
+    }
+    // 함수 정의의 머리(f() { … } · function f { … })를 뗀다: 몸의 명령을 본다
+    else if (w.length > 1 && /^[A-Za-z_][\w-]*\(\)$/.test(w[0]!)) w = w.slice(1)
+    else if (w.length > 2 && w[1] === '()' && /^[A-Za-z_][\w-]*$/.test(w[0]!)) w = w.slice(2)
+    else if (w.length > 2 && w[0] === 'function' && /^[A-Za-z_][\w-]*(\(\))?$/.test(w[1]!)) w = w.slice(w[2] === '()' ? 3 : 2)
     // timeout 5 rm x · nice -n 5 rm x · caffeinate -i rm x · stdbuf -oL rm x: 옵션과 시간 값을 건너뛰고 뒤의 명령을 본다
     else if (w.length > 1 && /^(timeout|gtimeout|caffeinate|stdbuf)$/.test(w[0]!.split('/').pop()!)) {
       const timed = /timeout$/.test(w[0]!)
       w = w.slice(1)
-      while (w.length && w[0]!.startsWith('-')) w = w.slice(/^-[ks]$/.test(w[0]!) ? 2 : 1)
+      while (w.length && w[0]!.startsWith('-')) w = w.slice(/^-[kstw]$/.test(w[0]!) ? 2 : 1)
       if (timed && w.length && /^\d+(\.\d+)?[smhd]?$/.test(w[0]!)) w = w.slice(1)
     }
     else if (w.length > 1 && /^-n$/.test(w[0]!) && /^-?\d+$/.test(w[1]!)) w = w.slice(2)
@@ -190,7 +90,10 @@ function leading(words: string[]): { rest: string[]; env: boolean } {
   if (w[0] === 'for' && /^[A-Za-z_][A-Za-z0-9_]*$/.test(w[1] ?? '') && (w.length === 2 || w[2] === 'in')) return { rest: [], env }
   // 묶음을 닫는 ) 는 떼어 낸다: (cd x && ls) 의 ls)
   while (w.length > 1 && /^[)}]+$/.test(w[w.length - 1]!)) w = w.slice(0, -1)
-  if (w.length && /[^)]\)+$/.test(w[w.length - 1]!)) w = [...w.slice(0, -1), w[w.length - 1]!.replace(/\)+$/, '')]
+  // 짝이 없는 닫는 괄호만: 낱말 안에서 짝이 맞는 것(sh -c 'echo $(rm x)' 의 끝)은 그 낱말의 글이다
+  const last = w[w.length - 1] ?? ''
+  const extra = Math.min(last.split(')').length - last.split('(').length, /\)*$/.exec(last)![0].length)
+  if (w.length && extra > 0 && extra < last.length) w = [...w.slice(0, -1), last.slice(0, -extra)]
   return { rest: w, env }
 }
 
@@ -198,41 +101,94 @@ function leading(words: string[]): { rest: string[]; env: boolean } {
  * 명령이 하는 일. inside(path)는 그 절대 경로가 프로젝트나 등록한 폴더 안인지 (cwd는 프로젝트 폴더).
  * 폴더 밖 경로를 건드리면 외부, 모르는 프로그램은 실행으로 본다
  */
-export function commandKind(cmd: string, o: { cwd: string; inside(abs: string): boolean; home?: string }): ChatKind {
+type Where = { cwd: string; inside(abs: string): boolean; home?: string }
+
+export function commandKind(cmd: string, o: Where): ChatKind {
   let worst: ChatKind = 'read'
   const bump = (k: ChatKind) => { if (WEIGHT[k] > WEIGHT[worst]) worst = k }
   // $( … ) · ` … ` 안의 명령도 본다 (겹친 것은 안쪽부터). 다 풀지 못하면 무엇을 돌리는지 모르니 실행으로
   const sub = substitutions(cmd, { proc: true })
   for (const part of sub.inner) bump(commandKind(part, o))
   if (sub.left) bump('run')
+  const vars = new Map<string, string[]>()
   for (const seg of segments(sub.flat)) {
+    const r = redirects(seg)
     // 쓰기 돌려보내기: > 파일 · 2> 파일 · &> 파일 (2>&1 · >/dev/null은 빼고)
-    for (const m of seg.matchAll(/>>?\|?(?:&(?!(?:\d+|-)(?=[\s;&|)<>]|$)))?\s*([^\s;&|<>]+)/g)) {
-      const target = m[1]!
-      if (target === '/dev/null') continue
-      bump(touchesOutside(target, o) ? 'outside' : 'edit')
+    for (const target of r.out) if (target !== '/dev/null') bump(touchesOutside(target, o) ? 'outside' : 'edit')
+    // 읽어 들이는 돌려보내기도 폴더 밖이면 외부 (cat < /etc/passwd)
+    for (const target of r.in) if (touchesOutside(target, o)) bump('outside')
+    for (const q of qualifiers(seg)) {
+      const runs = qualifierRuns(q)
+      if (runs.calls || runs.code.length) bump('run')
+      for (const code of runs.code) bump(commandKind(code, o))
     }
-    let w = words(seg.replace(/(?:\d|&)?>>?\|?&?\s*[^\s<>]+/g, ' ').replace(/<\s*\S+/g, ' '))
-    const lead = leading(w)
-    if (lead.env) bump('run')
-    w = lead.rest
-    if (!w.length) continue
-    // 프로그램과 인자는 진짜 글로 본다 (가린 글자를 되돌려서). 경로만 가린 채로: 작은따옴표 안의 $HOME 은 글자다
-    const plain = w.map(unmask)
-    const prog = plain[0]!.split('/').pop()!
-    const args = plain.slice(1)
-    bump(kindOf(prog, args))
-    // 다른 명령을 감싸 돌리는 것은 안의 명령도 본다: 실행을 자동 허용해도 삭제 · 외부는 묻게 (bash -c "rm -rf x" · find -exec rm · eval)
-    for (const inner of wrapped(prog, args)) bump(typeof inner === 'string' ? commandKind(inner, o) : kindOf(inner[0]!.split('/').pop()!, inner.slice(1)))
-    // 폴더 밖 경로 (읽기라도 폴더 밖이면 외부)
-    for (const a of w.slice(1)) { const v = pathPart(a); if (looksLikePath(v) && touchesOutside(v, o)) bump('outside') }
-    if (prog === 'cd' && w[1] && touchesOutside(w[1], o)) bump('outside')
+    const all = words(r.rest)
+    // 글자 그대로 적은 값의 변수는 그 값을 넣어서도 본다: for x in -delete; do find . $x; done
+    const tried = variants(unmask(seg), vars)
+    if (tried === null) bump('run')
+    else for (const v of tried) bump(commandKind(v, o))
+    noteVars(all, vars)
+    bump(wordsKind(all, o, 0))
   }
   return worst
 }
 
+/** 낱말로 나눈 명령 하나가 하는 일: 앞말을 떼고, 감싸 돌리는 안의 명령(sh -c · find -exec · xargs · env …)도 끝까지 따라간다 */
+function wordsKind(all: string[], o: Where, depth: number): ChatKind {
+  let worst: ChatKind = 'read'
+  const bump = (k: ChatKind) => { if (WEIGHT[k] > WEIGHT[worst]) worst = k }
+  const lead = leading(all)
+  if (lead.env) bump('run')
+  const w = lead.rest
+  if (!w.length) return worst
+  // 프로그램과 인자는 진짜 글로 본다 (가린 글자를 되돌려서). 경로만 가린 채로: 작은따옴표 안의 $HOME 은 글자다
+  const plain = w.map(unmask)
+  const prog = plain[0]!.split('/').pop()!
+  const args = plain.slice(1)
+  bump(kindOf(prog, args))
+  // 다른 명령을 감싸 돌리는 것은 안의 명령도 본다: 실행을 자동 허용해도 삭제 · 외부는 묻게 (bash -c "rm -rf x" · find -exec rm · eval).
+  // 낱말로 받은 안의 명령도 같은 길로: find -exec sh -c 'rm …' · xargs env rm · find -exec nice rm (11/25 검토)
+  const inner = wrapped(prog, args)
+  if (depth > 5 && inner.length) bump('run')
+  else for (const x of inner) bump(typeof x === 'string' ? commandKind(x, o) : wordsKind(x, o, depth + 1))
+  // 폴더 밖 경로 (읽기라도 폴더 밖이면 외부)
+  for (const a of w.slice(1)) { const v = pathPart(a); if (looksLikePath(v) && touchesOutside(v, o)) bump('outside') }
+  if (prog === 'cd' && w[1] && touchesOutside(w[1], o)) bump('outside')
+  return worst
+}
+
+/** 값을 넣어 볼 만한 낱말: 글자 그대로이고(변수 · 치환 · 무늬가 없고) 다시 읽어도 뜻이 바뀌지 않는 글자만 */
+const LITERAL = /^[\w./:,@%+=-]+( [\w./:,@%+=-]+)*$/
+/** for x in a b · x=a 를 적어 둔다. 값이 글자 그대로가 아니면 그 이름은 모르는 것으로 */
+function noteVars(all: string[], vars: Map<string, string[]>): void {
+  const w = /^(do|then|else|\{)$/.test(all[0] ?? '') ? all.slice(1) : all
+  if (w[0] === 'for' && /^[A-Za-z_]\w*$/.test(w[1] ?? '') && w[2] === 'in') {
+    const vals = w.slice(3)
+    if (vals.length && vals.every((x) => LITERAL.test(x))) vars.set(w[1]!, vals); else vars.delete(w[1]!)
+    return
+  }
+  if (!w.length || !w.every((x) => /^[A-Za-z_]\w*=/.test(x))) return
+  for (const x of w) {
+    const name = x.slice(0, x.indexOf('=')), value = x.slice(x.indexOf('=') + 1)
+    if (LITERAL.test(value)) vars.set(name, [value]); else vars.delete(name)
+  }
+}
+/** 적어 둔 변수($x · ${x} · zsh의 $=x · $~x)를 값으로 바꾼 글들. 쓰지 않으면 [], 너무 많으면 null */
+function variants(text: string, vars: Map<string, string[]>): string[] | null {
+  let out = [text]
+  let hit = false
+  for (const [name, vals] of vars) {
+    const re = () => new RegExp(`\\$(?:[=~^]{0,2}${name}\\b|\\{[=~^]{0,2}${name}\\})`, 'g')
+    if (!re().test(text)) continue
+    hit = true
+    out = out.flatMap((t) => vals.map((v) => t.replace(re(), v)))
+    if (out.length > 16) return null
+  }
+  return hit ? out : []
+}
+
 /** 감싸 돌리는 안의 명령: 글 한 줄(sh -c · eval)이면 string, 낱말들(find -exec · xargs)이면 string[] */
-function wrapped(prog: string, args: string[]): (string | string[])[] {
+export function wrapped(prog: string, args: string[]): (string | string[])[] {
   if (/^(sh|bash|zsh|dash|ksh|fish)$/.test(prog)) {
     const i = args.findIndex((a) => /^-[a-zA-Z]*c$/.test(a))
     return i >= 0 && args[i + 1] ? [args[i + 1]!] : []
@@ -350,7 +306,7 @@ const pathPart = (a: string) => /^--?[A-Za-z][\w-]*=(.+)$/.exec(a)?.[1] ?? /^-[A
 /** 가운데의 ../ 로 폴더를 벗어나는 것도 본다 (sub/../../밖) */
 const looksLikePath = (a: string) => a.startsWith('/') || a.startsWith('~') || a.startsWith('..') || a.includes('../') || a.endsWith('/..') || /^"?\$\{?HOME\b/.test(a)
 
-function touchesOutside(p: string, o: { cwd: string; inside(abs: string): boolean; home?: string }): boolean {
+function touchesOutside(p: string, o: Where): boolean {
   if (p === '/dev/null' || p.startsWith('/dev/std') || p.startsWith('/tmp/') || p === '/tmp') return false
   const home = o.home ?? ''
   const bare = p.replace(/^"/, '').replace(/^\$\{?HOME\}?/, '~')
@@ -388,7 +344,7 @@ export function runPrograms(cmd: string): string[] {
   const sub = substitutions(cmd, { proc: true })
   for (const part of sub.inner) for (const p of runPrograms(part)) if (!out.includes(p)) out.push(p)
   for (const seg of segments(sub.flat)) {
-    const all = words(seg.replace(/(?:\d|&)?>>?\|?&?\s*[^\s<>]+/g, ' ').replace(/<\s*\S+/g, ' ')).map(unmask)
+    const all = words(redirects(seg).rest).map(unmask)
     const { rest: w, env } = leading(all)
     if (!w.length) continue
     const prog = w[0]!.split('/').pop()!

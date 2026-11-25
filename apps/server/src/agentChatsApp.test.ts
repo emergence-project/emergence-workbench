@@ -55,6 +55,9 @@ describe('앱 고치기 대화의 허락 규칙', () => {
     expect(judge(ctx(), `${W}read_note`, { project: 'p' }).kind).toBe('allow')
     expect(judge(ctx(), 'Read', { file_path: `${repo}/CLAUDE.md` }).kind).toBe('allow')
     expect(judge(ctx(), 'Read', { file_path: '/etc/hosts' }).kind).toBe('ask')
+    // 읽는 도구는 ~ 를 홈으로 푼다: 프로젝트 안의 「~」 폴더로 보고 지나가지 않는다 (11/25 검토)
+    expect(judge(ctx(), 'Read', { file_path: '~/.zshrc' }).kind).toBe('ask')
+    expect(judge(ctx(), 'Grep', { pattern: 'x', path: '~' }).kind).toBe('ask')
   })
   it('피드백 대화는 안내가 가리키는 개인 규칙 · 그 폴더의 문서를 묻지 않고 읽고, 기계 설정 · 대화 기록과 쓰기는 그대로 (11/23)', () => {
     const p = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-personal-'))

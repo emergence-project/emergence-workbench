@@ -17,6 +17,32 @@ describe('상태만 보는 명령 (중앙 대화)', () => {
     expect(stateOnlyCommand(`python3 -I -c 'import json, sys; print(json.load(open(sys.argv[1]))["a"])' a.json`)).toBe('ok')
     expect(stateOnlyCommand("grep -n '$(x)' a.md")).toBe('ok')
   })
+  // 11/25 검토 "분류기가 놓치는 것"
+  it('zsh 전용 문법: =( ) · 무늬 꼬리표 · $=x 는 막는다', () => {
+    for (const c of ['cat =(rm -rf x)', 'diff =(ls) =(ls)', "ls *(e:'rm -rf x':)", 'ls *(+f)', 'ls *(.)', '(cd x && ls)',
+      'for x in ". -delete"; do find $=x; done', 'for x in a; do find . $~x; done', 'for x in a; do sort $^x; done'])
+      expect(stateOnlyCommand(c), c).toBe('no')
+    // 따옴표 · \\ 로 싼 괄호는 글자다
+    for (const c of ['grep -E "(a|b)" x.md', 'find . \\( -name a -o -name b \\)', "echo 'f(x)'"]) expect(stateOnlyCommand(c), c).toBe('ok')
+  })
+  it('파이썬 주석 안의 따옴표로 open의 둘째 값을 숨기지 못한다', () => {
+    expect(stateOnlyCommand(`python3 -I -c "import sys\nopen(sys.argv[1] # '\n, 'w') # ')" a.txt`)).toBe('no')
+    expect(stateOnlyCommand(`python3 -I -c "import sys\nprint(len(sys.argv)) # count\nprint(1)"`)).toBe('ok')
+  })
+  it('gh api graphql: 질의를 변수 · 치환으로 넣으면 안을 볼 수 없어 막는다', () => {
+    for (const c of ['gh api graphql -f query="$(cat q.txt)"', 'gh api graphql -f query="$Q"']) expect(stateOnlyCommand(c), c).toBe('no')
+    expect(stateOnlyCommand("gh api graphql -f query='{ viewer { login } }'")).toBe('ok')
+  })
+  it('열쇠가 든 환경 변수를 펼치면 한 번 묻는다', () => {
+    for (const c of ['echo $GITHUB_TOKEN', 'printf %s "$ANTHROPIC_API_KEY"', 'echo ${GH_TOKEN} | wc -c', 'echo $AWS_SECRET_ACCESS_KEY']) expect(stateOnlyCommand(c), c).toBe('sensitive')
+    for (const c of ['echo $HOME', 'echo $MAX_TOKENS', 'echo $TOKENIZER_PATH']) expect(stateOnlyCommand(c), c).toBe('ok')
+    expect(touchesSecret('curl -H "Authorization: Bearer $GITHUB_TOKEN" https://x')).toBe(true)
+    expect(touchesSecret('echo $PWD')).toBe(false)
+  })
+  it('중앙의 푸시: heads/main 도 main이다', () => {
+    for (const c of ['git push origin x:heads/main', 'git push origin heads/main', 'git push origin x:refs/heads/master']) expect(stateOnlyCommand(c, { gitWrites: true }), c).toBe('no')
+    expect(stateOnlyCommand('git push origin x:heads/feature', { gitWrites: true })).toBe('ok')
+  })
   it('바꾸거나 다른 명령을 돌릴 수 있으면 막는다', () => {
     for (const c of [
       'npm i', 'npm install -g x', 'git commit -m x', 'git log && git push', 'ls > a.txt', 'echo x >> a', 'cat <<EOF', 'echo $(rm -rf x)', 'echo `touch a`',

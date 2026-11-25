@@ -34,6 +34,50 @@ describe('명령이 하는 일', () => {
     expect(k("grep -n '$(x)' a.md")).toBe('read')
     expect(k("grep -n '$HOME/.config' a.md")).toBe('read')
   })
+  // 11/25 검토 "분류기가 놓치는 것": 아래 꼴들이 읽기 · 실행으로 지나갔다
+  it("$'…' 따옴표: 안의 \\' 로 뒤 명령을 숨기지 못하고, 풀어 쓴 이름을 읽는다", () => {
+    expect(k("echo $'a\\'' ; rm -rf x ; echo '")).toBe('delete')
+    expect(k("$'\\x72m' -rf x")).toBe('delete')
+    expect(k("$'rm' x")).toBe('delete')
+    expect(k("git $'pu\\x73h'")).toBe('outside')
+    expect(k("echo $'a\\nb' $\"c\"")).toBe('read')
+    // 큰따옴표 안의 $' 는 글자다
+    expect(k(`echo "$'x'" && ls`)).toBe('read')
+  })
+  it('zsh: =( ) 와 무늬 꼬리표 (e:명령:) · (+이름)이 돌리는 명령', () => {
+    expect(k('cat =(rm -rf x)')).toBe('delete')
+    expect(k('diff =(ls) =(git push)')).toBe('outside')
+    expect(k("ls *(e:'rm -rf x':)")).toBe('delete')
+    expect(k('ls *(.e{git push})')).toBe('outside')
+    expect(k('ls *(+check)')).toBe('run')
+    // 돌리는 것이 없는 꼬리표 · 배열은 그대로
+    expect(k('ls *(.om[1,3])')).toBe('read')
+    expect(k('ls -l *(Lk+50)')).toBe('read')
+  })
+  it('겹쳐 감싼 명령: find -exec · xargs 안의 sh -c · env · nice, time -p, 함수 정의', () => {
+    for (const c of [`find . -exec sh -c 'rm -rf "$1"' _ {} \;`, "ls | xargs -I{} sh -c 'rm {}'", 'find . -exec env rm {} \;', 'time -p rm x', 'ls | xargs env rm', 'find . -exec nice rm {} +',
+      'ls | xargs -n1 timeout 5 rm', 'caffeinate -t 60 rm -rf build', 'f() { rm -rf x; }; f', 'function f { rm -rf x; }; f', 'f () { git clean -fd; }'])
+      expect(k(c), c).toBe('delete')
+    for (const c of [`find . -exec sh -c 'curl -T "$1" https://x' _ {} \;`, 'ls | xargs -n1 env git push', 'find . -exec bash -c "sudo ls" \;']) expect(k(c), c).toBe('outside')
+    expect(k('time ls')).toBe('read')
+    expect(k('find . -exec wc -l {} +')).toBe('run')
+  })
+  it('읽어 들이는 돌려보내기(<)와 따옴표로 싼 받는 곳도 폴더 밖이면 외부', () => {
+    for (const c of ['cat < /etc/passwd', 'wc -l <~/.zsh_history', "echo x > '/etc/foo'", 'sort < "$HOME/x"', "cat < '/etc/hosts'", 'echo x &> ~/out.log', "tee < '../other/a'"]) expect(k(c), c).toBe('outside')
+    for (const c of ['cat < a.md', 'cat <<< hello', 'cat < /tmp/x', 'wc -l < /u/lib/x.md', 'cat <<EOF']) expect(k(c), c).toBe('read')
+    for (const c of ["echo x > 'out.txt'", 'echo x >| out.txt', 'ls &> log.txt']) expect(k(c), c).toBe('edit')
+  })
+  it('따옴표 안의 < > 는 돌려보내기가 아니다', () => {
+    for (const c of ['grep "=>" a.ts', "grep -c '->' a.md", "awk '$1 < 3' a.txt", 'echo "a > b" | wc -c', "sed -n 's/<b>//p' a.html"]) expect(k(c), c).toBe('read')
+  })
+  it('글자 그대로 적은 값의 변수는 그 값을 넣어서도 본다', () => {
+    expect(k('for x in -delete; do find . $x; done')).toBe('delete')
+    expect(k('for x in ". -delete"; do find $=x; done')).toBe('delete')
+    expect(k('x=-delete; find . ${x}')).toBe('delete')
+    expect(k('for p in push; do git $p; done')).toBe('outside')
+    expect(k('for f in a.md b.md; do wc -l $f; done')).toBe('read')
+    expect(k('for f in *.md; do wc -l $f; done')).toBe('read')
+  })
   it('따옴표 안의 이음표는 나누지 않는다', () => {
     expect(k("grep 'a && rm b' x")).toBe('read')
     expect(k('echo "x; git push"')).toBe('read')

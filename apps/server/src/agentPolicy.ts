@@ -288,7 +288,8 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
     return { kind: 'ask', summary: t('계획', 'Plan'), plan: clip(str(input.plan), 6000), key: `${PLAN_TOOL}:${crypto.randomBytes(4).toString('hex')}`, label: t('계획', 'Plan') }
   }
   if (READ_TOOLS.has(tool)) {
-    const p = pathOf(input)
+    // 읽는 도구는 ~ 를 홈으로 푼다: 풀지 않고 보면 ~/.zshrc 가 프로젝트 안의 「~」 폴더로 읽혀 묻지 않았다 (11/25 검토)
+    const p = pathOf(input).replace(/^~(?=\/|$)/, os.homedir())
     const base = p ? path.resolve(ctx.repo, p) : ctx.repo
     const ok = (at: string) => isInside(ctx.repo, at) || at === ctx.repo || ctx.readable.some((d) => at === d || isInside(d, at))
     // Glob의 무늬가 폴더를 벗어나면(/etc/** · ../../**) 그 자리를 본다: 별표 앞까지가 찾는 폴더다

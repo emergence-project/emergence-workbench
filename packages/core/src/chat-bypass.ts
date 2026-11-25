@@ -2,13 +2,14 @@
  * 중앙 대화의 우회 (11/20 사용자 결정 "권한 우회는 사용자 허락으로"): 상태 보기 목록(chat-readonly.ts)이 막은 명령도
  * 사용자가 그 명령을 보고 허락하면 돌릴 수 있다. 다만 아래는 허락해도 돌리지 않는다(우회 불가):
  * 강제 푸시 · reset --hard · main 지우기, 임시 폴더 밖 rm -rf, 연구 저장소 workbench/(노트 · 기록) 쓰기.
- * 셸 감싸기(sh -c · eval · xargs · env · sudo …)와 $( … ) 안쪽도 같은 규칙으로 본다
+ * 셸 감싸기(sh -c · eval · xargs · find -exec · env · sudo …), 묶음(( … ) · { …; })과 $( … ) 안쪽도 같은 규칙으로 본다
  */
-import { segments, substitutions, words } from './chat-auto.js'
+import { ansiQuotes, leading, redirects, segments, substitutions, words, wrapped } from './chat-auto.js'
 
 export type NeverBypass = 'force-push' | 'reset-hard' | 'delete-main' | 'rm-outside-temp' | 'workbench-write'
 
-const MAIN = /^(refs\/heads\/)?(main|master)$/
+/** heads/main 도 main이다 (git이 refs/heads/main으로 읽는다) */
+const MAIN = /^((refs\/)?heads\/)?(main|master)$/
 const positional = (a: string[]) => a.filter((x) => !x.startsWith('-'))
 /** 짧은 옵션 묶음(-rf · -fr)에 글자가 있는지 */
 const short = (a: string[], ch: string) => a.some((x) => /^-[a-zA-Z]+$/.test(x) && x.includes(ch))
@@ -45,19 +46,35 @@ const WRITERS: Record<string, (a: string[]) => string[]> = {
 const INLINE = /^(python3?|node|perl|ruby|osascript)$/
 const WRITE_CODE = /['"][wa]\+?b?['"]|write|unlink|remove|rename|rmtree|truncate/i
 
-function segment(w: string[], depth: number): NeverBypass | undefined {
-  // 앞말: 환경 변수와 다른 명령을 돌리는 감싸기
-  while (w.length) {
-    const p = w[0]!.split('/').pop()!
-    if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0]!)) w = w.slice(1)
-    else if (/^(env|sudo|nohup|time|command|nice|exec|caffeinate|timeout|gtimeout)$/.test(p)) {
-      w = w.slice(1)
-      while (w.length && (w[0]!.startsWith('-') || /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0]!) || /^\d+[smhd]?$/.test(w[0]!))) w = w.slice(1)
-    } else if (p === 'xargs') {
-      w = w.slice(1)
-      while (w.length && (w[0]!.startsWith('-') || /^\d+$/.test(w[0]!))) w = w.slice(1)
-    } else break
+/**
+ * 앞말과 묶음 말을 뗀다: 환경 변수 · env · time · nice · timeout …(chat-auto의 leading)과 sudo, 묶음의 ( · { · then · do.
+ * 묶음을 떼지 않으면 `(git push --force)` · `{ git reset --hard; }`의 프로그램이 `(git` · `{` 로 읽혔다 (11/25 검토)
+ */
+function unwrap(w0: string[]): string[] {
+  let w = w0
+  for (;;) {
+    w = leading(w).rest
+    if (!w.length || !/^(sudo|doas)$/.test(w[0]!.split('/').pop()!)) return w
+    w = w.slice(1)
+    while (w.length && (w[0]!.startsWith('-') || /^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0]!))) w = w.slice(1)
   }
+}
+/** find가 뒤지는 곳: 첫 조건 앞의 낱말들 */
+function findRoots(a: string[]): string[] {
+  const out: string[] = []
+  for (const x of a) {
+    if (!out.length && /^-[HLPEXdsx]+$/.test(x)) continue
+    if (x.startsWith('-') || x === '(' || x === '!') break
+    out.push(x)
+  }
+  return out
+}
+/** find -exec 안의 {} 는 find가 뒤지는 곳의 것이다: 그 자리로 바꿔 본다 (임시 폴더만 뒤지면 그 안의 rm -rf 는 된다) */
+const inFind = (inner: string[], roots: string[]) => inner.flatMap((x) => (x === '{}' ? (roots.length ? roots : ['.']) : [x]))
+
+function segment(w0: string[], depth: number): NeverBypass | undefined {
+  if (depth > 6) return undefined
+  const w = unwrap(w0)
   if (!w.length) return undefined
   const prog = w[0]!.split('/').pop()!
   const a = w.slice(1)
@@ -66,6 +83,19 @@ function segment(w: string[], depth: number): NeverBypass | undefined {
     return c >= 0 ? neverBypass(a[c + 1] ?? '', depth + 1) : undefined
   }
   if (prog === 'eval') return neverBypass(a.join(' '), depth + 1)
+  // find · xargs 가 돌리는 안의 명령도 본다. find -delete 는 뒤지는 곳을 rm -rf 하는 것과 같다
+  if (prog === 'find' || prog === 'xargs') {
+    const roots = prog === 'find' ? findRoots(a) : []
+    if (prog === 'find' && a.includes('-delete')) {
+      if (a.some(wb)) return 'workbench-write'
+      if (!roots.length || !roots.every(inTemp)) return 'rm-outside-temp'
+    }
+    for (const inner of wrapped(prog, a)) {
+      const r = typeof inner === 'string' ? undefined : segment(prog === 'find' ? inFind(inner, roots) : inner, depth + 1)
+      if (r) return r
+    }
+    return undefined
+  }
   if (prog === 'git') return git(a)
   if (prog === 'rm' && (short(a, 'r') || short(a, 'R') || a.includes('--recursive')) && (short(a, 'f') || a.includes('--force')) && (!positional(a).length || !positional(a).every(inTemp))) return 'rm-outside-temp'
   const writes = WRITERS[prog]
@@ -76,18 +106,21 @@ function segment(w: string[], depth: number): NeverBypass | undefined {
 }
 
 /** 허락해도 돌리지 않는 명령이면 그 까닭, 아니면 undefined */
-export function neverBypass(cmd: string, depth = 0): NeverBypass | undefined {
+export function neverBypass(cmd0: string, depth = 0): NeverBypass | undefined {
   if (depth > 4) return undefined
+  // $'…' 를 보통 따옴표로 풀어 읽는다: git push $'--force' · 안의 \' 로 뒤 명령을 따옴표 안에 숨기기
+  const cmd = ansiQuotes(cmd0)
   // 겹친 $( $( … ) )도 안쪽부터 본다
   for (const part of substitutions(cmd).inner) {
     const r = neverBypass(part, depth + 1)
     if (r) return r
   }
-  // 파일로 돌려보내기: 받는 곳이 workbench/ 안이면
-  for (const m of cmd.matchAll(/(?:^|[^<])>>?\|?\s*("[^"]*"|'[^']*'|[^\s;&|<>]+)/g)) if (wb(m[1]!.replace(/^["']|["']$/g, ''))) return 'workbench-write'
   for (const seg of segments(cmd)) {
-    const r = segment(words(seg.replace(/\d?>>?\|?\s*("[^"]*"|'[^']*'|[^\s;&|<>]+)/g, ' ').replace(/&>\s*\S+/g, ' ')), depth)
-    if (r) return r
+    const r = redirects(seg)
+    // 파일로 돌려보내기: 받는 곳이 workbench/ 안이면
+    if (r.out.some(wb)) return 'workbench-write'
+    const hit = segment(words(r.rest), depth)
+    if (hit) return hit
   }
   return undefined
 }
@@ -103,21 +136,34 @@ const keep = (p: string) => SINK.test(p) || inTemp(p)
 export function writesFiles(cmd0: string, depth = 0): boolean {
   if (depth > 4) return false
   // heredoc 본문(코드 속 => 등)은 명령이 아니다
-  const cmd = cmd0.replace(/(<<-?\s*['"]?(\w+)['"]?[^\n]*)\n[\s\S]*?\n\s*\2\s*(?=\n|$)/g, '$1')
+  const cmd = ansiQuotes(cmd0).replace(/(<<-?\s*['"]?(\w+)['"]?[^\n]*)\n[\s\S]*?\n\s*\2\s*(?=\n|$)/g, '$1')
   for (const part of substitutions(cmd).inner) if (writesFiles(part, depth + 1)) return true
-  for (const m of cmd.matchAll(/(?:^|[^<0-9&])\d?>>?\|?\s*("[^"]*"|'[^']*'|[^\s;&|<>]+)/g)) if (!keep(m[1]!.replace(/^["']|["']$/g, ''))) return true
   for (const seg of segments(cmd)) {
-    let w = words(seg.replace(/\d?>>?\|?\s*("[^"]*"|'[^']*'|[^\s;&|<>]+)/g, ' ').replace(/&>\s*\S+/g, ' '))
-    while (w.length && (/^[A-Za-z_][A-Za-z0-9_]*=/.test(w[0]!) || /^(env|sudo|nohup|time|command|nice|exec|timeout|gtimeout)$/.test(w[0]!.split('/').pop()!))) w = w.slice(1)
-    if (!w.length) continue
-    const prog = w[0]!.split('/').pop()!
-    const a = w.slice(1)
-    if (/^(sh|bash|zsh|dash)$/.test(prog)) { const c = a.findIndex((x) => /^-\w*c\w*$/.test(x)); if (c >= 0 && writesFiles(a[c + 1] ?? '', depth + 1)) return true; continue }
-    if (prog === 'eval') { if (writesFiles(a.join(' '), depth + 1)) return true; continue }
-    const writes = WRITERS[prog]
-    if (writes && writes(a.filter((x) => !x.startsWith('-'))).some((x) => !keep(x))) return true
-    if (/^(sed|gsed|perl)$/.test(prog) && a.some((x) => /^(-i|--in-place|-\w*i)/.test(x))) return true
-    if (INLINE.test(prog) && a.some((x) => WRITE_CODE.test(x))) return true
+    const r = redirects(seg)
+    // > · >> · &> · &>> 가 받는 파일 (11/25: &> 파일을 보지 못했다)
+    if (r.out.some((x) => !keep(x))) return true
+    if (writesWords(words(r.rest), depth)) return true
   }
   return false
+}
+
+function writesWords(w0: string[], depth: number): boolean {
+  if (depth > 6) return false
+  const w = unwrap(w0)
+  if (!w.length) return false
+  const prog = w[0]!.split('/').pop()!
+  const a = w.slice(1)
+  if (/^(sh|bash|zsh|dash)$/.test(prog)) { const c = a.findIndex((x) => /^-\w*c\w*$/.test(x)); return c >= 0 && writesFiles(a[c + 1] ?? '', depth + 1) }
+  if (prog === 'eval') return writesFiles(a.join(' '), depth + 1)
+  if (prog === 'find' || prog === 'xargs') {
+    const roots = prog === 'find' ? findRoots(a) : []
+    if (prog === 'find' && a.some((x) => /^-(fprint|fprint0|fprintf|fls)$/.test(x))) return true
+    if (prog === 'find' && a.includes('-delete') && !(roots.length && roots.every(keep))) return true
+    // xargs 는 받은 낱말을 뒤에 붙인다: 어디인지 모르는 자리로 본다
+    return wrapped(prog, a).some((inner) => typeof inner !== 'string' && writesWords(prog === 'find' ? inFind(inner, roots) : inner.includes('{}') ? inner : [...inner, '{}'], depth + 1))
+  }
+  const writes = WRITERS[prog]
+  if (writes && writes(a.filter((x) => !x.startsWith('-'))).some((x) => !keep(x))) return true
+  if (/^(sed|gsed|perl)$/.test(prog) && a.some((x) => /^(-i|--in-place|-\w*i)/.test(x))) return true
+  return INLINE.test(prog) && a.some((x) => WRITE_CODE.test(x))
 }

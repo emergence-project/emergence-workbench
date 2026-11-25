@@ -4,7 +4,7 @@
  * 바꿀 수 있는 문법(파일로 돌려보내기 · 히어독 · 백그라운드 · 환경 변수 앞말 · 다른 명령을 돌리는 프로그램)은 막는다.
  * ok = 묻지 않고, sensitive = 비밀이 든 곳(~/.ssh · .env …)을 보니 한 번 묻고, no = 막는다
  */
-import { segments, substitutions, unmask, words } from './chat-auto.js'
+import { bare, segments, substitutions, unmask, words } from './chat-auto.js'
 
 export type StateOnly = 'ok' | 'sensitive' | 'no'
 
@@ -58,7 +58,8 @@ const ghApi: Rule = (a) => {
   const method = a.flatMap((x, i) => x === '-X' || x === '--method' ? [a[i + 1] ?? ''] : x.startsWith('--method=') ? [x.slice(9)] : x.startsWith('-X') && x.length > 2 ? [x.slice(2)] : [])
   if (method.some((m) => m.toUpperCase() !== 'GET') || a.some((x) => /^--input/.test(x))) return false
   // graphql: mutation이 없을 때만. 파일에서 읽는 질의(-F query=@파일)는 안을 볼 수 없어 막는다
-  if (a.includes('graphql')) return !a.some((x) => /\bmutation\b/i.test(x) || /=@/.test(x))
+  // 질의를 변수 · 치환으로 넣은 것도 안을 볼 수 없다 (-f query="$(cat q.txt)")
+  if (a.includes('graphql')) return !a.some((x) => /\bmutation\b/i.test(x) || /=@/.test(x) || /SUBST|\$/.test(x))
   return method.length > 0 || !a.some((x) => /^(-f|-F|--field|--raw-field)/.test(x))
 }
 const LOOK: Rule = sub({ view: any, list: any })
@@ -96,7 +97,7 @@ const GIT_WRITE: Record<string, Rule> = {
     if (a.some((x) => x === '--dry-run' || x === '-n')) return !refs.some((x) => x.startsWith('+') || x.startsWith(':'))
     return refs.length > 0 && refs.every((x) => {
       if (x.startsWith('+') || x.startsWith(':') || /[*$]/.test(x)) return false
-      const to = (x.includes(':') ? x.slice(x.indexOf(':') + 1) : x).replace(/^refs\/(heads|tags)\//, '')
+      const to = (x.includes(':') ? x.slice(x.indexOf(':') + 1) : x).replace(/^(refs\/)?(heads|tags)\//, '')
       return !!to && !/^(HEAD|@|main|master)$/.test(to)
     })
   },
@@ -173,11 +174,13 @@ const PY_OS = /^(path|listdir|scandir|walk|stat|lstat|getcwd|sep|linesep|curdir|
 const PY_SYS = /^(argv|stdin|stdout|stderr|version|version_info|platform|exit|maxsize|getsizeof|executable|getdefaultencoding)$/
 // attrgetter · methodcaller(pathlib · glob에 딸려 온다)는 getattr와 같고, 프레임(gi_frame.f_builtins)에서는 exec를 꺼낼 수 있다 (11/21 보안 검토)
 const PY_BAD = /\b(exec|eval|getattr|setattr|delattr|globals|locals|vars|breakpoint|help|input|attrgetter|methodcaller|operator|[a-z]{2}_frame|f_builtins|f_globals|f_locals|f_back|write_text|write_bytes|touch|mkdir|unlink|rmdir|rename|symlink_to|hardlink_to|link_to|chmod|lchmod|chown)\b/
-/** 문자열 안을 _ 로 가린 같은 길이의 글 (괄호 · 쉼표를 셀 때). 닫히지 않으면 null */
+/** 문자열 안을 _ 로, 주석을 빈칸으로 가린 같은 길이의 글 (괄호 · 쉼표를 셀 때). 닫히지 않으면 null */
 function maskStrings(code: string): string | null {
   let out = ''
   for (let i = 0; i < code.length;) {
     const ch = code[i]!
+    // 주석은 줄 끝까지 빈칸으로: 주석 안의 따옴표를 문자열의 처음으로 읽으면 그 뒤의 진짜 코드(둘째 값 'w')가 문자열로 가려진다 (11/25 검토)
+    if (ch === '#') { const end = code.indexOf('\n', i); const to = end < 0 ? code.length : end; out += ' '.repeat(to - i); i = to; continue }
     if (ch !== '"' && ch !== "'") { out += ch; i++; continue }
     const q = code.startsWith(ch.repeat(3), i) ? ch.repeat(3) : ch
     let j = i + q.length
@@ -302,31 +305,15 @@ const PROGRAMS: Record<string, Rule> = {
 const SECRET = /(^|\/)\.(ssh|aws|gnupg|netrc|docker|kube)(\/|$)|\.config\/gh(\/|$)|Keychains|credentials|(^|\/)\.env(\.|$)|id_(rsa|ed25519|ecdsa|dsa)/
 /** 앱의 개인 설정 · 대화 기록 폴더와 키체인 꺼내기: 자동 모드에서도 읽기 전에 한 번 묻는다 (11/23) */
 const APP_SECRET = /research-workspace\/personal\/_(settings|chats)(\/|$)|\bsecurity\s+(find|dump|export)-/
+/** 열쇠가 든 환경 변수를 펼치는 글: echo $GITHUB_TOKEN 은 열쇠를 대화에 적는다 (11/25 검토) */
+// 이름이 그 말로 끝나거나 _ 로 이어질 때만 ($MAX_TOKENS · $TOKENIZER 는 아니다)
+const SECRET_VAR = /\$\{?\w*(TOKEN|SECRET|PASSWORD|PASSWD|API_?KEY|PRIVATE_KEY|CREDENTIALS?)(?![A-Za-z])/
 /** 경로나 명령이 비밀이 든 곳을 건드리는지 (자동 모드의 읽기 · 명령 판정) */
 /** 명령 줄이면 낱말마다도 본다: SECRET은 경로의 처음(^)을 보므로 줄 전체에 대면 `cat .env` · `cd ~/.aws`를 놓친다 */
-export const touchesSecret = (text: string) => SECRET.test(text) || APP_SECRET.test(text) || (/\s/.test(text) && text.split(/[\s'"=;|&<>()]+/).some((w) => !!w && SECRET.test(w)))
+export const touchesSecret = (text: string) => SECRET.test(text) || APP_SECRET.test(text) || SECRET_VAR.test(text) || (/\s/.test(text) && text.split(/[\s'"=;|&<>()]+/).some((w) => !!w && SECRET.test(w)))
 
 /** 파일로 쓰지 않는 돌려보내기 (오류를 합치기 · 버리기) */
 const HARMLESS_REDIRECT = /(?:\d?>&\d+(?=[\s;&|)<>]|$)|&>\s*\/dev\/null|\d?>>?\s*\/dev\/null)/g
-
-/** 따옴표 안과 \\ 뒤 글자를 지운 글 (문법 기호를 찾을 때). \\" 는 따옴표를 열지 않는다 */
-function bare(cmd: string): string {
-  let out = ''
-  let q: string | null = null
-  for (let i = 0; i < cmd.length; i++) {
-    const ch = cmd[i]!
-    if (q) {
-      if (q === '"' && ch === '\\' && i + 1 < cmd.length) { out += '__'; i++ }
-      else if (ch === q) { q = null; out += ch }
-      else out += '_'
-      continue
-    }
-    if (ch === '\\' && i + 1 < cmd.length) { out += '__'; i++; continue }
-    if (ch === '"' || ch === "'") q = ch
-    out += ch
-  }
-  return out
-}
 
 /**
  * 셸이 낱말을 바꾸는 문법 (11/21 보안 검토). 판정은 적힌 낱말을 보는데 셸은 돌리기 전에 낱말을 펼친다:
@@ -337,8 +324,8 @@ function bare(cmd: string): string {
 const PARAM_ODD = /\$\{(?![A-Za-z_]\w*(?:[%#]{1,2}[^}$`@]*)?\})/
 const BRACES = /\{[^{}]*(,|\.\.)[^{}]*\}/
 const VAR = /\$\{?([A-Za-z_]\w*)?/g
-/** 펼쳐지는 $ (뒤에 이름 · 숫자 · { · 특수 변수 글자가 온다. 정규식의 끝 $ 는 아니다) */
-const EXPANDS = /\$[A-Za-z_0-9{$?!#*@-]/
+/** 펼쳐지는 $ (뒤에 이름 · 숫자 · { · 특수 변수 글자가 온다. 정규식의 끝 $ 는 아니다). zsh의 $=x · $~x · $^x · $+x 도: $=x 는 값을 낱말로 쪼갠다 */
+const EXPANDS = /\$[A-Za-z_0-9{$?!#*@=~^+-]/
 const SAFE_VARS = /^(HOME|PWD|USER|TMPDIR)$/
 /** 반복문에 글자 그대로 적은 낱말: 빈칸 · 별표 · 중괄호 · = 가 없고 - 로 시작하지 않아, 변수로 써도 낱말 하나이고 옵션이 되지 않는다 */
 const SIMPLE_WORD = /^[^\s\-*?[\]{}~$=][^\s*?[\]{}$=]*$/
@@ -382,7 +369,7 @@ export function stateOnlyCommand(raw: string, o: { gitWrites?: boolean } = {}, d
   if (depth > 2) return 'no'
   const cmd = joinLines(raw)
   const programs = o.gitWrites ? WRITE_PROGRAMS : PROGRAMS
-  let worst: StateOnly = 'ok'
+  let worst: StateOnly = SECRET_VAR.test(cmd) ? 'sensitive' : 'ok'
   // $'…' · $"…" (따옴표 안의 \\' 를 다르게 읽는 문법)은 해석하지 않고 막는다
   if (/\$['"]/.test(cmd) || PARAM_ODD.test(cmd)) return 'no'
   const loopVars = new Set<string>()
@@ -395,7 +382,8 @@ export function stateOnlyCommand(raw: string, o: { gitWrites?: boolean } = {}, d
     if (inner === 'sensitive') worst = 'sensitive'
   }
   const b = bare(flat)
-  if (/\$\(|`|<<|<\(|>\(/.test(b)) return 'no'
+  // 따옴표 밖에 남은 괄호도 막는다: zsh의 =( 명령 ) · 무늬 꼬리표 *(e:'명령':) · *(+이름)은 명령을 돌리고, 묶음 ( … )은 이 목록이 읽지 않는다
+  if (/\$\(|`|<<|[()]/.test(b)) return 'no'
   const noRedirect = b.replace(HARMLESS_REDIRECT, ' ')
   if (/>/.test(noRedirect)) return 'no'
   // 홀로 선 & (백그라운드)
