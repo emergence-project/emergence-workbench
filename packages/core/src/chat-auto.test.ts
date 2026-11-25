@@ -167,6 +167,23 @@ describe('명령이 하는 일', () => {
     for (const c of ['xxd -l 16 a.bin', 'xxd -s 10 -l 4 a.bin', `awk '{printf "%s|%s\\n", $1, $2}' a.txt`, 'f () { ls }', 'cp a.md{,.bak} && ls']) expect(k(c), c).not.toBe('run')
     expect(k('xxd -l 16 a.bin')).toBe('read')
   })
+  // 11/25 넷째 검토: 옛 코드와 나란히 돌려 더 가벼워진 꼴
+  it('env -S 뒤의 옵션 · sed의 스크립트 자리 · 값이 많은 변수', () => {
+    for (const c of ['env -S -- rm -rf x', 'env -S -i rm x', "bash -c -o errexit 'rm -rf x'", "zsh -c -- '- rm -rf x'",
+      `for x in ${Array.from({ length: 64 }, (_, i) => `a${i}`).join(' ')} -delete; do find . $x; done`, 'for a in -del x y z w; do for b in ete p q r; do find . $a$b; done; done',
+      "ls # <<X\ncat <<true\necho '\ntrue\nrm -rf x #'", "ls # <<'pwd'\ncat <<true\necho '\ntrue\necho `rm -rf x` #'\npwd"])
+      expect(k(c), c).toBe('delete')
+    for (const c of ["sed $u 'w out.txt' a.md", "sed -n $u 'w out.txt' a.md", "sed $(echo -n) 'w out.txt' a.md", "sed -n 'p\nw out.txt' a.md", "sed -ne'wnote.txt' a.md", "sed -n 's~x~y~w out.txt' a.md"])
+      expect(k(c), c).toBe('edit')
+    // 다 넣어 보지 못할 만큼 많으면 모르는 것으로: 실행
+    expect(k(`for a in ${'x '.repeat(20)}; do for b in ${'y '.repeat(20)}; do find . $a$b; done; done`)).toBe('run')
+  })
+  it('중괄호가 수십 겹이어도 바로 답한다 (다 펼치지 못하면 폴더 밖으로)', () => {
+    const t0 = Date.now()
+    for (const c of [`cat /u/p/${'{a,b}'.repeat(30)}`, `ls ../p/x${'{a,b}'.repeat(30)}`, `echo hi > /u/p/o${'{a,b}'.repeat(30)}`]) expect(k(c), c).toBe('outside')
+    expect(Date.now() - t0).toBeLessThan(2000)
+    expect(k('cat /u/p/{a,b}{c,d}.md')).toBe('read')
+  })
   it('따옴표 안의 이음표는 나누지 않는다', () => {
     expect(k("grep 'a && rm b' x")).toBe('read')
     expect(k('echo "x; git push"')).toBe('read')

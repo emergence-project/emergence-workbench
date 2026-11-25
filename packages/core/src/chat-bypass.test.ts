@@ -61,6 +61,19 @@ describe('중앙 대화의 우회: 허락해도 돌리지 않는 명령', () => 
     ] as const) expect(neverBypass(c), c).toBe(why)
     for (const c of ['rm -rf /tmp/a { /Users/u/Documents', 'tee /tmp/x { workbench/a']) expect(writesFiles(c), c).toBe(true)
   })
+  // 11/25 넷째 검토
+  it('env -S 뒤의 옵션, 셸의 -c 뒤 옵션, 따옴표 친 빈칸이 든 중괄호 경로, 여러 가지로 읽히는 낱말', () => {
+    for (const [c, why] of [
+      ['env -S -- git push --force origin main', 'force-push'], ['env -S -i git reset --hard', 'reset-hard'], ['env -S -- mv a workbench/b', 'workbench-write'], ['env -S -- rm -rf /Users/u/D', 'rm-outside-temp'],
+      ["bash -c -o errexit 'git push --force'", 'force-push'], ["zsh -c -- '- git push --force'", 'force-push'], ["ls # <<X\ncat <<true\necho '\ntrue\ngit push --force origin main #'", 'force-push'],
+      ["rm -rf '/tmp/a b'/{.,}./{.,}./Users", 'rm-outside-temp'], ['rm -rf /tmp/a/{" ",.}./{" ",.}./Users/u/D', 'rm-outside-temp'],
+      ['find ${HOME:-/tmp/a} -{delete,print}', 'rm-outside-temp'], ['rm -r{f,f} ${HOME:-/tmp/a/b}', 'rm-outside-temp'],
+    ] as const) expect(neverBypass(c), c).toBe(why)
+    for (const c of ['env -S -- mv a workbench/b', 'echo x > ${HOME:-/tmp/a/b}', 'echo x >> {/tmp/a,~/b}']) expect(writesFiles(c), c).toBe(true)
+    expect(writesFiles('echo x > /tmp/a/{b,c}')).toBe(false)
+    expect(neverBypass("sh -c 'rm -rf \"$1\"' _ /tmp/x")).toBe('rm-outside-temp')
+    for (const c of ["rm -rf '/tmp/a b'/{c,d}", "sh -c 'ls \"$1\"' _ x"]) expect(neverBypass(c), c).toBeUndefined()
+  })
   it('되돌리기 어려운 git', () => {
     for (const [c, why] of [
       ['git push --force origin main', 'force-push'], ['git push -f', 'force-push'], ['git push -uf origin x', 'force-push'], ['git push origin +main', 'force-push'],

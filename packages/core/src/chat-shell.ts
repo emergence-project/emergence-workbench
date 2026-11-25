@@ -123,38 +123,47 @@ export function joinLines(cmd: string): string {
 }
 
 /**
- * 히어독으로 읽은 글: 본문의 따옴표를 빈칸으로 바꾼 것 (히어독이 없으면 null). 본문에서 따옴표는 글자라, 그대로 읽으면
+ * 히어독으로 읽은 글들: 본문의 따옴표를 빈칸으로 바꾼 것 (히어독이 없으면 빈 목록). 본문에서 따옴표는 글자라, 그대로 읽으면
  * `cat <<E⏎it's⏎E⏎rm -rf x`의 ' 가 뒤 명령을 따옴표 안으로 가져간다. 구분자에 따옴표가 없으면(<<E) 본문의 $( … ) · ` … ` 는
  * 펼쳐지므로 두고, 따옴표로 쌌으면(<<'E') 본문은 글자 그대로라 $ · ` · \\ 도 지운다.
  * 원래 글을 대신하지 않는다 (11/25 셋째 검토): << 가 정말 히어독인지는 여기서 다 알 수 없어서(따옴표 · 주석 안의 <<),
  * 받는 쪽은 원래 글과 이 글을 둘 다 판정해 무거운 쪽을 쓴다. 한쪽으로만 읽으면 본문으로 잘못 본 줄의 명령이 가려진다
  */
-export function heredocVariant(cmd0: string): string | null {
+export function heredocVariants(cmd0: string): string[] {
   const cmd = joinLines(cmd0)
-  const out = heredocQuotes(cmd)
-  return out === cmd ? null : out
+  if (!cmd.includes('<<')) return []
+  const out: string[] = []
+  // 앞의 << 몇 개는 히어독이 아닌 것으로도 읽어 본다 (주석 · 따옴표 안의 << 가 진짜 히어독 앞에 있을 때)
+  for (let skip = 0; skip < 4; skip++) {
+    const v = heredocQuotes(cmd, skip)
+    if (v === null) break
+    if (v !== cmd && !out.includes(v)) out.push(v)
+  }
+  return out
 }
-function heredocQuotes(cmd: string): string {
-  if (!cmd.includes('<<')) return cmd
+/** 앞의 skip개는 건너뛰고, 그 뒤의 << 를 히어독으로 읽어 본문의 따옴표를 지운 글. << 가 skip개보다 많지 않으면 null */
+function heredocQuotes(cmd: string, skip: number): string | null {
   let out = ''
   let pos = 0
+  let seen = 0
   for (let n = 0; n < 50; n++) {
     const rest = cmd.slice(pos)
     const m = /(?<!<)<<(?!<)(-?)[ \t]*([^\s;&|<>()]+)/.exec(bare(rest))
     if (!m) break
     const opEnd = m.index + m[0].length
+    seen++
     const raw = rest.slice(opEnd - m[2]!.length, opEnd)
     const delim = words(raw)[0] ?? raw
     const nl = rest.indexOf('\n', opEnd)
-    if (nl < 0) break
-    const lines = rest.slice(nl + 1).split('\n')
+    const lines = nl < 0 ? [] : rest.slice(nl + 1).split('\n')
     const end = lines.findIndex((l) => (m[1] ? l.replace(/^\t+/, '') : l) === delim)
-    if (end < 0) break
+    // 히어독으로 읽지 않는 것(건너뛸 것 · 끝 줄이 없는 것)은 그대로 두고 그 뒤부터 다시 찾는다
+    if (seen <= skip || end < 0) { out += rest.slice(0, opEnd); pos += opEnd; continue }
     const strip = /['"\\]/.test(raw) ? /['"`\\$]/g : /['"]/g
     out += rest.slice(0, nl + 1) + [...lines.slice(0, end).map((l) => l.replace(strip, ' ')), lines[end]].join('\n')
     pos += nl + 1 + lines.slice(0, end + 1).join('\n').length
   }
-  return out + cmd.slice(pos)
+  return skip > 0 && seen <= skip ? null : out + cmd.slice(pos)
 }
 
 /**
@@ -384,8 +393,9 @@ function braceAlts(body: string): string[] | null {
   return out
 }
 /** 낱말의 첫 중괄호 묶음을 펼친 낱말들 (없으면 null). 변수 ${x} 의 중괄호는 아니다 */
-function braceOnce(x: string): string[] | null {
-  if (/[\s"]/.test(x)) return null
+function braceOnce(x: string, force = false): string[] | null {
+  // 빈칸 · 큰따옴표가 든 낱말은 따옴표로 싼 글(JSON · awk 코드)일 때가 많아 펼치지 않는다. force면 그래도 펼친다
+  if (!force && /[\s"]/.test(x)) return null
   for (const m of x.matchAll(/\{([^{}]*)\}/g)) {
     if (x[m.index - 1] === '$') continue
     const alts = braceAlts(m[1]!)
@@ -394,7 +404,7 @@ function braceOnce(x: string): string[] | null {
   return null
 }
 /** 펼칠 중괄호가 (아직) 남아 있는 낱말인지 */
-export const hasBraces = (x: string) => braceOnce(x) !== null
+export const hasBraces = (x: string) => braceOnce(x, true) !== null
 
 /** 빈 것일 수 있는 것: 변수($u · ${u}) · 빈 치환($() · `` · 자리표). 뒤에 / 가 오는 경로 머리($PWD/…)는 아니다 */
 const MAYBE_EMPTY = /\$\{[A-Za-z_]\w*\}(?!\/)|\$[A-Za-z_]\w*(?!\/)|\$\(\)|``|SUBST/g
@@ -415,20 +425,22 @@ export function expandWords(w: string[]): string[] {
   return expandBraces(out)
 }
 /** 중괄호만 펼친 낱말들. 너무 많으면 펼치다 만 채로 돌려준다 (hasBraces로 알 수 있다) */
-export function expandBraces(w: string[]): string[] {
+export function expandBraces(w: string[], force = false): string[] {
   let out = w
   for (let round = 0; round < 12; round++) {
     let grew = false
-    const next = out.flatMap((x) => { const alts = braceOnce(x); if (alts) grew = true; return alts ?? [x] })
+    const next = out.flatMap((x) => { const alts = braceOnce(x, force); if (alts) grew = true; return alts ?? [x] })
     if (!grew || next.length > 512) break
     out = next
   }
   return out
 }
-/** 판정해 볼 낱말 묶음들: 원래 낱말, 그리고 펼친 것이 다르면 그것도. 받는 쪽은 그중 무거운 판정을 쓴다 */
+/** 판정해 볼 낱말 묶음들: 원래 낱말, 그리고 펼친 것이 다르면 그것들도. 받는 쪽은 그중 무거운 판정을 쓴다 */
 export function alternatives(w: string[]): string[][] {
-  const e = expandWords(w)
-  return e.length === w.length && e.every((x, i) => x === w[i]) ? [w] : [w, e]
+  // 적힌 그대로 · 중괄호만 펼친 것(따옴표가 없으면 늘 이렇게 된다) · 기본값과 빈 변수까지 넣은 것(그럴 수도 있다)
+  const out: string[][] = []
+  for (const x of [w, expandBraces(w), expandWords(w)]) if (!out.some((y) => y.length === x.length && y.every((v, i) => v === x[i]))) out.push(x)
+  return out
 }
 
 /**

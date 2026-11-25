@@ -3,7 +3,7 @@
  * 명령 한 줄이 무엇을 하는지 판정하고(commandKind), 권한 이름마다의 「자동 허용」 기본값(presetAuto)을 둔다.
  * 서버의 허락 판정(agentChats.ts judge)과 화면의 토글(AgentChats.tsx)이 함께 쓴다.
  */
-import { alternatives, evalFlags, expandWords, heredocVariant, longOpt, qualifierRuns, qualifiers, redirects, segments, splitGroups, substitutions, unmask, words } from './chat-shell.js'
+import { alternatives, evalFlags, expandBraces, expandWords, hasBraces, heredocVariants, longOpt, qualifierRuns, qualifiers, redirects, segments, splitGroups, substitutions, unmask, words } from './chat-shell.js'
 
 // 셸 글 읽기는 chat-shell.ts로 옮겼다: 여기서 가져다 쓰던 곳을 위해 그대로 내보낸다
 export { bare, joinLines, prepare, redirects, segments, substitutions, unmask, words } from './chat-shell.js'
@@ -90,7 +90,8 @@ export function leading(all: string[]): { rest: string[]; env: boolean } {
       while (w.length && w[0]!.startsWith('-')) {
         // env -S'rm -rf x' · -S 'rm -rf x': 그 글을 낱말로 쪼개 돌린다
         const split = /^(?:-[a-zA-Z]*S|--split-string=?)(.*)$/s.exec(w[0]!)
-        if (split) { w = [...words(split[1] || (w[1] ?? '')), ...w.slice(split[1] ? 1 : 2)]; break }
+        // (쪼갠 것이 다시 옵션이면 계속 뗀다: env -S -- git push · env -S -i git reset)
+        if (split) { w = [...words(split[1] || (w[1] ?? '')), ...w.slice(split[1] ? 1 : 2)]; continue }
         w = w.slice(/^-[uCP]$/.test(w[0]!) ? 2 : 1)
       }
     }
@@ -128,12 +129,14 @@ type Where = { cwd: string; inside(abs: string): boolean; home?: string }
 const DEPTH_MAX = 40
 
 export function commandKind(cmd: string, o: Where, depth = 0): ChatKind {
-  const kind = kindCore(cmd, o, depth)
+  let kind = kindCore(cmd, o, depth)
   // 히어독으로도 읽어 보고 무거운 쪽을 쓴다 (본문의 따옴표가 뒤 명령을 가리는 꼴, 본문에서 펼쳐지는 $( … ))
-  // (겹친 깊이마다 두 번씩 읽으면 일이 곱절로 불어나므로 바깥 몇 겹에서만. 안쪽의 히어독은 바깥에서 읽을 때 함께 읽힌다)
-  const alt = depth < 3 ? heredocVariant(cmd) : null
-  const other = alt === null ? kind : kindCore(alt, o, depth)
-  return WEIGHT[other] > WEIGHT[kind] ? other : kind
+  // (겹친 깊이마다 여러 번 읽으면 일이 곱절로 불어나므로 바깥 몇 겹에서만. 안쪽의 히어독은 바깥에서 읽을 때 함께 읽힌다)
+  for (const alt of depth < 3 ? heredocVariants(cmd).slice(0, depth === 0 ? 4 : 1) : []) {
+    const other = kindCore(alt, o, depth)
+    if (WEIGHT[other] > WEIGHT[kind]) kind = other
+  }
+  return kind
 }
 
 function kindCore(cmd: string, o: Where, depth: number): ChatKind {
@@ -158,7 +161,10 @@ function kindCore(cmd: string, o: Where, depth: number): ChatKind {
     }
     const all = words(r.rest)
     // 글자 그대로 적은 값의 변수는 그 값을 넣어서도 본다: for x in -delete; do find . $x; done
-    for (const v of variants(unmask(seg), vars)) bump(commandKind(v, o, depth + 1))
+    const tried = variants(unmask(seg), vars)
+    // 다 넣어 보지 못했으면(짝이 너무 많다) 무엇이 될지 모르니 실행으로
+    if (tried.partial) bump('run')
+    for (const v of tried.texts) bump(commandKind(v, o, depth + 1))
     noteVars(all, vars)
     // for x in /etc/*: 도는 낱말이 폴더 밖이면 그 변수를 읽는 것도 밖이다
     if (all[0] === 'for' && all[2] === 'in') for (const x of expandWords(all.slice(3))) { const v = pathPart(x); if (looksLikePath(v) && touchesOutside(v, o)) bump('outside') }
@@ -215,16 +221,19 @@ export function noteVars(all: string[], vars: Map<string, string[]>): void {
     if (LITERAL.test(value)) vars.set(name, [value]); else vars.delete(name)
   }
 }
-/** 적어 둔 변수($x · ${x} · zsh의 $=x · $~x)를 값으로 바꾼 글들. 쓰지 않으면 []. 짝이 너무 많으면 변수 하나씩만 바꾼 글들 */
-export function variants(text: string, vars: Map<string, string[]>): string[] {
+/**
+ * 적어 둔 변수($x · ${x} · zsh의 $=x · $~x)를 값으로 바꾼 글들 (쓰지 않으면 없음).
+ * 짝이 너무 많으면 변수 하나씩만 바꾼 글들을 주고 partial = true: 다 넣어 본 것이 아니다
+ */
+export function variants(text: string, vars: Map<string, string[]>): { texts: string[]; partial: boolean } {
   const re = (name: string) => new RegExp(`\\$(?:[=~^]{0,2}${name}\\b|\\{[=~^]{0,2}${name}\\})`, 'g')
   const used = [...vars].filter(([name]) => re(name).test(text))
   let out = [text]
   for (const [name, vals] of used) {
     out = out.flatMap((t) => vals.map((v) => t.replace(re(name), v)))
-    if (out.length > 16) return used.flatMap(([n, vs]) => vs.slice(0, 64).map((v) => text.replace(re(n), v)))
+    if (out.length > 256) return { texts: used.flatMap(([n, vs]) => vs.slice(0, 256).map((v) => text.replace(re(n), v))).slice(0, 512), partial: true }
   }
-  return used.length ? out : []
+  return { texts: used.length ? out : [], partial: false }
 }
 
 /** 감싸 돌리는 안의 명령: 글 한 줄(sh -c · eval)이면 string, 낱말들(find -exec · xargs)이면 string[] */
@@ -232,9 +241,9 @@ export function wrapped(prog: string, args: string[]): (string | string[])[] {
   if (/^(sh|bash|zsh|dash|ksh|fish)$/.test(prog)) {
     // -c 는 다른 글자와 붙여 쓰기도 하고(-ce · -lc), 뒤에 -- 를 두기도 한다
     const i = args.findIndex((a) => /^-[a-zA-Z]*c[a-zA-Z]*$/.test(a))
-    // 명령 글은 -c 뒤의 첫 옵션 아닌 낱말이다 (bash -c -e '…' · bash -c -- '…')
-    const code = i < 0 ? undefined : args.slice(i + 1).find((a) => !a.startsWith('-'))
-    return code ? [code] : []
+    // 명령 글은 -c 뒤의 낱말인데 사이에 옵션과 그 값이 낄 수 있다(bash -c -o errexit '…' · zsh -c -- '- …'):
+    // 옵션 모양이 아닌 낱말을 모두 명령 글로 읽어 본다 (뒤의 $0 · $1 값도 읽히지만 더 무거워질 뿐이다)
+    return i < 0 ? [] : args.slice(i + 1).filter((a) => a && a !== '--' && !/^[-+][a-zA-Z]+$/.test(a) && !/^--[\w-]+$/.test(a))
   }
   // eval eval … 은 한 번의 eval과 같다 (겹친 만큼 깊이 들어가지 않게)
   if (prog === 'eval') { const rest = args.slice(args.findIndex((x) => x !== 'eval')); return rest.length && rest[0] !== 'eval' ? [rest.join(' ')] : [] }
@@ -321,7 +330,7 @@ function kindOf(prog: string, args: string[]): ChatKind {
   // sed: -i와 w 명령(파일 쓰기)
   // -Ei · -ni처럼 붙여 쓴 꼴과 주소 뒤의 w(1,5w 파일 · $w 파일)도
   // sed: -i와 w 명령(파일 쓰기). 스크립트만 본다(파일 이름 words.txt 의 w 는 아니다): 처음 · ; 뒤의 w, 주소 · s///깃발 뒤의 w
-  if (prog === 'sed') return args.some((a) => /^-[a-zA-Z]*i/.test(a) || /^--in-place/.test(a)) || sedScripts(args).some((x) => /(^|[;{}])\s*w\s*[^\s;]|[/\d$!,|#:@%_][gpIiM\d]*\s*w\s+\S/.test(x)) ? 'edit' : 'read'
+  if (prog === 'sed') return args.some((a) => /^-[a-zA-Z]*i/.test(a) || /^--in-place/.test(a)) || sedScripts(args).some((x) => /(^|[;{}\n])\s*w\s*[^\s;]|[^A-Za-z\s][gpIiM\d]*\s*w\s+\S/.test(x)) ? 'edit' : 'read'
   // awk의 system() · 명령으로 잇기(| · getline) · 파일 쓰기는 실행으로. print … | 명령 은 문자열 밖의 | 만 (printf "%s|%s" 는 아니다)
   if (prog === 'awk') return args.some((a) => /system\s*\(|getline|\|\s*"|"\s*\||print[^;}|]*>/.test(a) || /print[^;}\n]*\|/.test(a.replace(/"(?:\\.|[^"\\])*"/g, '""'))) ? 'run' : 'read'
   if (prog === 'find') {
@@ -352,14 +361,19 @@ function kindOf(prog: string, args: string[]): ChatKind {
   return 'run'
 }
 
-/** sed의 스크립트들: -e 값(-ne'…' 처럼 붙여 쓴 것도) · --expression=값, 없으면 첫 낱말 */
+/**
+ * sed의 스크립트일 수 있는 낱말들: -e 값(-ne'…' 처럼 붙여 쓴 것도) · --expression=값, 없으면 첫 낱말.
+ * 첫 낱말이 빈 것일 수 있으면($u · 치환) 그다음도, 빈칸이 든 낱말(파일 이름일 리가 적다)도 스크립트로 읽어 본다
+ */
 function sedScripts(args: string[]): string[] {
   const out: string[] = []
   for (let n = 0; n < args.length; n++) {
-    const m = /^(?:-[a-zA-Z]*e|--expression=?)(.*)$/s.exec(args[n]!)
+    const m = /^(?:-[a-zA-Z]*?e|--expression=?)(.*)$/s.exec(args[n]!)
     if (m) out.push(m[1] || (args[++n] ?? ''))
   }
-  return out.length ? out : args.filter((a) => !a.startsWith('-')).slice(0, 1)
+  const named = args.filter((a) => !a.startsWith('-'))
+  const first = named.findIndex((a) => !/^(\$\{?\w+\}?|SUBST|\$\(\)|``)+$/.test(a))
+  return [...out, ...(out.length ? [] : named.slice(0, first + 1)), ...named.filter((a) => /\s/.test(a))]
 }
 
 /** 옵션에 붙여 적은 경로도 본다: --file=/etc/x · -f/etc/x · of=/etc/x */
@@ -368,10 +382,12 @@ const pathPart = (a: string) => /^--?[A-Za-z][\w-]*=(.+)$/.exec(a)?.[1] ?? /^-[A
 const looksLikePath = (a: string) => a.startsWith('/') || a.startsWith('~') || a.startsWith('..') || a.includes('../') || a.endsWith('/..') || /^"?\$\{?(HOME|PWD)\b/.test(a)
 
 function touchesOutside(p: string, o: Where): boolean {
+  // 중괄호로 여럿이 되는 경로는 하나라도 밖이면 밖이다 ({a,~/x}). 다 펼치지 못할 만큼 많으면 어디인지 모르니 밖으로
+  const alts = expandBraces([p])
+  return alts.some((x) => hasBraces(x) && !/[\s"]/.test(x)) || alts.some((x) => outsideOne(x, o))
+}
+function outsideOne(p: string, o: Where): boolean {
   if (p === '/dev/null' || p.startsWith('/dev/std')) return false
-  // 중괄호로 여럿이 되는 경로는 하나라도 밖이면 밖이다 ({a,~/x})
-  const alts = expandWords([p])
-  if (alts.length > 1) return alts.some((x) => touchesOutside(x, o))
   const home = o.home ?? ''
   const cwd = o.cwd.replace(/\/$/, '')
   const bare = p.replace(/^"/, '').replace(/^\$\{?HOME\}?/, '~').replace(/^\$(?:PWD(?!\w)|\{PWD\})/, cwd)

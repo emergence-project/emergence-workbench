@@ -6,7 +6,7 @@
  * 옵션 줄임꼴(--har), 펼쳐서 만드는 옵션({--force,x} · --for${u}ce), 글자 그대로 적은 값의 변수(f=--force; git push $f)도 같은 것으로 읽는다
  */
 import { GIT_VALUE, leading, noteVars, variants, wrapped } from './chat-auto.js'
-import { alternatives, evalFlags, expandBraces, expandWords, hasBraces, heredocVariant, longOpt, prepare, redirects, segments, splitGroups, substitutions, words } from './chat-shell.js'
+import { alternatives, evalFlags, expandBraces, expandWords, hasBraces, heredocVariants, longOpt, prepare, redirects, segments, splitGroups, substitutions, words } from './chat-shell.js'
 
 export type NeverBypass = 'force-push' | 'reset-hard' | 'delete-main' | 'rm-outside-temp' | 'workbench-write'
 
@@ -22,7 +22,8 @@ const wb = (x: string) => /(^|\/)workbench(\/|$)/.test(x)
  * 중괄호는 펼쳐서 본다: /tmp/a/{b,c} 는 안이고, {/tmp/a,~/b} · /tmp/a/{.,}./{.,}./Users 는 밖이다. 다 펼치지 못할 만큼 많으면 밖으로
  */
 export function inTemp(p: string): boolean {
-  const all = expandBraces([p])
+  // (따옴표 친 빈칸이 든 낱말도 펼친다: '/tmp/a b'/{.,}./ 는 .. 가 된다)
+  const all = expandBraces([p], true)
   return !all.some(hasBraces) && all.every(inTempOne)
 }
 function inTempOne(p: string): boolean {
@@ -117,8 +118,11 @@ function segmentWords(w: string[], depth: number): NeverBypass | undefined {
   const a = w.slice(1)
   // sh -c '…' · bash -c -- '…' · ksh -c · eval eval …: 안의 글을 같은 규칙으로
   if (SHELL.test(prog) || prog === 'eval') {
-    const [inner] = wrapped(prog, a)
-    return typeof inner === 'string' ? neverBypass(inner, depth + 1) : undefined
+    for (const inner of wrapped(prog, a)) {
+      const hit = typeof inner === 'string' ? neverBypass(inner, depth + 1) : undefined
+      if (hit) return hit
+    }
+    return undefined
   }
   // find · xargs 가 돌리는 안의 명령도 본다. find -delete 는 뒤지는 곳을 rm -rf 하는 것과 같다
   if (prog === 'find' || prog === 'xargs') {
@@ -148,8 +152,11 @@ export function neverBypass(cmd0: string, depth = 0): NeverBypass | undefined {
   // 히어독으로도 읽어 본다 (본문의 따옴표가 뒤 명령을 가리는 꼴). 원래 글에서 걸리면 그것으로
   const hit = neverCore(cmd0, depth)
   if (hit) return hit
-  const alt = depth < 3 ? heredocVariant(cmd0) : null
-  return alt === null ? undefined : neverCore(alt, depth)
+  for (const alt of depth < 3 ? heredocVariants(cmd0).slice(0, depth === 0 ? 4 : 1) : []) {
+    const other = neverCore(alt, depth)
+    if (other) return other
+  }
+  return undefined
 }
 
 function neverCore(cmd0: string, depth: number): NeverBypass | undefined {
@@ -166,10 +173,11 @@ function neverCore(cmd0: string, depth: number): NeverBypass | undefined {
   for (const seg of segments(cmd)) {
     const r = redirects(seg)
     // 파일로 돌려보내기: 받는 곳이 workbench/ 안이면
-    if (expandWords(r.out).some(wb)) return 'workbench-write'
+    // (받는 곳도 적힌 그대로와 펼친 것을 둘 다 본다)
+    if ([...r.out, ...expandWords(r.out)].some(wb)) return 'workbench-write'
     const all = words(r.rest)
     // 글자 그대로 적은 값의 변수는 그 값을 넣어서도 본다: f=--force; git push origin main $f
-    for (const v of variants(seg, vars)) {
+    for (const v of variants(seg, vars).texts) {
       const hit = neverBypass(v, depth + 1)
       if (hit) return hit
     }
@@ -193,8 +201,7 @@ const keep = (p: string) => SINK.test(p) || inTemp(p)
  */
 export function writesFiles(cmd0: string, depth = 0): boolean {
   if (writesCore(cmd0, depth)) return true
-  const alt = depth < 3 ? heredocVariant(cmd0) : null
-  return alt !== null && writesCore(alt, depth)
+  return (depth < 3 ? heredocVariants(cmd0).slice(0, depth === 0 ? 4 : 1) : []).some((alt) => writesCore(alt, depth))
 }
 
 function writesCore(cmd0: string, depth: number): boolean {
@@ -205,7 +212,7 @@ function writesCore(cmd0: string, depth: number): boolean {
   for (const seg of segments(cmd)) {
     const r = redirects(seg)
     // > · >> · &> · &>> 가 받는 파일 (11/25: &> 파일을 보지 못했다)
-    if (expandWords(r.out).some((x) => !keep(x))) return true
+    if ([...r.out, ...expandWords(r.out)].some((x) => !keep(x))) return true
     const all = words(r.rest)
     if ([all, ...splitGroups(all)].some((group) => writesWords(group, depth))) return true
   }
@@ -219,7 +226,7 @@ function writesExpanded(w: string[], depth: number): boolean {
   if (!w.length) return false
   const prog = w[0]!.split('/').pop()!
   const a = w.slice(1)
-  if (SHELL.test(prog) || prog === 'eval') { const [inner] = wrapped(prog, a); return typeof inner === 'string' && writesFiles(inner, depth + 1) }
+  if (SHELL.test(prog) || prog === 'eval') return wrapped(prog, a).some((inner) => typeof inner === 'string' && writesFiles(inner, depth + 1))
   if (prog === 'find' || prog === 'xargs') {
     const roots = prog === 'find' ? findRoots(a) : []
     if (prog === 'find' && a.some((x) => /^-(fprint|fprint0|fprintf|fls)$/.test(x))) return true
