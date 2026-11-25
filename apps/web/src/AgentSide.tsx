@@ -2,6 +2,7 @@
 // 프로젝트 밖 화면(홈 · 피드백 · 소개 · 설정 …)의 오른쪽 사이드바: 맨 위에 「중앙」, 그 아래 모든 프로젝트의 최근 대화, 아래 입력란은 중앙에게 말한다.
 // 대화를 누르면 이 사이드바 안에서 연다(페이지를 옮기지 않음). 프로젝트 화면은 원래의 오른쪽 사이드바 에이전트 탭을 쓰고, 그 목록 맨 위에도 「중앙」이 있다
 import { useEffect, useState, type ReactNode } from 'react'
+import { useCmdEnter } from './cmdEnter'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { agentChatsApi, CENTRAL_RID, devicesApi } from './api'
 import { serverSkew } from './DeviceList'
@@ -144,11 +145,12 @@ function TalkToCentral({ onOpened }: { onOpened(id: string): void }) {
       onOpened(c.id)
     } catch (e) { setFail(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
   }
+  const sendKey = useCmdEnter(() => void submit())
   return (
     <div className="ac-side-talk" data-ui="중앙에게 말하기">
       <textarea className="ac-central-input" rows={3} value={text} placeholder={t('중앙에게 말하기 · ⌘↩ 보내기', 'Talk to Central · ⌘↩ to send')} aria-label={t('중앙에게 말하기', 'Talk to Central')}
         onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); void submit() } }} />
+        onKeyDown={sendKey.onKeyDown} onCompositionEnd={sendKey.onCompositionEnd} />
       <div className="ac-central-send">
         {fail && <span className="error-text">{fail}</span>}
         <button className="btn primary" disabled={!text.trim() || busy} onClick={() => void submit()}>{t('보내기', 'Send')}</button>
