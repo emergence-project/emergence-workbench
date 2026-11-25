@@ -23,6 +23,17 @@ describe('명령이 하는 일', () => {
       expect(k(c), c).toBe('outside')
     expect(k('ls /tmp/x')).toBe('read')
   })
+  // 11/25: 작은따옴표 안을 가린 채로 판정해 안의 명령이 보이지 않았다 (#681의 가림)
+  it('작은따옴표로 싼 코드 · 명령도 진짜 글로 본다', () => {
+    expect(k(`awk '{system("rm x")}' a.txt`)).toBe('run')
+    expect(k("sh -c 'echo $(rm -rf x)'")).toBe('delete')
+    expect(k("bash -c '(rm -rf x)'")).toBe('delete')
+    expect(k("zsh -c 'cd sub && (git push)'")).toBe('outside')
+    // 가림 자체는 그대로: 작은따옴표 안의 $( 는 치환이 아니고, 그 사이의 명령을 가리지 못한다
+    expect(k("echo '$(echo ' ; rm -rf x ; echo ')'")).toBe('delete')
+    expect(k("grep -n '$(x)' a.md")).toBe('read')
+    expect(k("grep -n '$HOME/.config' a.md")).toBe('read')
+  })
   it('따옴표 안의 이음표는 나누지 않는다', () => {
     expect(k("grep 'a && rm b' x")).toBe('read')
     expect(k('echo "x; git push"')).toBe('read')

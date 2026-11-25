@@ -10,6 +10,13 @@ describe('상태만 보는 명령 (중앙 대화)', () => {
       'find . -name "*.ts" | wc -l', '/bin/ls -la', 'git branch -a', 'date +%s',
     ]) expect(stateOnlyCommand(c), c).toBe('ok')
   })
+  // 11/25: 작은따옴표 안을 가린 채로 규칙에 넘겨 exec( · eval( 이 보이지 않았다 (#681의 가림)
+  it('작은따옴표로 싼 파이썬 코드도 진짜 글로 본다', () => {
+    for (const c of [`python3 -I -c 'exec("print(1)")'`, `python3 -I -c 'eval("1+1")'`, `python3 -I -c 'exec("imp" + "ort o" + "s")'`, `python3 -I -c 'import os; os.system("id")'`, `python3 -I -c 'open("a.txt", "w")'`])
+      expect(stateOnlyCommand(c), c).toBe('no')
+    expect(stateOnlyCommand(`python3 -I -c 'import json, sys; print(json.load(open(sys.argv[1]))["a"])' a.json`)).toBe('ok')
+    expect(stateOnlyCommand("grep -n '$(x)' a.md")).toBe('ok')
+  })
   it('바꾸거나 다른 명령을 돌릴 수 있으면 막는다', () => {
     for (const c of [
       'npm i', 'npm install -g x', 'git commit -m x', 'git log && git push', 'ls > a.txt', 'echo x >> a', 'cat <<EOF', 'echo $(rm -rf x)', 'echo `touch a`',
