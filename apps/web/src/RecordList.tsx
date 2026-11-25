@@ -24,6 +24,7 @@ import { qk } from './queries'
 import { liveChat, workedFor } from './recordChat'
 import { openChatInSidebar } from './agentPanelOpen'
 import { InlineEdits } from './InlineEdits'
+import { draftMap } from './unsent'
 
 /** 붙은 곳의 이름과 툴팁 (주면 줄 번호 대신). 없으면 줄 · 쪽 번호 */
 export type RecordPlaceOf = (c: CommentEntry) => { label: string; tip: string } | undefined
@@ -365,7 +366,7 @@ function AnswerBody({ answer }: { answer: CommentEntry['answers'][number] }) {
 }
 
 /** 질문 · 지시 아래 답하기 (10/15, 10/21 "이어 쓰기"에서 이름 바꿈). 에이전트가 물은 것이면 답이 되어 답함, 내가 쓴 것이면 다시 에이전트 차례 */
-const unsentReplies = new Map<string, string>()
+const unsentReplies = draftMap<string>()
 function RecordReply({ keep, busy, asked, onReply, onCancel }: { keep: string; busy: boolean; asked: boolean; onReply(text: string): Promise<boolean>; onCancel?(): void }) {
   // 적던 답은 다른 화면을 보고 와도 남는다 (보내면 지움, 앱을 다시 열면 없음)
   const [text, setText] = useState(() => unsentReplies.get(keep) ?? '')

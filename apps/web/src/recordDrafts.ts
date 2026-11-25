@@ -1,5 +1,6 @@
 import type { PaintColor } from './api'
 import type { RecordDraft } from './RecordContext'
+import { draftSource } from './unsent'
 
 /**
  * 입력란의 종류 (11/21 시안 「기록과 에이전트의 경계」 안 A3): 고르는 줄은 없다. 쓰면 메모, 「할 일」 칩을 켜면 할 일,
@@ -29,6 +30,8 @@ export function createRecordDraftStore() {
   const put = (key: string, state: DraftState) => { states.set(key, state); listeners.get(key)?.forEach((f) => f()) }
   return {
     read,
+    /** 보내지 않은 글을 쥔 대상이 있는지 (자동 새로 고침이 기다린다) */
+    holds: () => [...states.values()].some((state) => state.draft.text.trim() !== ''),
     subscribe(key: string, listener: () => void) {
       const group = listeners.get(key) ?? new Set<() => void>()
       group.add(listener); listeners.set(key, group)
@@ -54,3 +57,4 @@ export function createRecordDraftStore() {
   }
 }
 export const recordDrafts = createRecordDraftStore()
+draftSource(recordDrafts.holds)

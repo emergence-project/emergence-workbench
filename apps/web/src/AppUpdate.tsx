@@ -2,6 +2,7 @@ import { useEffect, useSyncExternalStore } from 'react'
 import { req, type AppStatus, type WorkbenchEvent } from './api'
 import type { NewRelease } from '@rw/core/contract/app'
 import { anyPending } from './autosave'
+import { anyUnsent } from './unsent'
 import { go } from './router'
 import { josa, plural, t } from './i18n'
 import { Icon } from './icons'
@@ -39,7 +40,7 @@ const UPDATE_WAIT_MS = 22 * 60_000
 /** 자동 업데이트 (10/9 "쉴 때 · 버튼"): 입력 없이 이만큼 지나고 저장할 것이 없으면, 빌드해 둔 새 버전으로 다시 시작한다 */
 export const IDLE_RESTART_MS = 5 * 60_000
 const IDLE_CHECK_MS = 30_000
-/** 화면만 바꿔 끼운 새 버전 (11/19): 입력 없이 이만큼 지나거나 창이 가려지면, 저장할 것이 없을 때 새로 고친다 */
+/** 화면만 바꿔 끼운 새 버전 (11/19): 입력 없이 이만큼 지나거나 창이 가려지면, 저장할 것과 보내지 않은 글이 없을 때 새로 고친다 */
 const SCREEN_IDLE_MS = 60_000
 
 let state: State = { enabled: null, status: null, phase: 'idle', message: null, error: null, failed: null, bundled: false, release: null }
@@ -48,23 +49,29 @@ const set = (patch: Partial<State>) => { state = { ...state, ...patch }; listene
 let lastCheck = 0
 /** 이 창이 읽은 화면의 커밋 (처음 받은 상태의 running). 서버가 화면만 바꿔 끼우면 running이 이것과 달라진다 */
 let loaded: string | null = null
+/** 이 창이 화면을 읽을 때의 서버 (started) */
+let loadedStart: string | null = null
 
 /** 서버 프로세스가 켜질 때의 커밋 (옛 서버는 started가 없어 running) */
 const startedOf = (s: AppStatus) => s.started ?? s.running
 /** 서버가 다시 켜지지 않은 채 화면만 새 버전으로 바뀌었는지: 새로 고치면 보인다 */
 export const newScreen = (s: AppStatus | null) => !!s && loaded !== null && s.running !== loaded
+/** 이 창을 읽은 뒤 서버가 다시 켜졌는지 (적던 글이 있어 새로 고침을 미룬 창) */
+const restartedSince = (s: AppStatus | null) => !!s && loadedStart !== null && startedOf(s) !== loadedStart
+/** 이 창을 저절로 새로 고치면 잃는 것: 저장하지 않은 고침, 보내지 않은 글(입력란의 초안은 메모리에만 있다, 11/26) */
+const holdsWork = () => anyPending() || anyUnsent()
 
-/** 받은 상태를 적는다. 다른 창(또는 쉴 때)이 앱을 다시 시작했으면 새 코드로 화면을 다시 읽는다 */
+/** 받은 상태를 적는다. 다른 창(또는 쉴 때)이 앱을 다시 시작했으면 새 코드로 화면을 다시 읽는다. 잃을 것이 있으면 미루고, 그 창은 「새 화면 · 새로 고침」으로 남는다 */
 function applyStatus(b: { enabled?: boolean; status?: AppStatus; bundled?: unknown; release?: NewRelease | null }): boolean {
-  if (state.status && b.status && startedOf(b.status) !== startedOf(state.status) && !anyPending()) { location.reload(); return false }
-  if (b.status && loaded === null) loaded = b.status.running
+  if (state.status && b.status && startedOf(b.status) !== startedOf(state.status) && !holdsWork()) { location.reload(); return false }
+  if (b.status && loaded === null) { loaded = b.status.running; loadedStart = startedOf(b.status) }
   set({ enabled: !!b.enabled, status: b.status ?? null, bundled: !!b.bundled, release: b.release ?? null })
   if (newScreen(state.status) && document.visibilityState === 'hidden') reloadScreen()
   return true
 }
 
-/** 화면만 바뀐 새 버전을 읽는다. 저장할 것이 있으면 미룬다 (레일의 「새로 고침」은 그대로 남는다) */
-export function reloadScreen(): void { if (!anyPending()) location.reload() }
+/** 화면만 바뀐 새 버전을 읽는다. 저장할 것이나 보내지 않은 글이 있으면 미룬다 (레일의 「새로 고침」은 그대로 남는다) */
+export function reloadScreen(): void { if (!holdsWork()) location.reload() }
 
 export async function checkAppUpdate(): Promise<void> {
   if (state.phase !== 'idle' || state.enabled === false && !state.bundled) return
@@ -91,13 +98,13 @@ async function refreshAppStatus(onlyWaiting = false): Promise<void> {
 
 const RESTART_TIMEOUT = t('2분 안에 다시 켜지지 않았습니다. 터미널에서 pnpm service:logs로 확인해 주세요', 'The app did not come back within 2 minutes. Check pnpm service:logs in a terminal')
 
-/** 새 코드로 다시 켜질 때까지 기다렸다가 화면을 새로 읽는다. 2분 안에 켜지지 않으면 false */
+/** 새 코드로 다시 켜질 때까지 기다렸다가 화면을 새로 읽는다. 2분 안에 켜지지 않으면 false. 보내지 않은 글이 있으면 읽지 않고 「새 화면 · 새로 고침」으로 남긴다 */
 async function waitForRestart(old: AppStatus): Promise<boolean> {
   for (let i = 0; i < 120; i++) {
     await new Promise((r) => setTimeout(r, 1000))
     try {
       const s = await (await fetch('/api/app/status')).json()
-      if (s.status && startedOf(s.status) !== startedOf(old)) { location.reload(); return true }
+      if (s.status && startedOf(s.status) !== startedOf(old)) { if (anyUnsent()) { set({ phase: 'idle' }); applyStatus(s) } else location.reload(); return true }
     } catch { /* 다시 시작하는 중 */ }
   }
   return false
@@ -215,11 +222,12 @@ export function AppUpdateRail() {
   }
   const busy = s.phase === 'updating' || s.phase === 'restarting'
   const st = s.status
-  // 화면만 바꿔 끼운 새 버전 (11/19): 누르면 새로 고친다. 쉬거나 창을 가리면 저절로 새로 고친다
+  // 화면만 바꿔 끼운 새 버전 (11/19): 누르면 새로 고친다. 쉬거나 창을 가리면 저절로 새로 고친다. 적던 글이 있어 미룬 창(11/26)도 여기에 남는다
   if (!busy && newScreen(st) && !hasNew(st)) {
     const label = t('새 화면 · 새로 고침', 'New screens · Reload')
+    const why = restartedSince(st) ? t('앱이 새 버전으로 다시 켜졌습니다', 'the app restarted into a new version') : t('서버는 다시 켜지 않았습니다', 'the server did not restart')
     return (
-      <button className="rail-btn rail-update tip-right ready" data-ui="새 버전 버튼" data-tip={t(`${label}: 서버는 다시 켜지 않았습니다. 눌러서 새 화면 읽기`, `${label}: the server did not restart. Click to load the new screens`)} aria-label={label} onClick={() => location.reload()}>
+      <button className="rail-btn rail-update tip-right ready" data-ui="새 버전 버튼" data-tip={t(`${label}: ${why}. 눌러서 새 화면 읽기 (적던 글이 있으면 저절로 새로 고치지 않습니다)`, `${label}: ${why}. Click to load the new screens (it does not reload by itself while you have unsent text)`)} aria-label={label} onClick={() => location.reload()}>
         {Icon.update}
         <span className="rail-update-dot" aria-hidden />
       </button>
@@ -268,7 +276,8 @@ export function AppUpdate() {
   else if (!status) line = t('상태를 알 수 없습니다', 'Status unknown')
   else if (status.fetchError) line = t(`GitHub를 확인하지 못했습니다: ${status.fetchError}`, `Could not check GitHub: ${status.fetchError}`)
   else if (status.waitingAgents !== undefined) line = waitingLine(status.waitingAgents)
-  else if (newScreen(status) && !pending && status.behind === 0) line = t('화면만 바뀐 새 버전으로 바꿨습니다. 새로 고치면 보입니다 (서버와 에이전트 대화는 그대로)', 'Swapped in a version that only changes the screens. Reload to see it (the server and agent conversations kept running)')
+  else if (newScreen(status) && !pending && status.behind === 0) line = restartedSince(status) ? t('새 버전으로 다시 켜졌습니다. 새로 고치면 새 화면이 보입니다', 'Restarted into the new version. Reload to see the new screens')
+    : t('화면만 바뀐 새 버전으로 바꿨습니다. 새로 고치면 보입니다 (서버와 에이전트 대화는 그대로)', 'Swapped in a version that only changes the screens. Reload to see it (the server and agent conversations kept running)')
   else if (status.behind > 0) line = t(`새 버전이 있습니다 (커밋 ${status.behind}개)`, `A new version is available (${plural(status.behind, 'commit')})`)
   else if (pending && status.prepared) line = t('새 버전을 받아 두었습니다. 쉬는 동안 자동으로 다시 시작합니다', 'The new version is ready. It restarts on its own while you are idle')
   else if (pending) line = t('받은 새 버전이 아직 반영되지 않았습니다', 'The pulled version is not applied yet')

@@ -41,7 +41,7 @@ code:
 | web | `apps/web/src/WorkLog.tsx` | 작업 로그: 대화 줄을 본문과 로그로 나누는 순수 함수 `chatLog`(생각 · 이어진 도구 묶음 = 로그 한 줄, 이어진 과정 = 대화의 「과정 n–m」 한 줄), 대화 안에서 그 자리에 펼치는 「과정」 줄 `ProcLine`(11/20 시안 2절: 세부 패널의 작업 로그는 없앰) |
 | web | `apps/web/src/WorkAside.tsx` | 대화 오른쪽 칸(사이드바): 세부 패널과 터미널 중 하나(`useSideColumn`). 대화 머리에는 사이드바 여닫기만, 칸 맨 위 아이콘 줄 `SideTabs`(왼쪽 이 대화 · 검토(돋보기 안 체크), 오른쪽 끝 `end` 칸부터 변경사항(둥근 네모 안 ± 아이콘과 초록 점, 수는 툴팁) · 터미널, 11/23)로 칸을 고른다. 터미널은 옮길 앱에 셸이 있을 때만 |
 | web | `apps/web/src/AgentChatInfo.tsx` | 「이 대화」 칸 `ChatInfo`와 사이드바 아이콘 줄의 단추 목록 `ChatSideTabs`(검토는 검토자(Codex · Gemini)가 있는 Claude 대화에만, `AgentReview.tsx`의 `ReviewPane`이 검토자 고르기 · 실행과 지난 검토) |
-| web | `apps/web/src/ChatComposer.tsx` | 입력란: 붙이기 · `/` 명령 · `@` 파일 · 권한 · 모델 · 생각 깊이 (권한을 고르지 않는 자리는 `noTrust`, 중앙 첫 화면). 아래 줄은 늘 한 줄: 권한은 아이콘(`TRUST_ICON`), 생각 깊이는 막대(`EffortGauge`)이고 줄 폭 460px 아래에서는 이름을 숨긴다(`.ac-compose-row`의 container query). 보내지 않은 글은 `keep` 이름(대화 id, 새 대화는 `new:<프로젝트>`)마다 메모리에 두어 다른 화면을 보고 와도 남는다 |
+| web | `apps/web/src/ChatComposer.tsx` | 입력란: 붙이기 · `/` 명령 · `@` 파일 · 권한 · 모델 · 생각 깊이 (권한을 고르지 않는 자리는 `noTrust`, 중앙 첫 화면). 아래 줄은 늘 한 줄: 권한은 아이콘(`TRUST_ICON`), 생각 깊이는 막대(`EffortGauge`)이고 줄 폭 460px 아래에서는 이름을 숨긴다(`.ac-compose-row`의 container query). 보내지 않은 글은 `keep` 이름(대화 id, 새 대화는 `new:<프로젝트>`)마다 메모리에 두어 다른 화면을 보고 와도 남는다. 그 Map은 `unsent.ts`의 `draftMap`으로 만들어, 앱이 저절로 새로 고칠 때(새 버전) 보내지 않은 글이 있으면 미루게 한다(「변경사항」 칸의 담아 둔 코멘트는 `useUnsent`). 스스로 새로 고치지 않는 앱에 옮길 때는 그냥 `Map`이면 된다 |
 | web | `apps/web/src/ChatQuote.tsx` | 대화 줄에서 고른 글을 「답글」로 입력란 칩(`selection`)에 더하는 메뉴. 보낼 때 서버가 인용으로 넣는다 |
 | web | `apps/web/src/appLinks.ts` · `AppLinkText.tsx` | 대화 글 속 대화 id · 피드백 키 · PR 번호를 앱 안 링크로 (순수 함수 + 대화 화면을 감싸는 맥락) |
 
