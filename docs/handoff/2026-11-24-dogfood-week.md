@@ -130,7 +130,7 @@ PR을 열 때 지킬 것:
 
 ### 3.4 화면 (`apps/web/src`)
 
-- 손으로 돌리는 브라우저 검사 `scripts/shots/input-drafts.mjs`(CI에서 돌지 않음)의 사례 셋이 main에서 실패한다(11/25 확인): `task-duplicate-removal-keeps-unassigned-drafts`(바깥에서 바뀐 질문을 다시 받지 않음), `search-late-old-response-cannot-replace-current-hits` · `search-failure-is-not-no-hits`(검색 입력란 `찾을 말`을 찾지 못함). 화면 버그인지 검사가 낡은 것인지는 보지 않았다.
+- 새 브라우저(저장된 화면 언어가 없을 때)에서 앱을 처음 열면 브라우저 언어로 떴다가 설정을 받은 뒤 한 번 스스로 다시 읽힌다(`i18n.ts`의 언어 확인). 그 0.2초쯤 사이에 연 창 · 적은 글은 사라진다. 브라우저 언어와 설정 언어가 다를 때 처음 한 번뿐이라 고치지 않았다. 손으로 돌리는 브라우저 검사(`scripts/shots/input-drafts.mjs`, CI에서 돌지 않음)의 사례 넷이 이것과 낡은 알림 이름 때문에 main에서 실패하던 것은 #685로 고쳤다(11/25, 화면 버그 아님).
 - 화면만 바뀐 업데이트의 자동 새로 고침이 적던 글을 지운다(초안이 메모리에만 있음, `AppUpdate.tsx`).
 - 소개 › 「수정」 탭의 담은 곳이 탭 · 갈래 · 절을 바꾸면 사라진다.
 - 크게 본 창에서 답을 보내면 그 항목이 필터에서 빠져 창이 바로 닫힌다.
