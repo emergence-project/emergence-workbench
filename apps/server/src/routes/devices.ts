@@ -2,10 +2,10 @@
 // 1단계: 다른 컴퓨터는 개인 저장소에 올린 마지막 값. 2단계 ("맥스튜디오를 서버로"): 서버로 정한 컴퓨터에 다른 컴퓨터가 1분마다 알리고(실시간), 서버가 기기마다 로그아웃을 건다
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import * as C from '@rw/core/contract/devices'
-import { parseBody, replies } from '../contract.js'
+import { knownOnly, parseBody, replies } from '../contract.js'
 import { machineName } from '../backup.js'
 import { logoutDevice, otherDevices, setDeviceAccounts, setDeviceLogout, thisDevice } from '../devices.js'
-import { BEAT_MS, DEVICE_KEY_HEADER, deviceKeyOk, hubOf, mergeDevices, readServerConfig, writeServerConfig, type ServerConfig } from '../deviceServer.js'
+import { BEAT_MS, DEVICE_KEY_HEADER, beatFromOther, deviceKeyOk, hubOf, mergeDevices, readServerConfig, replyFromServer, writeServerConfig, type ServerConfig } from '../deviceServer.js'
 import { deviceBuild } from '../deviceBuild.js'
 import { t } from '../i18n.js'
 import type { PhoneStatus } from '@rw/core/contract/phone'
@@ -118,7 +118,7 @@ export function registerDevices(app: FastifyInstance, ctx: RouteContext, deps: D
   }
   app.post('/api/devices/beat', replies(C.DeviceBeatReply), async (req): Promise<C.DeviceBeatReply> => {
     checkKey(req)
-    const rec = parseBody(C.DeviceBeat, req.body)
+    const rec = parseBody(C.DeviceBeat, beatFromOther(req.body))
     const { logout, feedback, drop } = hub.beat(rec)
     const me = { ...deviceForBackup(ctx), this: false, online: true, live: true, server: true }
     // 서버 자신은 맨 앞의 지금 값 하나만: 「이 기기를 서버로」 때 한 번 넣은 낡은 줄이 뒤에 또 실리면 받는 쪽이 그것으로 덮어 서버가 꺼진 것으로 보인다
@@ -126,7 +126,7 @@ export function registerDevices(app: FastifyInstance, ctx: RouteContext, deps: D
   })
   app.post('/api/devices/remote-logout', replies(C.DeviceOk), async (req): Promise<C.DeviceOk> => {
     checkKey(req)
-    const { name } = parseBody(C.DeviceLogoutBody, req.body)
+    const { name } = parseBody(C.DeviceLogoutBody, knownOnly(C.DeviceLogoutBody, req.body))
     if (name === machineName()) await logoutDevice()
     else hub.requestLogout(name)
     return { ok: true }
@@ -153,7 +153,7 @@ export function registerDevices(app: FastifyInstance, ctx: RouteContext, deps: D
         try {
           // 피드백 돕기 (11/23 안 A): 켜 두었으면 자리 · 도는 수를 함께 알리고, 서버가 맡긴 피드백을 답으로 받아 이 맥에서 시작한다
           const helper = ctx.feedbackHelp?.info()
-          const res = C.DeviceBeatReply.parse(await callServer(cfg, '/api/devices/beat', { ...deviceForBackup(ctx), ...(helper && { helper }) }))
+          const res = replyFromServer(await callServer(cfg, '/api/devices/beat', { ...deviceForBackup(ctx), ...(helper && { helper }) }))
           reach = { at: new Date().toISOString(), devices: res.devices }
           log.ok()
           if (res.drop?.length) ctx.feedbackHelp?.drop(res.drop)

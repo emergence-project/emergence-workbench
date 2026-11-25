@@ -4,7 +4,10 @@ import { randomBytes, timingSafeEqual } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import YAML from 'yaml'
-import type { Device, DeviceBeat } from '@rw/core/contract/devices'
+import type { z } from 'zod'
+import * as C from '@rw/core/contract/devices'
+import type { Device, DeviceBeat, DeviceBeatReply } from '@rw/core/contract/devices'
+import { knownOnly } from './contract.js'
 
 export interface ServerConfig { machine: string; label?: string; url: string; secret: string; at: string }
 export const SERVER_FILE = '_settings/server.yaml'
@@ -95,6 +98,23 @@ export class DeviceHub {
     this.orphans.clear()
     return out
   }
+}
+
+/*
+ * 컴퓨터끼리 주고받는 알림과 답은 앱 버전이 달라도 읽는다 (11/26): 전에는 모르는 칸 하나로 알림이 통째로 거절돼,
+ * 버전이 다른 컴퓨터는 꺼진 것으로 보이고 로그아웃 · 피드백 돕기도 전해지지 않았다.
+ * 모르는 칸은 버리고, 읽지 못하는 목록의 줄(모르는 종류의 계정 · 기기)은 그 줄만 뺀다. 그 밖의 틀린 모양은 전처럼 계약 검사가 잡는다
+ */
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
+const readable = (item: z.ZodTypeAny, list: unknown): unknown => (Array.isArray(list) ? list.filter((x) => item.safeParse(x).success) : list)
+const knownAccounts = (d: unknown): unknown => (isRecord(d) && 'accounts' in d ? { ...d, accounts: readable(C.DeviceAccount, d.accounts) } : d)
+/** 다른 컴퓨터가 보낸 알림을 계약 검사 앞에서 다듬는다 */
+export const beatFromOther = (body: unknown): unknown => knownAccounts(knownOnly(C.DeviceBeat, body))
+/** 서버의 답을 읽는다 */
+export function replyFromServer(reply: unknown): DeviceBeatReply {
+  const r = knownOnly(C.DeviceBeatReply, reply)
+  if (!isRecord(r) || !Array.isArray(r.devices)) return C.DeviceBeatReply.parse(r)
+  return C.DeviceBeatReply.parse({ ...r, devices: readable(C.Device, r.devices.map(knownAccounts)) })
 }
 
 /** 기기 관리와 피드백 돕기가 함께 쓰는 하나 */
