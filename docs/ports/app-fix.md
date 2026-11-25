@@ -3,6 +3,7 @@ about:
   - apps/web/src/about/agents/how-agents-fix-the-app.tsx
 code:
   - apps/server/src/appWorktree.ts
+  - apps/server/src/appWorktreeTidy.ts
   - apps/server/src/agentFeedbackTick.ts
   - apps/server/src/feedbackClaims.ts
 ---
@@ -32,6 +33,7 @@ code:
 | CI가 빨가면 실패 기록 끝부분을 그 대화에 다시 보낸다, 두 번까지 | 고칠 기회를 주되 끝없이 돌지 않게 |
 | 피드백을 맡기 전에 맡음 표시를 공유 저장소에 올리고, 세 시간 뒤 저절로 풀린다 | 두 컴퓨터 · 클라우드가 같은 항목을 함께 답하지 않게 |
 | 아직 합치지 않은 다른 앱 PR이 고친 파일은 고치지 못한다 | 합칠 때 부딪히지 않게 |
+| 끝난 대화(PR을 합쳤거나 보관한 것)의 작업 폴더와 브랜치는 앱이 저절로 치운다. 치워도 되는지는 대화의 표시가 아니라 git에서 본다: 올리지 않은 고침이 없고, 커밋이 모두 main이나 끝난 PR에 있을 때만. git에 없는 산출물(시안)은 먼저 옮겨 둔다 (11/25) | 대화를 지울 때만 치우면 폴더(대부분 의존성)와 브랜치가 대화 수만큼 쌓인다. 표시는 낡을 수 있다(합친 뒤 같은 브랜치로 PR을 다시 연 대화) |
 | 다시 시작은 사람 또는 앱이 쉬는 틈. 다시 켜진 뒤 돌던 대화는 같은 세션으로 이어 간다 | 일하던 대화를 끊지 않게 |
 | 허락: 「묻고 하기」면 고치기 · 명령 · 올리기 · 합치기를 하나씩 묻는다. 강제 푸시 · reset --hard · main 지우기는 허락해도 막는다 | 되돌리기 어려운 것은 사람 손을 거치게 |
 
@@ -39,10 +41,11 @@ code:
 
 | 층 | 파일 | 맡은 일 |
 | --- | --- | --- |
-| server | `apps/server/src/appWorktree.ts` | 작업 폴더 만들기 · 치우기, `submit`(커밋 · 빠른 검사 · 올리기 · PR), `checks`(gh pr checks), `merge`(squash, 제목 "<PR 제목> (#n)"), `conflicted`, `diff`(명령으로 고친 파일 찾기), 되감기 찍기 · 되돌리기 |
+| server | `apps/server/src/appWorktreeTidy.ts` | 끝난 대화의 작업 폴더를 치워도 되는지(`clean` 올리지 않은 고침 없음 · `pushed` 커밋이 main이나 끝난 PR에 있음), 시안 남기기 · 되돌리기(`keepMockups` · `restoreMockups`, `<설정 폴더>/agent-mockups/<대화>`) |
+| server | `apps/server/src/appWorktree.ts` | 작업 폴더 만들기 · 치우기(`tidy` 끝난 대화 · `dispose` 대화를 지울 때), `submit`(커밋 · 빠른 검사 · 올리기 · PR), `checks`(gh pr checks), `merge`(squash, 제목 "<PR 제목> (#n)"), `conflicted`, `diff`(명령으로 고친 파일 찾기), 되감기 찍기 · 되돌리기 |
 | server | `apps/server/src/agentPolicy.ts` (`judgeApp` · `APP_OWNED`) | 앱 고치기 대화의 허락 판정: 작업 폴더 밖 · 다른 PR이 고친 파일 · 앱이 맡는 명령은 막고, 권한 이름대로 묻는다. 앱 고치기 · 피드백 대화는 「자동」으로 연다(`agentCentral.ts` · `agentFeedbackTick.ts`, 11/23): 크리티컬한 일만 묻는다 |
 | server | `apps/server/src/agentChats.ts` (`appSubmit` · `appChecks`) · `agentCentral.ts` (`appMerge`) | 도구 셋의 몸통. 합치기는 CI · 충돌을 다시 보고 거절할 까닭을 돌려준다 |
-| server | `apps/server/src/agentFeedbackTick.ts` | 1분마다: CI 빨강이면 다시 보내기(두 번), 설정대로 합치기, 반영됨 표시, 끝난 대화 보관, 저절로 맡기기(자리가 남는 만큼 한 번에, 저장 · 자동 켜기 바로 뒤에도. 서버로 정한 컴퓨터가 따로 있으면 맡지 않는다: `serverRelay.ts`. 서버의 자리가 차면 피드백 돕기를 켠 맥에 맡긴다: `DeviceHub.free` · `assign`, 11/23). 중앙이 깊은 검토로 보류한 PR(`held`)은 합치지 않는다(11/23, `agentCentralReview.ts`) |
+| server | `apps/server/src/agentFeedbackTick.ts` | 1분마다: CI 빨강이면 다시 보내기(두 번), 설정대로 합치기, 반영됨 표시, 끝난 대화 보관, 끝난 대화의 작업 폴더 치우기(`tidyWorktrees`, 10분마다: 일하지 않고 에이전트도 닫힌 대화만), 저절로 맡기기(자리가 남는 만큼 한 번에, 저장 · 자동 켜기 바로 뒤에도. 서버로 정한 컴퓨터가 따로 있으면 맡지 않는다: `serverRelay.ts`. 서버의 자리가 차면 피드백 돕기를 켠 맥에 맡긴다: `DeviceHub.free` · `assign`, 11/23). 중앙이 깊은 검토로 보류한 PR(`held`)은 합치지 않는다(11/23, `agentCentralReview.ts`) |
 | server | `apps/server/src/feedbackClaims.ts` | 맡음 표시(`feedback/handoff.yaml`) 쓰기 · 읽기 · 세 시간 뒤 풀기 |
 | server | `apps/server/src/feedbackGroups.ts` | 같은 화면의 수정끼리, 질문 · 제안끼리 묶어 한 대화에(5개까지) |
 | core | `packages/core/src/agent-settings.ts` | 설정 값: 맡기기(끔 · 누를 때 · 자동) · 합치기(CI 초록이면 · 승인한 뒤 · 늘 내가) · 한 차례 한도 |
@@ -56,7 +59,8 @@ code:
 4. **합치기 조건.** `merge` 앞에서 검사가 모두 끝나 초록인지, main과 부딪히지 않는지 다시 본다. 에이전트가 말한 것을 믿지 않는다.
 5. **피드백 잇기.** 맡기 버튼 → 맡음 표시 올리기 → 대화 열기(첫 지시에 피드백 글 · 부위 · 그림). 1분 돌보기로 CI 다시 보내기 · 설정대로 합치기를 붙인다. 첫 지시가 읽으라고 가리키는 파일(개인 규칙과 그 폴더)은 묻지 않고 읽게 둔다(`personalReadable`, 기계 설정 · 대화 기록 폴더는 빼고, 쓰기는 그대로 막음). 안내와 읽기 허락이 어긋나면 아무도 답하지 않는 허락 카드에 대화가 멈춘다(11/23).
 6. **반영.** 앱 업데이트가 main을 받아 빌드하고, 쉬는 틈에 다시 시작한다. 다시 켜진 뒤 돌던 대화를 이어 간다(agent-chat.md 6단계).
-7. **화면 그림 크기.** 대화 환경(`appEnv`)에 그림 포트와 함께 `SHOTS_SCALE=1`을 주어 에이전트가 찍는 그림을 반 크기로 한다. 읽은 그림은 대화 맥락에 남아 금방 차기 때문이다(11/23). 전후 그림은 CI 산출물(2배)에서 가져오므로 그대로다.
+7. **작업 폴더 치우기.** 정해 둔 간격으로 끝난 대화(합침 · 보관)의 작업 폴더를 돈다. 대화가 일하는 중이거나 에이전트가 그 폴더에서 열려 있으면 건너뛰고, `git status`가 비었는지(따로 남기는 산출물 폴더는 빼고)와 폴더의 끝 커밋이 main이나 끝난 PR의 끝 커밋에 들어 있는지(squash로 합치면 main의 조상이 아니므로 PR과 견준다)를 본 뒤에만 지운다. 열린 PR이 있으면 둔다. 지우기로 정한 뒤 끝날 때까지는 그 대화의 `prepare`가 기다리게 하고, 치운 대화를 이어 쓰면 origin/main에서 새로 만든다. 폴더가 없어도 되는 것(합쳤는지 묻기 · CI 그림 받기)은 앱 저장소에서 묻는다. 대화 화면이 보여 주는 시안처럼 git에 없는 파일은 치우기 전에 폴더 밖으로 옮기고, 보여 주는 길(`routes/agentMockups.ts`)이 두 곳을 함께 읽는다.
+8. **화면 그림 크기.** 대화 환경(`appEnv`)에 그림 포트와 함께 `SHOTS_SCALE=1`을 주어 에이전트가 찍는 그림을 반 크기로 한다. 읽은 그림은 대화 맥락에 남아 금방 차기 때문이다(11/23). 전후 그림은 CI 산출물(2배)에서 가져오므로 그대로다.
 
 ## 다른 앱도 고치기 (11/20)
 
@@ -78,3 +82,6 @@ code:
 - [ ] CI가 빨갛거나 덜 끝났거나 main과 부딪히면 합치기가 까닭과 함께 거절된다
 - [ ] 같은 피드백 항목을 두 곳에서 동시에 맡지 않는다 (맡음 표시를 먼저 올린다)
 - [ ] 합친 뒤 앱이 새 버전으로 다시 켜지고, 돌던 대화가 이어진다
+- [ ] 합쳤거나 보관한 대화의 작업 폴더와 브랜치가 얼마 뒤 사라지고, 그 대화의 시안은 대화 화면에 그대로 보인다
+- [ ] 열려 있는 대화, 고치던 파일 · 올리지 않은 커밋 · 열린 PR이 있는 작업 폴더는 사라지지 않는다
+- [ ] 치운 대화에 이어서 지시하면 작업 폴더가 새로 생기고 시안이 돌아와 있다

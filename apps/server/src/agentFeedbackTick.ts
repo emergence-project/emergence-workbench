@@ -1,5 +1,6 @@
 /**
  * 피드백 · 앱 고치기 대화 돌보기 (1분마다, routes/agentChats.ts): CI · 합치기 · 반영됨 · 끝난 대화 보관 · 저절로 맡기기.
+ * 끝난 대화의 작업 폴더 치우기(tidyWorktrees, 10분마다)도 여기에.
  * 피드백 맡기기(handOff)와 처리 기록(feedbackAnswer)도 여기에. agentChats.ts가 길어 나눴다. CentralChats(agentCentral.ts)가 이 클래스를 잇는다
  */
 import fs from 'node:fs'
@@ -244,6 +245,29 @@ export class FeedbackChats extends SharedChats {
     fb.written?.()
     this.touch(c)
     return { key, ...(r.state && { state: r.state }), ...(b.verdict && { verdict: b.verdict }), ...(pictures && { pictures }), replies: r.replies }
+  }
+
+  /**
+   * 끝난 대화의 작업 폴더 치우기 (10분마다, 11/25 사용자 결정 "작업 폴더 치우기"): PR을 합쳤거나 보관한 앱 고치기 대화 가운데
+   * 일하지 않고 에이전트도 닫힌 것. 치워도 되는지(올리지 않은 고침 · 커밋이 없는지)는 작업 폴더의 git에서 보고(AppWork.tidy),
+   * 안 되면 그대로 둔다. 시안은 남아 대화 화면에 계속 보이고, 그 대화를 이어 쓰면 작업 폴더를 새로 만든다. 치운 수를 돌려준다
+   */
+  async tidyWorktrees(): Promise<number> {
+    let n = 0
+    for (const c of [...this.chats.values()]) {
+      const w = this.workOf(c)
+      const idle = () => this.chats.get(c.id) === c && !LIVE.has(c.state) && !this.sessions.has(c.id)
+      if (!w?.tidy || !c.worktree || !c.branch || !(c.merged || c.archived) || !idle() || !fs.existsSync(c.worktree)) continue
+      try {
+        if (!(await w.tidy(c.worktree, c.branch, idle))) continue
+        n++
+        // 새로 만들 작업 폴더는 그때의 모습부터 다시 찍는다 (되돌릴 자리 · 명령으로 고친 파일 찾기)
+        delete c.snap
+        delete c.diffSeen
+        if (this.chats.get(c.id) === c) this.write(c)
+      } catch { /* git · gh 오류는 다음 차례에 다시 본다 (그동안 폴더는 그대로) */ }
+    }
+    return n
   }
 
   /** 목표를 이루고 확인을 받은 대화를 보관한다 (한 번만: 사용자가 꺼내면 다시 넣지 않는다) */

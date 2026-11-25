@@ -174,7 +174,7 @@ export class AgentChats {
   /** 줄 선 대화의 지시 (순서대로) */
   protected readonly queue: { id: string; prompt: string; images?: ImageIn[] }[] = []
   /** 열어 둔 에이전트 */
-  private readonly sessions = new Map<string, Session>()
+  protected readonly sessions = new Map<string, Session>()
   private readonly draftTimers = new Map<string, NodeJS.Timeout>()
   /** 앱이 다시 켜질 때 돌고 있어 저절로 이어 갈 대화 (resumeRestarted) */
   private readonly restarted: string[] = []
@@ -424,7 +424,7 @@ export class AgentChats {
     if (!pt || !it || it.kind !== 'user') throw new WorkbenchError(409, t('여기로는 되돌릴 수 없습니다', 'Cannot rewind to this message'))
     const app = this.workOf(c)
     let files: number | undefined
-    if (app?.restore && c.worktree && pt.snap) files = await app.restore(c.worktree, pt.snap)
+    if (app?.restore && c.worktree && pt.snap && fs.existsSync(c.worktree)) files = await app.restore(c.worktree, pt.snap) // 치운 작업 폴더(11/25)면 대화만 되돌린다
     const s = this.sessions.get(id)
     if (s) this.close(s)
     c.items.splice(at)
@@ -504,7 +504,7 @@ export class AgentChats {
     this.chats.delete(id)
     for (const f of [this.fileOf(id), packFile(this.deps.dir, id)]) fs.rmSync(f, { force: true })
     const w = this.workOf(c)
-    if (c.worktree && w) void w.dispose(c.worktree).catch(() => undefined)
+    if (c.worktree && w) void w.dispose(c.worktree, c.branch).catch(() => undefined)
   }
 
   /** 기록에 이어진 대화 (보관한 것도 찾는다: 한 기록에 대화 하나) */
@@ -695,7 +695,7 @@ export class AgentChats {
   }
 
   private cwdOf(c: Stored): string {
-    return c.worktree ?? (c.scope.kind === 'app' ? this.deps.dir : (() => { try { return this.deps.project(c.rid).repo } catch { return this.deps.dir } })())
+    return (c.worktree && fs.existsSync(c.worktree) ? c.worktree : undefined) ?? (c.scope.kind === 'app' ? this.deps.dir : (() => { try { return this.deps.project(c.rid).repo } catch { return this.deps.dir } })())
   }
 
   protected touch(c: Stored): void {

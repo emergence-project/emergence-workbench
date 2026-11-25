@@ -3,7 +3,8 @@
  * - 대화마다 앱 저장소의 worktree를 따로 둔다. 실사용 앱이 도는 폴더와 사용자가 고치던 파일은 건드리지 않는다.
  * - 에이전트는 작업 폴더에서 명령(시험 · 형식 검사 · 화면 그림)을 돌린다(10/22 사용자 결정 "권한 넓히기").
  *   올리기 · PR 열기 · CI 결과 받기 · 합치기는 여기의 정해 둔 코드가 한다. 대화마다 자기 브랜치 · PR이라 다른 PR이 열려 있어도 올린다.
- * 대화를 지우면 작업 폴더를 치운다(브랜치와 PR은 남는다).
+ * 작업 폴더는 끝난 대화(PR을 합쳤거나 보관한 것)에서 잃을 것이 없을 때 저절로 치우고(tidy, appWorktreeTidy.ts, 11/25), 대화를 지우면 고치던 것이 있어도 치운다.
+ * 브랜치는 커밋이 모두 main이나 끝난 PR에 있을 때만 함께 지운다. 시안(mockups/)은 치울 때 앱 설정 폴더에 남긴다.
  */
 import { execFile } from 'node:child_process'
 import crypto from 'node:crypto'
@@ -12,6 +13,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 import { z } from 'zod'
+import { clean, keepMockups, keptMockups, pushed, restoreMockups, type Gh } from './appWorktreeTidy.js'
 import { git, GIT_TIMEOUT } from './git.js'
 import { t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
@@ -31,8 +33,13 @@ export interface AppWork {
   profile?: AppProfile
   /** 대화 하나의 작업 폴더와 브랜치 (이미 있으면 그대로). origin/main에서 새로 연다 */
   prepare(id: string): Promise<{ dir: string; branch: string }>
-  /** 작업 폴더를 치운다 */
-  dispose(dir: string): Promise<void>
+  /** 대화를 지울 때: 작업 폴더를 고치던 것이 있어도 치우고 남겨 둔 시안도 지운다. 브랜치는 커밋이 모두 main이나 끝난 PR에 있을 때만 지운다 */
+  dispose(dir: string, branch?: string): Promise<void>
+  /**
+   * 끝난 대화의 작업 폴더 치우기 (11/25): 올리지 않은 고침이 없고 커밋이 모두 main이나 끝난 PR에 있을 때만, 시안을 남기고 폴더와 브랜치를 지운다.
+   * still = 지우기 바로 앞에 한 번 더 묻는다 (확인하는 사이 대화가 다시 시작했으면 두려고). 치웠으면 true
+   */
+  tidy?(dir: string, branch: string, still?: () => boolean): Promise<boolean>
   /** 바뀐 것을 모두 커밋해 브랜치를 올리고, PR이 없으면 연다 */
   submit(dir: string, branch: string, o: { title: string; body: string }): Promise<AppPr>
   /** 그 브랜치 PR의 CI. 실패한 것이 있으면 실패 기록 끝부분 */
@@ -201,21 +208,33 @@ export function personalReadable(rules?: string): string[] {
 }
 
 /** 실제: 앱 저장소(root)의 worktree를 base/<대화 id>에, PR은 gh로 */
-export function appWorktrees(root: string, base: string, rules?: string, profile: AppProfile = THIS_APP): AppWork {
+export function appWorktrees(root: string, base: string, rules?: string, profile: AppProfile = THIS_APP, ghRun: Gh = gh): AppWork {
+  // 치운 작업 폴더의 대화도 PR을 물을 수 있게: 폴더가 없으면 앱 저장소에서 묻는다 (11/20 prMerged, 11/25 치우기)
+  const at = (dir: string) => (fs.existsSync(dir) ? dir : root)
   const prOf = async (dir: string, branch: string): Promise<{ number: number; url: string } | undefined> => {
-    const list = JSON.parse(await gh(dir, ['pr', 'list', '--state', 'open', '--head', branch, '--json', 'number,url'])) as { number: number; url: string }[]
+    const list = JSON.parse(await ghRun(at(dir), ['pr', 'list', '--state', 'open', '--head', branch, '--json', 'number,url'])) as { number: number; url: string }[]
     return list[0]
   }
+  const remove = async (dir: string) => {
+    await git(root, ['worktree', 'remove', '--force', dir]).catch(() => undefined)
+    fs.rmSync(dir, { recursive: true, force: true })
+    await git(root, ['worktree', 'prune']).catch(() => undefined)
+  }
+  /** 치우는 중인 작업 폴더: 그 대화가 다시 시작하면 다 치운 뒤에 새로 만든다 */
+  const tidying = new Map<string, Promise<unknown>>()
   return {
     profile,
     rules: rules && fs.existsSync(rules) ? rules : undefined,
     async prepare(id) {
       const dir = path.join(base, id)
       const branch = appBranch(id)
+      await tidying.get(dir)
       if (fs.existsSync(path.join(dir, '.git'))) return { dir, branch }
       fs.mkdirSync(base, { recursive: true })
       await git(root, ['fetch', 'origin', 'main'])
       await git(root, ['worktree', 'add', '-B', branch, dir, 'origin/main'])
+      // 치웠다가 다시 만든 작업 폴더: 남겨 둔 시안을 되돌려 놓는다
+      restoreMockups(dir)
       // 에이전트가 바로 시험을 돌리게 의존성을 깐다 (받아 둔 저장소에서. 실패해도 에이전트가 다시 할 수 있다).
       // package.json이 없으면 깔지 않는다: pnpm 12는 없는 package.json · 잠금 파일을 새로 만든다
       if (fs.existsSync(path.join(dir, 'package.json'))) await exec('pnpm', ['install', '--frozen-lockfile', '--prefer-offline'], { cwd: dir, timeout: 5 * 60_000, maxBuffer: 16 * 1024 * 1024 }).catch(() => undefined)
@@ -224,10 +243,24 @@ export function appWorktrees(root: string, base: string, rules?: string, profile
     diff: worktreeDiff,
     snapshot: worktreeSnapshot,
     restore: worktreeRestore,
-    async dispose(dir) {
-      await git(root, ['worktree', 'remove', '--force', dir]).catch(() => undefined)
-      fs.rmSync(dir, { recursive: true, force: true })
-      await git(root, ['worktree', 'prune']).catch(() => undefined)
+    async dispose(dir, branch) {
+      await tidying.get(dir)
+      const safe = !!branch && fs.existsSync(path.join(dir, '.git')) && await pushed(root, dir, branch, ghRun).catch(() => false)
+      await remove(dir)
+      fs.rmSync(keptMockups(dir), { recursive: true, force: true })
+      if (safe && branch) await git(root, ['branch', '-D', branch]).catch(() => undefined)
+    },
+    async tidy(dir, branch, still = () => true) {
+      if (tidying.has(dir) || !fs.existsSync(path.join(dir, '.git')) || !(await clean(dir)) || !(await pushed(root, dir, branch, ghRun)) || !still()) return false
+      // 여기부터는 사이에 끼어들 수 없다: still을 물은 같은 차례에 시안을 옮기고 치우는 중으로 적는다 (prepare가 기다린다)
+      const work = (async () => {
+        keepMockups(dir)
+        await remove(dir)
+        await git(root, ['branch', '-D', branch]).catch(() => undefined)
+      })()
+      tidying.set(dir, work.catch(() => undefined))
+      try { await work } finally { tidying.delete(dir) }
+      return true
     },
     async submit(dir, branch, o) {
       await git(dir, ['add', '-A'])
@@ -244,7 +277,7 @@ export function appWorktrees(root: string, base: string, rules?: string, profile
       await git(dir, ['push', '-u', 'origin', `HEAD:refs/heads/${branch}`])
       const had = await prOf(dir, branch)
       const pr = had ?? await (async () => {
-        await gh(dir, ['pr', 'create', '--base', 'main', '--head', branch, '--title', o.title, '--body', o.body])
+        await ghRun(dir, ['pr', 'create', '--base', 'main', '--head', branch, '--title', o.title, '--body', o.body])
         const made = await prOf(dir, branch)
         if (!made) throw new WorkbenchError(500, t('PR을 열었는지 확인하지 못했습니다', 'Could not confirm the PR was opened'))
         return made
@@ -267,7 +300,7 @@ export function appWorktrees(root: string, base: string, rules?: string, profile
       if (!pr) return { checks: [], done: false, ok: false }
       let rows: CheckRow[] = []
       try {
-        rows = JSON.parse(await gh(dir, ['pr', 'checks', String(pr.number), '--json', 'name,state,link'])) as CheckRow[]
+        rows = JSON.parse(await ghRun(dir, ['pr', 'checks', String(pr.number), '--json', 'name,state,link'])) as CheckRow[]
       } catch (e) {
         rows = checkRowsOfError(e)
       }
@@ -282,39 +315,39 @@ export function appWorktrees(root: string, base: string, rules?: string, profile
       let log: string | undefined
       const failed = checks.find((c) => done && !OK.has(c.state) && c.link)
       const run = failed?.link?.match(/\/actions\/runs\/(\d+)/)?.[1]
-      if (run) log = tail(await gh(dir, ['run', 'view', run, '--log-failed']).catch((e: Error) => e.message))
+      if (run) log = tail(await ghRun(dir, ['run', 'view', run, '--log-failed']).catch((e: Error) => e.message))
       return { pr: pr.number, checks, done, ok, ...(log && { log }) }
     },
     async merge(dir, branch) {
       const pr = await prOf(dir, branch)
       if (!pr) throw new WorkbenchError(409, t('합칠 PR이 없습니다', 'There is no PR to merge'))
-      const v = JSON.parse(await gh(dir, ['pr', 'view', String(pr.number), '--json', 'title,headRefOid'])) as { title: string; headRefOid: string }
+      const v = JSON.parse(await ghRun(dir, ['pr', 'view', String(pr.number), '--json', 'title,headRefOid'])) as { title: string; headRefOid: string }
       // 확인한 뒤 누가 더 올렸으면 합치지 않는다 (--match-head-commit). 업데이트 이력은 커밋 제목을 읽으므로 한국어 제목 그대로
-      await gh(dir, ['pr', 'merge', String(pr.number), '--squash', '--subject', `${v.title} (#${pr.number})`, '--match-head-commit', v.headRefOid])
+      await ghRun(dir, ['pr', 'merge', String(pr.number), '--squash', '--subject', `${v.title} (#${pr.number})`, '--match-head-commit', v.headRefOid])
       await git(dir, ['push', 'origin', '--delete', branch]).catch(() => undefined)
-      const m = JSON.parse(await gh(dir, ['pr', 'view', String(pr.number), '--json', 'mergeCommit'])) as { mergeCommit?: { oid?: string } | null }
+      const m = JSON.parse(await ghRun(dir, ['pr', 'view', String(pr.number), '--json', 'mergeCommit'])) as { mergeCommit?: { oid?: string } | null }
       return { number: pr.number, sha: m.mergeCommit?.oid ?? '' }
     },
     async conflicted(dir, branch) {
       const pr = await prOf(dir, branch)
       if (!pr) return false
-      const v = JSON.parse(await gh(dir, ['pr', 'view', String(pr.number), '--json', 'mergeable'])) as { mergeable?: string }
+      const v = JSON.parse(await ghRun(dir, ['pr', 'view', String(pr.number), '--json', 'mergeable'])) as { mergeable?: string }
       return v.mergeable === 'CONFLICTING'
     },
     async prMerged(dir, branch, number) {
       // 오래된 대화는 작업 폴더가 지워졌을 수 있다: 그때는 앱 저장소에서 묻는다 (11/20, 10/22 대화가 합쳐진 PR로 파일을 계속 잡음)
-      const m = MergedPrs.parse(JSON.parse(await gh(fs.existsSync(dir) ? dir : root, ['pr', 'list', '--state', 'merged', '--head', branch, '--json', 'number,mergeCommit']))).find((x) => number === undefined || x.number === number)
+      const m = MergedPrs.parse(JSON.parse(await ghRun(at(dir), ['pr', 'list', '--state', 'merged', '--head', branch, '--json', 'number,mergeCommit']))).find((x) => number === undefined || x.number === number)
       return m && { number: m.number, sha: m.mergeCommit?.oid ?? '' }
     },
     async shot(dir, branch, name) {
       if (!/^[\w-]+$/.test(name) || !profile.shotsWorkflow) return null
-      const runs = JSON.parse(await gh(dir, ['run', 'list', '--branch', branch, '--workflow', profile.shotsWorkflow, '--limit', '1', '--json', 'databaseId,status'])) as { databaseId: number; status: string }[]
+      const runs = JSON.parse(await ghRun(at(dir), ['run', 'list', '--branch', branch, '--workflow', profile.shotsWorkflow, '--limit', '1', '--json', 'databaseId,status'])) as { databaseId: number; status: string }[]
       const run = runs[0]
       if (!run || run.status !== 'completed') return null
       fs.mkdirSync(base, { recursive: true })
       const tmp = fs.mkdtempSync(path.join(base, '.shots-'))
       try {
-        await gh(dir, ['run', 'download', String(run.databaseId), '--name', 'shots', '--dir', tmp])
+        await ghRun(at(dir), ['run', 'download', String(run.databaseId), '--name', 'shots', '--dir', tmp])
         const file = path.join(tmp, `${name}.png`)
         return fs.existsSync(file) ? fs.readFileSync(file) : null
       } catch { return null } finally { fs.rmSync(tmp, { recursive: true, force: true }) }
@@ -385,7 +418,7 @@ export function sampleAppWork(base: string, sampleShots?: string): AppWork {
       fs.mkdirSync(dir, { recursive: true })
       return { dir, branch: appBranch(id) }
     },
-    async dispose(dir) { fs.rmSync(dir, { recursive: true, force: true }) },
+    async dispose(dir) { for (const d of [dir, keptMockups(dir)]) fs.rmSync(d, { recursive: true, force: true }) },
     async submit() { return { number: 234, url: 'https://github.com/emergence-project/emergence-workbench/pull/234', created: true } },
     async checks() { return { pr: 234, checks: [{ name: 'check', state: 'SUCCESS' }], done: true, ok: true } },
     async merge() { return { number: 234, sha: '0000000000000000000000000000000000000234' } },

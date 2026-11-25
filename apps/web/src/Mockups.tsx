@@ -26,7 +26,7 @@ const PICTURE = ['.png', '.webp', '.jpg', '.jpeg', '.gif', '.svg']
 /**
  * 시안 (11/19 "시안이 있을 때 링크를 두거나 여기서 바로 볼 수 있게"): 대화 글에 시안 경로가 나오면 그 글 아래에 그림을 작게 보여 준다.
  * 그림을 누르면 앱 안에서 크게(PictureGallery), 「새 창에서 열기」는 html이 있으면 html, 없으면 그림을 새 창에 연다.
- * 파일은 서버 routes/agentMockups.ts가 그 대화 작업 폴더의 mockups/ 안에서만 내준다. 없는 시안은 그리지 않는다
+ * 파일은 서버 routes/agentMockups.ts가 그 대화 작업 폴더의 mockups/ 안에서만 내준다 (끝난 대화의 작업 폴더를 치운 뒤에는 남겨 둔 시안에서 같은 주소로). 없는 시안은 그리지 않는다
  */
 export function Mockups({ text, chat }: { text?: string; chat: string }) {
   const refs = text ? mockupRefs(text, chat) : []
