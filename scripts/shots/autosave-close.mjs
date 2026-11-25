@@ -4,14 +4,14 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, request } from 'playwright-core'
 
-// PR1 tab-close regression: 3 autosave cases, 3 manual-save concept cases,
-// and 2 workspace/native-history cases while a tab-close save is waiting.
+// Tab-close regression (PR1): closing a tab while its save has failed (500), conflicts (409) or is still in flight
+// must keep the tab and the unsaved text. The three cases run on a note and on a concept note, then two cases
+// check that other workspace actions and the browser's Back wait while a tab-close save is pending.
 // The original 6 reproduced draft-losing tab removal on the pre-PR1 main build.
-// Run against an already built and running RW_SANDBOX=1 static example server:
-// node scripts/shots/autosave-close.mjs http://127.0.0.1:PORT [output-directory]
+// pnpm test:browser (browser-check.mjs) builds, starts a fresh sandbox and runs this; CI runs it on every PR.
+// Against a sandbox that is already running: node scripts/shots/autosave-close.mjs http://127.0.0.1:PORT [output-directory]
 // Set RW_TEST_CASE to run a single named case while reproducing a regression.
-// This script never builds or starts the app. Every case restores both fixtures.
-// Default artifacts live under the ignored shots/autosave-close directory.
+// Every case restores both fixtures. Default artifacts live under the ignored shots/autosave-close directory.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 assert(process.argv[2], 'Usage: node scripts/shots/autosave-close.mjs <loopback-sandbox-url> [output-directory]')
 const base = new URL(process.argv[2])
@@ -29,7 +29,7 @@ const registryResponse = await api.get('/api/researches')
 assert(registryResponse.ok(), `Research registry returned ${registryResponse.status()}`)
 const registry = await registryResponse.json()
 assert.equal(registry.sandbox, true, 'Refusing to change a non-sandbox server')
-const research = registry.researches.find((r) => r.path?.endsWith('/.sandbox/sample-research'))
+const research = registry.researches.find((r) => r.path?.endsWith('/sample-research'))
 assert(research, 'The sample-research sandbox fixture is missing')
 const rid = research.id
 const file = 'workbench/notes/kempe-recoloring/note.md'
@@ -104,7 +104,7 @@ async function openNote(context) {
   return { page, pane, editor, close }
 }
 async function openConcept(context) {
-  await context.addInitScript(() => localStorage.setItem('rw.concepts.editMode', 'split'))
+  await context.addInitScript(() => localStorage.setItem('rw.notes.editView', JSON.stringify('source')))
   const page = await context.newPage()
   page.setDefaultTimeout(10000)
   await page.goto(conceptURL)
@@ -116,8 +116,14 @@ async function openConcept(context) {
   const closeName = await tab.locator('button[aria-label^="탭 닫기:"]').getAttribute('aria-label')
   assert(closeName, 'The concept tab has no close button')
   const close = page.getByRole('button', { name: closeName, exact: true })
-  const save = pane.getByRole('button', { name: '편집 완료', exact: true })
-  return { page, pane, editor, close, save }
+  return { page, pane, editor, close }
+}
+/** Open a link in a new tab, as ⌘/Ctrl+click does. A plain link moves within the selected tab, which would replace the note under test. */
+async function openInNewTab(page, url) {
+  await page.evaluate((hash) => {
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, ctrlKey: true }))
+    location.hash = hash
+  }, new URL(url).hash)
 }
 function bodyOf(content) {
   return content.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/, '')
@@ -143,6 +149,8 @@ async function beforeUnloadBlocked(page) {
 async function caseOf(name, run, opener = openNote) {
   if (process.env.RW_TEST_CASE && process.env.RW_TEST_CASE !== name) return
   const context = await browser.newContext({ viewport: { width: 1200, height: 760 }, reducedMotion: 'reduce' })
+  // Fix the screen language up front (as shots.mjs does): a fresh profile starts in the browser's language and reloads once the settings arrive
+  await context.addInitScript(() => { try { if (!localStorage.getItem('rw-ui')) localStorage.setItem('rw-ui', JSON.stringify({ language: 'ko' })) } catch { /* ignore */ } })
   let page
   try {
     const ui = await opener(context)
@@ -165,141 +173,151 @@ async function caseOf(name, run, opener = openNote) {
   }
 }
 
+// The same three close cases run on a note and on a concept note: both save through autosave.ts but load, write and
+// reload through their own code. (Concept notes saved by hand until #46; the three manual-save cases went with that.)
+const targets = [
+  { prefix: '', open: openNote, routeURL, field: 'content', text0: original.content, mine: (body) => body.file === file,
+    read: async () => { const r = await read(); return { text: r.content, hash: r.hash } }, write },
+  { prefix: 'concept-', open: openConcept, routeURL: conceptRouteURL, field: 'body', text0: originalConcept.body, mine: () => true,
+    read: async () => { const r = await readConcept(); return { text: r.body, hash: r.hash } }, write: writeConcept },
+]
 try {
-  await caseOf('500-close-draft-retry', async (ui) => {
-    const marker = `${token}_500_DRAFT`
-    const draft = `${original.content}\n${marker}\n`
-    let failing = true
-    const observed = []
-    await ui.page.route(routeURL, async (route) => {
-      const req = route.request()
-      if (req.method() !== 'PUT') return route.continue()
-      const body = req.postDataJSON()
-      if (body.file !== file) return route.continue()
-      observed.push(body)
-      if (failing) return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'PR1 injected save failure' }) })
-      return route.continue()
-    })
-    await replaceBody(ui, draft)
-    await ui.pane.locator('[data-ui="저장 상태"].error').waitFor({ state: 'visible' })
-    assert.equal((await read()).content, original.content, 'A rejected write changed the server file')
-    await ui.close.click()
-    await settleUI(ui.page)
-    await retained(ui, marker)
-    await ui.page.screenshot({ path: `${out}/500-close-draft-retry-retained.png` })
-    assert(await beforeUnloadBlocked(ui.page), 'The failed unsaved draft lost its window-close protection')
-    assert.equal((await read()).content, original.content, 'Closing after 500 changed the server file')
-    failing = false
-    await ui.pane.getByRole('button', { name: '다시 저장', exact: true }).click()
-    await ui.pane.locator('[data-ui="저장 상태"].saved').waitFor({ state: 'visible' })
-    assert.equal((await read()).content, draft, 'Retry failed to write the exact retained draft')
-    assert(observed.every((r) => r.content === draft), 'A save attempt substituted or truncated the draft')
-    assert.equal(await beforeUnloadBlocked(ui.page), false, 'Saved text still blocks window closing')
-    await ui.close.click()
-    await eventually(async () => (await ui.close.count()) === 0, 'A successfully saved tab could not close')
-  })
-
-  await caseOf('409-close-external-preserved', async (ui) => {
-    const marker = `${token}_409_DRAFT`
-    const externalMarker = `${token}_EXTERNAL`
-    const draft = `${original.content}\n${marker}\n`
-    const external = `${original.content}\n${externalMarker}\n`
-    const responses = []
-    let changedOutside = false
-    const attempts = []
-    await ui.page.route(routeURL, async (route) => {
-      const req = route.request()
-      if (req.method() !== 'PUT') return route.continue()
-      const body = req.postDataJSON()
-      if (body.file !== file) return route.continue()
-      attempts.push(body)
-      if (!changedOutside) {
-        changedOutside = true
-        const current = await read()
-        await write(external, current.hash)
-      }
-      // This is an actual stale-baseHash server response, not a mocked 409.
-      const response = await route.fetch()
-      responses.push(response.status())
-      await route.fulfill({ response })
-    })
-    await replaceBody(ui, draft)
-    await ui.pane.locator('[data-ui="저장 상태"].conflict').waitFor({ state: 'visible' })
-    assert.deepEqual(responses, [409], 'The external edit did not produce an actual server 409')
-    assert.equal((await read()).content, external, 'The conflicting draft overwrote the external file')
-    await ui.close.click()
-    await settleUI(ui.page)
-    await retained(ui, marker)
-    await ui.page.screenshot({ path: `${out}/409-close-external-preserved-retained.png` })
-    assert(await beforeUnloadBlocked(ui.page), 'The conflicting unsaved draft lost its window-close protection')
-    assert.equal(attempts.length, 1, 'A conflicted saver retried its stale write while closing')
-    assert.equal((await read()).content, external, 'Closing a conflicted tab overwrote the external file')
-    // The explicit discard control is the only way this test abandons its draft.
-    await ui.pane.getByRole('button', { name: '파일 다시 읽기', exact: true }).first().click()
-    await ui.pane.locator('[data-ui="저장 상태"].saved').waitFor({ state: 'visible' })
-    assert.equal((await read()).content, external, 'Reload rewrote the external file')
-    await ui.close.click()
-    await eventually(async () => (await ui.close.count()) === 0, 'A reloaded conflict-free tab could not close')
-  })
-
-  await caseOf('inflight-new-edit-close', async (ui) => {
-    const firstMarker = `${token}_FIRST`
-    const latestMarker = `${token}_LATEST`
-    const first = `${original.content}\n${firstMarker}\n`
-    const latest = `${first}${latestMarker}\n`
-    const gate = deferred()
-    const started = deferred()
-    const attempts = []
-    let firstHash
-    let firstInFlight = false
-    let overlapping = false
-    await ui.page.route(routeURL, async (route) => {
-      const req = route.request()
-      if (req.method() !== 'PUT') return route.continue()
-      const body = req.postDataJSON()
-      if (body.file !== file) return route.continue()
-      attempts.push(body)
-      if (attempts.length === 1) {
-        firstInFlight = true
-        started.resolve()
-        await gate.promise
-        const response = await route.fetch()
-        assert.equal(response.status(), 200, 'The first delayed save failed')
-        firstHash = (await response.json()).hash
-        firstInFlight = false
-        return route.fulfill({ response })
-      }
-      if (firstInFlight) overlapping = true
-      return route.continue()
-    })
-    try {
-      await replaceBody(ui, first)
-      await Promise.race([started.promise, new Promise((_, reject) => setTimeout(() => reject(new Error('The first save did not start')), 10000))])
-      await replaceBody(ui, latest)
+  for (const T of targets) {
+    await caseOf(`${T.prefix}500-close-draft-retry`, async (ui) => {
+      const marker = `${token}_500_DRAFT`
+      const draft = `${T.text0}\n${marker}\n`
+      let failing = true
+      const observed = []
+      await ui.page.route(T.routeURL, async (route) => {
+        const req = route.request()
+        if (req.method() !== 'PUT') return route.continue()
+        const body = req.postDataJSON()
+        if (!T.mine(body)) return route.continue()
+        observed.push(body)
+        if (failing) return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'PR1 injected save failure' }) })
+        return route.continue()
+      })
+      await replaceBody(ui, draft)
+      await ui.pane.locator('[data-ui="저장 상태"].error').waitFor({ state: 'visible' })
+      assert.equal((await T.read()).text, T.text0, 'A rejected write changed the server file')
       await ui.close.click()
-      assert.equal(await ui.close.count(), 1, 'The tab closed before the delayed save completed')
-      assert.equal(attempts.length, 1, 'A second save started before the first returned its hash')
-      await retained(ui, latestMarker)
-      gate.resolve()
-      await eventually(async () => (await read()).content === latest, 'Closing failed to preserve the edit made during saving')
-      assert.equal(overlapping, false, 'Two writes overlapped')
-      assert.equal(attempts.length, 2, 'The newest draft was not saved exactly once after the first write')
-      assert.equal(attempts[1].content, latest, 'The second write lost the newest edit')
-      assert.equal(attempts[1].baseHash, firstHash, 'The second write did not use the first save hash')
-      // A policy that retains the tab after a concurrent edit is also safe.
-      // If it does so, a fresh close after all text is saved must succeed.
-      if (await ui.close.count()) { await settleUI(ui.page); await ui.close.click() }
-      await eventually(async () => (await ui.close.count()) === 0, 'The fully saved tab could not close')
-      assert.equal((await read()).content, latest, 'Final close changed the saved draft')
-    } finally {
-      gate.resolve()
-    }
-  })
+      await settleUI(ui.page)
+      await retained(ui, marker)
+      await ui.page.screenshot({ path: `${out}/${T.prefix}500-close-draft-retry-retained.png` })
+      assert(await beforeUnloadBlocked(ui.page), 'The failed unsaved draft lost its window-close protection')
+      assert.equal((await T.read()).text, T.text0, 'Closing after 500 changed the server file')
+      failing = false
+      await ui.pane.getByRole('button', { name: '다시 저장', exact: true }).click()
+      await ui.pane.locator('[data-ui="저장 상태"].saved').waitFor({ state: 'visible' })
+      assert.equal((await T.read()).text, draft, 'Retry failed to write the exact retained draft')
+      assert(observed.every((r) => r[T.field] === draft), 'A save attempt substituted or truncated the draft')
+      assert.equal(await beforeUnloadBlocked(ui.page), false, 'Saved text still blocks window closing')
+      await ui.close.click()
+      await eventually(async () => (await ui.close.count()) === 0, 'A successfully saved tab could not close')
+    }, T.open)
+
+    await caseOf(`${T.prefix}409-close-external-preserved`, async (ui) => {
+      const marker = `${token}_409_DRAFT`
+      const externalMarker = `${token}_EXTERNAL`
+      const draft = `${T.text0}\n${marker}\n`
+      const external = `${T.text0}\n${externalMarker}\n`
+      const responses = []
+      let changedOutside = false
+      const attempts = []
+      await ui.page.route(T.routeURL, async (route) => {
+        const req = route.request()
+        if (req.method() !== 'PUT') return route.continue()
+        const body = req.postDataJSON()
+        if (!T.mine(body)) return route.continue()
+        attempts.push(body)
+        if (!changedOutside) {
+          changedOutside = true
+          const current = await T.read()
+          await T.write(external, current.hash)
+        }
+        // This is an actual stale-baseHash server response, not a mocked 409.
+        const response = await route.fetch()
+        responses.push(response.status())
+        await route.fulfill({ response })
+      })
+      await replaceBody(ui, draft)
+      await ui.pane.locator('[data-ui="저장 상태"].conflict').waitFor({ state: 'visible' })
+      assert.deepEqual(responses, [409], 'The external edit did not produce an actual server 409')
+      assert.equal((await T.read()).text, external, 'The conflicting draft overwrote the external file')
+      await ui.close.click()
+      await settleUI(ui.page)
+      await retained(ui, marker)
+      await ui.page.screenshot({ path: `${out}/${T.prefix}409-close-external-preserved-retained.png` })
+      assert(await beforeUnloadBlocked(ui.page), 'The conflicting unsaved draft lost its window-close protection')
+      assert.equal(attempts.length, 1, 'A conflicted saver retried its stale write while closing')
+      assert.equal((await T.read()).text, external, 'Closing a conflicted tab overwrote the external file')
+      // The explicit discard control is the only way this test abandons its draft.
+      await ui.pane.getByRole('button', { name: '파일 다시 읽기', exact: true }).first().click()
+      await ui.pane.locator('[data-ui="저장 상태"].saved').waitFor({ state: 'visible' })
+      assert.equal((await T.read()).text, external, 'Reload rewrote the external file')
+      await ui.close.click()
+      await eventually(async () => (await ui.close.count()) === 0, 'A reloaded conflict-free tab could not close')
+    }, T.open)
+
+    await caseOf(`${T.prefix}inflight-new-edit-close`, async (ui) => {
+      const firstMarker = `${token}_FIRST`
+      const latestMarker = `${token}_LATEST`
+      const first = `${T.text0}\n${firstMarker}\n`
+      const latest = `${first}${latestMarker}\n`
+      const gate = deferred()
+      const started = deferred()
+      const attempts = []
+      let firstHash
+      let firstInFlight = false
+      let overlapping = false
+      await ui.page.route(T.routeURL, async (route) => {
+        const req = route.request()
+        if (req.method() !== 'PUT') return route.continue()
+        const body = req.postDataJSON()
+        if (!T.mine(body)) return route.continue()
+        attempts.push(body)
+        if (attempts.length === 1) {
+          firstInFlight = true
+          started.resolve()
+          await gate.promise
+          const response = await route.fetch()
+          assert.equal(response.status(), 200, 'The first delayed save failed')
+          firstHash = (await response.json()).hash
+          firstInFlight = false
+          return route.fulfill({ response })
+        }
+        if (firstInFlight) overlapping = true
+        return route.continue()
+      })
+      try {
+        await replaceBody(ui, first)
+        await Promise.race([started.promise, new Promise((_, reject) => setTimeout(() => reject(new Error('The first save did not start')), 10000))])
+        await replaceBody(ui, latest)
+        await ui.close.click()
+        assert.equal(await ui.close.count(), 1, 'The tab closed before the delayed save completed')
+        assert.equal(attempts.length, 1, 'A second save started before the first returned its hash')
+        await retained(ui, latestMarker)
+        gate.resolve()
+        await eventually(async () => (await T.read()).text === latest, 'Closing failed to preserve the edit made during saving')
+        assert.equal(overlapping, false, 'Two writes overlapped')
+        assert.equal(attempts.length, 2, 'The newest draft was not saved exactly once after the first write')
+        assert.equal(attempts[1][T.field], latest, 'The second write lost the newest edit')
+        assert.equal(attempts[1].baseHash, firstHash, 'The second write did not use the first save hash')
+        // A policy that retains the tab after a concurrent edit is also safe.
+        // If it does so, a fresh close after all text is saved must succeed.
+        if (await ui.close.count()) { await settleUI(ui.page); await ui.close.click() }
+        await eventually(async () => (await ui.close.count()) === 0, 'The fully saved tab could not close')
+        assert.equal((await T.read()).text, latest, 'Final close changed the saved draft')
+      } finally {
+        gate.resolve()
+      }
+    }, T.open)
+  }
 
   await caseOf('closing-blocks-other-workspace-actions', async (ui) => {
     const otherFile = 'docs/note/chapters/02-five-color.tex'
     const otherURL = `${base.href}#/r/${encodeURIComponent(rid)}/w/${encodeURIComponent(otherFile)}`
-    await ui.page.goto(otherURL)
+    await openInNewTab(ui.page, otherURL)
     await ui.page.locator('[data-ui="LaTeX 편집기"]').filter({ visible: true }).first().waitFor({ state: 'visible' })
     const otherTab = ui.page.locator('[role="tab"][aria-selected="true"]').filter({ has: ui.page.locator('button[aria-label^="탭 닫기:"]') }).first()
     const otherCloseName = await otherTab.locator('button[aria-label^="탭 닫기:"]').getAttribute('aria-label')
@@ -374,7 +392,7 @@ try {
   await caseOf('native-back-keeps-history', async (ui) => {
     const previousFile = 'docs/note/chapters/02-five-color.tex'
     const previousURL = `${base.href}#/r/${encodeURIComponent(rid)}/w/${encodeURIComponent(previousFile)}`
-    await ui.page.goto(previousURL)
+    await openInNewTab(ui.page, previousURL)
     await ui.page.locator('[data-ui="LaTeX 편집기"]').filter({ visible: true }).first().waitFor({ state: 'visible' })
     const previousHash = new URL(previousURL).hash
     const previousTab = ui.page.locator('[role="tab"][aria-selected="true"]').filter({ has: ui.page.locator('button[aria-label^="탭 닫기:"]') }).first()
@@ -436,115 +454,6 @@ try {
       gate.resolve()
     }
   })
-
-  await caseOf('manual-500-close-draft-retry', async (ui) => {
-    const marker = `${token}_MANUAL_500_DRAFT`
-    const draft = `${originalConcept.body}\n${marker}\n`
-    let failing = true
-    const attempts = []
-    await ui.page.route(conceptRouteURL, async (route) => {
-      if (route.request().method() !== 'PUT') return route.continue()
-      attempts.push(route.request().postDataJSON())
-      if (failing) return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'PR1 injected manual save failure' }) })
-      return route.continue()
-    })
-    await replaceBody(ui, draft)
-    assert.equal(attempts.length, 0, 'Typing into a manual-save concept triggered a write')
-    await ui.save.click()
-    await ui.pane.locator('.save-state.error').waitFor({ state: 'visible' })
-    assert.equal((await readConcept()).body, originalConcept.body, 'The rejected manual write changed the file')
-    await ui.close.click()
-    await ui.page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
-    await retained(ui, marker)
-    await ui.page.screenshot({ path: `${out}/manual-500-close-draft-retry-retained.png` })
-    assert.equal(attempts.length, 1, 'Closing changed the concept manual-save policy by sending another write')
-    assert(await beforeUnloadBlocked(ui.page), 'The failed concept draft lost its window-close protection')
-    failing = false
-    await ui.save.click()
-    await ui.editor.waitFor({ state: 'hidden' })
-    assert.equal((await readConcept()).body, draft, 'Manual retry failed to preserve the exact draft')
-    assert.equal(await beforeUnloadBlocked(ui.page), false, 'The saved concept still blocks window closing')
-    await ui.close.click()
-    await eventually(async () => (await ui.close.count()) === 0, 'The manually saved concept tab could not close')
-  }, openConcept)
-
-  await caseOf('manual-409-close-external-preserved', async (ui) => {
-    const marker = `${token}_MANUAL_409_DRAFT`
-    const draft = `${originalConcept.body}\n${marker}\n`
-    const external = `${originalConcept.body}\n${token}_MANUAL_EXTERNAL\n`
-    const responses = []
-    const attempts = []
-    await ui.page.route(conceptRouteURL, async (route) => {
-      if (route.request().method() !== 'PUT') return route.continue()
-      attempts.push(route.request().postDataJSON())
-      if (attempts.length === 1) {
-        const current = await readConcept()
-        await writeConcept(external, current.hash)
-      }
-      const response = await route.fetch()
-      responses.push(response.status())
-      await route.fulfill({ response })
-    })
-    await replaceBody(ui, draft)
-    await ui.save.click()
-    await ui.pane.locator('.save-state.error').waitFor({ state: 'visible' })
-    assert.deepEqual(responses, [409], 'The manual save did not get an actual stale-hash 409')
-    assert.equal((await readConcept()).body, external, 'The manual save overwrote the external concept edit')
-    await ui.close.click()
-    await ui.page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
-    await retained(ui, marker)
-    await ui.page.screenshot({ path: `${out}/manual-409-close-external-preserved-retained.png` })
-    assert.equal(attempts.length, 1, 'Closing retried the conflicting manual write')
-    assert(await beforeUnloadBlocked(ui.page), 'The conflicting concept draft lost its window-close protection')
-    assert.equal((await readConcept()).body, external, 'Closing overwrote the external concept file')
-  }, openConcept)
-
-  await caseOf('manual-inflight-new-edit-close', async (ui) => {
-    const first = `${originalConcept.body}\n${token}_MANUAL_FIRST\n`
-    const marker = `${token}_MANUAL_LATEST`
-    const latest = `${first}${marker}\n`
-    const gate = deferred()
-    const started = deferred()
-    const attempts = []
-    let firstHash
-    await ui.page.route(conceptRouteURL, async (route) => {
-      if (route.request().method() !== 'PUT') return route.continue()
-      attempts.push(route.request().postDataJSON())
-      if (attempts.length === 1) {
-        started.resolve()
-        await gate.promise
-        const response = await route.fetch()
-        assert.equal(response.status(), 200, 'The first delayed manual save failed')
-        firstHash = (await response.json()).hash
-        return route.fulfill({ response })
-      }
-      return route.continue()
-    })
-    try {
-      await replaceBody(ui, first)
-      await ui.save.click()
-      await Promise.race([started.promise, new Promise((_, reject) => setTimeout(() => reject(new Error('The manual save did not start')), 10000))])
-      await replaceBody(ui, latest)
-      await ui.close.click()
-      assert.equal(await ui.close.count(), 1, 'The concept tab closed before the manual save returned')
-      await retained(ui, marker)
-      gate.resolve()
-      await eventually(async () => (await readConcept()).body === first, 'The first manual save did not finish')
-      await eventually(() => ui.save.isEnabled(), 'The editor disappeared or stayed busy after saving the older draft')
-      await retained(ui, marker)
-      assert.equal(attempts.length, 1, 'Additional concept edits were automatically saved instead of retained for manual saving')
-      assert(await beforeUnloadBlocked(ui.page), 'The newer unsaved concept edit lost its window-close protection')
-      await ui.save.click()
-      await ui.editor.waitFor({ state: 'hidden' })
-      assert.equal((await readConcept()).body, latest, 'The second manual save lost the newer edit')
-      assert.equal(attempts.length, 2, 'The concept did not save once per explicit action')
-      assert.equal(attempts[1].baseHash, firstHash, 'The second manual save used a stale hash')
-      await ui.close.click()
-      await eventually(async () => (await ui.close.count()) === 0, 'The saved concept tab could not close')
-    } finally {
-      gate.resolve()
-    }
-  }, openConcept)
 } finally {
   await browser.close()
   const current = await read()
