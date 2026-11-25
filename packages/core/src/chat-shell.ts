@@ -81,13 +81,19 @@ export function bare(cmd: string): string {
 }
 
 const ANSI_ESCAPE: Record<string, string> = { n: '\n', t: '\t', r: '\r', a: '\x07', b: '\b', e: '\x1b', E: '\x1b', f: '\f', v: '\v', '\\': '\\', "'": "'", '"': '"', '?': '?' }
-/** $'…' 의 안쪽 글을 셸처럼 푼다 (from = 여는 따옴표 다음 자리). end = 닫는 따옴표 자리 */
+/**
+ * $'…' 의 안쪽 글을 셸처럼 푼다 (from = 여는 따옴표 다음 자리). end = 닫는 따옴표 자리.
+ * 닫는 따옴표부터 찾는다: 셸은 \\ 다음 한 글자만 넘기므로 \\c · \\x 같은 것이 따옴표를 삼키지 못한다 (`$'\\c' ; rm x ; echo 'a'`)
+ */
 function ansiString(cmd: string, from: number): { text: string; end: number } {
+  let end = from
+  while (end < cmd.length && cmd[end] !== "'") end += cmd[end] === '\\' ? 2 : 1
+  end = Math.min(end, cmd.length)
+  const body = cmd.slice(from, end)
   let text = ''
-  let i = from
-  for (; i < cmd.length && cmd[i] !== "'"; i++) {
-    if (cmd[i] !== '\\' || i + 1 >= cmd.length) { text += cmd[i]; continue }
-    const rest = cmd.slice(i + 1)
+  for (let i = 0; i < body.length; i++) {
+    if (body[i] !== '\\' || i + 1 >= body.length) { text += body[i]; continue }
+    const rest = body.slice(i + 1)
     const hex = /^x([0-9a-fA-F]{1,2})/.exec(rest) ?? /^u([0-9a-fA-F]{1,4})/.exec(rest) ?? /^U([0-9a-fA-F]{1,8})/.exec(rest)
     const oct = /^[0-7]{1,3}/.exec(rest)
     if (hex) { const n = parseInt(hex[1]!, 16); text += n <= 0x10ffff ? String.fromCodePoint(n) : '?'; i += hex[0].length }
@@ -95,16 +101,38 @@ function ansiString(cmd: string, from: number): { text: string; end: number } {
     else if (rest[0] === 'c' && rest.length > 1) { text += String.fromCharCode(rest.charCodeAt(1) & 0x1f); i += 2 }
     else { text += ANSI_ESCAPE[rest[0]!] ?? `\\${rest[0]}`; i++ }
   }
-  return { text, end: i }
+  return { text, end }
 }
 
 /**
- * $'…' (안의 \\' · \\x72 를 푸는 따옴표)와 $"…" 를 보통 따옴표 글로 바꿔 쓴다 (11/25 검토). 다른 판정은 작은따옴표가 \\' 에서
- * 닫힌다고 읽으므로, 그대로 두면 `echo $'a\\'' ; rm -rf x ; echo '`의 가운데 명령이 따옴표 안으로 보였고 `$'\\x72m' -rf x`의 rm도 읽지 못했다.
- * 문맥을 따라간다: 큰따옴표 안의 $' 는 글자고, 그 안의 $( … ) 안에서는 다시 따옴표다
+ * 줄 잇기(\\ + 줄바꿈)를 셸처럼 지운다: 그대로 두면 `-del\\⏎ete`가 한 낱말 -delete 로 읽히지 않는다 (11/21 보안 검토).
+ * 작은따옴표 안에서는 글자 그대로다
  */
-export function ansiQuotes(cmd: string): string {
-  if (!/\$['"]/.test(cmd)) return cmd
+export function joinLines(cmd: string): string {
+  if (!cmd.includes('\\\n')) return cmd
+  let out = ''
+  let q: string | null = null
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i]!
+    if (q === "'") { if (ch === q) q = null; out += ch; continue }
+    if (ch === '\\' && i + 1 < cmd.length) { if (cmd[i + 1] !== '\n') out += ch + cmd[i + 1]; i++; continue }
+    if (q) { if (ch === q) q = null } else if (ch === '"' || ch === "'") q = ch
+    out += ch
+  }
+  return out
+}
+
+/**
+ * 판정하기 전에 글을 셸이 읽는 대로 고쳐 쓴다 (11/25 검토). 다른 판정은 「'」가 따옴표를 열고 다음 「'」에서 닫힌다고만 읽으므로,
+ * 셸이 다르게 읽는 자리에서는 따옴표의 짝이 어긋나 그 사이의 명령이 따옴표 안으로 숨는다:
+ * - 줄 잇기(\\ + 줄바꿈)를 지운다.
+ * - $'…' (안의 \\' · \\x72 를 푸는 따옴표) · $"…" 를 보통 따옴표 글로 바꾼다. `echo $'a\\'' ; rm -rf x ; echo '` · `$'\\x72m' -rf x`
+ * - 주석(낱말 처음의 # 부터 줄 끝) 안의 따옴표를 지운다. 주석 안의 따옴표는 따옴표가 아니다: `ls # '⏎rm -rf x # '`
+ * 문맥을 따라간다: 큰따옴표 안의 $' 와 # 는 글자고, 그 안의 $( … ) 안에서는 다시 따옴표 · 주석이다
+ */
+export function prepare(cmd0: string): string {
+  const cmd = joinLines(cmd0)
+  if (!/\$['"]|#/.test(cmd)) return cmd
   let out = ''
   // 문맥 더미: p = 따옴표 밖(맨 바깥 · $( ) 안, 값은 열린 괄호 수), d = 큰따옴표 안, b = 백틱 안
   const stack: { k: 'p' | 'd' | 'b'; n: number }[] = [{ k: 'p', n: 0 }]
@@ -114,6 +142,14 @@ export function ansiQuotes(cmd: string): string {
     if (ch === '$' && cmd[i + 1] === '(') { stack.push({ k: 'p', n: 0 }); out += '$('; i++; continue }
     if (ch === '`') { if (top.k === 'b') stack.pop(); else stack.push({ k: 'b', n: 0 }); out += ch; continue }
     if (top.k === 'd') { if (ch === '"') stack.pop(); out += ch; continue }
+    // 주석: 지우지 않고 안의 따옴표 · \\ · 백틱만 빈칸으로 바꾼다. 주석이 아닐 수도 있어서다(zsh 무늬의 (#q…) 등): 글은 그대로 판정에 보이고, 따옴표의 짝만 어긋나지 않는다
+    if (ch === '#' && (i === 0 || /[\s;|&()`]/.test(cmd[i - 1]!))) {
+      const end = cmd.indexOf('\n', i)
+      const to = end < 0 ? cmd.length : end
+      out += cmd.slice(i, to).replace(/['"`\\]/g, ' ')
+      i = to - 1
+      continue
+    }
     if (ch === '$' && cmd[i + 1] === "'") {
       const s = ansiString(cmd, i + 2)
       out += `'${s.text.replace(/'/g, "'\\''")}'`
@@ -137,7 +173,7 @@ export function ansiQuotes(cmd: string): string {
 }
 
 /**
- * 조각 하나의 돌려보내기. out = 쓰는 곳(> · >> · &> · >| 의 파일), in = 읽어 들이는 곳(< 파일), rest = 돌려보내기를 뺀 글.
+ * 조각 하나의 돌려보내기. out = 쓰는 곳(> · >> · &> · >| · >! 의 파일), in = 읽어 들이는 곳(< 파일), rest = 돌려보내기를 뺀 글.
  * 따옴표 안의 < > 는 글자다(grep "=>" · awk '$1 < 3'). 받는 곳은 따옴표를 벗겨 준다: 벗기지 않으면 > '/etc/x' 가 폴더 안 상대 경로로 읽혔다.
  * 2>&1 · >&2 (번호로 합치기) · << (히어독) · <<< 는 파일이 아니다
  */
@@ -146,7 +182,7 @@ export function redirects(seg: string): { out: string[]; in: string[]; rest: str
   const inn: string[] = []
   let rest = ''
   let at = 0
-  for (const m of bare(seg).matchAll(/(?:(?<![^\s])\d+|&)?(>>?\|?|<<<|<<-?|<)(&?)[ \t]*([^\s;&|<>()]*)/g)) {
+  for (const m of bare(seg).matchAll(/(?:(?<![^\s])\d+|&)?(>>?[|!]?|<<<|<<-?|<)(&?)[ \t]*([^\s;&|<>()]*)/g)) {
     const end = m.index + m[0].length
     const word = words(seg.slice(end - m[3]!.length, end))[0] ?? ''
     if (m[1]![0] === '>') { if (word && !(m[2] && /^(\d+|-)$/.test(word))) out.push(word) }
@@ -222,20 +258,70 @@ function maskLiteral(cmd0: string): string {
   return out
 }
 
-/** $( … ) · ` … ` 를 안쪽부터 하나씩 꺼내 자리표(SUBST)로 바꾼다. left = 다 풀지 못하고 남았는지 (짝이 안 맞거나 너무 깊다) */
-export function substitutions(raw: string, o: { proc?: boolean } = {}): { inner: string[]; flat: string; left: boolean } {
-  const cmd = maskLiteral(ansiQuotes(raw))
-  // proc: <( … ) · >( … ) 와 zsh의 =( … ) (낱말 처음의 것)도 안의 명령을 돌린다
-  const open = o.proc ? /(?:[$<>]|(?<![^\s;|&(])=)\(([^()`]*)\)|`([^`]*)`/ : /\$\(([^()`]*)\)|`([^`]*)`/
-  const inner: string[] = []
-  let flat = cmd
-  for (let n = 0; n < 20; n++) {
-    // (cat <(rm x) · cat =(rm x) 가 읽기로 보이지 않게)
-    const m = open.exec(flat)
-    if (!m) break
-    // 안쪽 글은 되돌려 준다: 받는 쪽이 그 글로 다시 판정하며 문맥에 맞게 새로 가린다
-    inner.push(unmask(m[1] ?? m[2] ?? ''))
-    flat = `${flat.slice(0, m.index)}SUBST${flat.slice(m.index + m[0].length)}`
+/** i = 여는 ( 의 자리. 짝이 맞는 ) 의 자리 (없으면 -1). 따옴표 · \\ · 안쪽 괄호를 지킨다: 따옴표 친 ) 는 닫는 괄호가 아니다 */
+function closeParen(cmd: string, i: number): number {
+  let depth = 0
+  for (let j = i; j < cmd.length; j++) {
+    const ch = cmd[j]!
+    if (ch === '\\') { j++; continue }
+    if (ch === "'" || ch === '"' || ch === '`') {
+      const end = ch === "'" ? cmd.indexOf("'", j + 1) : ch === '"' ? closeDouble(cmd, j) : closeTick(cmd, j)
+      if (end < 0) return -1
+      j = end
+    }
+    else if (ch === '(') depth++
+    else if (ch === ')' && --depth === 0) return j
   }
-  return { inner, flat, left: (o.proc ? /[$<>]\(|(?<![^\s;|&(])=\(|`/ : /\$\(|`/).test(flat) }
+  return -1
+}
+/** i = 여는 " 의 자리. 닫는 " 의 자리 (없으면 -1). 안의 $( … ) · ` … ` 속 따옴표는 이 따옴표를 닫지 않는다 */
+function closeDouble(cmd: string, i: number): number {
+  for (let j = i + 1; j < cmd.length; j++) {
+    const ch = cmd[j]!
+    if (ch === '\\') { j++; continue }
+    if (ch === '"') return j
+    if (ch !== '`' && !(ch === '$' && cmd[j + 1] === '(')) continue
+    const end = ch === '`' ? closeTick(cmd, j) : closeParen(cmd, j + 1)
+    if (end < 0) return -1
+    j = end
+  }
+  return -1
+}
+function closeTick(cmd: string, i: number): number {
+  for (let j = i + 1; j < cmd.length; j++) { if (cmd[j] === '\\') j++; else if (cmd[j] === '`') return j }
+  return -1
+}
+
+/**
+ * $( … ) · ` … ` 를 한 겹 꺼내 자리표(SUBST)로 바꾼다 (맨 바깥과 큰따옴표 안의 것. 작은따옴표 안은 글자다).
+ * inner = 꺼낸 글(안에 겹친 것은 받는 쪽이 그 글로 다시 부를 때 꺼낸다), left = 짝이 맞지 않아 다 꺼내지 못했는지.
+ * 글을 걸으며 짝을 찾는다 (11/25 검토): 정규식으로 찾으면 `$(echo ")" ; rm -rf x)`의 따옴표 친 ) 에서 치환이 끝난 줄 알았다.
+ * flat은 작은따옴표 안의 $ ` ( ) 를 가린 글이다 (unmask로 되돌린다)
+ */
+export function substitutions(raw: string, o: { proc?: boolean } = {}): { inner: string[]; flat: string; left: boolean } {
+  const cmd = prepare(raw)
+  const inner: string[] = []
+  let out = ''
+  let left = false
+  let dq = false
+  for (let i = 0; i < cmd.length; i++) {
+    const ch = cmd[i]!
+    if (ch === '\\' && i + 1 < cmd.length) { out += ch + cmd[++i]; continue }
+    if (!dq && ch === "'") {
+      const end = cmd.indexOf("'", i + 1)
+      out += cmd.slice(i, end < 0 ? undefined : end + 1)
+      i = end < 0 ? cmd.length : end
+      continue
+    }
+    if (ch === '"') { dq = !dq; out += ch; continue }
+    // proc: <( … ) · >( … ) 와 zsh의 =( … ) (낱말 처음의 것)도 안의 명령을 돌린다 (cat <(rm x) · cat =(rm x) 가 읽기로 보이지 않게)
+    const paren = cmd[i + 1] === '(' && (ch === '$' || (!!o.proc && !dq && (ch === '<' || ch === '>' || (ch === '=' && (i === 0 || /[\s;|&(]/.test(cmd[i - 1]!))))))
+    if (!paren && ch !== '`') { out += ch; continue }
+    const end = paren ? closeParen(cmd, i + 1) : closeTick(cmd, i)
+    if (end < 0) { left = true; out += cmd.slice(i); break }
+    inner.push(cmd.slice(i + (paren ? 2 : 1), end))
+    out += 'SUBST'
+    i = end
+  }
+  return { inner, flat: maskLiteral(out), left }
 }

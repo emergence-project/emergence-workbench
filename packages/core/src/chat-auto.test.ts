@@ -44,6 +44,30 @@ describe('명령이 하는 일', () => {
     // 큰따옴표 안의 $' 는 글자다
     expect(k(`echo "$'x'" && ls`)).toBe('read')
   })
+  // 11/25 별도 검토에서 나온 꼴: 따옴표가 어디서 닫히는지를 셸과 다르게 읽으면 그 뒤의 명령이 숨는다
+  it("따옴표 · 주석 · 치환의 끝을 셸처럼 읽는다", () => {
+    for (const c of [
+      // $'…' 는 \\ 다음 한 글자만 넘긴다: \\c 뒤의 따옴표는 닫는 따옴표다
+      "echo $'\\c' ; rm -rf x ; echo 'a'",
+      // 주석 안의 따옴표는 따옴표가 아니다 (주석은 줄 끝에서 끝난다)
+      "git status # '\nrm -rf x # '",
+      "echo a # it's\nrm -rf x # that's",
+      // $( … ) 안의 따옴표 친 ) 는 치환을 닫지 않는다
+      `echo $(echo ")" ; rm -rf x) '"'`,
+      'echo $(rm -rf x "(")',
+      // 줄 잇기 (\\ + 줄바꿈)
+      'r\\\nm -rf x',
+      // 스물한 번째 치환도 본다
+      `${'echo $(true) ; '.repeat(21)}echo $(rm -rf x)`,
+    ]) expect(k(c), c).toBe('delete')
+    expect(k('echo x >\\\n~/out.txt')).toBe('outside')
+    expect(k("echo '# not a comment' ; ls")).toBe('read')
+    expect(k('echo a#b $# ${#x} ; ls')).toBe('read')
+  })
+  it('앞말은 경로로 적어도, 옵션이 붙어도 뗀다', () => {
+    for (const c of ['/usr/bin/time rm -rf x', 'command -p rm x', 'nohup -- rm x', 'nice -10 rm x', 'nice -n5 rm x', 'exec -a name rm x', '/usr/bin/nohup rm x']) expect(k(c), c).toBe('delete')
+    expect(k('command -v rm')).toBe('read')
+  })
   it('zsh: =( ) 와 무늬 꼬리표 (e:명령:) · (+이름)이 돌리는 명령', () => {
     expect(k('cat =(rm -rf x)')).toBe('delete')
     expect(k('diff =(ls) =(git push)')).toBe('outside')

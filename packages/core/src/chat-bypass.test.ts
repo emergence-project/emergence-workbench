@@ -24,6 +24,16 @@ describe('중앙 대화의 우회: 허락해도 돌리지 않는 명령', () => 
     for (const c of ['find /tmp/shots-1 -name "*.png" -delete', 'find /tmp/x -exec rm -rf {} +', '(cd /tmp/a && ls)', 'find . -exec wc -l {} +', 'grep "a > workbench/b" notes.txt'])
       expect(neverBypass(c), c).toBeUndefined()
   })
+  // 11/25 별도 검토: 앞말에 옵션 · 경로가 붙은 꼴과 따옴표의 끝
+  it('앞말에 옵션이 붙거나 경로로 적어도, 주석 · 줄 잇기로 가려도 같다', () => {
+    for (const [c, why] of [
+      ['command -p git push --force', 'force-push'], ['command -- git push --force', 'force-push'], ['nohup -- git push --force', 'force-push'], ['exec -c git push --force', 'force-push'],
+      ['/usr/bin/nohup git push --force', 'force-push'], ['nice -10 git reset --hard', 'reset-hard'], ['nice -n5 git reset --hard', 'reset-hard'], ['/usr/bin/time rm -rf x', 'rm-outside-temp'],
+      ["echo $'\\c' ; rm -rf ~/x ; echo 'a'", 'rm-outside-temp'], ["git status # '\ngit push --force origin main # '", 'force-push'], ['git push --for\\\nce origin main', 'force-push'],
+      [`echo $(echo ")" ; git push --force) '"'`, 'force-push'], ['echo $( (git push --force) )', 'force-push'], [`${'echo $(true) ; '.repeat(21)}echo $(git push --force)`, 'force-push'],
+      [`awk 'BEGIN{print "x" > "workbench/a.md"}'`, 'workbench-write'], [`perl -e 'open(F, ">workbench/a.md")'`, 'workbench-write'],
+    ] as const) expect(neverBypass(c), c).toBe(why)
+  })
   it('되돌리기 어려운 git', () => {
     for (const [c, why] of [
       ['git push --force origin main', 'force-push'], ['git push -f', 'force-push'], ['git push -uf origin x', 'force-push'], ['git push origin +main', 'force-push'],
@@ -81,6 +91,10 @@ describe('writesFiles', () => {
       'find . -fprint list.txt', 'ls | xargs rm', 'ls | xargs -I {} cp {} src/', "echo x > 'src/a.ts'"]) expect(writesFiles(c), c).toBe(true)
     for (const c of ['ls &> /dev/null', 'ls &>/tmp/out.txt', 'find /tmp/a -name "*.png" -delete', 'find . -exec wc -l {} +', 'ls | xargs wc -l', 'grep "=>" src/a.ts', '(cd src && ls)'])
       expect(writesFiles(c), c).toBe(false)
+  })
+  it('sees writes inside awk and perl code', () => {
+    for (const c of [`awk 'BEGIN{print "x" > "app.ts"}'`, `awk '{print >> "out.txt"}' a`, `perl -e 'open(F, ">app.ts")'`]) expect(writesFiles(c), c).toBe(true)
+    expect(writesFiles("awk '$1 > 3 {print $2}' a.txt")).toBe(false)
   })
   it('lets temp files, sinks and reads through', () => {
     expect(writesFiles("cat > /tmp/probe.txt <<'EOF'\nx\nEOF")).toBe(false)

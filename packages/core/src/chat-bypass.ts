@@ -4,7 +4,8 @@
  * 강제 푸시 · reset --hard · main 지우기, 임시 폴더 밖 rm -rf, 연구 저장소 workbench/(노트 · 기록) 쓰기.
  * 셸 감싸기(sh -c · eval · xargs · find -exec · env · sudo …), 묶음(( … ) · { …; })과 $( … ) 안쪽도 같은 규칙으로 본다
  */
-import { ansiQuotes, leading, redirects, segments, substitutions, words, wrapped } from './chat-auto.js'
+import { leading, wrapped } from './chat-auto.js'
+import { prepare, redirects, segments, substitutions, words } from './chat-shell.js'
 
 export type NeverBypass = 'force-push' | 'reset-hard' | 'delete-main' | 'rm-outside-temp' | 'workbench-write'
 
@@ -44,7 +45,11 @@ const WRITERS: Record<string, (a: string[]) => string[]> = {
   dd: (a) => a.filter((x) => x.startsWith('of=')),
 }
 const INLINE = /^(python3?|node|perl|ruby|osascript)$/
-const WRITE_CODE = /['"][wa]\+?b?['"]|write|unlink|remove|rename|rmtree|truncate/i
+/** 쓰는 코드: 쓰기 모드('w' · 'a'), 펄의 ">파일", 쓰는 함수 이름 */
+const WRITE_CODE = /['"][wa]\+?b?['"]|['"]\s*>|write|unlink|remove|rename|rmtree|truncate/i
+/** awk 코드 안의 파일 쓰기: print … > "파일" · >> "파일" */
+const AWK = /^[gmn]?awk$/
+const AWK_WRITES = /print[^;}|]*>|>>?\s*"/
 
 /**
  * 앞말과 묶음 말을 뗀다: 환경 변수 · env · time · nice · timeout …(chat-auto의 leading)과 sudo, 묶음의 ( · { · then · do.
@@ -73,7 +78,7 @@ function findRoots(a: string[]): string[] {
 const inFind = (inner: string[], roots: string[]) => inner.flatMap((x) => (x === '{}' ? (roots.length ? roots : ['.']) : [x]))
 
 function segment(w0: string[], depth: number): NeverBypass | undefined {
-  if (depth > 6) return undefined
+  if (depth > 14) return undefined
   const w = unwrap(w0)
   if (!w.length) return undefined
   const prog = w[0]!.split('/').pop()!
@@ -82,7 +87,7 @@ function segment(w0: string[], depth: number): NeverBypass | undefined {
     const c = a.findIndex((x) => /^-\w*c\w*$/.test(x))
     return c >= 0 ? neverBypass(a[c + 1] ?? '', depth + 1) : undefined
   }
-  if (prog === 'eval') return neverBypass(a.join(' '), depth + 1)
+  if (prog === 'eval') return neverBypass(a.slice(Math.max(0, a.findIndex((x) => x !== 'eval'))).join(' '), depth + 1)
   // find · xargs 가 돌리는 안의 명령도 본다. find -delete 는 뒤지는 곳을 rm -rf 하는 것과 같다
   if (prog === 'find' || prog === 'xargs') {
     const roots = prog === 'find' ? findRoots(a) : []
@@ -102,14 +107,15 @@ function segment(w0: string[], depth: number): NeverBypass | undefined {
   if (writes && writes(a).some(wb)) return 'workbench-write'
   if (/^(sed|gsed|perl)$/.test(prog) && a.some((x) => /^(-i|--in-place|-\w*i)/.test(x)) && a.some(wb)) return 'workbench-write'
   if (INLINE.test(prog) && a.some((x) => /\bworkbench\//.test(x) && WRITE_CODE.test(x))) return 'workbench-write'
+  if (AWK.test(prog) && a.some((x) => /\bworkbench\//.test(x) && AWK_WRITES.test(x))) return 'workbench-write'
   return undefined
 }
 
 /** 허락해도 돌리지 않는 명령이면 그 까닭, 아니면 undefined */
 export function neverBypass(cmd0: string, depth = 0): NeverBypass | undefined {
-  if (depth > 4) return undefined
-  // $'…' 를 보통 따옴표로 풀어 읽는다: git push $'--force' · 안의 \' 로 뒤 명령을 따옴표 안에 숨기기
-  const cmd = ansiQuotes(cmd0)
+  if (depth > 12) return undefined
+  // 셸이 읽는 대로 고쳐 쓴 글로 본다: 줄 잇기, git push $'--force', 주석 · $'…' 안의 따옴표로 뒤 명령 숨기기
+  const cmd = prepare(cmd0)
   // 겹친 $( $( … ) )도 안쪽부터 본다
   for (const part of substitutions(cmd).inner) {
     const r = neverBypass(part, depth + 1)
@@ -134,9 +140,9 @@ const keep = (p: string) => SINK.test(p) || inTemp(p)
  * 파일 쓰기는 허락으로도 풀지 않고 하위 대화에 맡긴다). 돌려보내기(> · >> · heredoc을 받는 파일) · 쓰는 프로그램 · sed -i · 쓰는 코드를 본다
  */
 export function writesFiles(cmd0: string, depth = 0): boolean {
-  if (depth > 4) return false
+  if (depth > 12) return false
   // heredoc 본문(코드 속 => 등)은 명령이 아니다
-  const cmd = ansiQuotes(cmd0).replace(/(<<-?\s*['"]?(\w+)['"]?[^\n]*)\n[\s\S]*?\n\s*\2\s*(?=\n|$)/g, '$1')
+  const cmd = prepare(cmd0).replace(/(<<-?\s*['"]?(\w+)['"]?[^\n]*)\n[\s\S]*?\n\s*\2\s*(?=\n|$)/g, '$1')
   for (const part of substitutions(cmd).inner) if (writesFiles(part, depth + 1)) return true
   for (const seg of segments(cmd)) {
     const r = redirects(seg)
@@ -148,13 +154,13 @@ export function writesFiles(cmd0: string, depth = 0): boolean {
 }
 
 function writesWords(w0: string[], depth: number): boolean {
-  if (depth > 6) return false
+  if (depth > 14) return false
   const w = unwrap(w0)
   if (!w.length) return false
   const prog = w[0]!.split('/').pop()!
   const a = w.slice(1)
   if (/^(sh|bash|zsh|dash)$/.test(prog)) { const c = a.findIndex((x) => /^-\w*c\w*$/.test(x)); return c >= 0 && writesFiles(a[c + 1] ?? '', depth + 1) }
-  if (prog === 'eval') return writesFiles(a.join(' '), depth + 1)
+  if (prog === 'eval') return writesFiles(a.slice(Math.max(0, a.findIndex((x) => x !== 'eval'))).join(' '), depth + 1)
   if (prog === 'find' || prog === 'xargs') {
     const roots = prog === 'find' ? findRoots(a) : []
     if (prog === 'find' && a.some((x) => /^-(fprint|fprint0|fprintf|fls)$/.test(x))) return true
@@ -165,5 +171,6 @@ function writesWords(w0: string[], depth: number): boolean {
   const writes = WRITERS[prog]
   if (writes && writes(a.filter((x) => !x.startsWith('-'))).some((x) => !keep(x))) return true
   if (/^(sed|gsed|perl)$/.test(prog) && a.some((x) => /^(-i|--in-place|-\w*i)/.test(x))) return true
+  if (AWK.test(prog) && a.some((x) => AWK_WRITES.test(x))) return true
   return INLINE.test(prog) && a.some((x) => WRITE_CODE.test(x))
 }

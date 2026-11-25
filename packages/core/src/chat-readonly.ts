@@ -4,7 +4,7 @@
  * 바꿀 수 있는 문법(파일로 돌려보내기 · 히어독 · 백그라운드 · 환경 변수 앞말 · 다른 명령을 돌리는 프로그램)은 막는다.
  * ok = 묻지 않고, sensitive = 비밀이 든 곳(~/.ssh · .env …)을 보니 한 번 묻고, no = 막는다
  */
-import { bare, segments, substitutions, unmask, words } from './chat-auto.js'
+import { bare, joinLines, segments, substitutions, unmask, words } from './chat-shell.js'
 
 export type StateOnly = 'ok' | 'sensitive' | 'no'
 
@@ -55,6 +55,8 @@ const GIT: Record<string, Rule> = {
 }
 /** gh api: GET만. 몸을 붙이는 -f · -F · --input은 POST가 되므로 -X GET을 적었을 때만, graphql은 mutation이 없을 때만 */
 const ghApi: Rule = (a) => {
+  // 붙여 쓴 짧은 옵션(-iXDELETE · -if k=v)은 읽지 않고 막는다: -X · -f 가 그 안에 숨는다 (11/25 검토). -XGET 만 둔다
+  if (a.some((x) => /^-[a-zA-Z]{2,}/.test(x) && !/^-X[A-Za-z]+$/.test(x))) return false
   const method = a.flatMap((x, i) => x === '-X' || x === '--method' ? [a[i + 1] ?? ''] : x.startsWith('--method=') ? [x.slice(9)] : x.startsWith('-X') && x.length > 2 ? [x.slice(2)] : [])
   if (method.some((m) => m.toUpperCase() !== 'GET') || a.some((x) => /^--input/.test(x))) return false
   // graphql: mutation이 없을 때만. 파일에서 읽는 질의(-F query=@파일)는 안을 볼 수 없어 막는다
@@ -70,7 +72,8 @@ const GH: Record<string, Rule> = {
   repo: LOOK, release: LOOK, workflow: LOOK, label: sub({ list: any }), gist: LOOK, cache: sub({ list: any }),
   search: sub({ repos: any, issues: any, prs: any, commits: any, code: any }),
   status: any,
-  auth: sub({ status: without('--show-token', '-t') }),
+  // -at 처럼 붙여 쓴 -t 도 열쇠를 보인다
+  auth: sub({ status: (a) => !a.some((x) => x.startsWith('--show-token') || /^-[a-zA-Z]*t/.test(x)) }),
   api: ghApi,
 }
 
@@ -85,7 +88,8 @@ const GIT_WRITE: Record<string, Rule> = {
   add: any,
   commit: any,
   // --upload-pack은 지정한 프로그램을 돌린다
-  fetch: (a) => !a.some(longOpt('--upload-pack')),
+  // -f · --force 와 로컬 가지로 받는 refspec(x:main)은 이 폴더의 가지를 덮어쓴다. -u 는 지금 가지에도 받게 한다
+  fetch: (a) => !a.some((x) => longOpt('--upload-pack', '--force', '--update-head-ok')(x) || /^-[a-zA-Z]*[fu]/.test(x) || (!x.startsWith('-') && x.includes(':'))),
   branch: flagsOnly(/^(-a|-r|-v|-vv|--all|--remotes|--list|-l|--show-current|--verbose|-d|--delete|-m|--move|-c|--copy|-t|--track|--no-track|-u|--set-upstream-to(=.*)?|--unset-upstream)$/),
   tag: flagsOnly(/^(-l|--list|-a|--annotate|-m|--message(=.*)?|-s|--sign)$/),
   // + 강제 refspec · :지우기 refspec도 막는다.
@@ -130,7 +134,7 @@ function gitRule(table: Record<string, Rule>): Rule {
 function ghRule(table: Record<string, Rule>): Rule {
   return (a) => {
     if (versionOnly(a)) return true
-    if (a.some((x) => x === '--web' || x === '-w')) return false
+    if (a.some((x) => x === '--web' || /^-[a-zA-Z]*w/.test(x))) return false
     // gh api -X GET <경로>: 첫 낱말이 api면 옵션 값(GET)을 하위 명령으로 읽지 않게 따로 본다
     return a[0] === 'api' ? ghApi(a.slice(1)) : sub(table)(a)
   }
@@ -174,7 +178,7 @@ const PY_OS = /^(path|listdir|scandir|walk|stat|lstat|getcwd|sep|linesep|curdir|
 const PY_SYS = /^(argv|stdin|stdout|stderr|version|version_info|platform|exit|maxsize|getsizeof|executable|getdefaultencoding)$/
 // attrgetter · methodcaller(pathlib · glob에 딸려 온다)는 getattr와 같고, 프레임(gi_frame.f_builtins)에서는 exec를 꺼낼 수 있다 (11/21 보안 검토)
 const PY_BAD = /\b(exec|eval|getattr|setattr|delattr|globals|locals|vars|breakpoint|help|input|attrgetter|methodcaller|operator|[a-z]{2}_frame|f_builtins|f_globals|f_locals|f_back|write_text|write_bytes|touch|mkdir|unlink|rmdir|rename|symlink_to|hardlink_to|link_to|chmod|lchmod|chown)\b/
-/** 문자열 안을 _ 로, 주석을 빈칸으로 가린 같은 길이의 글 (괄호 · 쉼표를 셀 때). 닫히지 않으면 null */
+/** 문자열 안을 \\0 으로, 주석을 빈칸으로 가린 같은 길이의 글 (괄호 · 쉼표 · 이름을 볼 때). 닫히지 않으면 null */
 function maskStrings(code: string): string | null {
   let out = ''
   for (let i = 0; i < code.length;) {
@@ -186,11 +190,13 @@ function maskStrings(code: string): string | null {
     let j = i + q.length
     while (j < code.length && !code.startsWith(q, j)) j += code[j] === '\\' ? 2 : 1
     if (j >= code.length) return null
-    out += q + '_'.repeat(j - i - q.length) + q
+    out += q + '\0'.repeat(j - i - q.length) + q
     i = j + q.length
   }
   return out
 }
+/** 허용한 모듈에 딸려 있어도 쓰면 안 되는 모듈 이름 */
+const PY_INNER = /^(io|subprocess|shutil|codecs|builtins|posix|nt|importlib|posixpath|ntpath|genericpath|tempfile|socket|ctypes|pickle|marshal|signal|fcntl|mmap|pty|runpy|threading|_\w*)$/
 const PY_READ_MODE = /^\s*['"][rbt]*['"]\s*$/
 function pythonCode(raw: string): boolean {
   // 파이썬은 이름을 NFKC로 읽는다: 전각 글자로 적은 ｅｖａｌ도 eval이다 (11/21 보안 검토)
@@ -206,6 +212,8 @@ function pythonCode(raw: string): boolean {
       if (!PY_MODULES.has(m[1]) || m[2]!.includes('*')) return false
       if (m[1] === 'os' && !m[2]!.split(',').every((n) => PY_OS.test(n.trim().split(/\s+/)[0]!))) return false
       if (m[1] === 'sys' && !m[2]!.split(',').every((n) => PY_SYS.test(n.trim().split(/\s+/)[0]!))) return false
+      // 다른 모듈에서 꺼내 오는 모듈(from json import codecs)도 딸린 모듈과 같다
+      if (m[2]!.split(',').some((n) => PY_INNER.test(n.replace(/[()\s]/g, '')))) return false
     } else if (!m[2]!.split(',').every((n) => PY_MODULES.has(n.trim().split(/\s+/)[0]!))) return false
   }
   // os · sys는 늘 os.<보기> · sys.<보기> 꼴로만 (다른 이름에 담아 os.replace 를 숨기지 못하게)
@@ -221,6 +229,8 @@ function pythonCode(raw: string): boolean {
   // open(*값) · Path(…).open('w')(첫 값이 모드) · mode='r' if 0 else 'w' · 문자열 안의 괄호로 둘째 값을 숨기기 · 문자열(f-string) 안의 open
   const masked = maskStrings(code)
   if (masked === null) return false
+  // _ 로 시작하는 이름은 모듈 안쪽의 것이다 (from pprint import _sys → _sys.modules 로 os 를 꺼낸다). 문자열 밖에서는 어디든 막는다 (11/25 검토)
+  if (/(^|[^\w.])_\w/.test(masked)) return false
   for (const m of code.matchAll(/\bopen\b/g)) {
     const at = m.index
     if (masked.slice(at, at + 4) !== 'open') return false
@@ -265,7 +275,7 @@ const pythonRule: Rule = (a) => {
 const PROGRAMS: Record<string, Rule> = {
   ...Object.fromEntries([
     'ls', 'cat', 'head', 'tail', 'wc', 'grep', 'egrep', 'fgrep', 'which', 'type', 'stat', 'du', 'df', 'pwd', 'whoami', 'id', 'uname',
-    'sw_vers', 'uptime', 'vm_stat', 'nproc', 'diff', 'cmp', 'jq', 'cut', 'tr', 'nl', 'column', 'echo', 'printf', 'cd', 'basename', 'dirname',
+    'sw_vers', 'uptime', 'vm_stat', 'nproc', 'diff', 'cmp', 'cut', 'tr', 'nl', 'column', 'echo', 'printf', 'cd', 'basename', 'dirname',
     'realpath', 'readlink', 'true', 'false', 'test', '[', 'system_profiler',
   ].map((p) => [p, any])),
   // 파일을 쓰거나 다른 프로그램을 돌리는 옵션은 뺀다. 짧은 옵션은 붙여 쓴 꼴(-ofile · -uo)도 막는다
@@ -273,6 +283,8 @@ const PROGRAMS: Record<string, Rule> = {
   // -R은 폴더마다 -o 00Tree.html을 쓴다
   tree: (a) => !a.some((x) => /^-[a-zA-Z]*[oR]/.test(x)),
   rg: without('--pre', '--hostname-bin'),
+  // env · $ENV 는 환경 변수(열쇠)를 통째로 보인다
+  jq: (a) => !a.some((x) => /\$ENV\b|(^|[^\w.])env\b|\$__prog/.test(x)),
   // -C는 magic 파일을 컴파일해 쓴다
   file: (a) => !a.some((x) => /^-[a-zA-Z]*C/.test(x) || longOpt('--compile')(x)),
   // 둘째 이름은 쓸 파일이다: 별표가 두 파일로 펼쳐져도 그렇다
@@ -339,28 +351,16 @@ function expansionsOk(prog: string, args: string[], loopVars: Set<string>): bool
     for (const m of x.matchAll(VAR)) {
       if (!m[1]) { if (EXPANDS.test(x.slice(m.index, m.index + 2))) return false; continue }
       if (!SAFE_VARS.test(m[1]) && !loopVars.has(m[1])) return false
+      // 값을 고쳐 펼치는 꼴은 옵션을 만들어 낸다: ${x#a} · ${PWD##*}-delete · zsh의 $x:s/a/-delete/ · $x[…] (11/25 검토)
+      const after = x.slice(m.index + m[0].length)
+      if (m[0].startsWith('${') ? !after.startsWith('}') : /^(:[A-Za-z&]|\[)/.test(after)) return false
     }
   }
   return true
 }
 
-/**
- * 줄 잇기(\\ + 줄바꿈)를 셸처럼 지운다: 그대로 두면 `-del\\⏎ete`가 한 낱말 -delete 로 읽히지 않는다 (11/21 보안 검토).
- * 작은따옴표 안에서는 글자 그대로다
- */
-function joinLines(cmd: string): string {
-  if (!cmd.includes('\\\n')) return cmd
-  let out = ''
-  let q: string | null = null
-  for (let i = 0; i < cmd.length; i++) {
-    const ch = cmd[i]!
-    if (q === "'") { if (ch === q) q = null; out += ch; continue }
-    if (ch === '\\' && i + 1 < cmd.length) { if (cmd[i + 1] !== '\n') out += ch + cmd[i + 1]; i++; continue }
-    if (q) { if (ch === q) q = null } else if (ch === '"' || ch === "'") q = ch
-    out += ch
-  }
-  return out
-}
+/** 커밋 이름만 내놓는 git 명령 (옵션으로 읽힐 글을 내놓지 못한다) */
+const HASHES = /^\s*git\s+(merge-base(\s+--(octopus|fork-point|all))*|rev-parse(\s+--(short|verify|abbrev-ref))*)(\s+[\w@~^][\w@~^./-]*)+\s*$/
 
 const WRITE_PROGRAMS: Record<string, Rule> = { ...PROGRAMS, git: gitRule(GIT_WRITE), gh: ghRule(GH_WRITE) }
 
@@ -412,9 +412,10 @@ export function stateOnlyCommand(raw: string, o: { gitWrites?: boolean } = {}, d
     // python -c 코드 뒤의 낱말은 sys.argv일 뿐 옵션이 되지 않는다 (for f in *.json; do python3 -I -c "…" "$f"; done)
     const name = prog.split('/').pop()!, code = /^python3?$/.test(name) ? w.indexOf('-c') : -1
     if (rule !== any && !expansionsOk(name, code > 0 ? w.slice(1, code + 2) : w.slice(1), loopVars)) return 'no'
-    // $( … )의 출력이 옵션이 되지 않게: 옵션을 가리는 프로그램에서는 $( … )로 시작하거나 옵션 안에 든 낱말을 막는다
-    // (git log $(git merge-base …)..HEAD 처럼 안쪽이 모두 git이면 둔다)
-    if (rule !== any && w.slice(1).some((x) => (x.startsWith('-') && x.includes('SUBST')) || (x.startsWith('SUBST') && !(prog === 'git' && inners.every((p) => /^\s*git\s/.test(p)))))) return 'no'
+    // $( … )의 출력이 옵션이 되지 않게: zsh는 따옴표 밖 치환의 출력을 낱말로 쪼개므로, 옵션을 가리는 프로그램에서는 치환이 든 낱말을 모두 막는다
+    // (find . -name x$(printf ' -o -delete')). 출력이 커밋 이름뿐인 git merge-base · rev-parse 를 git에 넘기는 것만 둔다 (11/25 검토:
+    // 안쪽이 git이기만 하면 두었더니 git log --format=-Orm 의 출력이 옵션이 됐다)
+    if (rule !== any && w.slice(1).some((x) => x.includes('SUBST')) && !(name === 'git' && inners.length > 0 && inners.every((p) => HASHES.test(p)))) return 'no'
     if (w.some((x) => SECRET.test(x))) worst = 'sensitive'
   }
   return worst

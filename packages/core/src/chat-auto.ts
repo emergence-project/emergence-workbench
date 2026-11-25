@@ -6,7 +6,7 @@
 import { qualifierRuns, qualifiers, redirects, segments, substitutions, unmask, words } from './chat-shell.js'
 
 // 셸 글 읽기는 chat-shell.ts로 옮겼다: 여기서 가져다 쓰던 곳을 위해 그대로 내보낸다
-export { ansiQuotes, bare, redirects, segments, substitutions, unmask, words } from './chat-shell.js'
+export { bare, joinLines, prepare, redirects, segments, substitutions, unmask, words } from './chat-shell.js'
 
 export type ChatKind = 'read' | 'edit' | 'delete' | 'run' | 'web' | 'outside'
 export interface ChatAutoValues { read: boolean; run: boolean; web: boolean }
@@ -63,11 +63,13 @@ export function leading(words: string[]): { rest: string[]; env: boolean } {
       if (!/^(LC_[A-Z]+|LANG|LANGUAGE|TZ|NO_COLOR|FORCE_COLOR|CLICOLOR|CLICOLOR_FORCE|COLUMNS|LINES|TERM)=/.test(w[0]!)) env = true
       w = w.slice(1)
     }
-    else if (w.length && /^(time|nice|nohup|command|builtin|exec)$/.test(w[0]!)) {
-      const timed = w[0] === 'time'
+    // 앞말은 경로로 적어도(/usr/bin/time), 옵션이 붙어도(command -p · nohup -- · nice -10 · exec -a 이름) 뗀다 (11/25 검토)
+    else if (w.length && /^(time|nice|nohup|command|builtin|exec)$/.test(w[0]!.split('/').pop()!)) {
+      const lookup = w[0]!.split('/').pop() === 'command' && /^-[vV]+$/.test(w[1] ?? '')
       w = w.slice(1)
-      // time -p rm x: 옵션을 건너뛴다
-      while (timed && w.length > 1 && /^-[plhav]+$/.test(w[0]!)) w = w.slice(1)
+      // command -v 이름 은 찾아보기만 한다
+      if (lookup) return { rest: ['type', ...w.slice(1)], env }
+      while (w.length > 1 && w[0]!.startsWith('-')) w = w.slice(/^-[na]$/.test(w[0]!) && w.length > 2 ? 2 : 1)
     }
     // 함수 정의의 머리(f() { … } · function f { … })를 뗀다: 몸의 명령을 본다
     else if (w.length > 1 && /^[A-Za-z_][\w-]*\(\)$/.test(w[0]!)) w = w.slice(1)
@@ -193,7 +195,8 @@ export function wrapped(prog: string, args: string[]): (string | string[])[] {
     const i = args.findIndex((a) => /^-[a-zA-Z]*c$/.test(a))
     return i >= 0 && args[i + 1] ? [args[i + 1]!] : []
   }
-  if (prog === 'eval') return args.length ? [args.join(' ')] : []
+  // eval eval … 은 한 번의 eval과 같다 (겹친 만큼 깊이 들어가지 않게)
+  if (prog === 'eval') { const rest = args.slice(args.findIndex((x) => x !== 'eval')); return rest.length && rest[0] !== 'eval' ? [rest.join(' ')] : [] }
   if (prog === 'find') {
     const out: string[][] = []
     for (let i = 0; i < args.length; i++) {
@@ -202,6 +205,8 @@ export function wrapped(prog: string, args: string[]): (string | string[])[] {
       const end = args.findIndex((a, j) => j > i && (a === ';' || (a === '+' && args[j - 1] === '{}')))
       const inner = args.slice(i + 1, end < 0 ? undefined : end)
       if (inner.length) out.push(inner)
+      // -exec 가 터무니없이 많으면 하나씩 보지 않고 지우는 것으로 본다 (낱말 수의 제곱만큼 걸린다)
+      if (out.length > 64) return [['rm']]
     }
     return out
   }
