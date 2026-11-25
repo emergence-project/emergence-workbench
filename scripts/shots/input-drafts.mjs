@@ -3,7 +3,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { chromium, request } from 'playwright-core'
 
-// Read-only browser regressions; all answer writes are intercepted in this page.
+// Browser regressions; every write from the page is intercepted. The last case alone creates two sandbox conversations through the API.
 // Run against a built sandbox: node scripts/shots/input-drafts.mjs <url> <output-directory>.
 assert(process.argv[2], 'Usage: node scripts/shots/input-drafts.mjs <loopback-sandbox-url> [output-directory]')
 const base = new URL(process.argv[2])
@@ -214,6 +214,34 @@ try {
     await input.fill('failed-query')
     await eventually(async () => (await page.locator('.sr-list').innerText()).includes('개념노트를 찾지 못했습니다'), 'Search failure was presented as no hits')
     assert.equal(await page.getByText('"failed-query"와 맞는 것이 없습니다', { exact: true }).count(), 0)
+  })
+  // 변경사항 칸의 코멘트 초안은 그 대화에만 남는다. 이 사례만 예제에 대화 둘을 만든다(화면이 아니라 여기서 API로)
+  await caseOf('changes-draft-stays-in-its-chat', async (page) => {
+    const edited = async (text) => {
+      const id = (await (await api.post('/api/agent-chats', { data: { rid, text, scope: { kind: 'project' }, mode: 'edit' } })).json()).chat.id
+      await eventually(async () => {
+        const c = (await (await api.get(`/api/agent-chats/${id}`)).json()).chat
+        const ask = c.items.find((x) => x.kind === 'ask' && !x.answer)
+        if (ask) await api.post(`/api/agent-chats/${id}/answer`, { data: { ask: ask.id, answer: 'allow' } })
+        return !ask && c.state === 'idle' && c.items.some((x) => x.kind === 'edit')
+      }, 'The sandbox conversation did not finish with an edit')
+      return id
+    }
+    const first = await edited('켐페 확인 계산을 차수 5까지 돌려 줘'), second = await edited('켐페 확인 계산을 차수 6까지 돌려 줘')
+    const open = async (id) => { await page.goto(`${base.href}#/agent/${encodeURIComponent(id)}`); await page.locator('[data-ui="바뀐 곳"]').waitFor() }
+    await page.goto(base.href)
+    await page.evaluate(() => { localStorage.setItem('rw-agent-pane', 'true'); localStorage.setItem('rw-agent-pane-tab', '"changes"') })
+    // 둘째 대화를 먼저 열어 받아 둔다: 받아 둔 대화로 옮길 때 칸이 그대로 이어져 초안이 넘어갔다
+    await open(second)
+    await open(first)
+    await page.locator('[data-ui="바뀐 파일 펼치기"]').first().click()
+    await page.locator('[data-ui="바뀐 곳 코멘트"]').first().click()
+    await page.locator('.ac-diff-input').fill('첫 대화에 쓴 코멘트 초안')
+    await open(second)
+    await delay(200)
+    assert.equal(await page.locator('.ac-diff-input, .ac-diff-note').count(), 0, 'The comment draft followed into another conversation')
+    assert.equal(await page.locator('[data-ui="코멘트 보내기"]').isDisabled(), true)
+    assert.equal(await page.locator('[data-ui="에이전트"] .ac-chat').count(), 1, 'The previous conversation stayed on screen')
   })
 } finally { await browser.close(); await api.dispose() }
 await fs.writeFile(`${out}/results.json`, JSON.stringify({ base: base.href, checks }, null, 2))
