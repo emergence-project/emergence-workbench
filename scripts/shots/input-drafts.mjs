@@ -34,6 +34,8 @@ async function caseOf(name, run) {
   const context = await browser.newContext({ viewport: { width: 1200, height: 760 }, reducedMotion: 'reduce' })
   const page = await context.newPage()
   page.setDefaultTimeout(10000)
+  // 화면 언어를 미리 정해 둔다(shots.mjs와 같게): 비어 있으면 브라우저 언어(영어)로 떴다가 설정을 받은 뒤 한 번 다시 읽혀, 그 전에 누른 것이 사라진다
+  await page.addInitScript(() => { try { if (!localStorage.getItem('rw-ui')) localStorage.setItem('rw-ui', JSON.stringify({ language: 'ko' })) } catch { /* ignore */ } })
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))
   await page.route(`${base.origin}/api/**`, (route) => ['GET', 'HEAD', 'OPTIONS'].includes(route.request().method())
@@ -149,7 +151,7 @@ try {
     await page.getByRole('textbox', { name: '1번에 덧붙일 말', exact: true }).fill('앞 질문 초안')
     await page.getByRole('textbox', { name: '2번에 덧붙일 말', exact: true }).fill('뒤 질문 초안')
     state.change({ asks: [original.asks[0]], hash: 'browser-removed-duplicate' })
-    await page.evaluate((rid) => /** @type {any} */ (window).__taskEvents.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ type: 'task', research: rid }) })), rid)
+    await page.evaluate(({ rid, id }) => /** @type {any} */ (window).__taskEvents.dispatchEvent(new MessageEvent('message', { data: JSON.stringify({ type: 'tasks', research: rid, id }) })), { rid, id: taskId })
     await eventually(() => state.reads() >= 2, 'The external question change did not reload')
     await eventually(async () => await page.getByRole('textbox', { name: '2번에 덧붙일 말', exact: true }).count() === 0, 'The duplicate was not removed')
     assert.equal(await page.getByRole('textbox', { name: '1번에 덧붙일 말', exact: true }).inputValue(), '', 'A removed duplicate draft was attached to the remaining question')
