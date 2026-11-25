@@ -228,7 +228,7 @@ export function AppUpdateRail() {
     const label = t('새 화면 · 새로 고침', 'New screens · Reload')
     const why = restartedSince(st) ? t('앱이 새 버전으로 다시 켜졌습니다', 'the app restarted into a new version') : t('서버는 다시 켜지 않았습니다', 'the server did not restart')
     return (
-      <button className="rail-btn rail-update tip-right ready" data-ui="새 버전 버튼" data-tip={t(`${label}: ${why}. 눌러서 새 화면 읽기 (적던 글이 있으면 저절로 새로 고치지 않습니다)`, `${label}: ${why}. Click to load the new screens (it does not reload by itself while you have unsent text)`)} aria-label={label} onClick={() => location.reload()}>
+      <button className="rail-btn rail-update tip-right ready" data-ui="새 버전 버튼" data-tip={t(`${label}: ${why}. 눌러서 새 화면 읽기 (적던 글이 있으면 자동으로 새로 고치지 않습니다)`, `${label}: ${why}. Click to load the new screens (it does not reload by itself while you have unsent text)`)} aria-label={label} onClick={() => location.reload()}>
         {Icon.update}
         <span className="rail-update-dot" aria-hidden />
       </button>
