@@ -133,6 +133,11 @@ describe('피드백 맡기기 API', () => {
     // 결과를 알린 답에는 중단을 쓰지 않고, 논의는 말이 있어야 한다
     expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${id}/feedback/answer`, payload: { verdict: '중단' } })).statusCode).toBe(400)
     expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${id}/feedback/answer`, payload: { verdict: '논의' } })).statusCode).toBe(400)
+    // 처리를 적지 못하면(없는 시안을 빼라고 함) 판정도 적지 않는다: 전에는 판정만 적히고 처리는 빠져, 다시 부르면 판정이 두 번이 됐다
+    const was = listAllFeedback(fb).find((x) => x.key === REWORK)!.review
+    const half = await app.inject({ method: 'POST', url: `/api/agent-chats/${id}/feedback/answer`, payload: { verdict: '진행', verdictNote: '좁은 폭도 맞춰 줘', state: '반영', note: '수정 완료', dropMockups: ["no-such-mockup"] } })
+    expect(half.statusCode, half.body).toBe(400)
+    expect(listAllFeedback(fb).find((x) => x.key === REWORK)!.review).toEqual(was)
     const r = await app.inject({ method: 'POST', url: `/api/agent-chats/${id}/feedback/answer`, payload: { verdict: '진행', verdictNote: '좁은 폭도 맞춰 줘', state: '반영', note: '수정 완료 (#234)\n좁은 폭도 맞춘다.' } })
     expect(r.statusCode, r.body).toBe(200)
     expect(r.json()).toMatchObject({ verdict: '진행', state: '반영' })

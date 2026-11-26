@@ -234,8 +234,11 @@ export class FeedbackChats extends SharedChats {
       fs.writeFileSync(path.join(fb.dir, name), png)
       pictures = e.picture && fs.existsSync(path.join(fb.dir, e.picture)) ? [e.picture, name] : undefined
     }
-    if (b.verdict) setFeedbackReview(fb.dir, key, b.verdict, b.verdictNote || undefined)
+    // 던질 수 있는 것(시안 모으기 · 빼기)을 판정보다 먼저 한다 (11/26): 전에는 판정을 적은 뒤에 시안 빼기가 실패하면(없는 이름 · 아직 답이 없는 항목)
+    // 사용자의 판정만 적히고 처리는 빠졌다
+    const mockups = answerMockups(b, c.worktree, fb.dir)
     if (b.dropMockups?.length) dropMockups(fb.dir, key, b.dropMockups)
+    if (b.verdict) setFeedbackReview(fb.dir, key, b.verdict, b.verdictNote || undefined)
     const r = writeFeedbackAnswer(fb.dir, key, {
       ...(b.state && { state: b.state }),
       ...(b.note && { note: b.note }),
@@ -247,7 +250,7 @@ export class FeedbackChats extends SharedChats {
       ...(b.lesson && { lesson: b.lesson }),
       ...(b.state === '반영' && c.pr && { commit: `#${c.pr.number}` }),
       ...(pictures && { pictures }),
-      ...answerMockups(b, c.worktree, fb.dir),
+      ...mockups,
     })
     fb.written?.()
     this.touch(c)
