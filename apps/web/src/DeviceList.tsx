@@ -34,7 +34,8 @@ export function DeviceList() {
     {d && <ServerRow server={d.server} me={me} busy={run.isPending} onMake={() => run.mutate(devicesApi.makeServer)} />}
     {run.error && <p className="set-desc error-text">{withLink(run.error.message)}</p>}
     <div className="setup set-rows dev-list" data-ui="기기 목록">
-      {!d ? <p className="muted setup-row">{q.error?.message ?? t('읽는 중…', 'Reading…')}</p>
+      {/* 칸 셋짜리 줄(setup-row)에 두면 글이 첫 칸(점 자리, 12px)에 들어가 한 글자씩 세로로 끊겼다 (11/27) */}
+      {!d ? <p className={`setup-msg ${q.error ? 'error-text' : 'muted'}`}>{q.error ? t(`기기 목록을 읽지 못했습니다: ${q.error.message}`, `Could not read the device list: ${q.error.message}`) : t('읽는 중…', 'Reading…')}</p>
         : d.devices.map((x) => <DeviceRow key={x.name} d={x} differs={versionDiffers(x, me)} onLogout={d.server && !x.this && !x.logout ? () => logout(x) : undefined} onCancel={d.server && !x.this && x.logout ? () => run.mutate(() => devicesApi.cancelLogout(x.name)) : undefined} busy={run.isPending} />)}
     </div>
     {d && !d.shared && <p className="muted set-desc">{t('개인 저장소와 맞추지 않아 이 컴퓨터만 보입니다. 계정에서 GitHub에 로그인하고 개인 저장소를 정하면 다른 컴퓨터도 보입니다.', 'Only this computer is shown because it does not sync with a personal repository. Sign in to GitHub and choose a personal repository under Account to see your other computers.')}</p>}

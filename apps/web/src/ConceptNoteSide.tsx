@@ -149,10 +149,12 @@ function ConceptUses({ id, info, rid, project, onChanged, onSaved }: {
   id: string; info: LibraryInfo | null; rid?: string; project?: string; onChanged(): void; onSaved(msg: string): void
 }) {
   const [uses, setUses] = useState<ConceptUse[] | null>(null)
+  const [usesError, setUsesError] = useState('')
   const [srcs, setSrcs] = useState<ConceptSources | null>(null)
   useEffect(() => {
     let live = true
-    conceptsApi.usage(id).then((u) => { if (live) setUses(u) }).catch(() => { if (live) setUses([]) })
+    // 읽지 못한 것을 "쓰는 프로젝트가 없다"로 보이지 않게 오류를 따로 둔다 (11/27 점검).
+    conceptsApi.usage(id).then((u) => { if (live) { setUses(u); setUsesError('') } }).catch((e: Error) => { if (live) { setUses(null); setUsesError(e.message) } })
     conceptsApi.sources(id).then((s) => { if (live) setSrcs(s) }).catch(() => { if (live) setSrcs(null) })
     return () => { live = false }
   }, [id, info])
@@ -165,6 +167,7 @@ function ConceptUses({ id, info, rid, project, onChanged, onSaved }: {
   return (
     <section data-ui="쓰는 곳">
       <h2 className="cn-links-h">{t('사용처와 인용', 'Used in and citations')}</h2>
+      {usesError && <p className="error-text">{t(`사용처를 읽지 못했습니다: ${usesError}`, `Could not read where this is used: ${usesError}`)}</p>}
       {uses?.length === 0 && <p className="muted">{t('아직 쓰는 프로젝트가 없습니다', 'No project uses this yet')}</p>}
       {uses?.map((u) => {
         const have = u.cites.filter((c) => c.projectKey)
