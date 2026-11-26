@@ -6,7 +6,7 @@ import crypto from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import { CENTRAL_RID, type ChatMode, type ChatScope, type ChatWrite } from '@rw/core/contract/agentChats'
-import { autoOf, commandKind, LIBRARY_RID, neverBypass, writesFiles, runProgram, runPrograms, stateOnlyCommand, touchesSecret, type ChatAutoValues, type ChatKind, type NeverBypass } from '@rw/core'
+import { autoOf, commandKind, heredocBodiesRemoved, LIBRARY_RID, neverBypass, writesFiles, runProgram, runPrograms, stateOnlyCommand, touchesSecret, type ChatAutoValues, type ChatKind, type NeverBypass } from '@rw/core'
 import { commandCritical } from './critical.js'
 import { isInside } from './fsutil.js'
 import { t } from './i18n.js'
@@ -236,7 +236,8 @@ function judgeApp(ctx: PolicyCtx, tool: string, input: Record<string, unknown>):
   }
   if (tool === 'Bash') {
     const cmd = str(input.command)
-    if (APP_OWNED.test(cmd)) {
+    // 확실한 히어독의 본문(메모 · 고치기 스크립트에 든 글)은 명령이 아니다 (11/26): 빼고 본다
+    if (APP_OWNED.test(heredocBodiesRemoved(cmd, true))) {
       return {
         kind: 'deny',
         reason: t('올리기 · PR · 합치기와 앱 서비스는 앱이 맡습니다', 'Pushing, PRs, merging and the app service are left to the app'),
@@ -421,10 +422,11 @@ const FROZEN_INSTALL = /^\s*pnpm\s+(install|i)(\s+--[\w-]+)*\s*$/
 function judgeAuto(ctx: PolicyCtx, cmd: string, summary: string, on: Pick<ChatAutoValues, 'read' | 'run'> = autoNow(ctx)): Verdict {
   const what = clip(cmd, 80)
   const once = (does: ChatKind, label: string): Verdict => ({ kind: 'ask', summary, key: `${does}:${cmd}`, label: `${label} · ${what}`, does, once: true })
-  if (touchesSecret(cmd)) return { kind: 'ask', summary, key: `secret:${cmd}`, label: t(`비밀 · ${what}`, `Secret · ${what}`), once: true }
+  // 확실한 히어독의 본문에 든 글 (11/26): 비밀은 cat 이 받는 자료만 빼고(python 코드는 파일을 스스로 읽는다), 크리티컬은 python 코드도 빼고 본다
+  if (touchesSecret(heredocBodiesRemoved(cmd))) return { kind: 'ask', summary, key: `secret:${cmd}`, label: t(`비밀 · ${what}`, `Secret · ${what}`), once: true }
   const anywhere = commandKind(cmd, { cwd: ctx.repo, home: os.homedir(), inside: () => true })
   if (anywhere === 'delete') return once('delete', t('삭제', 'Delete'))
-  const crit = commandCritical(cmd)
+  const crit = commandCritical(heredocBodiesRemoved(cmd, true))
   if (crit) return once('outside', t(crit.ko, crit.en))
   if (ctx.scope.kind === 'app' && FROZEN_INSTALL.test(cmd) && cmd.includes('--frozen-lockfile')) return { kind: 'allow' }
   if (anywhere === 'outside') return once('outside', t('외부', 'Outside'))

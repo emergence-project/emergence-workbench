@@ -1,6 +1,6 @@
 // 확실한 히어독 (11/26 "heredoc 본문 오탐")의 둘째 검토에서 나온 꼴. 첫 검토의 꼴과 바탕 사례는 chat-auto.test.ts 「확실한 히어독의 본문」
 import { describe, expect, it } from 'vitest'
-import { commandKind } from './chat-auto.js'
+import { commandKind, heredocBodiesRemoved } from './chat-auto.js'
 import { certainHeredoc } from './chat-shell.js'
 
 const o = { cwd: '/u/p', home: '/u', inside: (a: string) => a === '/u/p' || a.startsWith('/u/p/') || a.startsWith('/u/lib/') }
@@ -72,7 +72,7 @@ describe('확실한 히어독: 둘째 검토', () => {
 
 describe('certainHeredoc', () => {
   it('본문 · 앞 · 뒤를 가르고, 받는 줄의 << 구분자를 </dev/null 로 바꾼다', () => {
-    expect(certainHeredoc("cd a && cat > b.txt <<'EOF' ; ls\nx\ny\nEOF\npnpm test")).toEqual({ head: 'cd a && cat > b.txt </dev/null ; ls', body: 'x\ny', rest: 'pnpm test', prog: 'cat', piped: false })
+    expect(certainHeredoc("cd a && cat > b.txt <<'EOF' ; ls\nx\ny\nEOF\npnpm test")).toEqual({ head: 'cd a && cat > b.txt </dev/null ; ls', body: 'x\ny', rest: 'pnpm test', prog: 'cat', piped: false, reader: true })
     expect(certainHeredoc('python3 - <<PY | tail -1\nprint(1)\nPY')).toMatchObject({ prog: 'python', piped: true, body: 'print(1)', rest: '' })
     expect(certainHeredoc('set -e\ncat <<-"E" > a\n\tx\n\tE')).toMatchObject({ prog: 'cat', body: '\tx', rest: '' })
   })
@@ -81,5 +81,40 @@ describe('certainHeredoc', () => {
       "bash <<'EOF'\nx\nEOF", "cat <<'EOF'\nx", "cat <<< x\ncat <<'EOF'\nx\nEOF", 'cat <<EOF\n$x\nEOF', "echo 'a'; cat <<'EOF'\nx\nEOF", "set -o posix; cat <<'EOF'\nx\nEOF", "X=1; cat <<'EOF'\nx\nEOF",
       "cat <<'EOF' <<'B'\nx\nEOF\ny\nB", "python3 -m x <<'EOF'\nx\nEOF", "python3 <<'EOF' x.py\nx\nEOF", "cat <<'EOF'\r\nx\nEOF", "while true; do cat <<'EOF'\nx\nEOF",
     ]) expect(certainHeredoc(c), JSON.stringify(c)).toBeNull()
+  })
+})
+
+// 11/26 화면 확인에서 나온 것: 본문을 뺀 글을 판정의 다른 단계(앱이 맡는 일 · 비밀 · 크리티컬)도 쓴다
+describe('확실한 히어독: python 의 출력을 받는 프로그램', () => {
+  const body = 'print("""\nrm -rf build\n""")'
+  it('출력을 셸 · 다른 프로그램이 받으면 문자열 속 글이 실제로 돈다: 본문을 전처럼 읽는다', () => {
+    for (const tail of ['| sh', '| bash', '| zsh -s', '|& sh', '2>&1 | sh', '| tail -5 | sh', '| tee x.sh | sh', '| xargs -I% sh -c %', '| python3', '| env sh', '| command sh', '| nice sh'])
+      expect(k(`python3 - <<'EOF' ${tail}\n${body}\nEOF`), tail).toBe('delete')
+    // | 뒤가 비면 본문 다음 줄의 명령이 출력을 받는다
+    expect(k(`python3 - <<'EOF' |\n${body}\nEOF\nsh`)).toBe('delete')
+    expect(k(`python3 - <<'EOF' | sudo sh\n${body}\nEOF`)).toBe('outside')
+  })
+  it('출력을 읽기만 하는 프로그램(tail · head · grep · wc …)이 받으면 본문을 뺀다', () => {
+    for (const tail of ['| tail -5', '2>&1 | tail -20', '| grep -v x | head -3', '| wc -l', '| sort | uniq -c', '|| true', '&& pnpm test', '; ls'])
+      expect(k(`python3 - <<'EOF' ${tail}\n${body}\nEOF`), tail).toBe('run')
+  })
+  it('certainHeredoc 은 받는 프로그램이 모두 읽기만 하는지 알린다', () => {
+    expect(certainHeredoc("python3 - <<'EOF' | tail -1\nx\nEOF")).toMatchObject({ piped: true, reader: true })
+    expect(certainHeredoc("python3 - <<'EOF' | sh\nx\nEOF")).toMatchObject({ piped: true, reader: false })
+    expect(certainHeredoc("python3 - <<'EOF' | tail -1 | sh\nx\nEOF")).toMatchObject({ piped: true, reader: false })
+    expect(certainHeredoc("python3 - <<'EOF'\nx\nEOF")).toMatchObject({ piped: false, reader: true })
+  })
+})
+
+describe('heredocBodiesRemoved', () => {
+  it('cat 이 받는 자료만 뺀다. python 코드는 달라고 할 때만, 다른 프로그램을 돌리지 않고 출력을 읽기만 할 때 뺀다', () => {
+    const cat = "cat > a.md <<'EOF'\ngit push origin main\nEOF\npnpm test"
+    const py = "python3 - <<'EOF'\ns = 'gh pr merge'\nEOF"
+    expect(heredocBodiesRemoved(cat)).toBe('cat > a.md </dev/null\npnpm test')
+    expect(heredocBodiesRemoved(py)).toBe(py)
+    expect(heredocBodiesRemoved(py, true)).toBe('python3 - </dev/null')
+    expect(heredocBodiesRemoved(`${cat}\n${py}`, true)).toBe('cat > a.md </dev/null\npnpm test\npython3 - </dev/null')
+    for (const same of ["python3 - <<'EOF'\nimport os\nos.system('gh pr merge 1')\nEOF", "python3 - <<'EOF' | sh\nprint('git push')\nEOF", "cat <<'EOF' | sh\ngit push\nEOF", "bash <<'EOF'\ngit push\nEOF", "cat > a.md <<EOF\n$(git push)\nEOF", 'git push origin main'])
+      expect(heredocBodiesRemoved(same, true), same).toBe(same)
   })
 })

@@ -191,7 +191,9 @@ const PYTHON_TAIL = /^(?:[ \t]*(?:[12]?>>?[ \t]*[\w.\/~@%+:,-]+|2>&1))*[ \t]*(?:
  * head = 본문 앞까지(받는 줄의 << 구분자는 </dev/null 로 바꿨다: 다시 히어독으로 읽히지 않게), body = 본문, rest = 끝 줄 뒤의 글,
  * prog = 'cat' | 'python', piped = 받는 줄에서 << 뒤로 | 가 있는지 (cat 의 출력, 곧 본문이 다른 프로그램으로 간다)
  */
-export function certainHeredoc(cmd: string): { head: string; body: string; rest: string; prog: 'cat' | 'python'; piped: boolean } | null {
+/** 받는 줄의 | 뒤에서 출력을 읽기만 하는 프로그램. 그 밖의 것(sh · xargs · python …)이 받으면 출력의 글이 돌 수 있다 */
+const READERS = /^(tail|head|grep|wc|sort|uniq|cut|cat|tee)$/
+export function certainHeredoc(cmd: string): { head: string; body: string; rest: string; prog: 'cat' | 'python'; piped: boolean; reader: boolean } | null {
   const at = cmd.indexOf('<<')
   if (at < 0 || cmd[at + 2] === '<') return null
   const before = cmd.slice(0, at)
@@ -214,7 +216,9 @@ export function certainHeredoc(cmd: string): { head: string; body: string; rest:
   if (end < 0) return null
   const body = lines.slice(0, end).join('\n')
   if (m[4] !== undefined && /[$`\\]/.test(body)) return null
-  return { head: `${before}</dev/null${tail}`, body, rest: lines.slice(end + 1).join('\n'), prog, piped: /(^|[^|])\|(?!\|)/.test(tail) }
+  // reader: | 로 출력을 받는 프로그램이 모두 읽기만 한다 (| 뒤가 비면 본문 다음 줄의 명령이 받는다: 읽기만 하는 것으로 보지 않는다)
+  const reader = [...tail.matchAll(/(?<!\|)\|(?!\|)&?[ \t]*([^ \t|&;]*)/g)].every((x) => READERS.test(x[1]!))
+  return { head: `${before}</dev/null${tail}`, body, rest: lines.slice(end + 1).join('\n'), prog, piped: /(^|[^|])\|(?!\|)/.test(tail), reader }
 }
 
 /**

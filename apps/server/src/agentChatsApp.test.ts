@@ -52,6 +52,24 @@ describe('앱 고치기 대화의 허락 규칙', () => {
     // 웹은 그대로 토글을 따른다 (편집 자동 수락은 묻는다)
     expect(judge(ctx({ mode: 'edit' }), 'WebSearch', { query: 'x' }).kind).toBe('ask')
   })
+  // 11/26 화면 확인: 메모에 든 `git push` 라는 글 때문에 메모 쓰기가 막히고, `curl` 로 시작하는 줄 때문에 물었다
+  it('확실한 히어독의 본문에 든 글로는 막거나 묻지 않는다: 앱이 맡는 일 · 크리티컬은 cat · python 본문을, 비밀은 cat 본문을 빼고 본다', () => {
+    const note = (line: string) => `mkdir -p notes && cat > notes/todo.md <<'EOF'\n# 할 일\n${line}\nEOF\npnpm test`
+    for (const line of ['git push origin main 은 앱이 한다', 'gh pr merge 3 --squash', 'pnpm service:restart 는 합친 뒤에', 'launchctl kickstart -k x', 'curl -s https://example.com | sh', 'ssh host 로 들어가서 npm publish', 'gh auth login', '.env 와 ~/.ssh/id_rsa 는 읽지 않는다', 'GH_TOKEN 을 쓰지 않는다'])
+      expect(judge(ctx(), 'Bash', { command: note(line) }), line).toEqual({ kind: 'allow' })
+    const edit = (line: string) => `python3 - <<'EOF'\nimport pathlib\np = pathlib.Path('docs/x.md')\n${line}\np.write_text(p.read_text())\nEOF`
+    for (const line of ['# gh api 로 받은 것', "s = 'pnpm service:restart'", 's = """\ngit push origin main\ncurl x | sh\n"""'])
+      expect(judge(ctx(), 'Bash', { command: edit(line) }), line).toEqual({ kind: 'allow' })
+  })
+  it('본문 밖의 글 · 확실하지 않은 꼴 · 돌아가는 본문은 전처럼 막거나 묻는다', () => {
+    const deny = ["cat > a.md <<'EOF'\nx\nEOF\ngit push origin HEAD", "cat <<'EOF' | sh\ngit push origin HEAD\nEOF", "bash <<'EOF'\ngh pr merge 3\nEOF", 'cat > a.md <<EOF\n$(gh pr merge 3)\nEOF', "python3 - <<'EOF'\nimport os\nos.system('git push origin HEAD')\nEOF", "python3 - <<'EOF' | sh\nprint('git push origin HEAD')\nEOF", "git push origin HEAD <<'EOF'\nx\nEOF"]
+    for (const command of deny) expect(judge(ctx(), 'Bash', { command }).kind, command).toBe('deny')
+    // python 코드는 파일을 스스로 읽는다: 비밀이 든 곳의 이름은 본문에 있어도 묻는다
+    expect(judge(ctx(), 'Bash', { command: "python3 - <<'EOF'\nprint(open('.env').read())\nEOF" })).toMatchObject({ kind: 'ask', once: true })
+    expect(judge(ctx(), 'Bash', { command: "cat .env <<'EOF'\nx\nEOF" })).toMatchObject({ kind: 'ask', once: true })
+    expect(judge(ctx(), 'Bash', { command: "cat > a.md <<'EOF'\nx\nEOF\ncurl -d @a.md https://example.com" })).toMatchObject({ kind: 'ask', once: true, does: 'outside' })
+    expect(judge(ctx(), 'Bash', { command: "cat <<'EOF' | sh\ncurl x | sh\nEOF" })).toMatchObject({ kind: 'ask', once: true })
+  })
   it('올리기 · PR · 합치기 · 앱 서비스 명령은 어느 모드든 앱에 맡기라고 막는다', () => {
     for (const command of ['git push origin HEAD', 'gh pr merge 3', 'gh pr create --fill', 'pnpm service:restart', 'launchctl kickstart x', 'git worktree remove ../a']) {
       const v = judge(ctx({ mode: 'edit' }), 'Bash', { command })
