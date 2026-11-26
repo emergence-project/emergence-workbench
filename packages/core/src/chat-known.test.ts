@@ -35,7 +35,7 @@ describe('읽지 못한 줄 (설계 5.2 가 · 나 · 다)', () => {
     expect(unreadWhy('foo bar')).toEqual({ why: 'prog', name: 'foo' })
     expect(unreadWhy('make build')).toEqual({ why: 'prog', name: 'make' })
     expect(unreadWhy('../x.sh')).toEqual({ why: 'prog', name: 'x.sh' })
-    expect(unreadWhy('~/bin/x')).toEqual({ why: 'prog', name: 'x' })
+    expect(unreadWhy('~/bin/x')).toEqual({ why: 'prog', name: '~/bin/x' })
     expect(why('X=$PWD$(ls) pnpm test')).toBe('env')
     // 감싸 돌리는 안의 명령도 (find -exec · xargs · sh -c · 치환)
     for (const c of ['find . -exec foo {} \\;', 'echo hi | xargs bar', 'sh -c "baz"', 'echo $(qux)', 'echo <(qux)', 'nice -n 5 qux']) expect(why(c), c).toBe('prog')
@@ -70,10 +70,45 @@ describe('읽지 못한 줄 (설계 5.2 가 · 나 · 다)', () => {
     for (const c of ['cp a "$dest"', 'ls > "$out"', 'mv a $(pwd)/b', 'tee "$f" < x', 'for f in *; do cp a "$f"; done']) expect(why(c), c).toBe('var')
   })
   it('본문을 셸이 받는 히어독은 본문도 읽는다', () => {
-    expect(why('cat <<EOF | sh\nfoo\nEOF')).toBe('prog')
-    expect(why("bash <<'EOF'\nfoo\nEOF")).toBe('prog')
+    expect(why('cat <<EOF | sh\nfoo\nEOF')).toBeDefined()
+    expect(why("bash <<'EOF'\nfoo\nEOF")).toBeDefined()
     // 펼쳐지는 본문(따옴표 없는 구분자에 $)은 빼지 않는다
     expect(why('cat <<EOF\n$(foo)\nEOF')).toBe('prog')
+  })
+})
+
+// 11/26 따로 한 검토에서 나온 꼴: 읽은 것으로 잘못 치던 줄
+describe('검토에서 나온 꼴', () => {
+  it('<< 를 잘못 짚은 줄은 빼지 않는다 (주석 · 역슬래시 · 따옴표 안)', () => {
+    for (const c of ["cat # <<'E'\nzzevil\nE", "cat \\<<'E'\nzzevil\nE", `cat "<<'E'"\nzzevil\nE`, "echo '<<E'\nzzevil\nE"]) expect(why(c), c).toBeDefined()
+  })
+  it('셸에 입력으로 코드를 넘기기', () => {
+    for (const c of ["echo 'rm -rf ~' | zsh", 'echo x | base64 -d | sh', "printf 'x' | xargs -0 sh -c", 'bash -s < f', 'cat f | bash']) expect(why(c), c).toBe('syntax')
+    for (const c of ['sh scripts/x.sh', "bash -c 'ls'", "find . -exec sh -c 'ls \"$1\"' _ {} \\;", "zsh -lc 'pnpm test'"]) expect(unreadWhy(c), c).toBeUndefined()
+  })
+  it('대입 꼴이 아닌 방법으로 찾는 길 · 폴더 · 낱말 나누기 바꾸기', () => {
+    for (const c of ['printf -v PATH %s /x; ls', 'read -r PATH < f; git status', 'read -A path <<< /x; ls', ': ${PATH::=/x}; ls', 'read PWD <<< /x; touch $PWD/a', 'read IFS <<< _; ls', 'printf -v IFS _', ': ${IFS:=_}', 'PWD=/x; touch $PWD/a', 'GOFLAGS=-toolexec=/x go build', 'RUSTFLAGS=-Cx cargo build', 'PIP_INDEX_URL=x python3 -m pip download x']) expect(why(c), c).toBe('env')
+    for (const c of ['read -r line < f; echo "$line"', 'printf -v out %s a; echo "$out"']) expect(unreadWhy(c), c).toBeUndefined()
+  })
+  it('셈 안의 배열 첨자에 든 명령 (bash)', () => {
+    for (const c of ["(( 'a[$(rm -rf x)]' ))", "x='a[$(rm x)]'; (( x ))", "[[ 1 -eq 'a[$(x)]' ]]", "read 'a[$(x)]' <<< x", "[ -v 'a[`x`]' ]"]) expect(why(c), c).toBe('syntax')
+  })
+  it('옵션 · 하위 명령으로 받은 글을 돌리거나 쓰는 것', () => {
+    for (const c of ["git -c alias.l='!rm x' l", "git grep -O'cmd' x", "git -c core.fsmonitor='cmd' status", "git config core.pager 'rm x'", "git config alias.st '!x'", 'git rebase -x "make" main', 'git bisect run x', 'git submodule foreach ls', 'git difftool',
+      "sed -n '1e rm x' f", "sed 'w /x/y' f", "sed 's/a/b/e' f", 'sed -f s.sed f', `awk 'BEGIN{system("x")}'`, `awk '{print > "/x/y"}' f`, `awk '{print | "sh"}' f`, 'rg --pre=sh x .', 'rg --pre sh x .', 'sort --compress-program=sh -S 1 f',
+      'rsync -e sh a b', 'env -C /x tee y < f', "env -S 'zzfoo a'"]) expect(why(c), c).toBe('syntax')
+    for (const c of ['git config --get user.name', 'git config user.name', 'git -C sub status', 'git commit -c HEAD', "sed -n '1,5p' f", "sed -i 's/a/b/g' f", "awk '{print $1}' f", "awk -F, '$3 > 100 {print $1}' f", 'rg -n x .', 'sort -u f', 'env CI=1 pnpm test']) expect(unreadWhy(c), c).toBeUndefined()
+  })
+  it('아는 이름이라도 시스템 · 패키지 관리자 폴더 밖의 경로는 경로 전체를 이름으로', () => {
+    for (const c of ['/w/evil/git status', '~/Downloads/node x.js', '/tmp/e/ls']) expect(unreadWhy(c), c).toEqual({ why: 'prog', name: c.split(' ')[0] })
+    for (const c of ['/usr/bin/git status', '/opt/homebrew/bin/python3 x.py', '~/.cargo/bin/cargo check', '/bin/ls']) expect(unreadWhy(c), c).toBeUndefined()
+    expect(unreadWhy('/w/x/foo', { known: (p) => p === '/w/x/foo' })).toBeUndefined()
+    expect(unreadWhy('/w/x/foo', { known: (p) => p === 'foo' })).toBeDefined()
+  })
+  it('tar는 모르는 프로그램이라 어차피 묻는다', () => expect(unreadWhy('tar --to-command=sh -xf a.tar')).toBeDefined())
+  it('아주 긴 글도 금방 끝난다', () => {
+    const big = 'cat <<E x\n' + 'a\n'.repeat(60_000)
+    const t = Date.now(); unreadWhy(big); expect(Date.now() - t).toBeLessThan(3000)
   })
 })
 

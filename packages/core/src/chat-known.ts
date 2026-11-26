@@ -50,7 +50,7 @@ const TAKES = /^(read|export|typeset|declare|local|readonly|printf|mapfile|reada
  * 다른 프로그램을 돌리게 하거나 찾는 길 · 설정을 바꾸는 환경 변수. 글자 값이라도 묻는다 (설계 5.2 나의 leading env).
  * 그 밖의 이름에 글자 값을 붙인 것(CI=1 · NODE_ENV=test · CHROMIUM_PATH=/opt/… )은 읽은 것이다 (설계 4절)
  */
-const RISKY_ENV = /^(PATH|CDPATH|FPATH|MANPATH|HOME|ZDOTDIR|ENV|BASH_ENV|IFS|SHELL|PROMPT_COMMAND|PS[0-4]|BROWSER|VISUAL|EDITOR|PAGER|LESS\w*|GIT_\w+|LD_\w+|DYLD_\w+|NODE_OPTIONS|NODE_PATH|PYTHON\w+|PERL5\w+|PERLLIB|RUBY\w+|npm_config_\w+|NPM_CONFIG_\w+|PNPM_\w+|COREPACK_\w+|CC|CXX|CFLAGS|LDFLAGS|MAKEFLAGS|RUSTC\w*|CARGO_\w+|XDG_\w+|TMPDIR|\w*PAGER|\w*EDITOR|\w*ASKPASS|\w*_(COMMAND|CMD|PROGRAM|PROG|SHELL|EXEC|HOOK|HOOKS))$/i
+const RISKY_ENV = /^(PATH|CDPATH|FPATH|MANPATH|HOME|ZDOTDIR|ENV|BASH_ENV|IFS|SHELL|PROMPT_COMMAND|PS[0-4]|BROWSER|VISUAL|EDITOR|PAGER|LESS\w*|GIT_\w+|LD_\w+|DYLD_\w+|NODE_OPTIONS|NODE_PATH|PYTHON\w+|PERL5\w+|PERLLIB|RUBY\w+|npm_config_\w+|NPM_CONFIG_\w+|PNPM_\w+|COREPACK_\w+|CC|CXX|CFLAGS|LDFLAGS|MAKEFLAGS|RUSTC\w*|CARGO_\w+|XDG_\w+|TMPDIR|\w*PAGER|\w*EDITOR|\w*ASKPASS|\w*_(COMMAND|CMD|PROGRAM|PROG|SHELL|EXEC|HOOK|HOOKS)|PWD|OLDPWD|\w*FLAGS|\w*_OPTIONS|\w*_OPTS|RUBYOPT|GO\w+|R_\w+|GEM_\w+|BUNDLE_\w+|PIP_\w+|UV_\w+|CONDA_\w+|JULIA_\w+|SSH_\w+|path|fpath|cdpath|manpath)$/i
 /** 글자 그대로의 값 (변수 · 치환 · 무늬가 없는 것) */
 const LITERAL = /^[\w./:,@%+=~-]*$/
 
@@ -93,14 +93,57 @@ function arithWhy(text: string, o: KnownOpts, depth: number): Unread | undefined
   return sub.left ? { why: 'subst' } : undefined
 }
 
+/** 묻지 않고 지나가도 되는 경로의 프로그램 (설계 5.3): 시스템 · 패키지 관리자가 까는 곳. 그 밖의 경로는 이름이 같아도 다른 프로그램이다 (11/26 검토) */
+const BIN_DIRS = /^(\/(usr\/)?s?bin|\/usr\/local\/bin|\/opt\/homebrew\/(bin|opt\/[\w@.+-]+\/bin)|\/opt\/pw-browsers\/[\w./-]+|~\/\.cargo\/bin|~\/\.local\/bin|~\/Library\/TinyTeX\/bin\/[\w-]+)$/
+/** 옵션 · 하위 명령으로 받은 글을 프로그램으로 돌리거나 다른 곳에 쓰는 것 (11/26 검토). 맞으면 「모르는 문법」으로 한 번 묻는다 */
+function progOptionWhy(prog: string, args: string[]): string | undefined {
+  const has = (re: RegExp) => args.some((a) => re.test(a))
+  if (/^(sh|bash|zsh|dash|ksh)$/.test(prog)) {
+    // -c 없이 스크립트 파일도 없으면 입력(파이프 · 히어독)으로 받은 글을 돌린다. -c 뒤의 글이 없어도 (xargs sh -c)
+    const c = args.findIndex((a) => /^-[a-z]*c[a-z]*$/.test(a))
+    if (c >= 0 ? c === args.length - 1 : !args.some((a) => !a.startsWith('-')) || has(/^-[a-z]*s/)) return `${prog} (입력으로 받은 코드)`
+  }
+  if (prog === 'git') {
+    let i = 0
+    for (; i < args.length && args[i]!.startsWith('-'); i++) {
+      if (/^(-c|--config-env|--exec-path|--upload-pack|--receive-pack)/.test(args[i]!)) return `git ${args[i]!.replace(/=.*/, '')}`
+      if (/^(-C|--git-dir|--work-tree|--namespace)$/.test(args[i]!)) i++
+    }
+    const sub = args[i] ?? '', rest = args.slice(i + 1)
+    if (sub === 'config' && !rest.some((a) => /^(--get|--get-all|--get-regexp|--list|-l|--show-origin|--show-scope|--name-only)$/.test(a)) && rest.filter((a) => !a.startsWith('-')).length > 1) return 'git config'
+    if (/^(difftool|mergetool|filter-branch|filter-repo)$/.test(sub) || (sub === 'grep' && rest.some((a) => /^(-O|--open-files-in-pager)/.test(a)))
+      || (sub === 'rebase' && rest.some((a) => /^(-x|--exec)/.test(a))) || (sub === 'bisect' && rest[0] === 'run') || (sub === 'submodule' && rest.includes('foreach'))
+      || rest.some((a) => /^(--ext-diff|--textconv|--upload-pack|--receive-pack|--exec)(=|$)/.test(a))) return `git ${sub}`
+  }
+  if (/^g?sed$/.test(prog)) {
+    // 스크립트의 e(실행) · w · W(쓰기) 명령과 s///e · s///w 플래그
+    // 스크립트는 -e 의 값들, -e 가 없으면 옵션이 아닌 첫 낱말 (-i 의 값 "" · .bak 은 건너뛴다)
+    const ev = args.flatMap((a, i) => (args[i - 1] === '-e' || args[i - 1] === '--expression' ? [a] : /^-e./.test(a) ? [a.slice(2)] : /^--expression=/.test(a) ? [a.slice(13)] : []))
+    const scripts = ev.length ? ev : args.filter((a, i) => !a.startsWith('-') && !(args[i - 1] === '-i' && /^(\.\w*)?$/.test(a))).slice(0, 1)
+    if (scripts.some((t) => /(^|[;{}\n\d$/!])\s*[ewW](\s|$)|s(.).*?\2.*?\2[gpiImM0-9]*[ewW]/.test(t)) || has(/^(-f|--file)/)) return 'sed e · w'
+  }
+  if (/^g?awk$/.test(prog) && (has(/system\s*\(|\|\s*getline|\bprintf?\b[^;}]*[>|]|\bclose\s*\(/) || has(/^(-f|--file)/))) return 'awk system · >'
+  if (prog === 'rg' && has(/^--pre(=|$)/)) return 'rg --pre'
+  if (/^g?sort$/.test(prog) && has(/^--compress-program/)) return 'sort --compress-program'
+  if (/^g?tar$/.test(prog) && has(/^(--to-command|--checkpoint-action|--use-compress-program|-I|--info-script|--new-volume-script|-F)/)) return 'tar'
+  if (prog === 'rsync' && has(/^(-e|--rsh|--rsync-path)/)) return 'rsync -e'
+  if (prog === 'env' && has(/^(-C|--chdir|-S|--split-string|-[a-zA-Z]*[CS])/)) return 'env -C · -S'
+  return undefined
+}
+
 /** 낱말로 나눈 명령 하나 (감싸 돌리는 안의 명령도) */
 function wordsWhy(all: string[], o: KnownOpts, depth: number, known: (n: string) => boolean, wrap = 0): Unread | undefined {
   if (wrap > 5) return { why: 'deep' }
   const raw = all.map(unmask)
+  // bash는 셈 안의 배열 첨자를 다시 펼친다: (( 'a[$(…)]' )) · x='a[$(…)]'; (( x )) 는 그 안의 명령을 돌린다 (11/26 검토)
+  if (raw.some((x) => /[A-Za-z_]\w*\[[^\]]*(\$\(|`|SUBST)/.test(x))) return { why: 'syntax', name: 'a[$(…)]' }
+  // ${x:=…} · ${x::=…} 로 찾는 길 · 폴더 · 낱말 나누기를 바꾸는 이름 (11/26 검토)
+  for (const x of raw) for (const m of x.matchAll(/\$\{([A-Za-z_]\w*)::?=/g)) if (RISKY_ENV.test(m[1]!) || /^IFS$/.test(m[1]!)) return { why: 'env', name: m[1]! }
   // 명령 자리의 낱말: 묶음 머리 · 대입 · 앞말과 그 옵션 뒤
   for (let i = 0; i < raw.length; i++) {
     const w = raw[i]!
     if (w === 'setopt' && SAFE_SETOPT(raw.slice(i + 1))) return undefined
+    if (w.split('/').pop() === 'env' && /^(-C|--chdir|-S|--split-string|-[a-zA-Z]*[CS])/.test(raw[i + 1] ?? '')) return { why: 'syntax', name: 'env -C · -S' }
     if (SYNTAX.has(w) || /^[A-Za-z_][\w-]*\(\)$/.test(w) || (raw[i + 1] === '()' && /^[A-Za-z_][\w-]*$/.test(w))) return { why: 'syntax', name: w.replace(/\(\)$/, '') }
     const assign = /^([A-Za-z_]\w*)=(.*)$/s.exec(w)
     // 이 명령에만 붙는 환경 변수(A=1 cmd)와 홀로 선 대입(PATH=… ; cmd) 모두: 찾는 길 · 다른 프로그램을 바꾸는 이름은 묻는다
@@ -121,12 +164,19 @@ function wordsWhy(all: string[], o: KnownOpts, depth: number, known: (n: string)
   if (prog === 'setopt' && SAFE_SETOPT(args)) return undefined
   if (SYNTAX.has(prog)) return { why: 'syntax', name: prog }
   if (prog === 'set' && !SET_READ.test(['set', ...args].join(' '))) return { why: 'syntax', name: 'set' }
-  // export · local 로 찾는 길을 바꾸는 이름
-  for (const a of /^(export|local|typeset|declare|readonly)$/.test(prog) ? args : []) { const n = /^([A-Za-z_]\w*)=/.exec(a)?.[1]; if (n && RISKY_ENV.test(n)) return { why: 'env', name: n } }
-  if (!knownProg(first, prog, o)) return { why: 'prog', name: prog }
+  // export · local · read · printf -v 로 찾는 길 · 폴더 · 낱말 나누기를 바꾸는 이름 (read PATH < f · printf -v IFS _, 11/26 검토)
+  for (const a of TAKES.test(prog) ? args : []) { const n = /^([A-Za-z_]\w*)(=|$)/.exec(a)?.[1]; if (n && (RISKY_ENV.test(n) || n === 'IFS')) return { why: 'env', name: n } }
+  // 경로로 적은 프로그램: 시스템 · 패키지 관리자 폴더면 이름으로, 그 밖의 경로는 경로 전체를 이름으로 (「늘」 열쇠도 경로 전체, 11/26 검토)
+  const dir = first.includes('/') && /^[/~]/.test(first) ? first.slice(0, first.lastIndexOf('/')) : undefined
+  if (dir !== undefined && !BIN_DIRS.test(dir)) { if (!o.known?.(first)) return { why: 'prog', name: first } }
+  else if (!knownProg(first, prog, o)) return { why: 'prog', name: prog }
+  const opt = progOptionWhy(prog, args)
+  if (opt) return { why: 'syntax', name: opt }
   if (unknownVarArg(w, prog, known, OPTION_PROGS)) return { why: 'var' }
   if (WRITE_PROGS.test(prog) && args.some((a) => !a.startsWith('-') && unknownIn(a, known))) return { why: 'var' }
-  for (const x of wrapped(prog, args)) {
+  // sh -c 의 명령 글은 -c 뒤 첫 낱말이다 (그 뒤는 $0 · $1 값: find -exec sh -c '…' _ {} 의 _ 는 명령이 아니다)
+  const inner = /^(sh|bash|zsh|dash|ksh|fish)$/.test(prog) ? wrapped(prog, args).slice(0, 1) : wrapped(prog, args)
+  for (const x of inner) {
     const r = typeof x === 'string' ? unreadWhy(x, o, depth + 1) : wordsWhy(x, o, depth, known, wrap + 1)
     if (r) return r
   }
@@ -174,9 +224,12 @@ const PIPE_READERS = /^(tail|head|grep|wc|uniq|cut|cat|tee)$/
  * << 를 잘못 짚어 본문이 아닌 줄을 빼도 이 검사가 덜 물을 뿐, 판정(commandKind)은 원래 글을 그대로 읽으므로 지금보다 가벼워지지 않는다
  */
 export function dataHeredocsRemoved(cmd: string): string {
-  if (!cmd.includes('<<')) return cmd
+  // 아주 긴 글은 빼지 않는다 (본문 찾기가 길이의 제곱만큼 걸린다): 덜 빼면 더 묻을 뿐이다
+  if (!cmd.includes('<<') || cmd.length > 100_000) return cmd
   return cmd.replace(/(^|\n)([^\n]*?)(<<-?)[ \t]*(['"]?)([A-Za-z_]\w*)\4([^\n]*)\n([\s\S]*?)\n([ \t]*)\5[ \t]*(?=\n|$|\))/g, (whole, nl: string, head: string, op: string, quote: string, delim: string, tail: string, body: string, indent: string) => {
     if (head.includes('<<') || tail.includes('<<')) return whole
+    // << 가 진짜인지 틀림없을 때만: 앞에 따옴표 · 역슬래시 · 주석이 없다 (따옴표 안 치환을 여는 "$( 는 둔다). cat # <<E 나 cat "<<E" 다음 줄은 명령이다 (11/26 검토)
+    if (/['"\\#]/.test(head.replace(/"\$\(/g, ''))) return whole
     if (indent && (op !== '<<-' || /[^\t]/.test(indent))) return whole
     if (!quote && /[$`\\]/.test(body)) return whole
     const receiver = head.split(/&&|\|\||[;&|(`]|\$\(/).pop()!.trim()
