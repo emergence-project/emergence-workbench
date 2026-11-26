@@ -4,6 +4,7 @@
  * 서버의 허락 판정(agentChats.ts judge)과 화면의 토글(AgentChats.tsx)이 함께 쓴다.
  */
 import { alternatives, certainHeredoc, evalFlags, expandBraces, expandWords, hasBraces, heredocVariants, longOpt, qualifierRuns, qualifiers, redirects, segments, splitGroups, substitutions, unmask, words } from './chat-shell.js'
+import { uniqNames } from './chat-readonly.js'
 import { sedWrites } from './chat-sed.js'
 import { codeSpawns, codeTouchesOutside } from './chat-pycode.js'
 
@@ -466,7 +467,8 @@ function kindOf(prog: string, args: string[]): ChatKind {
   if (prog === 'sort' && args.some((a) => /^--compress-program/.test(a))) return 'run'
   if (prog === 'sort' && (shortHas('o') || args.some((a) => /^--output(=|$)/.test(a)))) return 'edit'
   if (prog === 'tree' && args.some((a) => /^-[a-zA-Z]*[oR]/.test(a))) return 'edit'
-  if (prog === 'uniq' && positional.length > 1) return 'edit'
+  // uniq [입력 [출력]]: 둘째 이름은 쓸 파일이다. 입력을 뜻하는 - 와 -- 뒤의 낱말도 이름으로 센다 (uniq - out · uniq -- -a out, 11/26 검토)
+  if (prog === 'uniq' && uniqNames(args) > 1) return 'edit'
   // 둘째 이름은 쓸 파일이다
   if (prog === 'xxd' && (shortHas('r') || args.filter((a, n) => !a.startsWith('-') && !/^-[lscgon]$/.test(args[n - 1] ?? '')).length > 1)) return 'edit'
   if (prog === 'yq' && (shortHas('i') || args.some((a) => /^--inplace/.test(a)))) return 'edit'

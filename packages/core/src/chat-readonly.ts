@@ -23,6 +23,13 @@ const sub = (allowed: Record<string, Rule>, bad: string[] = []): Rule => (args) 
   const rule = allowed[args[i] ?? '']
   return !!rule && !args.some((a) => bad.includes(a) || bad.some((b) => b.startsWith('--') && a.startsWith(`${b}=`))) && rule(args.slice(i + 1))
 }
+/**
+ * uniq [입력 [출력]] 의 이름 수: 둘째 이름은 쓸 파일이다. 입력을 뜻하는 - 와 -- 뒤의 낱말도 이름으로 세고, 수를 받는 옵션(-f 1 · -s 2 · -w 3)의 수는 세지 않는다
+ */
+export const uniqNames = (a: string[]): number => {
+  const end = a.indexOf('--')
+  return a.filter((x, n) => (end >= 0 && n > end) || ((x === '-' || !x.startsWith('-')) && !(/^-[fsw]$/.test(a[n - 1] ?? '') && /^\d+$/.test(x)))).length
+}
 /** 파일 이름으로 펼쳐지는 글자 */
 const GLOB = (x: string) => /[*?[]/.test(x)
 const versionOnly: Rule = (args) => args.length === 1 && /^(-v|-V|--version)$/.test(args[0]!)
@@ -47,27 +54,58 @@ const GIT: Record<string, Rule> = {
     && !a.some((x) => /^(--add|--replace-all|--unset|--unset-all|--rename-section|--remove-section|--edit|-e|--file|-f|--blob)(=|$)/.test(x))
     && !/^(set|unset|edit|rename-section|remove-section)$/.test(positional(a)[0] ?? ''),
 }
-/** gh api: GET만. 몸을 붙이는 -f · -F · --input은 POST가 되므로 -X GET을 적었을 때만, graphql은 mutation이 없을 때만 */
+/** gh api 의 옵션 가운데 값을 받는 것: 다음 낱말은 -로 시작해도 그 옵션의 값이다 (gh api a -f t=x -p -XGET 의 -XGET 은 -p 의 값) */
+const GH_API_VALUE = /^(-H|--header|-f|--raw-field|-F|--field|-q|--jq|-t|--template|-p|--preview|-X|--method|--cache|--input|--hostname)$/
+const GH_API_FLAG = /^(-i|--include|--paginate|--slurp|--silent|--verbose)$/
+/**
+ * gh api: GET만. 몸을 붙이는 -f · -F는 POST가 되므로 -X GET을 적었을 때만, graphql은 mutation이 없을 때만.
+ * 옵션을 차례로 읽는다 (11/26 검토): 값을 받는 옵션의 값을 메서드 · 주소로 읽으면 `gh api repos/o/r/issues -f title=x -p -XGET` 이 POST인데 지나갔다.
+ * 모르는 옵션 · 붙여 쓴 짧은 옵션(-iXDELETE · -if k=v. -XGET 만 둔다) · 주소가 둘 이상이면 막는다.
+ * 파일 · 입력을 읽어 보내는 것(--input · -F k=@파일 · @-)과 다른 곳으로 보내는 것(github.com 이 아닌 --hostname · 주소를 통째로 적은 것)도 막는다
+ */
 const ghApi: Rule = (a) => {
-  // 붙여 쓴 짧은 옵션(-iXDELETE · -if k=v)은 읽지 않고 막는다: -X · -f 가 그 안에 숨는다 (11/25 검토). -XGET 만 둔다
-  if (a.some((x) => /^-[a-zA-Z]{2,}/.test(x) && !/^-X[A-Za-z]+$/.test(x))) return false
-  const method = a.flatMap((x, i) => x === '-X' || x === '--method' ? [a[i + 1] ?? ''] : x.startsWith('--method=') ? [x.slice(9)] : x.startsWith('-X') && x.length > 2 ? [x.slice(2)] : [])
-  if (method.some((m) => m.toUpperCase() !== 'GET') || a.some((x) => /^--input/.test(x))) return false
-  // graphql: mutation이 없을 때만. 파일에서 읽는 질의(-F query=@파일)는 안을 볼 수 없어 막는다
-  // 질의를 변수 · 치환으로 넣은 것도 안을 볼 수 없다 (-f query="$(cat q.txt)")
-  if (a.includes('graphql')) return !a.some((x) => /\bmutation\b/i.test(x) || /=@/.test(x) || /SUBST|\$/.test(x))
-  return method.length > 0 || !a.some((x) => /^(-f|-F|--field|--raw-field)/.test(x))
+  let endpoint: string | undefined
+  let method: string | undefined
+  const fields: string[] = []
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i]!
+    if (x === '--') { if (endpoint !== undefined || i !== a.length - 2) return false; endpoint = a[i + 1]!; break }
+    if (!x.startsWith('-') || x === '-') { if (endpoint !== undefined) return false; endpoint = x; continue }
+    const eq = /^(--[a-z-]+)=([\s\S]*)$/.exec(x)
+    // 붙여 쓴 값: -XGET · -q.login · -fa=b. 값을 받는 옵션으로 시작할 때만 (-iXDELETE · -if k=v 는 -i 로 시작한다: 읽지 않고 막는다)
+    const glued = /^-([HfFqtpX])([\s\S]+)$/.exec(x)
+    const name = eq ? eq[1]! : glued ? `-${glued[1]}` : x
+    let value = eq ? eq[2] : glued ? glued[2] : undefined
+    if (GH_API_VALUE.test(name)) { if (value === undefined) { value = a[++i]; if (value === undefined) return false } }
+    else if (!GH_API_FLAG.test(name) || (value !== undefined && !/^(true|false)$/.test(value))) return false
+    if (name === '--input' || (name === '--hostname' && value !== 'github.com')) return false
+    if (name === '-X' || name === '--method') { if (method !== undefined || value!.toUpperCase() !== 'GET') return false; method = 'GET' }
+    // -F k=@파일 · k=@- 는 파일 · 입력을 읽어 보낸다 (-f 는 글자 그대로라 아니다)
+    if ((name === '-F' || name === '--field') && /=@/.test(value!)) return false
+    if (/^(-f|-F|--field|--raw-field)$/.test(name)) fields.push(value!)
+  }
+  if (endpoint === undefined || endpoint.includes('://')) return false
+  // graphql: mutation이 없을 때만. 질의를 변수 · 치환으로 넣은 것은 안을 볼 수 없다 (-f query="$(cat q.txt)").
+  // 주소가 꼭 graphql 일 때만 graphql 이다(/graphql · graphql/ 도). 글자만 든 주소(repos/o/r/issues?graphql)는 REST 라, 몸을 붙이면 POST 다 (11/26 셋째 검토)
+  if (endpoint.replace(/^\/+|\/+$/g, '') === 'graphql') return !a.some((x) => /\bmutation\b/i.test(x) || /SUBST|\$/.test(x))
+  if (fields.length && /graphql/i.test(endpoint) && a.some((x) => /\bmutation\b/i.test(x))) return false
+  return method !== undefined || !fields.length
 }
-const LOOK: Rule = sub({ view: any, list: any })
+/**
+ * gh 의 하위 명령은 무리 바로 뒤의 낱말이어야 한다 (11/26 둘째 검토): 사이에 옵션을 두면 gh 는 그 옵션이 다음 낱말을 값으로 받는다고 읽어,
+ * `gh pr -r view merge` 는 view 가 아니라 merge 를 돌린다 (`gh repo -r view create 이름 --public --push` 는 저장소를 만들어 올린다)
+ */
+const ghSub = (allowed: Record<string, Rule>): Rule => (args) => { const rule = allowed[args[0] ?? '']; return !!rule && rule(args.slice(1)) }
+const LOOK: Rule = ghSub({ view: any, list: any })
 const GH: Record<string, Rule> = {
-  pr: sub({ view: any, list: any, diff: any, checks: any, status: any }),
-  run: sub({ view: any, list: any, watch: any }),
-  issue: sub({ view: any, list: any, status: any }),
-  repo: LOOK, release: LOOK, workflow: LOOK, label: sub({ list: any }), gist: LOOK, cache: sub({ list: any }),
-  search: sub({ repos: any, issues: any, prs: any, commits: any, code: any }),
+  pr: ghSub({ view: any, list: any, diff: any, checks: any, status: any }),
+  run: ghSub({ view: any, list: any, watch: any }),
+  issue: ghSub({ view: any, list: any, status: any }),
+  repo: LOOK, release: LOOK, workflow: LOOK, label: ghSub({ list: any }), gist: LOOK, cache: ghSub({ list: any }),
+  search: ghSub({ repos: any, issues: any, prs: any, commits: any, code: any }),
   status: any,
   // -at 처럼 붙여 쓴 -t 도 열쇠를 보인다
-  auth: sub({ status: (a) => !a.some((x) => x.startsWith('--show-token') || /^-[a-zA-Z]*t/.test(x)) }),
+  auth: ghSub({ status: (a) => !a.some((x) => x.startsWith('--show-token') || /^-[a-zA-Z]*t/.test(x)) }),
   api: ghApi,
 }
 
@@ -102,7 +140,7 @@ const GIT_WRITE: Record<string, Rule> = {
 }
 const GH_WRITE: Record<string, Rule> = {
   ...GH,
-  pr: sub({
+  pr: ghSub({
     view: any, list: any, diff: any, checks: any, status: any,
     // comment는 뺐다: 공개 PR에 사용자 이름으로 남는 글이라 허락 카드로 묻는다 (11/20 사용자 결정 "추천대로")
     create: any, edit: any, ready: any,
@@ -125,12 +163,42 @@ function gitRule(table: Record<string, Rule>): Rule {
     return !!rule && !rest.some(longOpt('--output', '--ext-diff')) && rule(rest)
   }
 }
+/**
+ * 다른 곳을 가리키는 gh (11/26 검토): github.com 이 아닌 주소, git@호스트:주인/저장소, 호스트가 붙은 저장소 이름(-R 호스트/주인/저장소 · repo view 호스트/주인/저장소).
+ * gh 는 그 호스트에 붙으려 하고, 엔터프라이즈 열쇠가 있으면 함께 보낸다.
+ * 주소 · git@ 은 낱말이 그것으로 시작할 때만 본다(제목 · 본문 · 찾을 말 속의 주소는 아니다). 저장소 이름은 -R · --repo 의 값(붙여 쓴 -cR 값 · -cR값 도)과 repo 의 이름 자리
+ */
+const GH_HOSTS = /^https?:\/\/(gist\.)?github\.com(\/|$)/
+const REPO_VALUE_OPTS = /^(-b|--branch|--json|-q|--jq|-t|--template|-L|--limit|-l|--language|--visibility|--topic)$/
+/** gh repo <하위 명령> 뒤의 이름들: 옵션을 차례로 읽어 값을 한 번씩만 뺀다 (`repo view -b -b 호스트/주인/저장소` 의 둘째 -b 는 첫 -b 의 값이다, 넷째 검토) */
+const repoNames = (a: string[]): string[] => {
+  const out: string[] = []
+  for (let i = 2; i < a.length; i++) {
+    if (REPO_VALUE_OPTS.test(a[i]!)) i++
+    else if (!a[i]!.startsWith('-')) out.push(a[i]!)
+  }
+  return out
+}
+const ghElsewhere = (a: string[]) => {
+  const hosted = (repo: string | undefined) => repo !== undefined && (repo.split('/').length > 2 || repo.includes(':'))
+  return a.some((x, i) => {
+    if (/^git@(?!github\.com(:|$))/.test(x) || (/^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(x) && !GH_HOSTS.test(x))) return true
+    if (x.startsWith('--repo=')) return hosted(x.slice(7))
+    if (x === '--repo') return hosted(a[i + 1])
+    // 짧은 옵션은 붙여 쓸 수 있다: -cR 값 · -cR값 · -R=값 (c 는 값을 받지 않는 옵션)
+    const short = /^-[a-zA-Z]*R(.*)$/.exec(x)
+    if (short && !x.startsWith('--')) return hosted(short[1] ? short[1]!.replace(/^=/, '') : a[i + 1])
+    return false
+  }) || (a[0] === 'repo' && repoNames(a).some((x) => hosted(x.replace(/^https?:\/\/(gist\.)?github\.com\//, ''))))
+}
 function ghRule(table: Record<string, Rule>): Rule {
   return (a) => {
     if (versionOnly(a)) return true
-    if (a.some((x) => x === '--web' || /^-[a-zA-Z]*w/.test(x))) return false
+    // --web=true 도 브라우저를 연다. 하위 명령 앞의 옵션(--help=false api …)은 읽지 않고 막는다: 하위 명령을 잘못 짚는다 (11/26 검토)
+    if (a.some((x) => /^--web(=|$)/.test(x) || /^-[a-zA-Z]*w/.test(x)) || a[0]?.startsWith('-')) return false
     // gh api -X GET <경로>: 첫 낱말이 api면 옵션 값(GET)을 하위 명령으로 읽지 않게 따로 본다
-    return a[0] === 'api' ? ghApi(a.slice(1)) : sub(table)(a)
+    if (ghElsewhere(a)) return false
+    return a[0] === 'api' ? ghApi(a.slice(1)) : ghSub(table)(a)
   }
 }
 const PKG: Record<string, Rule> = { ls: any, list: any, view: any, info: any, why: any, outdated: any, root: any }
@@ -282,7 +350,8 @@ const PROGRAMS: Record<string, Rule> = {
   // -C는 magic 파일을 컴파일해 쓴다
   file: (a) => !a.some((x) => /^-[a-zA-Z]*C/.test(x) || longOpt('--compile')(x)),
   // 둘째 이름은 쓸 파일이다: 별표가 두 파일로 펼쳐져도 그렇다
-  uniq: (a) => positional(a).length <= 1 && !a.some(GLOB),
+  // 둘째 이름은 쓸 파일이다. 입력을 뜻하는 - 와 -- 뒤의 낱말도 이름으로 센다 (cat f | uniq - out, 11/26 검토)
+  uniq: (a) => uniqNames(a) <= 1 && !a.some(GLOB),
   date: (a) => positional(a).every((x) => x.startsWith('+')) && !a.includes('-s') && !a.some(longOpt('--set')),
   hostname: (a) => positional(a).length === 0,
   find: findRule,
