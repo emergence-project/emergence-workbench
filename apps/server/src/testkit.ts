@@ -1,5 +1,5 @@
 // 서버 테스트가 함께 쓰는 것: 예제 연구, 임시 폴더, 예제 연구를 등록한 앱
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -10,7 +10,33 @@ import { DEFAULT_AUTHORS } from '@rw/core'
 import { buildApp } from './app.js'
 
 export const fixture = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../fixtures/sample-research')
-export const hasLatex = (() => { try { execFileSync('latexmk', ['-v']); return true } catch { return false } })()
+const latexmk = (() => { try { execFileSync('latexmk', ['-v']); return true } catch { return false } })()
+/**
+ * 앱의 서식(prl · prb · 연구노트)이 쓰는 클래스 · 패키지 가운데 이 컴퓨터의 TeX에 없는 것 (11/26 "이 맥에서 pnpm test").
+ * TeX를 작게 깐 컴퓨터(TinyTeX 등)는 latexmk는 있어도 revtex · physics 같은 것이 없어, 컴파일 테스트가 「Emergency stop」으로 떨어졌다.
+ * 무엇이 필요한지는 서식에서 읽는다(packages/core의 기본 서식 · templates/latex의 연구노트 스타일): 서식을 바꾸면 이 목록도 따라온다
+ */
+export const texMissing: string[] = (() => {
+  if (!latexmk) return []
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
+  // 주석 줄(예로 든 \usepackage{name})은 빼고 읽는다. rw-로 시작하는 것은 앱이 빌드 폴더에 넣어 주는 자기 스타일이라 TeX에 없어도 된다
+  const text = [path.join(root, 'packages/core/src/latex-setup.ts'), path.join(root, 'templates/latex/rw-research-note.sty')]
+    .flatMap((f) => fs.readFileSync(f, 'utf8').split('\n')).filter((l) => !/^\s*(\/\*\*|\*|\/\/|%)/.test(l)).join('\n')
+  const need = new Set<string>()
+  for (const m of text.matchAll(/\\+documentclass(?:\[[^\]]*\])?\{([\w-]+)\}/g)) need.add(`${m[1]}.cls`)
+  for (const m of text.matchAll(/\\+(?:usepackage|RequirePackage)(?:\[[^\]]*\])?\{([^}]+)\}/g)) for (const p of m[1]!.split(',')) if (/^[\w-]+$/.test(p.trim()) && !p.trim().startsWith('rw-')) need.add(`${p.trim()}.sty`)
+  // kpsewhich는 찾은 것만 한 줄씩 적는다 (하나라도 없으면 종료 코드가 0이 아니다)
+  const found = spawnSync('kpsewhich', [...need], { encoding: 'utf8' }).stdout ?? ''
+  const have = new Set(found.split('\n').map((l) => path.basename(l.trim())))
+  return [...need].filter((f) => !have.has(f)).sort()
+})()
+/** 컴파일 테스트를 돌릴 수 있는가: latexmk가 있고 서식이 쓰는 것이 다 있다. 아니면 건너뛴다(CI의 TeX 검사 tex.yml은 RW_REQUIRE_TEX로 건너뛰지 못하게 한다) */
+export const hasLatex = latexmk && texMissing.length === 0
+if (process.env.RW_REQUIRE_TEX && !hasLatex) throw new Error(latexmk ? `TeX is missing what the templates use: ${texMissing.join(', ')}` : 'latexmk is not installed')
+// vitest는 테스트 파일마다 이 모듈을 따로 읽고 console을 가로챈다: 표준 오류에 바로, 파일마다 한 번 적는다
+if (latexmk && texMissing.length) {
+  process.stderr.write(`컴파일 테스트를 건너뜁니다: 이 컴퓨터의 TeX에 서식이 쓰는 것이 없습니다 (${texMissing.join(', ')}). 앱에서도 그 서식은 컴파일되지 않습니다. TinyTeX면 tlmgr install로 깝니다.\n`)
+}
 export const R = '/api/researches/sample-research'
 
 // 파일마다 useSampleApp()이 채운다 (vitest는 테스트 파일마다 모듈을 따로 읽는다)
