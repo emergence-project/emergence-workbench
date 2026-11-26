@@ -240,6 +240,8 @@ export class SharedChats extends AgentChats {
     const done = [...this.chats.values()].find((c) => fromOf(c)?.id === id)
     if (done) return this.get(done.id)
     const r = f.row
+    // 중앙은 컴퓨터에 하나다 (11/26): 다른 컴퓨터의 옛 중앙 대화를 이어 오면 중앙이 둘이 되고, 방금 이어 온 쪽이 중앙 자리를 차지했다
+    if (r.rid === CENTRAL_RID && [...this.chats.values()].some((c) => c.rid === CENTRAL_RID && !c.archived)) throw new WorkbenchError(409, t('이 컴퓨터에는 중앙 대화가 이미 있어 이어 오지 않습니다 (중앙은 컴퓨터에 하나). 이 대화는 읽기만 하고, 이어 갈 내용은 이 컴퓨터의 중앙에 말해 주세요', 'This computer already has a central conversation, so this one is not continued here (one central per computer). Read it here and tell this computer\'s central what to carry on'))
     if (r.scope.kind === 'app' && !this.app) throw new WorkbenchError(404, t('이 컴퓨터에는 앱 저장소가 없어 앱 고치기 대화를 이어 갈 수 없습니다', 'No app repository on this computer, so app conversations cannot continue here'))
     if (r.scope.kind !== 'app') {
       try { this.deps.project(r.rid) } catch { throw new WorkbenchError(404, t('이 컴퓨터에 그 프로젝트가 없습니다. 프로젝트를 받은 뒤 이어 가세요', 'That project is not on this computer. Get the project first, then continue')) }
