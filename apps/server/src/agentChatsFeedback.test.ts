@@ -303,6 +303,23 @@ describe('피드백 대화 돌보기 (설정 › 에이전트 "앱 피드백")',
     userMerged = undefined
   })
 
+  // 전에는 합친 대화가 이어서 새 PR을 올려도 「합침」이 남았다: 열린 PR이 있는 대화를 끝난 것으로 보아
+  // app_merge가 "이미 합쳤습니다"로 거절하고, 그 PR이 고친 파일을 다른 대화가 고칠 수 있었다
+  it('합친 대화가 이어서 새 PR을 올리면 합친 것이 아니다: 새 PR이 합쳐지고 앱에 들어온 뒤에 다시 보관한다', async () => {
+    const id = chats.list().find((c) => !c.feedback && c.merged === 'fff0001')!.id
+    expect(chats.get(id)).toMatchObject({ merged: 'fff0001', shipped: true, archived: false })
+    await chats.appSubmit(id, { title: '메뉴 2', body: '' })
+    expect(chats.get(id).merged).toBeUndefined()
+    expect(chats.get(id).shipped).toBeFalsy()
+    await chats.tickFeedback()
+    expect(chats.get(id)).toMatchObject({ archived: false })
+    expect(chats.get(id).merged).toBeUndefined()
+    userMerged = 'fff0009'
+    await chats.tickFeedback()
+    expect(chats.get(id)).toMatchObject({ merged: 'fff0009', shipped: true, archived: true })
+    userMerged = undefined
+  })
+
   it('cloud.yaml에 이 컴퓨터의 시간대를 적어 클라우드의 pnpm agent:feedback이 맞춘다 (11/9)', () => {
     writeFeedbackCloud(fb, true, new Date('2026-11-09T01:00:00Z'), 'Asia/Seoul')
     expect(fs.readFileSync(path.join(fb, 'cloud.yaml'), 'utf8')).toContain('timezone: Asia/Seoul\n')

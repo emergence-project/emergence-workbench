@@ -16,7 +16,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { APP_RID, CENTRAL_RID, startModel, type Reviewer } from '@rw/core/contract/agentChats'
 import type { AppChecks, AppSubmitBody, AppSubmitted, AskAnswer, Attach, CentralOpenBody, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
-import { appEnv, notStarted, personalReadable, type AppWork, type Snap } from './appWorktree.js'
+import { appEnv, newPrRound, notStarted, personalReadable, type AppWork, type Snap } from './appWorktree.js'
 export { appEnv } from './appWorktree.js'
 import { agentAsks, autoCustom, autoOf, type AgentSettings } from '@rw/core'
 import { fillReview, reviewerName, reviewerOf } from './agentReviewers.js'
@@ -551,7 +551,7 @@ export class AgentChats {
   async appSubmit(id: string, b: AppSubmitBody): Promise<AppSubmitted> {
     const { c, w } = this.appOf(id)
     const pr = await w.submit(c.worktree!, c.branch!, { title: b.title, body: b.body })
-    c.pr = { number: pr.number, url: pr.url }; c.ci = 'pending'
+    c.pr = { number: pr.number, url: pr.url }; c.ci = 'pending'; newPrRound(c)
     this.touch(c)
     return pr
   }
