@@ -7,6 +7,7 @@ import { alternatives, certainHeredoc, evalFlags, expandBraces, expandWords, has
 import { ghReadRemoved } from './chat-gh.js'
 import { uniqNames } from './chat-readonly.js'
 import { sedWrites } from './chat-sed.js'
+import { VarWatch } from './chat-vars.js'
 import { codeSpawns, codeTouchesOutside } from './chat-pycode.js'
 
 // 셸 글 읽기는 chat-shell.ts로 옮겼다: 여기서 가져다 쓰던 곳을 위해 그대로 내보낸다
@@ -179,7 +180,10 @@ export function commandKind(cmd0: string, o: Where, depth = 0): ChatKind {
     cmd = without
     ghRead = true
   }
-  let kind = kindCore(cmd, o, depth)
+  // 값을 모르는 변수 (VarWatch): 맨 바깥 글에서만 본다. 값을 넣어 다시 읽는 글(variants)에서는 아직 넣지 않은 변수가 모르는 변수로 보인다
+  const watch = depth === 0 ? new VarWatch() : undefined
+  let kind = kindCore(cmd, o, depth, watch)
+  const unknownVar = !!watch?.hit
   if (WEIGHT[code] > WEIGHT[kind]) kind = code
   // 히어독으로도 읽어 보고 무거운 쪽을 쓴다 (본문의 따옴표가 뒤 명령을 가리는 꼴, 본문에서 펼쳐지는 $( … ))
   // (겹친 깊이마다 여러 번 읽으면 일이 곱절로 불어나므로 바깥 몇 겹에서만. 안쪽의 히어독은 바깥에서 읽을 때 함께 읽힌다)
@@ -189,11 +193,14 @@ export function commandKind(cmd0: string, o: Where, depth = 0): ChatKind {
   }
   // 나머지가 읽기뿐일 때만 「웹 보기」다. 다른 일(실행 · 편집 · 삭제)이 이어진 줄은 전처럼 「외부」로 둔다:
   // 한 줄의 판정은 하나라, 「웹 보기」로 올리면 웹 보기만 켠 대화에서 그 실행 · 편집까지 묻지 않고 지나간다 (gh pr view 1; sh f)
+  // 값을 모르는 변수: 모든 읽기를 합친 판정이 읽기 · 실행 · 웹 보기일 때만 「외부」로 올려 한 번 묻는다. 편집 · 삭제인 줄은 그대로 둔다
+  // (읽기 전용 대화는 편집 · 삭제를 막고 외부는 묻는다: 올리면 막던 것이 묻는 것으로 풀린다. 읽기마다 올리면 다른 읽기의 삭제를 가린다, 11/26 검토)
+  if (unknownVar && (kind === 'read' || kind === 'run' || kind === 'web')) kind = 'outside'
   if (ghRead) return kind === 'read' ? 'web' : 'outside'
   return kind
 }
 
-function kindCore(cmd: string, o: Where, depth: number): ChatKind {
+function kindCore(cmd: string, o: Where, depth: number, watch?: VarWatch): ChatKind {
   if (depth > DEPTH_MAX) return 'outside'
   let worst: ChatKind = 'read'
   const bump = (k: ChatKind) => { if (WEIGHT[k] > WEIGHT[worst]) worst = k }
@@ -225,6 +232,8 @@ function kindCore(cmd: string, o: Where, depth: number): ChatKind {
     if (tried.partial) bump('run')
     for (const v of tried.texts) bump(commandKind(v, o, depth + 1))
     budget = Math.max(0, budget - tried.texts.length)
+    // 값을 모르는 변수가 find · git · sed · fd 의 인자 맨 앞에 오는지 적어 둔다 (11/26). 묶음으로 나눈 명령도 본다
+    watch?.see(all, [all, ...splitGroups(all)].map((g) => leading(g).rest), unmask, (n) => vars.get(n) ?? groupVars.get(n))
     noteVars(all, vars)
     // 묶음 안에서 정한 값으로도 넣어 본다. 위에서 이미 본 글은 다시 보지 않는다
     if (groupBudget > 0) {

@@ -121,3 +121,21 @@ describe('gh 로 읽기만 하는 명령은 「웹 보기」 토글을 따른다
     expect(bashIn({ ...r, auto: () => ({ read: true, run: false, web: true }) }, 'gh pr view 12').kind).toBe('allow')
   })
 })
+
+describe('값을 모르는 변수가 find · git · sed · fd 의 인자 맨 앞에 오면 한 번 묻는다 (11/26 "값을 알 수 없는 변수")', () => {
+  const p: PolicyCtx = { rid: 'p', write: 'notes', mode: 'edit', planOk: false, scope: { kind: 'project' }, repo: '/w/p', readable: [], claimedBy: () => undefined }
+  const bashIn = (c: PolicyCtx, command: string) => judge(c, 'Bash', { command })
+  it('읽기를 자동 허용한 대화도, 자동 모드도 묻는다', () => {
+    for (const c of ['find . $x', 'git log $branch', 'sed -n "${n}p" a.md', 'x=$(cat f); find . $x']) {
+      expect(bashIn(p, c), c).toMatchObject({ kind: 'ask', does: 'outside', once: true })
+      expect(bashIn({ ...p, mode: 'auto' }, c), c).toMatchObject({ kind: 'ask', does: 'outside', once: true })
+    }
+  })
+  it('값이 그 줄에 적혀 있거나 옵션이 될 수 없는 자리면 전처럼 묻지 않는다', () => {
+    for (const c of ['find . -name "$pat"', 'for f in src/*.ts; do sed -n 1p "$f"; done', 'for x in a b; do git log $x; done', 'sed -n 1p src/$f', 'cat $f']) expect(bashIn(p, c).kind, c).toBe('allow')
+  })
+  it('읽기 전용 대화가 막던 편집 · 삭제는 그대로 막는다 (묻는 것으로 풀리지 않는다)', () => {
+    const r: PolicyCtx = { ...p, write: 'read' }
+    for (const c of ["sed $u 'w out.txt' a.md", 'sed -i $x f', 'find . -delete $x']) expect(bashIn(r, c).kind, c).toBe('deny')
+  })
+})
