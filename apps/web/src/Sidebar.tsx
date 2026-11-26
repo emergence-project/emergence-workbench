@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { problemTurns, useProblems } from './Problems'
+import { turnParts } from './turnCounts'
 import { type ManuscriptInfo, type NoteRow, type ProjectKind, type ResearchApi, type Topic } from './api'
 import { flowName } from './projectProfile'
 import { Icon } from './icons'
@@ -72,6 +73,8 @@ export function ResearchNav({ rid, route, materials, askCount = 0, taskCount = 0
   const editCount = edits ? edits.reviews.length + edits.attempts.length : 0
   // 결정할 흐름 (11/11): 방향 보고가 결정을 기다리는 흐름. 기록 › 내 차례 맨 위와 같은 수
   const judgeCount = problemTurns(useProblems(rid).data?.problems)
+  // 한 가지는 한 줄에서만 센다 (11/26): 기록 줄은 흐름 결정을 더하지 않는다. 줄의 합이 탭 머리의 수와 같다
+  const turns = turnParts({ ask: askCount, task: taskCount, flow: judgeCount, edit: editCount })
 
   const known = new Set(topics.map((t) => t.id))
   const notesOf = (g: Group) => notes.filter((n) => (g === LOOSE ? !n.topics.some((t) => known.has(t)) : n.topics[0] === g))
@@ -114,7 +117,7 @@ export function ResearchNav({ rid, route, materials, askCount = 0, taskCount = 0
   const recordsOn = route.page === 'records' || route.page === 'todo' || route.page === 'log' || route.page === 'task'
   return (
     <div className="project-toc" data-ui="프로젝트 목차">
-      <SideTabs label={t('프로젝트', 'Project')} turn={askCount + taskCount + judgeCount + editCount}
+      <SideTabs label={t('프로젝트', 'Project')} turn={turns.total}
         turnTip={t(`내 차례: 에이전트가 물은 기록 ${askCount} · 맡긴 일 결과 ${taskCount} · 흐름 결정 ${judgeCount} · 수정 검토 ${editCount}`, `Your turn: ${askCount} agent question(s), ${taskCount} task result(s), ${judgeCount} flow decision(s), ${editCount} edit review(s)`)}
         show={!!current || route.page === 'part' || route.page === 'task' || route.page === 'concept'}
         files={<FileTree rid={rid} current={currentFile} onOpen={openFile} />}>
@@ -132,7 +135,7 @@ export function ResearchNav({ rid, route, materials, askCount = 0, taskCount = 0
           </div>
           <button className={`nav side-row${recordsOn ? ' on' : ''}`} aria-current={recordsOn ? 'page' : undefined} data-ui="기록 블록" title={t('내 차례 · 에이전트 차례 · 모든 기록과 맡긴 일', 'Your turn, agents\' turn, all records and delegated tasks')} onClick={() => go({ page: 'records', rid })}>
             <span className="q-ico" aria-hidden>{Icon.comment}</span><span className="label">{t('기록', 'Records')}</span>
-              {askCount + taskCount + judgeCount > 0 ? <span className="rail-count" data-ui="물은 기록 수" title={t(`에이전트가 물은 기록 ${askCount}개 · 판단할 맡긴 일 ${taskCount}개 · 결정할 흐름 ${judgeCount}개${confirmCount ? ` · 확인만 ${confirmCount}개` : ''}`, `${askCount} agent question(s), ${taskCount} task result(s), ${judgeCount} flow decision(s)${confirmCount ? `, ${confirmCount} to confirm` : ''}`)}>{askCount + taskCount + judgeCount}</span>
+              {turns.records > 0 ? <span className="rail-count" data-ui="물은 기록 수" title={t(`에이전트가 물은 기록 ${askCount}개 · 판단할 맡긴 일 ${taskCount}개${confirmCount ? ` · 확인만 ${confirmCount}개` : ''} (결정할 흐름은 흐름 줄에서 셉니다)`, `${askCount} agent question(s), ${taskCount} task result(s)${confirmCount ? `, ${confirmCount} to confirm` : ''} (flow decisions are counted on the Flow line)`)}>{turns.records}</span>
                 : confirmCount > 0 && <span className="rail-count pale" data-ui="확인만 수" title={t(`확인만: 종결 조건을 통과한 맡긴 일 ${confirmCount}개`, `Confirm only: ${confirmCount} task(s) passed the end condition`)}>{confirmCount}</span>}</button>
           <button className={`nav side-row${route.page === 'edits' ? ' on' : ''}`} aria-current={route.page === 'edits' ? 'page' : undefined} data-ui="고침 검토 블록" title={t('에이전트가 고친 노트를 변경사항마다 검토', 'Review each change agents made to notes')} onClick={() => go({ page: 'edits', rid })}>
             <span className="q-ico" aria-hidden>{Icon.review}</span><span className="label">{t('수정 검토', 'Edit review')}</span>{editCount ? <span className="rail-count" title={t(`검토할 노트와 수정 요청 ${editCount}개`, `${editCount} note(s) to review and edit request(s)`)}>{editCount}</span> : null}</button>
