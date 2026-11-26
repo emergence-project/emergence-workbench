@@ -21,6 +21,7 @@
     "library:memos": "node scripts/library-memos.mjs",
     "agent:check-tasks": "node scripts/agent-check-tasks.mjs",
     "agent:contained": "node scripts/agent-contained.mjs",
+    "agent:rules": "node scripts/agent-rules.mjs",
     "mcp": "node scripts/mcp.mjs",
     "design:check": "node scripts/ci/check-design.mjs",
     "wording:check": "node scripts/ci/check-wording.mjs",
