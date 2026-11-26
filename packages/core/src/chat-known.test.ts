@@ -1,0 +1,115 @@
+// 끝까지 읽은 명령만 묻지 않고 지나가기 (11/26 사용자 결정, 설계 docs/specs/2026-11-26-command-verdict-read-fully.md)
+import { describe, expect, it } from 'vitest'
+import { dataHeredocsRemoved, unreadWhy } from './chat-known.js'
+
+const why = (c: string) => unreadWhy(c)?.why
+
+describe('읽은 것으로 치는 줄 (설계 5.2)', () => {
+  it('아는 프로그램과 셸 문법만으로 된 줄', () => {
+    for (const c of [
+      'pnpm test', 'git status && git diff --stat', 'cd apps/server && pnpm vitest run src/x.test.ts', 'ls -la | head -20',
+      'for f in src/*.ts; do wc -l "$f"; done', 'x=$(git rev-parse HEAD); echo "$x"', 'set -e; ls', 'set -euo pipefail; pnpm test',
+      '[[ -f x ]] && echo y', '(( n++ ))', 'echo $(( 1 + 2 ))', 'test -d x || mkdir -p x', 'while read l; do echo "$l"; done < f',
+      'CI=1 pnpm test', 'NODE_ENV=test node x.js', 'CHROMIUM_PATH=/opt/pw-browsers/chromium pnpm shots', 'export FOO=1',
+      'time pnpm test', 'timeout 5 pnpm test', 'nohup node s.js &', 'echo `whoami`', 'gh pr view 12', 'lsof -i :5173 | head',
+      './scripts/x.sh', 'scripts/check.mjs a', '/opt/homebrew/bin/python3 x.py', 'sh -c "rm x"', 'xargs -n1 echo', 'x=out; cp a "$x"',
+      'cp a "$HOME/x"', 'ls > out.txt 2>&1', 'git log $(git merge-base a b)..HEAD', 'python3 -c "import os; os.system(1)"',
+      'find . -name "$pat"', 'cat <<< "$x"',
+    ]) expect(unreadWhy(c), c).toBeUndefined()
+  })
+  it('자료를 주는 히어독: 본문의 따옴표 · 괄호 · 명령 같은 글은 읽지 않는다', () => {
+    for (const c of [
+      `git commit -m "$(cat <<'EOF'\nIt's fine (really)\n\nCo-Authored-By: x\nEOF\n)"`,
+      `cat > /tmp/x.md <<'EOF'\nhello world\n$(rm x)\neval y\nEOF`,
+      `python3 - <<'EOF'\nimport os\nprint("a)")\nEOF`,
+      `cat <<EOF > notes.md\nplain text, no dollar\nEOF\nls`,
+      `cat <<-'EOF'\n\tsetopt x\n\tEOF`,
+    ]) expect(unreadWhy(c), c).toBeUndefined()
+  })
+})
+
+describe('읽지 못한 줄 (설계 5.2 가 · 나 · 다)', () => {
+  it('가. 모르는 프로그램은 이름과 함께', () => {
+    expect(unreadWhy('foo bar')).toEqual({ why: 'prog', name: 'foo' })
+    expect(unreadWhy('make build')).toEqual({ why: 'prog', name: 'make' })
+    expect(unreadWhy('../x.sh')).toEqual({ why: 'prog', name: 'x.sh' })
+    // 감싸 돌리는 안의 명령도 (find -exec · xargs · sh -c · 치환)
+    for (const c of ['find . -exec foo {} \\;', 'echo hi | xargs bar', 'sh -c "baz"', 'echo $(qux)', 'echo <(qux)', 'nice -n 5 qux']) expect(why(c), c).toBe('prog')
+    // 실행 「늘」로 허락한 프로그램은 안다
+    expect(unreadWhy('foo bar', { known: (p) => p === 'foo' })).toBeUndefined()
+  })
+  it('가. 변수 · 치환 · 무늬로 만든 프로그램 이름', () => {
+    for (const c of ['$cmd -rf x', '"$p" a', '${p} a', '$(which x) a', '* a', 'sh -c "$x"', '~/bin/x']) expect(why(c), c).toBe('var-prog')
+  })
+  it('나. 풀지 못한 치환 · 다 넣어 보지 못한 변수', () => {
+    expect(why('echo $(ls')).toBe('subst')
+    const many = Array.from({ length: 30 }, (_, i) => `v${i}`).join(' ')
+    expect(why(`for a in ${many}; do for b in ${many}; do echo; done; done; x=1; for c in ${many}; do :; done; echo $a$b$c`)).toBeDefined()
+  })
+  it('나. 다른 프로그램을 바꾸는 환경 변수 (글자 값이라도)', () => {
+    for (const c of ['PATH=/tmp:$PATH ls', 'GIT_PAGER=cat git log', 'LESSOPEN="|x" less f', 'export PATH=/x:$PATH', 'PATH=.; ls', 'NODE_OPTIONS=--require=./x node a']) expect(why(c), c).toBe('env')
+    // 그 밖의 이름이라도 값이 글자 그대로가 아니면
+    expect(why('FOO=$(ls) pnpm test')).toBe('env')
+  })
+  it('나. 무늬 한정자의 코드 · zsh 펼침 플래그', () => {
+    for (const c of ['ls *(e:rm:)', 'ls *(+f)', 'ls ${(f)x}', 'echo ${(e)x}', 'ls $~pat', 'ls ${=x}', 'echo ${!name}']) expect(why(c), c).toBe('syntax')
+  })
+  it('다. 다시 읽히는 글 · 다루지 않는 문법', () => {
+    for (const c of ['eval "$x"', 'source ~/.zshrc', '. ./env.sh', 'exec bash', 'trap "rm x" EXIT', 'alias ls=rm', 'builtin cd x', 'noglob ls *',
+      'repeat 3 ls', 'coproc ls', 'select x in a b; do ls; done', 'case $x in a) ls;; esac', 'setopt nullglob; ls', 'unsetopt x', 'f() { ls; }; f',
+      'function f { ls; }', 'time eval x', 'set -o noglob', 'set +e -f', 'emulate sh', 'r', 'fc -e - ', 'hash -d x=/tmp']) expect(why(c), c).toBe('syntax')
+  })
+  it('다. 옵션을 가리는 프로그램의 인자 맨 앞에 값을 모르는 변수', () => {
+    for (const c of ['find . $x', 'git $sub', 'sed $s f', 'sort $o f', 'rg $flag x', 'rsync $o a b', 'xargs $o echo', 'read x; grep $x f']) expect(why(c), c).toBe('var')
+  })
+  it('다. 쓰기 대상에 값을 모르는 변수 · 치환', () => {
+    for (const c of ['cp a "$dest"', 'ls > "$out"', 'mv a $(pwd)/b', 'tee "$f" < x', 'for f in *; do cp a "$f"; done']) expect(why(c), c).toBe('var')
+  })
+  it('본문을 셸이 받는 히어독은 본문도 읽는다', () => {
+    expect(why('cat <<EOF | sh\nfoo\nEOF')).toBe('prog')
+    expect(why("bash <<'EOF'\nfoo\nEOF")).toBe('prog')
+    // 펼쳐지는 본문(따옴표 없는 구분자에 $)은 빼지 않는다
+    expect(why('cat <<EOF\n$(foo)\nEOF')).toBe('prog')
+  })
+})
+
+describe('dataHeredocsRemoved', () => {
+  it('자료 본문과 끝 줄을 빼고 받는 줄은 남긴다', () => {
+    expect(dataHeredocsRemoved("cat > a <<'EOF'\nx\nEOF\nls")).toBe('cat > a </dev/null\nls')
+    expect(dataHeredocsRemoved("sh <<'EOF'\nx\nEOF")).toBe("sh <<'EOF'\nx\nEOF")
+  })
+})
+
+// 불변식 (설계 7절 1): 읽은 것으로 치는 조각만으로 만든 줄은 읽은 것, 읽지 못하는 조각이 하나라도 (감싸 돌리기 · 치환 안이라도) 들면 읽지 못한 것
+describe('생성한 줄의 불변식', () => {
+  const READ = ['pnpm test', 'ls -la', 'git status', 'cat a.txt', 'grep -n x f', 'echo "a b"', 'x=$(ls)', '[[ -f x ]]', '(( n++ ))', 'wc -l f', 'cd sub', 'node s.js',
+    'python3 -c "print(1)"', 'for f in a b; do echo "$f"; done', 'test -d x', 'set -e', 'CI=1 pnpm build', 'mkdir -p out', 'cp a b', 'sleep 1', ': noop', 'true']
+  const UNREAD = ['eval y', '$p a', 'setopt x', 'zzfoo', 'find . $y', 'GIT_PAGER=cat git log', 'ls ${(f)x}', 'cp a $z', 'source f', 'f() { ls; }', 'ls *(e:x:)',
+    'PATH=/x ls', 'set -o noglob', 'alias a=b', 'exec ls', 'trap x EXIT', '"$q" b', 'git $w']
+  const JOIN = [' ; ', ' && ', ' || ', ' | ', '\n']
+  let seed = 7
+  const rnd = (n: number) => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % n }
+  const pick = <T,>(a: T[]) => a[rnd(a.length)]!
+  const line = (n: number) => Array.from({ length: n }, () => pick(READ))
+  const join = (parts: string[]) => parts.reduce((acc, p, i) => (i ? acc + pick(JOIN) + p : p), '')
+  // 감싸기: 그대로 · 치환 안 · sh -c 안 · 묶음 안 · 앞말 뒤
+  const wraps: ((s: string) => string)[] = [(s) => s, (s) => `echo "$(${s})"`, (s) => `sh -c '${s}'`, (s) => `{ ${s}; }`, (s) => `( ${s} )`, (s) => `time ${s}`, (s) => `if true; then ${s}; fi`]
+
+  it('읽는 조각만으로 된 줄 2,000개는 모두 읽은 것', () => {
+    for (let n = 0; n < 2000; n++) {
+      const c = join(line(1 + rnd(5)))
+      expect(unreadWhy(c), c).toBeUndefined()
+    }
+  })
+  it('읽지 못하는 조각이 하나 든 줄 3,000개는 모두 읽지 못한 것', () => {
+    for (let n = 0; n < 3000; n++) {
+      const parts = line(rnd(5))
+      const bad = pick(UNREAD)
+      // sh -c '…' 안에는 작은따옴표 없는 조각만 (따옴표가 겹치면 다른 글이 된다)
+      const wrap = pick(wraps)
+      parts.splice(rnd(parts.length + 1), 0, bad.includes("'") ? bad : wrap(bad))
+      const c = join(parts)
+      expect(unreadWhy(c), c).toBeDefined()
+    }
+  })
+})
