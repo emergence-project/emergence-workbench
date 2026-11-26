@@ -415,6 +415,31 @@ try {
     assert.equal(await button.getAttribute('aria-label'), '새 화면 · 새로 고침')
     assert.equal(await box.inputValue(), '쉬는 동안에도 남아야 하는 글')
   })
+
+  // 소개 › 수정 탭: 담은 곳 · 바라는 점은 절 · 쪽 · 탭을 바꿔도 남는다 (전에는 절을 넘기면 탭이 새로 만들어져 사라졌다)
+  await caseOf('about-fix-basket-survives-section-change', async (page) => {
+    await catchWrites(page)
+    await page.goto(new URL('#/about', base).href)
+    const tabs = page.locator('[data-ui="소개 사이드바 갈래"]')
+    if (!await tabs.isVisible().catch(() => false)) await page.locator('[data-ui="머리줄"] button').last().click()
+    await tabs.getByRole('tab', { name: /^수정/ }).click()
+    await page.locator('[data-ui="화면 구조"] .about-lead').click()
+    await page.locator('[data-ui="고친 글"]').fill('고쳐 쓴 첫 문장')
+    await page.locator('[data-ui="담기"]').click()
+    const basket = page.locator('[data-ui="담은 곳"]')
+    await eventually(async () => (await basket.locator('b').first().innerText()) === '담은 곳 1', 'The spot was not added')
+    await page.locator('[data-ui="바라는 점"]').fill('표에 줄 하나 추가')
+    // 다음 쪽으로: 수정 탭이 새로 만들어진다
+    await page.locator('[data-ui="소개 앞뒤"] .about-step.next').click()
+    await eventually(async () => !(await page.locator('[data-ui="화면 구조"]').count()), 'The next page did not open')
+    assert.equal(await basket.locator('b').first().innerText(), '담은 곳 1', 'The collected spot was lost when the page changed')
+    assert.equal(await page.locator('[data-ui="바라는 점"]').inputValue(), '표에 줄 하나 추가', 'The wish was lost when the page changed')
+    // 다른 탭에 다녀와도
+    await tabs.getByRole('tab').first().click()
+    await tabs.getByRole('tab', { name: /^수정/ }).click()
+    assert.equal(await basket.locator('b').first().innerText(), '담은 곳 1', 'The collected spot was lost when the tab changed')
+    assert.equal(await basket.locator('li').count(), 1)
+  })
 } finally { await browser.close(); await api.dispose() }
 await fs.writeFile(`${out}/results.json`, JSON.stringify({ base: base.href, checks }, null, 2))
 assert(checks.length, 'No selected test case')
