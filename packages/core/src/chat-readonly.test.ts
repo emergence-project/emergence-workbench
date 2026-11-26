@@ -273,17 +273,19 @@ describe('gh api · gh --web · uniq 의 둘째 이름 (11/26 검토: 옵션의 
       expect(stateOnlyCommand(c), c).toBe('no')
   })
   it('모르는 옵션 · 주소가 둘 · 메서드를 두 번 적은 것은 막는다', () => {
-    for (const c of ['gh api a b', 'gh api --unknown a', 'gh api -X GET -X POST a', 'gh api --method=GET --method=DELETE a', 'gh api -X', 'gh api', 'gh api -f a=b'])
+    for (const c of ['gh api a b', 'gh api --unknown a', 'gh api -X GET -X POST a', 'gh api --method=GET --method=DELETE a', 'gh api -X', 'gh api', 'gh api -f a=b', 'gh api -- a b', 'gh api a -- b', 'gh api --paginate=x a', 'gh api -iXDELETE a', 'gh api -if a=b x'])
       expect(stateOnlyCommand(c), c).toBe('no')
   })
   it('파일 · 입력을 읽어 보내는 것과 다른 곳으로 보내는 것은 막는다', () => {
     for (const c of ['gh api -X GET repos/o/r/commits -F sha=@/etc/hosts', 'gh api --method GET repos/o/r/commits -F sha=@../other/file', 'gh api -X GET search/code -F q=@-', 'gh api -X GET a --field=x=@f',
-      'gh api https://other.example/x', 'gh api --hostname other.example user', 'gh api user --hostname=other.example', 'gh --help=false api https://other.example/x', 'gh --help=false pr view 1'])
+      'gh api https://other.example/x', 'gh api --hostname other.example user', 'gh api user --hostname=other.example', 'gh --help=false api https://other.example/x', 'gh --help=false pr view 1',
+      'gh api -XGET a -Fb=@f'])
       expect(stateOnlyCommand(c), c).toBe('no')
   })
   it('읽기는 그대로 묻지 않는다', () => {
     for (const c of ['gh api -XGET repos/o/r/pulls', 'gh api repos/o/r -q .name', 'gh api -X GET search/issues -f q=x', 'gh api --method=GET a -F per_page=100', "gh api graphql -f query='{ viewer { login } }'",
-      'gh api repos/x/y/pulls --paginate --jq ".[].number"', 'gh api -H "Accept: application/vnd.github+json" repos/o/r', 'gh api repos/o/r -i', 'gh api /repos/o/r', 'gh api repos/o/r --cache 1h', 'gh --version'])
+      'gh api repos/x/y/pulls --paginate --jq ".[].number"', 'gh api -H "Accept: application/vnd.github+json" repos/o/r', 'gh api repos/o/r -i', 'gh api /repos/o/r', 'gh api repos/o/r --cache 1h', 'gh --version',
+      'gh api user -q.login', 'gh api -X GET search/code -f q=@scope/pkg', 'gh api repos/o/r/pulls --paginate=true', 'gh api --hostname github.com user', 'gh api -- repos/o/r/pulls', "gh api /graphql -f query='{ viewer { login } }'"])
       expect(stateOnlyCommand(c), c).toBe('ok')
   })
   it('--web=true 도 브라우저를 연다', () => {
@@ -291,6 +293,23 @@ describe('gh api · gh --web · uniq 의 둘째 이름 (11/26 검토: 옵션의 
   })
   it('uniq 의 둘째 이름은 쓸 파일: 입력을 뜻하는 - 와 -- 뒤의 낱말도 센다', () => {
     for (const c of ['cat f | uniq - out.sh', 'uniq -c - out', 'uniq -- - out', 'uniq -- -a out', 'uniq -f1 - out']) expect(stateOnlyCommand(c), c).toBe('no')
-    for (const c of ['uniq a', 'uniq -c a', 'cat f | uniq -c -', 'cat f | uniq', 'uniq -- a']) expect(stateOnlyCommand(c), c).toBe('ok')
+    for (const c of ['uniq a', 'uniq -c a', 'cat f | uniq -c -', 'cat f | uniq', 'uniq -- a', 'cat f | uniq -f 1 -', 'uniq -s 2 a']) expect(stateOnlyCommand(c), c).toBe('ok')
+    for (const c of ['uniq -f 1 - out', 'uniq -f x out']) expect(stateOnlyCommand(c), c).toBe('no')
+  })
+  it('하위 명령은 무리 바로 뒤의 낱말: 사이의 옵션은 다음 낱말을 값으로 삼켜 다른 하위 명령이 돈다 (둘째 검토)', () => {
+    for (const c of ['gh repo -r view create newname --source=. --public --push', 'gh pr -r view merge', 'gh pr -r checks merge', 'gh pr -a view review', 'gh workflow -r view run ci.yml', 'gh gist -r view edit abc',
+      'gh pr -r view create --fill', 'gh issue -a view create --title x --body y', 'gh pr --json view merge', 'gh search -a repos x'])
+      for (const o of [{}, { gitWrites: true }]) expect(stateOnlyCommand(c, o), c).toBe('no')
+    expect(stateOnlyCommand('gh pr merge 3 --squash', { gitWrites: true })).toBe('ok')
+    expect(stateOnlyCommand('gh pr -R o/r merge 3 --squash', { gitWrites: true })).toBe('no')
+  })
+  it('다른 곳을 가리키는 gh 는 막는다: github.com 이 아닌 주소 · git@호스트 · 호스트가 붙은 저장소 이름', () => {
+    for (const c of ['gh pr view 1 -R other.example/o/r', 'gh pr view 1 --repo other.example/o/r', 'gh pr view 1 --repo=other.example/o/r', 'gh pr view 1 -Rother.example/o/r', 'gh pr view https://other.example/o/r/pull/1',
+      'gh issue view https://other.example/o/r/issues/1', 'gh repo view other.example/o/r', 'gh pr view 1 -R git@other.example:o/r', 'gh repo view git@other.example:o/r', 'gh pr list --repo=git@other.example:o/r',
+      'gh pr view 1 -R ghes/o/r', 'gh repo view localhost/o/r', 'gh pr view 1 -R host:o/r'])
+      expect(stateOnlyCommand(c), c).toBe('no')
+    for (const c of ['gh pr view 1 -R o/r', 'gh pr view 1 --repo=o/r', 'gh repo view o/r', 'gh repo view', 'gh pr view https://github.com/o/r/pull/1', 'gh repo list someone', 'gh repo view o/r --json name,url', "gh pr list -S 'path:a.b/c/d'",
+      "gh search code 'foo.bar/baz/qux'"])
+      expect(stateOnlyCommand(c), c).toBe('ok')
   })
 })
