@@ -44,7 +44,7 @@ code:
 | web | `apps/web/src/FeedbackSend.tsx` | 남기기 창: 유형 고르기(필수) · 글 · 그림 |
 | web | `apps/web/src/FeedbackPage.tsx` | 모아 보기 표: 확인 필요 · 대기 · 완료 · 전체, 줄 펼치기 |
 | web | `apps/web/src/FeedbackTurnSplit.tsx` · `TurnGroup.tsx` | 확인 필요를 결정 필요(답할 것) · 확인만(`userTurn` 'confirm': 반영 끝, 줄 끝 반려 · 승인, 확인 창 없는 「모두 승인」)으로 나눔. 레일 수 · 맥 알림은 결정 필요만 (11/23) |
-| web | `apps/web/src/FeedbackAnswer.tsx` | 처리에 답하기: 승인 · 반려 · 진행 · 중단 · 논의, 코멘트 (`Compose`의 `prefix`로 크게 본 그림에서 보낸 글 앞에 「후 그림:」 등을 붙인다). 보내지 않은 답은 항목마다 `unsent.ts`의 `draftMap`에 두어, 앱이 저절로 새로 고칠 때 그 글이 있으면 미룬다(스스로 새로 고치지 않는 앱에서는 그냥 `Map`) |
+| web | `apps/web/src/FeedbackAnswer.tsx` | 처리에 답하기: 승인 · 반려 · 진행 · 중단 · 논의, 코멘트 (`Compose`의 `prefix`로 크게 본 그림에서 보낸 글 앞에 「후 그림:」 등을 붙인다. `approve`면 「승인」을 그 입력란 아래 줄 왼쪽에). 보내지 않은 답은 항목마다 `unsent.ts`의 `draftMap`에 두어, 앱이 저절로 새로 고칠 때 그 글이 있으면 미룬다(스스로 새로 고치지 않는 앱에서는 그냥 `Map`) |
 | web | `apps/web/src/FeedbackViewer.tsx` | 전후 그림과 시안을 한 창으로 크게 보기(11/23): 위 줄에서 전 · 후 · 시안 고르기, 오른쪽에 대화와 답 칸, 대화 칸 접기 |
 | web | `apps/web/src/feedbackDraft.ts` | 적던 글 보존 |
 | web | `apps/web/src/feedbackFocus.tsx` | 항목 하나의 주소 `#/feedback/<키>`: 필터를 풀고 그 항목을 펼쳐 그 자리로 내리기 |
