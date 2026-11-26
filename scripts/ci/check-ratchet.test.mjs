@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { compare, isSource, LINE_LIMIT, lowered, measure } from './check-ratchet.mjs'
+import { compare, isSource, LINE_LIMIT, LINE_WIDTH, lowered, measure } from './check-ratchet.mjs'
 
 test('타입 단언은 as T와 @ts-ignore를 세고, as const · 글 · 주석은 세지 않는다', () => {
   const src = [
@@ -16,6 +16,13 @@ test('타입 단언은 as T와 @ts-ignore를 세고, as const · 글 · 주석�
     '',
   ].join('\n')
   assert.deepEqual(measure(src), { lines: 9, casts: 4 })
+})
+
+test('긴 줄은 LINE_WIDTH자마다 한 줄로 센다 (긴 줄로 줄 수를 피하지 못하게, 11/27)', () => {
+  assert.equal(measure(`${'a'.repeat(LINE_WIDTH)}\n`).lines, 1)
+  assert.equal(measure(`${'a'.repeat(LINE_WIDTH + 1)}\nb\n`).lines, 3)
+  assert.equal(measure(`${'가'.repeat(LINE_WIDTH * 3)}\n`).lines, 3)
+  assert.equal(measure('\n\n').lines, 2)
 })
 
 test('소스만 본다 (테스트 · d.ts 빼고)', () => {

@@ -1,5 +1,6 @@
 // 구조 래칫 (2026-10-30, 오르카에서 가져옴): 나빠지는 숫자가 늘지 못하게 한다. 한 번에 다 고치지 않아도 더 나빠지지는 않는다.
 // - 줄 수: 소스 파일(테스트 빼고)이 LINE_LIMIT줄을 넘으면 기준 파일에 적힌 줄 수까지만 된다. 기준에 없는 파일은 LINE_LIMIT까지.
+//   줄 수는 LINE_WIDTH자마다 한 줄로 센다(11/27: 기준에 닿은 파일이 한 줄을 900자 넘게 늘려 버텼다. 긴 줄로는 줄 수를 피하지 못하게).
 // - 타입 단언: 파일마다 `as T`(as const 빼고)와 @ts-ignore · @ts-expect-error 수가 기준을 넘지 못한다.
 // 줄었으면 통과하고 `node scripts/ci/check-ratchet.mjs --update`로 기준을 낮추라고 알린다(--update는 낮추기만 한다).
 // 기준을 올려야 하면 scripts/ci/ratchet.json을 손으로 고치고 커밋 메시지에 이유를 쓴다.
@@ -9,6 +10,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 export const LINE_LIMIT = 600
+/** 이 글자 수마다 한 줄로 센다 (그보다 긴 줄은 여러 줄) */
+export const LINE_WIDTH = 160
 const BASELINE = 'scripts/ci/ratchet.json'
 
 /** 검사 대상: 앱 · 패키지 · 스크립트의 소스 (테스트 · 예제 · 만든 파일 빼고) */
@@ -30,7 +33,8 @@ export function measure(source) {
     if (/^\s*(\*|\/\*)/.test(code)) continue
     casts += (code.match(/\bas\s+(?!const\b)(?:[A-Z_$][\w$.]*|unknown|any|string|number|boolean|never|\{|\(|\[|typeof\b|keyof\b)/g) ?? []).length
   }
-  return { lines: source.endsWith('\n') ? lines.length - 1 : lines.length, casts }
+  const counted = source.endsWith('\n') ? lines.slice(0, -1) : lines
+  return { lines: counted.reduce((n, l) => n + Math.max(1, Math.ceil([...l].length / LINE_WIDTH)), 0), casts }
 }
 
 /**
@@ -45,8 +49,8 @@ export function compare(now, base) {
     const maxLines = Math.max(LINE_LIMIT, base.lines[f] ?? 0)
     if (m.lines > maxLines) {
       problems.push(base.lines[f]
-        ? `${f}: ${m.lines}줄 (기준 ${base.lines[f]}줄). 늘리지 말고 나누세요.`
-        : `${f}: ${m.lines}줄 (한도 ${LINE_LIMIT}줄). 새로 큰 파일을 만들지 말고 나누세요.`)
+        ? `${f}: ${m.lines}줄 (기준 ${base.lines[f]}줄, ${LINE_WIDTH}자마다 한 줄로 셈). 늘리지 말고 나누세요.`
+        : `${f}: ${m.lines}줄 (한도 ${LINE_LIMIT}줄, ${LINE_WIDTH}자마다 한 줄로 셈). 새로 큰 파일을 만들지 말고 나누세요.`)
     } else if (base.lines[f] && m.lines < base.lines[f]) lower.push(`${f} 줄 수 ${base.lines[f]} → ${m.lines}`)
     const maxCasts = base.casts[f] ?? 0
     if (m.casts > maxCasts) problems.push(`${f}: 타입 단언 ${m.casts}개 (기준 ${maxCasts}개). 타입을 좁히거나(zod · 타입 가드) 단언을 늘리지 마세요.`)
