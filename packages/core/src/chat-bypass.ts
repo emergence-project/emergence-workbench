@@ -5,7 +5,7 @@
  * 셸 감싸기(sh -c · eval · xargs · find -exec · env · sudo …), 묶음(( … ) · { …; })과 $( … ) 안쪽도 같은 규칙으로 본다.
  * 옵션 줄임꼴(--har), 펼쳐서 만드는 옵션({--force,x} · --for${u}ce), 글자 그대로 적은 값의 변수(f=--force; git push $f)도 같은 것으로 읽는다
  */
-import { GIT_VALUE, VARIANTS_MAX, leading, noteVars, variants, wrapped } from './chat-auto.js'
+import { FD_EXEC, GIT_VALUE, GROUP_BUDGET, GROUP_TRIES, VARIANTS_MAX, leading, noteGroupVars, noteVars, variants, wrapped } from './chat-auto.js'
 import { alternatives, evalFlags, expandBraces, expandWords, hasBraces, heredocVariants, longOpt, prepare, redirects, segments, splitGroups, substitutions, words } from './chat-shell.js'
 
 export type NeverBypass = 'force-push' | 'reset-hard' | 'delete-main' | 'rm-outside-temp' | 'workbench-write'
@@ -104,7 +104,8 @@ const SHELL = /^(sh|bash|zsh|dash|ksh|fish)$/
 
 /** 적힌 낱말로도, 셸이 펼쳐 만들 수 있는 낱말로도 본다: git push {--force,origin,main} · --for${u}ce · rm -rf /tmp/a/{.,}./… */
 function segment(w0: string[], depth: number): NeverBypass | undefined {
-  for (const w of alternatives(unwrap(w0))) {
+  // (기본값만 · 빈 변수만 넣은 묶음은 바깥 두 겹에서만: 겹칠 때마다 묶음 수가 곱해진다)
+  for (const w of alternatives(unwrap(w0), depth < 2)) {
     const hit = segmentWords(w, depth)
     if (hit) return hit
   }
@@ -124,8 +125,8 @@ function segmentWords(w: string[], depth: number): NeverBypass | undefined {
     }
     return undefined
   }
-  // find · xargs 가 돌리는 안의 명령도 본다. find -delete 는 뒤지는 곳을 rm -rf 하는 것과 같다
-  if (prog === 'find' || prog === 'xargs') {
+  // find · xargs · fd -x 가 돌리는 안의 명령도 본다. find -delete 는 뒤지는 곳을 rm -rf 하는 것과 같다
+  if (prog === 'find' || prog === 'xargs' || ((prog === 'fd' || prog === 'fdfind') && a.some((x) => FD_EXEC.test(x)))) {
     const roots = prog === 'find' ? findRoots(a) : []
     if (prog === 'find' && a.includes('-delete')) {
       if (a.some(wb)) return 'workbench-write'
@@ -171,6 +172,9 @@ function neverCore(cmd0: string, depth: number): NeverBypass | undefined {
   }
   const vars = new Map<string, string[]>()
   let budget = VARIANTS_MAX
+  // 묶음 안에서 정한 값 (noteGroupVars): 따로 적고 따로 센다. 위의 표와 그 한도에는 손대지 않는다
+  const groupVars = new Map<string, string[]>()
+  let groupBudget = GROUP_BUDGET
   for (const seg of segments(cmd)) {
     const r = redirects(seg)
     // 파일로 돌려보내기: 받는 곳이 workbench/ 안이면
@@ -185,6 +189,15 @@ function neverCore(cmd0: string, depth: number): NeverBypass | undefined {
       if (hit) return hit
     }
     noteVars(all, vars)
+    if (groupBudget > 0) {
+      const again = variants(seg, groupVars, Math.min(GROUP_TRIES, groupBudget)).texts.filter((v) => !tried.includes(v))
+      groupBudget -= again.length
+      for (const v of again) {
+        const hit = neverBypass(v, depth + 1)
+        if (hit) return hit
+      }
+    }
+    noteGroupVars(all, groupVars)
     // `{ true } always { git push --force }` · `() { … }`: ; 없이 닫힌 묶음으로도 나눠 보고, 나누지 않고도 본다(인자로 쓴 { 는 낱말이다)
     for (const group of [all, ...splitGroups(all)]) {
       const hit = segment(group, depth)
@@ -222,7 +235,7 @@ function writesCore(cmd0: string, depth: number): boolean {
   return false
 }
 
-const writesWords = (w0: string[], depth: number): boolean => alternatives(unwrap(w0)).some((w) => writesExpanded(w, depth))
+const writesWords = (w0: string[], depth: number): boolean => alternatives(unwrap(w0), depth === 0).some((w) => writesExpanded(w, depth))
 
 function writesExpanded(w: string[], depth: number): boolean {
   if (depth > 40) return false
@@ -230,7 +243,7 @@ function writesExpanded(w: string[], depth: number): boolean {
   const prog = w[0]!.split('/').pop()!
   const a = w.slice(1)
   if (SHELL.test(prog) || prog === 'eval') return wrapped(prog, a).some((inner) => typeof inner === 'string' && writesFiles(inner, depth + 1))
-  if (prog === 'find' || prog === 'xargs') {
+  if (prog === 'find' || prog === 'xargs' || ((prog === 'fd' || prog === 'fdfind') && a.some((x) => FD_EXEC.test(x)))) {
     const roots = prog === 'find' ? findRoots(a) : []
     if (prog === 'find' && a.some((x) => /^-(fprint|fprint0|fprintf|fls)$/.test(x))) return true
     if (prog === 'find' && a.includes('-delete') && !(roots.length && roots.every(keep))) return true

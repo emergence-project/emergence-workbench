@@ -416,13 +416,19 @@ const MAYBE_EMPTY = /\$\{[A-Za-z_]\w*\}(?!\/)|\$[A-Za-z_]\w*(?!\/)|\$\(\)|``|SUB
  * 그럴 수도 있다는 것이지 늘 그렇지는 않다(${HOME:-x} 는 보통 $HOME 이다): 받는 쪽은 alternatives로 원래 낱말과 둘 다 본다
  */
 export function expandWords(w: string[]): string[] {
-  const out = w.map((x) => {
-    const d = x.replace(/\$\{[A-Za-z_]?\w*:?[-=+]([^{}]*)\}/g, '$1')
+  return expandBraces(expandWith(w, true, true))
+}
+const DEFAULTED = /\$\{[A-Za-z_]?\w*:?[-=+]([^{}]*)\}/g
+/** 기본값(defaults) · 빈 변수(empty) 가운데 고른 것만 넣은 낱말들 (중괄호는 펼치지 않는다) */
+function expandWith(w: string[], defaults: boolean, empty: boolean): string[] {
+  return w.map((x) => {
+    const d = defaults ? x.replace(DEFAULTED, '$1') : x
+    // 기본값 꼴이 남아 있는 낱말은 그대로 둔다 (그 안의 = · 변수는 옵션 이름이 아니다)
+    if (!empty || (!defaults && x !== x.replace(DEFAULTED, ''))) return d
     const eq = d.indexOf('=')
     const name = (eq < 0 ? d : d.slice(0, eq)).replace(MAYBE_EMPTY, '')
     return name.startsWith('-') ? name + (eq < 0 ? '' : d.slice(eq)) : d
   })
-  return expandBraces(out)
 }
 /** 중괄호만 펼친 낱말들. 너무 많으면 펼치다 만 채로 돌려준다 (hasBraces로 알 수 있다) */
 export function expandBraces(w: string[], force = false): string[] {
@@ -436,10 +442,13 @@ export function expandBraces(w: string[], force = false): string[] {
   return out
 }
 /** 판정해 볼 낱말 묶음들: 원래 낱말, 그리고 펼친 것이 다르면 그것들도. 받는 쪽은 그중 무거운 판정을 쓴다 */
-export function alternatives(w: string[]): string[][] {
+export function alternatives(w: string[], more = false): string[][] {
   // 적힌 그대로 · 중괄호만 펼친 것(따옴표가 없으면 늘 이렇게 된다) · 기본값과 빈 변수까지 넣은 것(그럴 수도 있다)
+  // more: 기본값만 · 빈 변수만 넣은 것도 (11/26). 둘을 함께 넣기만 하면 `rm -rf$u ${HOME:-/tmp/a}` 가 임시 폴더를 지우는 것으로만 읽혔다 (실제로는 $HOME).
+  // 감싸 돌리는 명령이 겹칠 때마다 묶음 수가 곱해지므로 받는 쪽이 맨 바깥 낱말에서만 켠다
   const out: string[][] = []
-  for (const x of [w, expandBraces(w), expandWords(w)]) if (!out.some((y) => y.length === x.length && y.every((v, i) => v === x[i]))) out.push(x)
+  const cands = [w, expandBraces(w), expandWords(w), ...(more ? [expandBraces(expandWith(w, false, true)), expandBraces(expandWith(w, true, false))] : [])]
+  for (const x of cands) if (!out.some((y) => y.length === x.length && y.every((v, i) => v === x[i]))) out.push(x)
   return out
 }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { autoCustom, autoOf, commandKind, presetAuto, runProgram, runPrograms } from './chat-auto.js'
+import { sedWrites } from './chat-sed.js'
 
 const o = { cwd: '/u/p', home: '/u', inside: (a: string) => a === '/u/p' || a.startsWith('/u/p/') || a.startsWith('/u/lib/') }
 const k = (c: string) => commandKind(c, o)
@@ -318,5 +319,59 @@ describe('읽기로 보이던 쓰기 · 실행 (11/20 보안 검토)', () => {
     expect(k('cat $HOME/.ssh/id_rsa')).toBe('outside')
     expect(k('cat "${HOME}/.ssh/id_rsa"')).toBe('outside')
     expect(k('cat ~other/x')).toBe('outside')
+  })
+
+  // 11/26: 인계 문서의 「아직 놓치는 것」 가운데 뜻이 하나로 정해지는 꼴. 판정을 더하기만 한다 (원래 읽기와 새 읽기 중 무거운 쪽)
+  const seq = (n: number) => Array.from({ length: n }, (_, i) => i + 1).join(' ')
+  it('묶음 안에서 정한 변수 · 빈 변수와 기본값이 한 줄에', () => {
+    for (const c of ['( for x in -delete; do find . $x; done )', '{ x=-delete; find . $x; }', '(x=-delete; find . $x)', 'if true; then x=-delete; find . $x; fi', '() { x=-delete; find . $x }', '() { for x in -delete; do find . $x; done }', 'f() { x=-delete; find . $x; }', 'a=-del; (b=ete; find . $a$b)']) expect(k(c), c).toBe('delete')
+    for (const c of ['find ${HOME:-/tmp/a} $u-delete', 'rm -rf$u ${HOME:-/tmp/a/b}']) expect(['delete', 'outside'], c).toContain(k(c))
+    // 값이 글자 그대로가 아니거나 쓰지 않으면 전과 같다
+    for (const c of ['( for x in a b; do cat $x; done )', '(cd a && ls)', 'find . -name "$pat"', 'find . -name $u"*.md"']) expect(k(c), c).toBe('read')
+  })
+  // 별도 검토(11/26)가 찾은 것: 묶음 안의 값을 원래 표에 더하면 값의 곱이 한도를 넘어 진짜 값을 넣어 보지 못했다. 묶음의 값은 따로 적고 따로 센다
+  it('묶음 안에서 같은 이름을 다시 정해도 바깥 값으로 본 판정은 그대로다', () => {
+    expect(k(`a=-del; b=ete; (for a in ${seq(17)}; do :; done); (for b in ${seq(16)}; do :; done); find . $a$b`)).toBe('delete')
+    expect(k(`a=re; b=set; c=--ha; d=rd; (for a in ${seq(5)}; do :; done); (for b in ${seq(5)}; do :; done); (for c in ${seq(5)}; do :; done); (for d in ${seq(5)}; do :; done); git $a$b $c$d`)).toBe('delete')
+    expect(k(`f=-delete; (for x in ${seq(64)}; do :; done); ${'echo $x; '.repeat(10)}find . $f`)).toBe('delete')
+    expect(k(`for x in ${seq(64)} -delete; do (x=0); find . $x; done`)).toBe('delete')
+  })
+  it('sed의 w: 주소 · 깃발에 붙여 쓴 파일 이름', () => {
+    for (const c of ["sed -n '1wout.txt' f", "sed -n 's/x/y/wout.txt' f", "sed -n '\\,re,wout.txt' f", "sed -n '$wout.txt' f", "sed '1,5wout' f", "sed -n 's/x/y/gwout.txt' f", "sed -n '2!wout.txt' f", "sed -n 'p;3wout.txt' f", "sed -n 's|x|y|wout.txt' f", "sed -n '2,/b/wout' f", "sed -n 's/[[:alpha:]/]/X/wout' f", "sed -n '1w;x' f", "sed -n '#s/\n1wout' f", "sed -n -e '1wout' f"]) expect(k(c), c).toBe('edit')
+    // / 로 시작하는 스크립트는 전부터 경로로도 읽혀 「외부」다 (과하게 잡는 것): 읽기만 아니면 된다
+    for (const c of ["sed -n '/re/wout.txt' f", "sed -n '/a/,/b/wout' f"]) expect(k(c), c).not.toBe('read')
+    // 무늬 · 바꿀 글 안의 w 는 쓰기가 아니다. 빈칸이 든 파일 이름과 주석도
+    for (const c of ["sed 's/word/x/' f", "sed 's/a/w/' f", "sed 's/x/y/g' words.txt", "sed -n '2p;5q' w.txt", "sed 'y/abc/wxy/' f", "sed 's/ow/x/;s/w$//' f", "sed 's/x/y/;s/we/us/' f", "sed -E 's/(a|w)b/x/' f", "sed '1s/w/x/' f", "sed -n '$p' w", 'sed -n \'1,5p\' "new file.txt"', 'sed -n 1p "few words.txt"', "sed 's/a/b/' 'How we work.md'", "sed '# just a comment with words\ns/a/b/' f"]) expect(k(c), c).toBe('read')
+    for (const sc of ['s/word/x/', '/www/p', 's/a/w/', '2p;5q', 's/\\/w/x/', 'y/abc/wxy/', '/w/d', 's/ow/x/;s/w$//', '/^w/p', 's/x/y/;s/we/us/', 's/(a|w)b/x/', '1s/w/x/', '$p', 'a\\ write this', 'r words.txt', 's/[/w]/x/', '/a/,/w/p', 's/x/y/w', '', '# w out', 's/[[:alpha:]w]/x/', 's/[]w]/x/', 's/[^]/w]/x/']) expect(sedWrites(sc), sc).toBe(false)
+    for (const sc of ['1wout.txt', 's/x/y/wout.txt', '/re/wout.txt', '$wout.txt', '1,5wout', '2!wout', 'p;3wout', 's|x|y|wout', '/a/,/b/wout', 'w out', 's/x/y/gw out', '1{w out\n}', '\\,re,wout', '/a/I,+2Wout', 's/[/]/x/wout', 's/[[:alpha:]/]/X/wout', 's/[[=a=]/]/X/wout', '1w;x', 's/a/X/w;out', '#s/\n1wout', 's/a/b/;#x/\n1wout', `${'p;'.repeat(6000)}1wout`]) expect(sedWrites(sc), sc).toBe(true)
+  })
+  it('fd -x · -X 는 찾은 파일마다 그 명령을 돌린다', () => {
+    for (const c of ['fd -x rm', 'fd . -X rm -rf', 'fd -e md --exec rm {}', 'fd -e md --exec-batch rm', 'fd -tf -x rm', 'fd . --exec=rm', 'fd . -xrm', 'fd -Hx rm', `fd . ${'-x true \\; '.repeat(17)}-x rm -rf src`]) expect(k(c), c).toBe('delete')
+    expect(k('fd -e md -x cat')).toBe('run')
+    expect(k('fd -x curl https://example.com')).toBe('outside')
+    for (const c of ['fd -e md', 'fd --extension md -t f', 'fd pattern src', 'fd -tx', 'fd -e xml']) expect(k(c), c).toBe('read')
+  })
+  it('따옴표 친 빈칸이 든 중괄호도 경로로 펼쳐 본다', () => {
+    for (const c of ['cat {/etc/passwd,"a b"}', "cat {'a b',/etc/passwd}", 'cat {"x y",../../etc/passwd}', `cat {"a b",${Array.from({ length: 63 }, (_, i) => `x${i}`).join(',')},/etc/passwd}`]) expect(k(c), c).toBe('outside')
+    for (const c of ['cat {a,"b c"}.md', 'echo {"a b",c}', "jq '{a: .x, b: .y}' f.json", "awk '{print $1, $2}' a.txt", "awk '{print $1,/x/}' f"]) expect(k(c), c).toBe('read')
+  })
+  // 두 번째 검토(11/26)가 찾은 것: 따옴표 친 JSON · 여러 중괄호가 든 글이 「외부」가 되고, 다시 정한 이름의 옛 값으로 판정했다
+  it('따옴표 친 JSON과 다시 정한 변수는 전과 같다', () => {
+    expect(k(`echo '{"name":"x","scripts":{"dev":"vite","build":"tsc","test":"vitest"},"dependencies":{"a":"1","b":"2","c":"3"},"devDependencies":{"d":"1","e":"2","f":"3"}}' > /tmp/p.json`)).toBe('edit')
+    expect(k(`echo '[{"a":1,"b":2},{"a":3,"b":4},{"a":5,"b":6},{"a":7,"b":8},{"a":9,"b":10},{"a":11,"b":12},{"a":13,"b":14}]' | jq length`)).toBe('read')
+    expect(k('git commit -m "support {a,b,c} and {x,y,z} in {foo,bar,baz} for {1,2,3}"')).toBe('edit')
+    expect(k('echo "{1..10} x {1..10}"')).toBe('read')
+    expect(k('mode=--hard; mode=--soft; git reset $mode HEAD~1')).toBe('run')
+  })
+  it('감싸 돌리는 명령과 옵션 속 변수가 여러 겹이어도, sed 스크립트에 닫히지 않은 [ 가 수만 개여도 바로 답한다', () => {
+    const t0 = Date.now()
+    k(`sed 's/${'['.repeat(20000)}' f`)
+    k(`sed 's/${'[[:'.repeat(20000)}' f`)
+    k(`sed -n '${'/[/p;'.repeat(20000)}' f`)
+    k(`${'xargs -$abcdefghi -$abcdefghj -$abcdefghk '.repeat(6)}echo hi`)
+    k(`${'xargs -$ab '.repeat(12)}echo hi`)
+    k(`${'eval nice '.repeat(4)}echo -$abcdefghi -$abcdefghj -$abcdefghk`)
+    k(`${'xargs -${x:-a}$u '.repeat(10)}echo hi`)
+    expect(Date.now() - t0).toBeLessThan(3000)
   })
 })

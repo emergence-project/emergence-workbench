@@ -4,6 +4,7 @@
  * 서버의 허락 판정(agentChats.ts judge)과 화면의 토글(AgentChats.tsx)이 함께 쓴다.
  */
 import { alternatives, evalFlags, expandBraces, expandWords, hasBraces, heredocVariants, longOpt, qualifierRuns, qualifiers, redirects, segments, splitGroups, substitutions, unmask, words } from './chat-shell.js'
+import { sedWrites } from './chat-sed.js'
 
 // 셸 글 읽기는 chat-shell.ts로 옮겼다: 여기서 가져다 쓰던 곳을 위해 그대로 내보낸다
 export { bare, joinLines, prepare, redirects, segments, substitutions, unmask, words } from './chat-shell.js'
@@ -152,6 +153,9 @@ function kindCore(cmd: string, o: Where, depth: number): ChatKind {
   for (const part of sub.inner) bump(commandKind(part, o, depth + 1))
   if (sub.left) bump('run')
   const vars = new Map<string, string[]>()
+  // 묶음 안에서 정한 값 (noteGroupVars): 따로 적고 따로 센다
+  const groupVars = new Map<string, string[]>()
+  let groupBudget = GROUP_BUDGET
   // 변수에 값을 넣어 보는 횟수의 한도 (줄 전체에서): 값이 수백 개인 변수를 수백 번 쓰면 그 곱만큼 다시 판정하게 된다
   let budget = VARIANTS_MAX
   for (const seg of segments(sub.flat)) {
@@ -173,6 +177,13 @@ function kindCore(cmd: string, o: Where, depth: number): ChatKind {
     for (const v of tried.texts) bump(commandKind(v, o, depth + 1))
     budget = Math.max(0, budget - tried.texts.length)
     noteVars(all, vars)
+    // 묶음 안에서 정한 값으로도 넣어 본다. 위에서 이미 본 글은 다시 보지 않는다
+    if (groupBudget > 0) {
+      const again = variants(unmask(seg), groupVars, Math.min(GROUP_TRIES, groupBudget)).texts.filter((v) => !tried.texts.includes(v))
+      for (const v of again) bump(commandKind(v, o, depth + 1))
+      groupBudget -= again.length
+    }
+    noteGroupVars(all, groupVars)
     // for x in /etc/*: 도는 낱말이 폴더 밖이면 그 변수를 읽는 것도 밖이다
     if (all[0] === 'for' && all[2] === 'in') for (const x of expandWords(all.slice(3))) { const v = pathPart(x); if (looksLikePath(v) && touchesOutside(v, o)) bump('outside') }
     // zsh의 ${(e)…}: 값을 한 번 더 펼친다 (안의 $( … )가 돈다)
@@ -194,7 +205,7 @@ function wordsKind(all: string[], o: Where, depth: number, outer: number): ChatK
   if (!w.length) return worst
   // 프로그램과 인자는 진짜 글로 본다 (가린 글자를 되돌려서). 경로만 가린 채로: 작은따옴표 안의 $HOME 은 글자다
   // 셸이 펼쳐 만들 수 있는 낱말(중괄호 · 기본값 · 빈 변수)로도 보고, 적힌 그대로도 본다: find . -{delete,print} · cat {/etc/passwd,}
-  for (const ew of alternatives(w)) {
+  for (const ew of alternatives(w, depth === 0 && outer === 0)) {
     // 프로그램과 인자는 진짜 글로 본다 (가린 글자를 되돌려서). 경로만 가린 채로: 작은따옴표 안의 $HOME 은 글자다
     const plain = ew.map(unmask)
     const prog = (plain[0] ?? '').split('/').pop()!
@@ -207,6 +218,11 @@ function wordsKind(all: string[], o: Where, depth: number, outer: number): ChatK
     else for (const x of inner) bump(typeof x === 'string' ? commandKind(x, o, outer + 1) : wordsKind(x, o, depth + 1, outer))
     // 폴더 밖 경로 (읽기라도 폴더 밖이면 외부)
     for (const a of ew.slice(1)) { const v = pathPart(a); if (looksLikePath(v) && touchesOutside(v, o)) bump('outside') }
+    // 따옴표 친 빈칸이 든 중괄호도 펼쳐 본다 (11/26): cat {/etc/passwd,"a b"} 는 따옴표를 벗기면 빈칸이 든 낱말이라 펼치지 않았다
+    // (코드를 받는 프로그램의 낱말은 빼고: awk '{print $1,/x/}' 의 /x/ 는 경로가 아니다. 많이 펼쳐진다고 밖으로 보지는 않는다: 따옴표 친 JSON이 흔하다)
+    if (!CODE_ARG.test(prog)) for (const a of ew.slice(1)) if (a.includes('{') && /[\s"]/.test(a)) {
+      for (const piece of expandBraces([a], true)) { const v = pathPart(piece); if (piece !== a && looksLikePath(v) && touchesOutside(v, o)) bump('outside') }
+    }
     if (prog === 'cd' && ew[1] && touchesOutside(ew[1], o)) bump('outside')
   }
   return worst
@@ -227,6 +243,47 @@ export function noteVars(all: string[], vars: Map<string, string[]>): void {
     const name = x.slice(0, x.indexOf('=')), value = x.slice(x.indexOf('=') + 1)
     if (LITERAL.test(value)) vars.set(name, [value]); else vars.delete(name)
   }
+}
+/** 묶음 안의 값으로 넣어 볼 때의 한도 (조각마다 · 줄 전체) */
+export const GROUP_TRIES = 16
+export const GROUP_BUDGET = 64
+const GROUP_HEAD = /^(do|then|else|elif|if|while|until|always|\{|\(|\(\)|!)$/
+/**
+ * 묶음 안에서 정한 값도 적는다 (11/26): `(f=--force; git push origin main $f)` · `( for x in -delete; do find . $x; done )` · `() { x=-delete; find . $x }`.
+ * noteVars의 표와는 따로 둔다: 여기 것은 더하기만 하고(지우지 않는다) 따로 넣어 보므로, 원래 판정과 그 한도에는 손대지 않는다
+ * (묶음 안의 값은 밖에서 쓰이지 않을 수도 있다. 그럴 수도 있는 값으로 한 번 더 볼 뿐이다)
+ */
+export function noteGroupVars(all: string[], vars: Map<string, string[]>): void {
+  // 묶음 밖에서 정한 것(noteVars가 읽는 꼴)은 noteVars처럼 값을 바꾼다: 다시 정한 이름의 옛 값으로는 보지 않는다 (f=--force; f=; git push $f)
+  const plain = /^(do|then|else|\{)$/.test(all[0] ?? '') ? all.slice(1) : all
+  if (noteInto(plain, vars, false)) return
+  let w = all
+  for (let n = 0; n < 16; n++) {
+    if (GROUP_HEAD.test(w[0] ?? '') || /^[A-Za-z_][\w-]*\(\)$/.test(w[0] ?? '')) w = w.slice(1)
+    else if (w[0] === 'function' && w.length > 1) w = w.slice(w[2] === '()' ? 3 : 2)
+    else if (/^[({]+[^({)]/.test(w[0] ?? '')) w = [w[0]!.replace(/^[({]+/, ''), ...w.slice(1)]
+    else break
+  }
+  while (w.length > 1 && /^[)}]+$/.test(w[w.length - 1]!)) w = w.slice(0, -1)
+  if (w.length) w = [...w.slice(0, -1), w[w.length - 1]!.replace(/[)}]+$/, '')].filter(Boolean)
+  // 묶음 안에서 정한 것은 더하기만 한다: 묶음 밖에서는 바깥 값이 그대로다
+  noteInto(w, vars, true)
+}
+/** for x in … · x=… 를 적는다. merge = 앞의 값에 더한다(지우지 않는다), 아니면 바꾼다. 그런 꼴이었으면 true */
+function noteInto(w: string[], vars: Map<string, string[]>, merge: boolean): boolean {
+  const put = (name: string, vals: string[]) => {
+    if (!vals.length) { if (!merge) vars.delete(name); return }
+    // 새 값을 앞에 둔다: 한도를 넘으면 오래된 값부터 버린다
+    if (vars.size < 64 || vars.has(name)) vars.set(name, merge ? [...new Set([...vals, ...(vars.get(name) ?? [])])].slice(0, 16) : vals.slice(0, 16))
+  }
+  if (w[0] === 'for' && /^[A-Za-z_]\w*$/.test(w[1] ?? '') && w[2] === 'in') {
+    const vals = w.slice(3)
+    put(w[1]!, merge ? vals.filter((x) => LITERAL.test(x)) : vals.length && vals.every((x) => LITERAL.test(x)) ? vals : [])
+    return true
+  }
+  if (!w.length || !w.every((x) => /^[A-Za-z_]\w*=/.test(x))) return false
+  for (const x of w) { const value = x.slice(x.indexOf('=') + 1); put(x.slice(0, x.indexOf('=')), LITERAL.test(value) ? [value] : []) }
+  return true
 }
 /**
  * 적어 둔 변수($x · ${x} · zsh의 $=x · $~x)를 값으로 바꾼 글들 (쓰지 않으면 없음).
@@ -273,8 +330,27 @@ export function wrapped(prog: string, args: string[]): (string | string[])[] {
     const inner = xargsCommand(args)
     return inner.length ? [inner] : []
   }
+  // fd -x 명령 · -X 명령 (11/26): 찾은 파일마다(-X는 한꺼번에) 그 명령을 돌린다. 명령은 ; 나 끝까지
+  if (prog === 'fd' || prog === 'fdfind') {
+    const out: string[][] = []
+    for (let i = 0; i < args.length; i++) {
+      const m = /^(?:--exec(?:-batch)?(?:=(.*))?|-[HILsiapgFlu0]*[xX](.*))$/.exec(args[i]!)
+      if (!m) continue
+      const end = args.findIndex((a, j) => j > i && a === ';')
+      // 붙여 쓴 명령(--exec=rm · -xrm)은 그 글이 첫 낱말이다
+      const inner = [...(m[1] || m[2] ? [m[1] || m[2]!] : []), ...args.slice(i + 1, end < 0 ? undefined : end)]
+      if (inner.length) out.push(inner)
+      // 너무 많으면 하나씩 보지 않고 지우는 것으로 본다 (find -exec 와 같게)
+      if (out.length > 16) return [['rm', '-rf']]
+    }
+    return out
+  }
   return []
 }
+/** fd가 명령을 돌리는 옵션: -x · -X · --exec · --exec-batch 와 붙여 쓴 꼴(--exec=rm · -xrm · -Hx). 값을 받는 옵션 뒤의 x(-tx: 실행 파일만)는 아니다 */
+export const FD_EXEC = /^(--exec(-batch)?(=.*)?|-[HILsiapgFlu0]*[xX].*)$/
+/** 코드 · 무늬를 낱말로 받는 프로그램: 그 낱말의 중괄호는 셸이 펼치는 것이 아닐 때가 많다 */
+const CODE_ARG = /^([gmn]?awk|jq|yq|sed|gsed|perl|python3?|node|ruby|grep|egrep|rg)$/
 
 /** xargs 뒤의 명령: 값을 받는 옵션(-n 1 · -I {} · -J % · -P 4 …)의 값은 건너뛴다 */
 function xargsCommand(args: string[]): string[] {
@@ -339,7 +415,8 @@ function kindOf(prog: string, args: string[]): ChatKind {
   // sed: -i와 w 명령(파일 쓰기)
   // -Ei · -ni처럼 붙여 쓴 꼴과 주소 뒤의 w(1,5w 파일 · $w 파일)도
   // sed: -i와 w 명령(파일 쓰기). 스크립트만 본다(파일 이름 words.txt 의 w 는 아니다): 처음 · ; 뒤의 w, 주소 · s///깃발 뒤의 w
-  if (prog === 'sed') return args.some((a) => /^-[a-zA-Z]*i/.test(a) || /^--in-place/.test(a)) || sedScripts(args).some((x) => /(^|[;{}\n])\s*w\s*[^\s;]|[^A-Za-z\s][gpIiM\d]*\s*w\s+\S/.test(x)) ? 'edit' : 'read'
+  // 주소 · 깃발에 붙여 쓴 파일 이름(1wout · s/x/y/wout)은 스크립트를 읽어서 본다 (sedWrites, 11/26). 앞의 정규식 판정에 더한다
+  if (prog === 'sed') return args.some((a) => /^-[a-zA-Z]*i/.test(a) || /^--in-place/.test(a)) || (sedScripts(args).some((x) => /(^|[;{}\n])\s*w\s*[^\s;]|[^A-Za-z\s][gpIiM\d]*\s*w\s+\S/.test(x)) || sedScripts(args, true).some(sedWrites)) ? 'edit' : 'read'
   // awk의 system() · 명령으로 잇기(| · getline) · 파일 쓰기는 실행으로. print … | 명령 은 문자열 밖의 | 만 (printf "%s|%s" 는 아니다)
   if (prog === 'awk') return args.some((a) => /system\s*\(|getline|\|\s*"|"\s*\||print[^;}|]*>/.test(a) || /print[^;}\n]*\|/.test(a.replace(/"(?:\\.|[^"\\])*"/g, '""'))) ? 'run' : 'read'
   if (prog === 'find') {
@@ -347,6 +424,7 @@ function kindOf(prog: string, args: string[]): ChatKind {
     if (args.some((a) => /^-(exec|execdir|ok|okdir)$/.test(a))) return 'run'
     return args.some((a) => /^-(fprint|fprint0|fprintf|fls)$/.test(a)) ? 'edit' : 'read'
   }
+  if ((prog === 'fd' || prog === 'fdfind') && args.some((a) => FD_EXEC.test(a))) return 'run'
   // rg --pre는 파일마다 그 명령을 돌린다
   if (prog === 'rg' && args.some((a) => /^--(pre|hostname-bin)(=|$)/.test(a))) return 'run'
   if (prog === 'sort' && args.some((a) => /^--compress-program/.test(a))) return 'run'
@@ -374,7 +452,7 @@ function kindOf(prog: string, args: string[]): ChatKind {
  * sed의 스크립트일 수 있는 낱말들: -e 값(-ne'…' 처럼 붙여 쓴 것도) · --expression=값, 없으면 첫 낱말.
  * 첫 낱말이 빈 것일 수 있으면($u · 치환) 그다음도, 빈칸이 든 낱말(파일 이름일 리가 적다)도 스크립트로 읽어 본다
  */
-function sedScripts(args: string[]): string[] {
+function sedScripts(args: string[], strict = false): string[] {
   const out: string[] = []
   for (let n = 0; n < args.length; n++) {
     const m = /^(?:-[a-zA-Z]*?e|--expression=?)(.*)$/s.exec(args[n]!)
@@ -382,7 +460,8 @@ function sedScripts(args: string[]): string[] {
   }
   const named = args.filter((a) => !a.startsWith('-'))
   const first = named.findIndex((a) => !/^(\$\{?\w+\}?|SUBST|\$\(\)|``)+$/.test(a))
-  return [...out, ...(out.length ? [] : named.slice(0, first + 1)), ...named.filter((a) => /\s/.test(a))]
+  // strict: 스크립트 자리의 낱말만 (빈칸이 든 파일 이름 "new file.txt" 를 스크립트로 읽지 않는다)
+  return [...out, ...(out.length ? [] : named.slice(0, first + 1)), ...(strict ? [] : named.filter((a) => /\s/.test(a)))]
 }
 
 /** 옵션에 붙여 적은 경로도 본다: --file=/etc/x · -f/etc/x · of=/etc/x */
