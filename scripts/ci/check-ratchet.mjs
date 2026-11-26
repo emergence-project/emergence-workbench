@@ -1,7 +1,9 @@
 // 구조 래칫 (2026-10-30, 오르카에서 가져옴): 나빠지는 숫자가 늘지 못하게 한다. 한 번에 다 고치지 않아도 더 나빠지지는 않는다.
 // - 줄 수: 소스 파일(테스트 빼고)이 LINE_LIMIT줄을 넘으면 기준 파일에 적힌 줄 수까지만 된다. 기준에 없는 파일은 LINE_LIMIT까지.
 //   줄 수는 LINE_WIDTH자마다 한 줄로 센다(11/27: 기준에 닿은 파일이 한 줄을 900자 넘게 늘려 버텼다. 긴 줄로는 줄 수를 피하지 못하게).
-// - 타입 단언: 파일마다 `as T`(as const 빼고)와 @ts-ignore · @ts-expect-error 수가 기준을 넘지 못한다.
+// - 타입 단언: `as T`(as const 빼고)와 @ts-ignore · @ts-expect-error의 저장소 전체 수가 기준의 합을 넘지 못한다.
+//   파일마다 세면 파일을 나눌 때 옮긴 단언이 새 파일의 '기준 0'에 걸려 실패했다(11/26 실패 3건, 11/27 규칙 점검 ratchet-casts).
+//   전체가 늘지 않았으면 파일별 초과는 알리기만 하고, --update가 새 파일의 수를 기준에 옮겨 적는다.
 // 줄었으면 통과하고 `node scripts/ci/check-ratchet.mjs --update`로 기준을 낮추라고 알린다(--update는 낮추기만 한다).
 // 기준을 올려야 하면 scripts/ci/ratchet.json을 손으로 고치고 커밋 메시지에 이유를 쓴다.
 import { execFileSync } from 'node:child_process'
@@ -45,6 +47,7 @@ export function measure(source) {
 export function compare(now, base) {
   const problems = []
   const lower = []
+  const over = []
   for (const [f, m] of Object.entries(now)) {
     const maxLines = Math.max(LINE_LIMIT, base.lines[f] ?? 0)
     if (m.lines > maxLines) {
@@ -53,9 +56,13 @@ export function compare(now, base) {
         : `${f}: ${m.lines}줄 (한도 ${LINE_LIMIT}줄, ${LINE_WIDTH}자마다 한 줄로 셈). 새로 큰 파일을 만들지 말고 나누세요.`)
     } else if (base.lines[f] && m.lines < base.lines[f]) lower.push(`${f} 줄 수 ${base.lines[f]} → ${m.lines}`)
     const maxCasts = base.casts[f] ?? 0
-    if (m.casts > maxCasts) problems.push(`${f}: 타입 단언 ${m.casts}개 (기준 ${maxCasts}개). 타입을 좁히거나(zod · 타입 가드) 단언을 늘리지 마세요.`)
+    if (m.casts > maxCasts) over.push(`${f}: 타입 단언 ${m.casts}개 (기준 ${maxCasts}개)`)
     else if (maxCasts && m.casts < maxCasts) lower.push(`${f} 타입 단언 ${maxCasts} → ${m.casts}`)
   }
+  const total = Object.values(now).reduce((n, m) => n + m.casts, 0)
+  const baseTotal = Object.values(base.casts).reduce((n, c) => n + c, 0)
+  if (total > baseTotal) problems.push(`타입 단언이 저장소 전체 ${baseTotal}개에서 ${total}개로 늘었습니다. 타입을 좁히거나(zod · 타입 가드) 단언을 늘리지 마세요:\n${over.map((o) => `    ${o}`).join('\n')}`)
+  else if (over.length) lower.push(`단언을 옮긴 파일(전체 ${total}/${baseTotal}개라 통과): ${over.join(' · ')}`)
   return { problems, lower }
 }
 
@@ -65,7 +72,8 @@ export function lowered(now, base) {
   const casts = {}
   for (const [f, m] of Object.entries(now)) {
     if (base.lines[f] && m.lines > LINE_LIMIT) lines[f] = Math.min(base.lines[f], m.lines)
-    if (base.casts[f] && m.casts > 0) casts[f] = Math.min(base.casts[f], m.casts)
+    // 기준에 없던 파일의 단언(파일을 나눠 옮긴 것)도 적는다. 전체 합은 compare가 지키므로 기준의 합은 늘지 않는다
+    if (m.casts > 0) casts[f] = base.casts[f] ? Math.min(base.casts[f], m.casts) : m.casts
   }
   return { lines: sortKeys(lines), casts: sortKeys(casts) }
 }
