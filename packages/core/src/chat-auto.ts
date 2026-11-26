@@ -142,14 +142,15 @@ export const VARIANTS_MAX = 600
 const bodyIsNotShell = (hd: NonNullable<ReturnType<typeof certainHeredoc>>) => (hd.prog === 'cat' ? !hd.piped : hd.reader && !codeSpawns(hd.body))
 
 /**
- * 확실한 히어독의 본문을 뺀 명령 글 (11/26): 명령 글 전체를 읽는 다른 판정(앱이 맡는 일 · 크리티컬 · 비밀)이 본문의 글에 걸리지 않게.
- * 기본은 cat 이 받는 자료만 뺀다. python = true 면 python 코드도 뺀다: 셸 명령을 찾는 판정에만 쓴다 (코드는 파일을 스스로 읽으므로 비밀 판정에는 쓰지 않는다)
+ * cat 이 받는 확실한 히어독의 본문(자료)을 뺀 명령 글 (11/26): 명령 글 전체를 읽는 다른 판정(앱이 맡는 일 · 크리티컬 · 비밀)이 메모에 든 글에 걸리지 않게.
+ * python 이 받는 본문은 빼지 않는다: 코드는 파일을 스스로 읽고 프로그램을 스스로 돌리며, 그 길을 다 알아낼 수 없다
+ * (o = os; o.system(…) · pydoc.pipepager · 전각 글자 이름이 codeSpawns 를 지나갔다, 다섯째 검토)
  */
-export function heredocBodiesRemoved(cmd0: string, python = false): string {
+export function heredocBodiesRemoved(cmd0: string): string {
   let cmd = cmd0
   for (let n = 0; n < 20; n++) {
     const hd = certainHeredoc(cmd)
-    if (!hd || !bodyIsNotShell(hd) || (hd.prog === 'python' && !python)) break
+    if (!hd || hd.prog !== 'cat' || hd.piped) break
     cmd = hd.rest ? `${hd.head}\n${hd.rest}` : hd.head
   }
   return cmd

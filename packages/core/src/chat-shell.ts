@@ -191,8 +191,11 @@ const PYTHON_TAIL = /^(?:[ \t]*(?:[12]?>>?[ \t]*[\w.\/~@%+:,-]+|2>&1))*[ \t]*(?:
  * head = 본문 앞까지(받는 줄의 << 구분자는 </dev/null 로 바꿨다: 다시 히어독으로 읽히지 않게), body = 본문, rest = 끝 줄 뒤의 글,
  * prog = 'cat' | 'python', piped = 받는 줄에서 << 뒤로 | 가 있는지 (cat 의 출력, 곧 본문이 다른 프로그램으로 간다)
  */
-/** 받는 줄의 | 뒤에서 출력을 읽기만 하는 프로그램. 그 밖의 것(sh · xargs · python …)이 받으면 출력의 글이 돌 수 있다 */
-const READERS = /^(tail|head|grep|wc|sort|uniq|cut|cat|tee)$/
+/**
+ * 받는 줄의 | 뒤에서 출력을 읽기만 하는 프로그램. 그 밖의 것(sh · xargs · python …)이 받으면 출력의 글이 돌 수 있다.
+ * sort 는 넣지 않는다: sort --compress-program sh 가 받은 글을 셸로 돌린다 (11/26 검토가 bash · zsh에서 확인). 더할 때는 옵션으로 받은 글을 돌리는 길이 없는지부터 본다
+ */
+const READERS = /^(tail|head|grep|wc|uniq|cut|cat|tee)$/
 export function certainHeredoc(cmd: string): { head: string; body: string; rest: string; prog: 'cat' | 'python'; piped: boolean; reader: boolean } | null {
   const at = cmd.indexOf('<<')
   if (at < 0 || cmd[at + 2] === '<') return null
