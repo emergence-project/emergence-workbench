@@ -1,0 +1,427 @@
+/**
+ * 끝까지 읽은 명령만 묻지 않고 지나가기 (2026-11-26 사용자 결정, 설계 docs/specs/2026-11-26-command-verdict-read-fully.md).
+ * 명령 판정(chat-auto.ts commandKind)은 모르는 것을 만나면 「실행」으로 접는다. 「자동」 · 실행 「늘」에서는 그 「실행」을 묻지 않으므로,
+ * 판정이 알아보지 못한 꼴은 묻지 않고 지나갔다. 이 검사는 그 "모름"을 따로 꺼낸다: 줄을 끝까지 읽지 못했으면 까닭을 돌려준다.
+ * 판정을 대신하지 않고 더한다 (서버는 판정이 허락한 줄에만 이 검사를 건다). 그래서 이 검사가 무엇을 놓쳐도 지금보다 가벼워지지 않는다.
+ * 인라인 코드(python3 -c · node -e · 코드를 받는 히어독)의 안은 읽지 않는다: 설계 2절의 한계
+ */
+import { DELETES, EDITS, leading, noteGroupVars, noteVars, OUTSIDE, READS, variants, wrapped } from './chat-auto.js'
+import { evalFlags, qualifierRuns, qualifiers, redirects, segments, splitGroups, substitutions, unmask, words } from './chat-shell.js'
+import { knownValue, unknownVarArg } from './chat-vars.js'
+
+/** 읽지 못한 까닭. prog = 모르는 프로그램(이름은 name), 그 밖은 「읽지 못한 명령」으로 한 번 묻는다 */
+export type Unread =
+  | { why: 'prog'; name: string }
+  | { why: 'var-prog' | 'subst' | 'var' | 'deep' }
+  | { why: 'syntax' | 'env'; name: string }
+
+/** 개발 도구 (설계 5.3, 11/26 사용자 결정 "제안대로"): 처음부터 묻지 않는 프로그램. 안전하다는 뜻이 아니라 나올 만하다는 뜻이다 */
+export const DEV_TOOLS = ['pnpm', 'npm', 'npx', 'node', 'tsx', 'tsc', 'vitest', 'python3', 'python', 'perl', 'cargo', 'sleep', 'paste', 'ps', 'lsof', 'rev', 'base64', 'sips', 'hostname'] as const
+
+/** 셸 내장 가운데 읽은 것으로 치는 것 (설계 5.2): 뒤의 글을 명령으로 다시 읽지 않고 셸 동작도 바꾸지 않는다 */
+const BUILTINS = ['exit', 'break', 'continue', 'return', 'shift', ':', 'wait', 'local', 'export', 'unset', 'set', '[[', '((']
+/** 판정이 이름으로 다루는 프로그램 (chat-auto.ts의 목록과 kindOf가 하위 명령을 보는 것) */
+const JUDGED = ['git', 'xargs', 'sh', 'bash', 'zsh', 'dash', 'ksh', 'npm', 'pnpm', 'yarn', 'bun', 'pip', 'pip3', 'uv', 'conda', 'mamba', 'gem', 'cargo', 'go', 'julia', 'R', 'fd', 'fdfind']
+const KNOWN = new Set<string>([...READS, ...EDITS, ...DELETES, ...OUTSIDE, ...JUDGED, ...BUILTINS, ...DEV_TOOLS])
+
+/**
+ * 뒤의 글이 명령으로 다시 읽히거나(eval · source · alias …), 읽기가 다루지 않는 문법(case · 함수 정의 · select …),
+ * 셸 · zsh의 동작을 바꾸는 것(setopt · emulate · hash · fc · r …). 「늘」 없이 한 번 묻는다
+ */
+const SYNTAX = new Set(['eval', 'source', '.', 'exec', 'trap', 'alias', 'unalias', 'builtin', 'noglob', 'repeat', 'coproc', 'select', 'case', 'setopt', 'unsetopt', 'function', 'emulate', 'zmodload', 'autoload', 'enable', 'disable', 'hash', 'unhash', 'fc', 'r', 'functions', 'unfunction', 'bindkey', 'zle', 'compdef', 'enable', 'command_not_found_handler'])
+/** 그 뒤의 명령을 그대로 돌리는 앞말 (leading이 떼는 것). 이것들 뒤의 낱말도 명령 자리다 */
+const PREFIX = /^(time|nice|nohup|command|builtin|exec|noglob|nocorrect|-|timeout|gtimeout|caffeinate|stdbuf|env|repeat|coproc)$/
+/** 묶음 머리: 이것들 뒤의 낱말이 명령 자리다 */
+const GROUP_HEAD = /^(if|then|else|elif|do|while|until|always|!|\{|\(|\(\(|\[\[)$/
+/** set 가운데 읽은 것으로 치는 꼴 (설계 5.2): -e -u -x -o pipefail 만 */
+/** 맞지 않는 무늬를 그대로 두거나 지우기만 하는 setopt: 낱말 쪼개기 · 무늬 펼침의 뜻을 바꾸지 않는다 */
+const SAFE_SETOPT = (args: string[]): boolean => args.length > 0 && args.every((a) => /^(no_?nomatch|nonomatch|null_?glob|no_?null_?glob)$/i.test(a))
+const SET_READ = /^set(?: [-+](?:[eux]+|[eux]*o pipefail))*$/
+/** 옵션 하나로 하는 일이 바뀌는 프로그램 (설계 5.2 다): 인자 맨 앞에 값을 모르는 변수가 오면 묻는다 */
+// grep은 넣지 않는다: 어느 옵션도 프로그램을 돌리거나 파일을 쓰지 않는다 (11/26 실제 기록 비교: f=$(…); grep x $f 가 묻는 줄의 대부분이었다)
+const OPTION_PROGS = /^(g?find|fd|fdfind|git|g?sed|sort|xargs|g?awk|rg|tar|rsync|cp|mv|ln|tee|chmod|touch|mkdir|curl|wget)$/
+/** 쓰는 프로그램: 인자 어디든 값을 모르는 변수 · 치환이 있으면 어디를 쓸지 모른다 */
+const WRITE_PROGS = /^(mv|cp|tee|ln|touch|mkdir|chmod|patch|install|rsync)$/
+/** 값을 아는 환경 변수 (경로로 시작한다) */
+const PATH_VARS = /^(HOME|PWD|TMPDIR)$/
+/** 값을 다른 데서 받게 하는 명령: 적힌 이름은 그 뒤로 값을 모른다 (x=a; read x; find . $x) */
+const TAKES = /^(read|export|typeset|declare|local|readonly|printf|mapfile|readarray|getopts|unset|integer|float)$/
+/**
+ * 다른 프로그램을 돌리게 하거나 찾는 길 · 설정을 바꾸는 환경 변수. 글자 값이라도 묻는다 (설계 5.2 나의 leading env).
+ * 그 밖의 이름에 글자 값을 붙인 것(CI=1 · NODE_ENV=test · CHROMIUM_PATH=/opt/… )은 읽은 것이다 (설계 4절)
+ */
+const RISKY_ENV = /^(PATH|CDPATH|FPATH|MANPATH|HOME|ZDOTDIR|ENV|BASH_ENV|IFS|SHELL|PROMPT_COMMAND|PS[0-4]|BROWSER|VISUAL|EDITOR|PAGER|LESS\w*|GIT_\w+|LD_\w+|DYLD_\w+|NODE_OPTIONS|NODE_PATH|PYTHON\w+|PERL5\w+|PERLLIB|RUBY\w+|npm_config_\w+|NPM_CONFIG_\w+|PNPM_\w+|COREPACK_\w+|CC|CXX|CFLAGS|LDFLAGS|MAKEFLAGS|RUSTC\w*|CARGO_\w+|XDG_\w+|TMPDIR|\w*PAGER|\w*EDITOR|\w*ASKPASS|\w*_(COMMAND|CMD|PROGRAM|PROG|SHELL|EXEC|HOOK|HOOKS)|PWD|OLDPWD|\w*FLAGS|\w*_OPTIONS|\w*_OPTS|RUBYOPT|GO\w+|R_\w+|GEM_\w+|BUNDLE_\w+|PIP_\w+|UV_\w+|CONDA_\w+|JULIA_\w+|SSH_\w+|path|fpath|cdpath|manpath|\w*CONFIG\w*|\w*RC|\w*_HOME)$/i
+/** 글자 그대로의 값 (변수 · 치환 · 무늬가 없는 것) */
+const LITERAL = /^[\w./:,@%+=~-]*$/
+
+const DEPTH_MAX = 40
+
+/** known = 그 밖에 아는 프로그램인지 (사용자가 실행 「늘」로 허락한 것: run:<프로그램>) */
+export interface KnownOpts { known?: (prog: string) => boolean }
+
+/** 줄을 끝까지 읽었으면 undefined, 아니면 까닭 */
+export function unreadWhy(cmd: string, o: KnownOpts = {}, depth = 0): Unread | undefined {
+  if (depth > DEPTH_MAX) return { why: 'deep' }
+  const text = dataHeredocsRemoved(cmd)
+  if (depth === 0 && taintedArith(text)) return { why: 'var' }
+  const sub = substitutions(text, { proc: true })
+  for (const part of sub.inner) { const r = part.startsWith('(') && part.endsWith(')') ? arithWhy(part.slice(1, -1), o, depth + 1) : unreadWhy(part, o, depth + 1); if (r) return r }
+  if (sub.left) return { why: 'subst' }
+  const vars = new Map<string, string[]>()
+  const groupVars = new Map<string, string[]>()
+  const safe = new Set<string>()
+  const known = (n: string) => PATH_VARS.test(n) || safe.has(n) || knownValue(vars.get(n) ?? groupVars.get(n))
+  for (const seg of segments(sub.flat)) {
+    const raw = unmask(seg)
+    const plain = raw.replace(/'[^']*'/g, "''")
+    // zsh의 펼침 플래그 ${(…)…} · 글로브 · 쪼개기 플래그 ${=x} $~x · 이름으로 가리키기 ${!x} · =( … ): 값이 명령 · 옵션이 될 수 있다
+    if (/\$\{\(|\$\{?[=~^]|\$\{!/.test(plain) || evalFlags(seg).length) return { why: 'syntax', name: '${(…)}' }
+    for (const q of qualifiers(seg)) { const runs = qualifierRuns(q); if (runs.calls || runs.code.length) return { why: 'syntax', name: '*(…)' } }
+    if (variants(raw, vars, 256).partial) return { why: 'var' }
+    const r = redirects(seg)
+    for (const target of r.out) if (target !== '/dev/null' && unknownIn(target, known)) return { why: 'var' }
+    const all = words(r.rest)
+    for (const group of [all, ...splitGroups(all)]) { const why = wordsWhy(group, o, depth, known); if (why) return why }
+    track(all.map(unmask), vars, groupVars, safe)
+  }
+  return undefined
+}
+
+/**
+ * bash는 셈(( … )) · $(( … )) · [[ -eq … ]] · let · 배열 첨자 안의 변수 값을 다시 셈으로 펼치고, 그 값의 a[$(…)] 를 돌린다 (11/26 검토 2차).
+ * 그래서 값을 밖에서 받은 이름(read · mapfile · printf -v · $ 가 든 대입 · $ 위를 도는 for)이 셈에 쓰이면 읽지 못한 것으로 본다
+ */
+function taintedArith(text: string): boolean {
+  const names = new Set<string>()
+  for (const m of text.matchAll(/\b(?:read|mapfile|readarray)\b([^;&|\n)]*)/g)) for (const x of m[1]!.replace(/['"]/g, '').split(/\s+/)) { const nm = /^([A-Za-z_]\w*)/.exec(x)?.[1]; if (nm) names.add(nm) }
+  for (const m of text.matchAll(/\bprintf\s+-v\s*['"]?([A-Za-z_]\w*)/g)) names.add(m[1]!)
+  for (const m of text.matchAll(/(?:^|[\s;&|(])([A-Za-z_]\w*)\+?=(?:[^\s;&|]*[$`]|["'][^"']*[$`])/g)) names.add(m[1]!)
+  // 무늬 위를 도는 for 도: 파일 이름이 a[$(…)] 일 수 있다
+  for (const m of text.matchAll(/\bfor\s+([A-Za-z_]\w*)\s+in\s+[^;\n]*[$`*?[]/g)) names.add(m[1]!)
+  if (!names.size) return false
+  const spots: string[] = []
+  for (const m of text.matchAll(/\(\(([\s\S]*?)\)\)/g)) spots.push(m[1]!)
+  for (const m of text.matchAll(/\[\[([\s\S]*?)\]\]/g)) if (/-(eq|ne|lt|le|gt|ge|v)\b/.test(m[1]!)) spots.push(m[1]!)
+  for (const m of text.matchAll(/\blet\b([^;\n]*)/g)) spots.push(m[1]!)
+  // $[ … ] (옛 셈) · 어디든 이름 뒤의 [ … ] (첨자) · ${x:시작:길이}
+  for (const m of text.matchAll(/\$\[([^\]]*)\]/g)) spots.push(m[1]!)
+  for (const m of text.matchAll(/[A-Za-z_]\w*\[([^\]]*)\]/g)) spots.push(m[1]!)
+  for (const m of text.matchAll(/\$\{[A-Za-z_]\w*:(?![-=?+])([^}]*)\}/g)) spots.push(m[1]!)
+  return spots.some((x) => [...x.matchAll(/[A-Za-z_]\w*/g)].some((m) => names.has(m[0])))
+}
+
+/** 셈 $(( … )): 명령이 아니다. 안의 치환만 본다 */
+function arithWhy(text: string, o: KnownOpts, depth: number): Unread | undefined {
+  const sub = substitutions(text, { proc: true })
+  for (const part of sub.inner) { const r = unreadWhy(part, o, depth + 1); if (r) return r }
+  return sub.left ? { why: 'subst' } : undefined
+}
+
+/** 묻지 않고 지나가도 되는 경로의 프로그램 (설계 5.3): 시스템 · 패키지 관리자가 까는 곳. 그 밖의 경로는 이름이 같아도 다른 프로그램이다 (11/26 검토) */
+const BIN_DIRS = /^(\/(usr\/)?s?bin|\/usr\/local\/bin|\/opt\/homebrew\/(bin|opt\/[\w@.+-]+\/bin)|\/opt\/pw-browsers\/[\w./-]+|~\/\.cargo\/bin|~\/\.local\/bin|~\/Library\/TinyTeX\/bin\/[\w-]+)$/
+/** 옵션 · 하위 명령으로 받은 글을 프로그램으로 돌리거나 다른 곳에 쓰는 것 (11/26 검토). 맞으면 「모르는 문법」으로 한 번 묻는다 */
+function progOptionWhy(prog: string, args: string[]): string | undefined {
+  // 위험한 옵션을 가진 프로그램은 아는 옵션만 읽은 것으로 친다 (허용 목록, 11/26 검토 2차: 긴 옵션 줄임 · 짧은 옵션 묶기 · 값을 받는 옵션이 막는 목록을 뚫었다)
+  if (/^(sh|bash|zsh|dash|ksh)$/.test(prog)) return shellWhy(prog, args)
+  if (prog === 'git') return gitWhy(args)
+  if (/^g?sed$/.test(prog)) return sedWhy(args)
+  if (/^g?awk$/.test(prog)) return awkWhy(args)
+  const longs = args.filter((a) => a.startsWith('--')).map((a) => a.replace(/=.*/s, ''))
+  // GNU 긴 옵션은 줄여 써도 받는다: 줄인 꼴도 위험한 옵션의 앞부분이면 묻는다
+  const abbrev = (danger: string[]) => longs.some((l) => l.length >= 3 && danger.some((d) => d.startsWith(l)))
+  if (prog === 'rg' && (abbrev(['--pre', '--pre-glob', '--search-zip']) || args.some((a) => /^-[a-zA-Z]*z/.test(a)))) return 'rg --pre'
+  if (/^g?sort$/.test(prog) && abbrev(['--compress-program'])) return 'sort --compress-program'
+  if (/^g?tar$/.test(prog) && (abbrev(['--to-command', '--checkpoint-action', '--use-compress-program', '--info-script', '--new-volume-script', '--rsh-command']) || args.some((a) => /^-[a-zA-Z]*[IF]/.test(a)))) return 'tar'
+  if (prog === 'rsync' && (abbrev(['--rsh', '--rsync-path']) || args.some((a) => /^-[a-zA-Z]*e/.test(a)))) return 'rsync -e'
+  if (prog === 'env') return envWhy(args)
+  return undefined
+}
+
+/** env: 앞에서 떼어 보는 옵션 가운데 -i · -u 이름 · -0 만 (그 밖 -C · -S · 줄인 --ch 는 폴더를 바꾸거나 글을 쪼개 돌린다) */
+function envWhy(args: string[]): string | undefined {
+  for (let j = 0; j < args.length && args[j]!.startsWith('-'); j++) {
+    const a = args[j]!
+    if (a === '-' || a === '--' || /^-[i0]+$/.test(a) || a === '--ignore-environment' || a === '--null' || /^--unset=/.test(a)) continue
+    if (/^-[i0]*u$/.test(a)) { j++; continue }
+    if (/^-[i0]*u./.test(a)) continue
+    return 'env 옵션'
+  }
+  return undefined
+}
+
+/** sh · bash · zsh: -c 와 그 글, 또는 작업 폴더 안의 스크립트 파일. 그 밖(입력 · /dev/stdin · 모르는 옵션 · + 옵션)은 입력으로 받은 코드다 */
+function shellWhy(prog: string, args: string[]): string | undefined {
+  const why = `${prog} (입력으로 받은 코드)`
+  for (let j = 0; j < args.length; j++) {
+    const a = args[j]!
+    if (a === '--') { const f = args[j + 1]; return f && !/^\/|SUBST|[$`]|^~/.test(f) && !f.split('/').includes('..') ? undefined : why }
+    // -c 의 글이 xargs · find 의 자리표시 {} 를 담으면 받은 글이 코드가 된다 (xargs -I{} sh -c {}, 11/26 검토 3차)
+    if (/^-[eluvxnc]+$/.test(a)) { if (a.includes('c')) return args[j + 1] !== undefined && !args[j + 1]!.includes('{}') ? undefined : why; continue }
+    if (a === '-o') { if (!/^(errexit|nounset|pipefail|xtrace)$/.test(args[j + 1] ?? '')) return why; j++; continue }
+    if (/^[-+]/.test(a)) return why
+    // 스크립트 파일: 작업 폴더 안의 글자 그대로의 경로만 (/dev/stdin · <( … ) · 변수는 아니다)
+    return /^\/|SUBST|[$`]|^~/.test(a) || a.split('/').includes('..') ? why : undefined
+  }
+  return why
+}
+
+/** git: 앞 옵션은 -C 폴더 · --no-pager 따위만, config 는 읽기만, 받은 글을 돌리는 하위 명령 · 옵션은 묻는다 */
+function gitWhy(args: string[]): string | undefined {
+  let i = 0
+  for (; i < args.length && args[i]!.startsWith('-'); i++) {
+    const a = args[i]!
+    if (/^(-C|--git-dir|--work-tree)$/.test(a)) { i++; continue }
+    if (/^(--no-pager|-P|--no-optional-locks|--literal-pathspecs|--no-replace-objects|--git-dir=.*|--work-tree=.*)$/.test(a)) continue
+    return `git ${a.replace(/=.*/s, '')}`
+  }
+  const sub = args[i] ?? '', rest = args.slice(i + 1)
+  if (sub === 'config') {
+    const opts = rest.filter((a) => a.startsWith('-')), pos = rest.filter((a) => !a.startsWith('-'))
+    const reads = /^(--get|--get-all|--get-regexp|--list|-l|--show-origin|--show-scope|--name-only|--local|--null|-z|--type=\w+|--bool|--int|--path|--default=.*)$/
+    if (!opts.every((a) => reads.test(a)) || pos.length > (opts.includes('--get-regexp') ? 2 : 1) || (opts.some((a) => /^(--list|-l)$/.test(a)) && pos.length)) return 'git config'
+    return undefined
+  }
+  if (/^(difftool|mergetool|filter-branch|filter-repo|bisect|submodule|daemon|instaweb|web--browse|send-email|credential|imap-send|p4|svn|cvsimport|archimport|quiltimport|fast-import|hook)$/.test(sub)) return `git ${sub}`
+  const longs = rest.filter((a) => a.startsWith('--')).map((a) => a.replace(/=.*/s, ''))
+  const danger = ['--open-files-in-pager', '--ext-diff', '--textconv', '--exec', '--upload-pack', '--receive-pack', '--extcmd', '--tool', '--config-env', '--exec-path', '--run', '--command', '--strategy', '--sequence-editor', '--editor']
+  if (longs.some((l) => l.length >= 3 && danger.some((d) => d.startsWith(l)))) return `git ${sub}`
+  if (sub === 'grep' && rest.some((a) => /^-[a-zA-Z]*O/.test(a))) return 'git grep -O'
+  if (sub === 'rebase' && rest.some((a) => /^-[a-zA-Z]*x/.test(a))) return 'git rebase -x'
+  if (/^(merge|pull|rebase)$/.test(sub) && rest.some((a) => /^-[a-zA-Z]*s/.test(a))) return `git ${sub} -s`
+  return undefined
+}
+
+/** sed: 아는 옵션만 (-n -E -r -s -u -z -i[접미] -e 글 · 그 긴 이름), 스크립트에 e · w · W 명령이 없을 때 */
+function sedWhy(args: string[]): string | undefined {
+  const scripts: string[] = []
+  let rest = false
+  const files: string[] = []
+  for (let j = 0; j < args.length; j++) {
+    const a = args[j]!
+    if (rest || !a.startsWith('-') || a === '-') { files.push(a); continue }
+    if (a === '--') { rest = true; continue }
+    if (a.startsWith('--')) {
+      const [name, val] = [a.replace(/=.*/s, ''), /=(.*)$/s.exec(a)?.[1]]
+      if (/^--(quiet|silent|regexp-extended|separate|unbuffered|null-data|posix|debug|sandbox)$/.test(name)) continue
+      if (name === '--in-place') continue
+      if (name === '--expression') { if (val !== undefined) scripts.push(val); else scripts.push(args[++j] ?? ''); continue }
+      return 'sed 옵션'
+    }
+    // 짧은 옵션 묶음: n E r s u z 는 값이 없고, i 는 뒤 전부가 접미, e 는 뒤 전부나 다음 낱말이 글
+    let k = 1
+    for (; k < a.length; k++) {
+      const c = a[k]!
+      if (/[nErsuz]/.test(c)) continue
+      if (c === 'i') { if (k === a.length - 1 && /^(\.\w*)?$/.test(args[j + 1] ?? 'x')) j++; break }
+      if (c === 'e') { scripts.push(k < a.length - 1 ? a.slice(k + 1) : args[++j] ?? ''); break }
+      return 'sed 옵션'
+    }
+  }
+  if (!scripts.length && files.length) scripts.push(files.shift()!)
+  return scripts.some(sedRunsOrWrites) ? 'sed e · w' : undefined
+}
+
+/** sed 스크립트에 e(실행) · w · W(쓰기) 명령이나 s///e · s///w 플래그가 있는가. 주소 · 괄호 식 · 주석을 건너뛰며 명령 글자만 본다. 모르는 꼴이면 있다고 본다 */
+function sedRunsOrWrites(t: string): boolean {
+  let i = 0
+  const n = t.length
+  // 구분자까지 건너뛰기: 역슬래시 다음 글자와 [ … ] 안은 구분자가 아니다
+  // 괄호 식은 정규식 자리에서만 (바꿀 글의 [ 는 글자다), [[:alpha:]] 같은 이름 묶음은 한 덩이로 (11/26 검토 3차)
+  const skipDelim = (d: string, regex = true): boolean => {
+    for (i++; i < n && t[i] !== d; i++) {
+      if (t[i] === '\\') { i++; continue }
+      if (regex && t[i] === '[') { const e = /^\[\^?\]?(?:\[:[a-z]+:\]|\[\.[^\]]*\.\]|\[=[^\]]*=\]|[^\][])*\]/.exec(t.slice(i)); if (!e) return false; i += e[0].length - 1 }
+    }
+    if (i >= n) return false
+    i++
+    return true
+  }
+  while (i < n) {
+    const ch = t[i]!
+    if (/[\s;{}!,]/.test(ch)) { i++; continue }
+    if (/[\d$~+]/.test(ch)) { i++; continue }
+    if (ch === '#') { while (i < n && t[i] !== '\n') i++; continue }
+    if (ch === '/') { if (!skipDelim('/')) return true; while (/[IM]/.test(t[i] ?? '')) i++; continue }
+    if (ch === '\\') { i++; if (!t[i] || !skipDelim(t[i]!)) return true; continue }
+    if (ch === 's' || ch === 'y') {
+      const d = t[i + 1]
+      if (!d || d === '\n' || d === '\\') return true
+      i++
+      if (!skipDelim(d)) return true
+      i--
+      if (!skipDelim(d, ch !== 's')) return true
+      if (ch === 's') { const f = /^[gpiImM0-9]*/.exec(t.slice(i))![0]; i += f.length; if (/[ewW]/.test(t[i] ?? '')) return true }
+      continue
+    }
+    if (/[ewW]/.test(ch)) return true
+    // a i c r R 와 이름표(b t T :)는 줄 끝까지가 그 글이다
+    if (/[aicrRbtT:]/.test(ch)) {
+      for (;;) { while (i < n && t[i] !== '\n' && !(/[btT:]/.test(ch) && t[i] === ';')) i++; if (/[aic]/.test(ch) && t[i] === '\n' && t[i - 1] === '\\') { i++; continue } break }
+      continue
+    }
+    if (/[pPdDnNgGhHxlq=QzFv]/.test(ch)) { i++; continue }
+    return true
+  }
+  return false
+}
+
+/** awk: -F · -v 만, 프로그램에 프로그램 돌리기 · 파일 쓰기 · 간접 부르기가 없을 때 (문자열은 빼고 본다) */
+function awkWhy(args: string[]): string | undefined {
+  let j = 0
+  for (; j < args.length && args[j]!.startsWith('-') && args[j] !== '-'; j++) {
+    const a = args[j]!
+    if (a === '--') { j++; break }
+    if (a === '-F' || a === '-v') { j++; continue }
+    if (/^-[Fv]./.test(a)) continue
+    return 'awk 옵션'
+  }
+  // 문자열 · 정규식 리터럴을 짝 맞춰 빼지 않고 글 전체에서 본다 (/"/ 가 짝을 어긋나게 했다, 11/26 검토 3차): print 뒤 어디든 > · | 가 있으면 묻는다
+  const prog = args[j] ?? ''
+  const pr = prog.search(/\bprintf?\b/)
+  if (/system|getline|\bclose\b|fflush|@|ENVIRON|PROCINFO/.test(prog) || (pr >= 0 && /[>|]/.test(prog.slice(pr)))) return 'awk system · >'
+  return undefined
+}
+
+/** << 앞의 글이 셸 글로 끝나는가: 따옴표 · 주석 안이 아니고 역슬래시로 끝나지 않는다. 따옴표 안의 치환("$( …) 안은 셸 글이다 */
+function plainBefore(head: string): boolean {
+  const st: ('n' | 'dq' | 'sub')[] = ['n']
+  for (let i = 0; i < head.length; i++) {
+    const c = head[i]!, top = st[st.length - 1]!
+    if (c === '\\') { if (i === head.length - 1) return false; i++; continue }
+    if (top === 'dq') { if (c === '"') st.pop(); else if (c === '$' && head[i + 1] === '(') { st.push('sub'); i++ } else if (c === '`') return false; continue }
+    if (c === "'") { const e = head.indexOf("'", i + 1); if (e < 0) return false; i = e; continue }
+    if (c === '"') { st.push('dq'); continue }
+    if (c === '`') return false
+    if (c === '$' && head[i + 1] === '(') { st.push('sub'); i++; continue }
+    if (c === ')' && top === 'sub') { st.pop(); continue }
+    if (c === '#' && (i === 0 || /[\s;&|(]/.test(head[i - 1]!))) return false
+  }
+  return st[st.length - 1] !== 'dq'
+}
+
+/** 낱말로 나눈 명령 하나 (감싸 돌리는 안의 명령도) */
+function wordsWhy(all: string[], o: KnownOpts, depth: number, known: (n: string) => boolean, wrap = 0): Unread | undefined {
+  if (wrap > 5) return { why: 'deep' }
+  const raw = all.map(unmask)
+  // bash는 셈 안의 배열 첨자를 다시 펼친다: (( 'a[$(…)]' )) · x='a[$(…)]'; (( x )) 는 그 안의 명령을 돌린다 (11/26 검토)
+  if (raw.some((x) => /[A-Za-z_]\w*\[[\s\S]*(\$\(|`|SUBST)/.test(x))) return { why: 'syntax', name: 'a[$(…)]' }
+  // ${x:=…} · ${x::=…} 로 찾는 길 · 폴더 · 낱말 나누기를 바꾸는 이름 (11/26 검토)
+  for (const x of raw) for (const m of x.matchAll(/\$\{([A-Za-z_]\w*)::?=/g)) if (RISKY_ENV.test(m[1]!) || /^IFS$/.test(m[1]!)) return { why: 'env', name: m[1]! }
+  // 명령 자리의 낱말: 묶음 머리 · 대입 · 앞말과 그 옵션 뒤
+  for (let i = 0; i < raw.length; i++) {
+    const w = raw[i]!
+    if (w === 'setopt' && SAFE_SETOPT(raw.slice(i + 1))) return undefined
+    if (w.split('/').pop() === 'env') { const e = envWhy(raw.slice(i + 1)); if (e) return { why: 'syntax', name: e } }
+    if (SYNTAX.has(w) || /^[A-Za-z_][\w-]*\(\)$/.test(w) || (raw[i + 1] === '()' && /^[A-Za-z_][\w-]*$/.test(w))) return { why: 'syntax', name: w.replace(/\(\)$/, '') }
+    const assign = /^([A-Za-z_]\w*)\+?=(.*)$/s.exec(w)
+    // 이 명령에만 붙는 환경 변수(A=1 cmd)와 홀로 선 대입(PATH=… ; cmd) 모두: 찾는 길 · 다른 프로그램을 바꾸는 이름은 묻는다
+    if (assign && RISKY_ENV.test(assign[1]!)) return { why: 'env', name: assign[1]! }
+    // 값의 $HOME · $PWD 는 정해진 값이다 (HOME을 바꾸는 대입은 위에서 묻는다)
+    if (assign && i + 1 < raw.length && (!LITERAL.test(assign[2]!.replace(/\$\{?(HOME|PWD)\}?(?![\w])/g, '')) || assign[2]!.includes('SUBST'))) return { why: 'env', name: assign[1]! }
+    if (GROUP_HEAD.test(w) || assign || PREFIX.test(w.split('/').pop()!) || (i > 0 && PREFIX.test(raw[i - 1]!.split('/').pop()!) && (w.startsWith('-') || /^\d/.test(w)))) continue
+    break
+  }
+  const lead = leading(all)
+  const w = lead.rest
+  if (!w.length) return undefined
+  const first = unmask(w[0]!)
+  // 변수 · 치환 · 무늬 · 중괄호로 만든 프로그램 이름
+  if (!/^\[\[?$/.test(first) && (/[$`*?[{]|SUBST/.test(first) || /^~(?!\/)/.test(first))) return { why: 'var-prog' }
+  const prog = first.split('/').pop()!
+  const args = w.slice(1).map(unmask)
+  if (prog === 'setopt' && SAFE_SETOPT(args)) return undefined
+  if (SYNTAX.has(prog)) return { why: 'syntax', name: prog }
+  if (prog === 'set' && !SET_READ.test(['set', ...args].join(' '))) return { why: 'syntax', name: 'set' }
+  // export · local · read · printf -v 로 찾는 길 · 폴더 · 낱말 나누기를 바꾸는 이름 (read PATH < f · printf -v IFS _, 11/26 검토)
+  for (const a of TAKES.test(prog) ? args : []) { const n = /^(?:-v)?([A-Za-z_]\w*)(\+?=|$)/.exec(a)?.[1]; if (n && (RISKY_ENV.test(n) || n === 'IFS')) return { why: 'env', name: n } }
+  // 경로로 적은 프로그램: 시스템 · 패키지 관리자 폴더면 이름으로, 그 밖의 경로는 경로 전체를 이름으로 (「늘」 열쇠도 경로 전체, 11/26 검토)
+  const dir = first.includes('/') && /^[/~]/.test(first) ? first.slice(0, first.lastIndexOf('/')) : undefined
+  if (dir !== undefined && (!BIN_DIRS.test(dir) || dir.split('/').includes('..'))) { if (!o.known?.(first)) return { why: 'prog', name: first } }
+  else if (!knownProg(first, prog, o)) return { why: 'prog', name: prog }
+  const opt = progOptionWhy(prog, args)
+  if (opt) return { why: 'syntax', name: opt }
+  if (unknownVarArg(w, prog, known, OPTION_PROGS)) return { why: 'var' }
+  if (WRITE_PROGS.test(prog) && args.some((a) => !a.startsWith('-') && unknownIn(a, known))) return { why: 'var' }
+  // sh -c 의 명령 글은 -c 뒤 첫 낱말이다 (그 뒤는 $0 · $1 값: find -exec sh -c '…' _ {} 의 _ 는 명령이 아니다)
+  const inner = /^(sh|bash|zsh|dash|ksh|fish)$/.test(prog) ? wrapped(prog, args).slice(0, 1) : wrapped(prog, args)
+  for (const x of inner) {
+    const r = typeof x === 'string' ? unreadWhy(x, o, depth + 1) : wordsWhy(x, o, depth, known, wrap + 1)
+    if (r) return r
+  }
+  return undefined
+}
+
+/** 아는 프로그램 (설계 5.3): 판정이 이름으로 다루는 것 · 개발 도구 · 실행 「늘」 · 작업 폴더 안의 스크립트. 경로로 적은 것은 마지막 이름으로 */
+function knownProg(word: string, prog: string, o: KnownOpts): boolean {
+  if (KNOWN.has(prog) || o.known?.(prog)) return true
+  // 작업 폴더 안의 스크립트 (./scripts/x.sh · scripts/x.sh): 에이전트가 쓸 수 있는 파일이라 인라인 코드와 같다
+  return word.includes('/') && !/^[/~]/.test(word) && !word.split('/').includes('..')
+}
+
+/** 낱말에 값을 모르는 변수 · 치환이 있는가 (쓰기 대상) */
+function unknownIn(word: string, known: (n: string) => boolean): boolean {
+  if (/SUBST|`|\$\(/.test(word)) return true
+  for (const m of word.matchAll(/\$(?:\{([^}]*)\}|([A-Za-z_]\w*|[0-9@*#?$!-]))/g)) {
+    const name = m[2] ?? /^[A-Za-z_]\w*/.exec(m[1] ?? '')?.[0]
+    if (!name || !known(name)) return true
+  }
+  return false
+}
+
+/** 이 조각이 정한 변수를 적는다: 글자 값 (noteVars · noteGroupVars), 옵션이 될 수 없는 반복 변수, 다른 데서 값을 받은 이름 */
+function track(all: string[], vars: Map<string, string[]>, groupVars: Map<string, string[]>, safe: Set<string>): void {
+  noteVars(all, vars)
+  noteGroupVars(all, groupVars)
+  const w = /^(do|then|else|elif|if|while|until|\{|!)$/.test(all[0] ?? '') ? all.slice(1) : all
+  if (w[0] === 'for' && /^[A-Za-z_]\w*$/.test(w[1] ?? '') && w[2] === 'in') {
+    // for f in src/*.ts: 도는 낱말이 모두 옵션이 될 수 없는 글자로 시작하면 그 변수는 옵션이 되지 못한다 (chat-vars.ts VarWatch와 같은 규칙)
+    if (w.length > 3 && w.slice(3).every((x) => /^[A-Za-z0-9_./]/.test(x) && !/[$`]|SUBST/.test(x))) safe.add(w[1]!); else safe.delete(w[1]!)
+    return
+  }
+  if (TAKES.test(w[0] ?? '')) for (const x of w.slice(1)) { const n = /^([A-Za-z_]\w*)(=|$)/.exec(x)?.[1]; if (n) { vars.delete(n); groupVars.delete(n); safe.delete(n) } }
+}
+
+/** 히어독의 본문을 자료로 받는 프로그램: 본문을 셸 글로 읽지 않는다 (코드를 받는 python · node · perl 은 인라인 코드라 읽지 않는다) */
+const DATA_RECEIVERS = /^(cat|tee|python3?|node|perl|git|gh|jq|wc|head|tail|grep|sort|uniq|cut|diff|patch|base64)$/
+/** | 로 본문을 받아도 읽기만 하는 프로그램 (chat-shell.ts certainHeredoc 의 READERS와 같다) */
+const PIPE_READERS = /^(tail|head|grep|wc|uniq|cut|cat|tee)$/
+
+/**
+ * 자료를 주는 히어독의 본문을 뺀 글 (설계 5.2 "자료를 주는 히어독은 읽은 것"): 커밋 메시지 · 메모의 따옴표와 괄호가 치환의 짝을 어긋나게 하지 않게.
+ * 받는 프로그램이 DATA_RECEIVERS 이고, 받는 줄의 | 뒤가 읽기만 하는 것이고, 본문이 펼쳐지지 않을 때(구분자를 따옴표로 쌌거나 본문에 $ ` \\ 가 없다)만 뺀다.
+ * << 를 잘못 짚어 본문이 아닌 줄을 빼도 이 검사가 덜 물을 뿐, 판정(commandKind)은 원래 글을 그대로 읽으므로 지금보다 가벼워지지 않는다
+ */
+export function dataHeredocsRemoved(cmd: string): string {
+  // 아주 긴 글은 빼지 않는다 (본문 찾기가 길이의 제곱만큼 걸린다): 덜 빼면 더 묻을 뿐이다
+  if (!cmd.includes('<<') || cmd.length > 100_000) return cmd
+  // 앞에서부터 하나씩: 앞의 본문을 뺀 글로 다음 << 앞을 읽는다 (한 명령에 히어독이 여럿일 때)
+  const re = /(^|\n)([^\n]*?)(<<-?)[ \t]*(['"]?)([A-Za-z_]\w*)\4([^\n]*)\n([\s\S]*?)\n([ \t]*)\5[ \t]*(?=\n|$|\))/g
+  let out = cmd
+  for (let from = 0; ;) {
+    re.lastIndex = from
+    const m = re.exec(out)
+    if (!m) return out
+    const [whole, nl, head, op, quote, , tail, body, indent] = m
+    const rep = dataHeredoc(out.slice(0, m.index + nl!.length + head!.length), nl!, head!, op!, quote!, tail!, body!, indent!)
+    if (rep === undefined) { from = m.index + whole!.length; continue }
+    out = out.slice(0, m.index) + rep + out.slice(m.index + whole!.length)
+    from = m.index + rep.length
+  }
+}
+
+/** 히어독 하나: 자료로만 쓰이면 본문을 뺀 받는 줄, 아니면 undefined */
+function dataHeredoc(before: string, nl: string, head: string, op: string, quote: string, tail: string, body: string, indent: string): string | undefined {
+  if (head.includes('<<') || tail.includes('<<')) return undefined
+  // << 가 진짜인지 틀림없을 때만: 글 처음부터 차례로 읽어 따옴표 · 주석 안이 아니고 역슬래시 뒤가 아니다 (cat # <<E · cat "<<E" · 앞 줄에서 연 따옴표 안, 11/26 검토).
+  // 셈 (( · $(( 의 << (비트 밀기) · ${…} 안 · <<< 도 아니다
+  if (!plainBefore(before) || /\(\(|\$\{|\$\[|\$'/.test(before) || head.endsWith('<')) return undefined
+  if (indent && (op !== '<<-' || /[^\t]/.test(indent))) return undefined
+  if (!quote && /[$`\\]/.test(body)) return undefined
+  const receiver = head.split(/&&|\|\||[;&|(`]|\$\(/).pop()!.trim()
+  const prog = (words(receiver.replace(/^[({!\s]+/, ''))[0] ?? '').split('/').pop()!
+  if (!DATA_RECEIVERS.test(prog)) return undefined
+  const pipes = [...tail.matchAll(/(?<!\|)\|(?!\|)&?[ \t]*([^ \t|&;)]*)/g)]
+  if (!pipes.every((p) => PIPE_READERS.test(p[1]!))) return undefined
+  // 받는 줄의 << 구분자는 </dev/null 로: 끝 줄(구분자)이 명령으로 읽히지 않게 본문과 함께 뺀다
+  return `${nl}${head}</dev/null${tail}`
+}

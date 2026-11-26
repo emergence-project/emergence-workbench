@@ -23,9 +23,9 @@ export const knownValue = (values: string[] | undefined): boolean => !!values &&
 const FIND_VALUE = /^-(i?name|i?path|i?regex|i?lname|i?wholename|[acm]?newer\w*|Bnewer|type|xtype|maxdepth|mindepth|size|[acmB]time|[acmB]min|user|group|perm|samefile|inum|links|uid|gid|fstype|used|regextype|xattrname|flags|printf|fprint|fprint0|fls)$/
 const FIND_PLAIN = /^(-(print|print0|ls|delete|prune|empty|follow|mount|xdev|nouser|nogroup|true|false|a|o|and|or|not|daystart|quit|[HLPEXdsx]+)|[!(),])$/
 
-/** 앞말을 뗀 낱말들(leading().rest)에서, 프로그램이 VAR_PROGS 이고 인자가 값을 모르는 변수(나 치환)로 시작하는가 */
-export function unknownVarArg(rest: string[], prog: string, known: (name: string) => boolean): boolean {
-  if (!VAR_PROGS.test(prog)) return false
+/** 앞말을 뗀 낱말들(leading().rest)에서, 프로그램이 VAR_PROGS(또는 받은 progs) 이고 인자가 값을 모르는 변수(나 치환)로 시작하는가 */
+export function unknownVarArg(rest: string[], prog: string, known: (name: string) => boolean, progs: RegExp = VAR_PROGS): boolean {
+  if (!progs.test(prog)) return false
   const find = /find$/.test(prog)
   const memo = new Map<string, boolean>()
   const knows = (n: string) => { let k = memo.get(n); if (k === undefined) { k = known(n); memo.set(n, k) } return k }
