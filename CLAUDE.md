@@ -60,6 +60,15 @@ PR마다 GitHub Actions CI(`.github/workflows/ci.yml`: type-check·test·build)�
 - 구조 래칫(`scripts/ci/check-ratchet.mjs`, `pnpm test`): 소스 파일 줄 수(600줄 넘는 파일)와 파일마다 타입 단언(`as T`, `@ts-ignore`) 수는 `scripts/ci/ratchet.json` 기준을 넘지 못한다. 줄였으면 `node scripts/ci/check-ratchet.mjs --update`로 기준을 낮추고, 올려야 하면 json을 고치고 커밋 메시지에 이유를 쓴다.
 - 구조를 옮기는 변경(화면이 바뀌면 안 되는 것)은 바꾸기 전후 `pnpm shots` 그림이 바이트 단위로 같은지 `cmp`로 확인한다.
 
+## 생성한 명령을 실제로 돌릴 때 (2026-11-26 사용자 결정 "저장 공간 폭증 방지")
+
+에이전트(하위 에이전트 포함)가 만들거나 무작위로 조합한 셸 명령을 bash · zsh에서 실제로 돌려 보는 검증(퍼저, 명령 판정 검토)은 `pnpm agent:contained`(`scripts/agent-contained.mjs`, 코드에서는 `runContained`)로만 돌린다. `spawnSync(…, { timeout })` · `execSync`로 직접 돌리지 않는다: 시간 한도는 셸만 죽이고, 셸이 띄운 프로세스(뒤로 돌린 `&` 포함)는 남아서 계속 쓴다. 11/26에 그렇게 남은 `cat` 78개가 몇 시간 동안 자기가 읽는 파일에 다시 써서 364GB를 채웠다.
+
+- 실행기가 하는 일: 파일 크기 · CPU 시간 상한(`ulimit -f` · `-t`)을 걸고, 새 프로세스 묶음으로 띄워 끝날 때마다(시간 한도가 아니어도) 묶음 전체를 죽이고, 묶음을 벗어난 프로세스를 찾아 죽이고, 실행 폴더를 지운다. 남은 공간이 5GB보다 적으면 돌리지 않는다.
+- 여러 개는 `--jobs <jobs.json> --parallel <n>`으로 한 번에 돌린다. 끝 줄의 「남은 프로세스」가 0인지 보고, 0이 아니면 멈추고 알린다.
+- 하위 에이전트에게 이런 검증을 맡길 때는 이 절을 지시문에 그대로 적고, 보고에 끝 줄을 넣게 한다. 받은 뒤 남은 프로세스(`ps -axo pid,ppid,etime,args | awk '$2==1'`)와 남은 공간(`df -h`)을 한 번 더 본다.
+- 실행기를 쓸 수 없는 검증(다른 언어의 실행기 등)도 같은 넷을 갖춘다: 쓰기 상한, 끝날 때마다 묶음 죽이기, 남은 프로세스 확인, 실행 폴더 지우기.
+
 ## 공개 이슈와 바깥 기여 (2026-10-08 결정)
 
 다른 사람의 피드백은 공개 저장소 Issues·Discussions로, 코드는 fork PR로 받는다. 처리 규칙은 `docs/maintaining.md`. 이슈 댓글·바깥 PR 의견은 관리자 승인 전에 게시하지 않는다.
