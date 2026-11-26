@@ -35,7 +35,9 @@ import { CLOSE_RIGHT, OPEN_RIGHT, setRightMode, useRightMode } from './noteScree
 import { RecordsPanel } from './RecordsPanel'
 import { recordPdfTab, recordRoute } from './recordsPanelHelpers'
 import { NoInfo, NoteInfo, RightSidebar } from './RightSidebar'
-import { TopBar, type Crumb } from './TopBar'
+import { TopBar } from './TopBar'
+import { crumbsOf, msKeyOfPdfTab, tabTitle } from './appCrumbs'
+import { useAppKeys, useSideWidth } from './appHooks'
 import { OverviewPage, partNumber } from './OverviewPage'
 import { AgentsPage, ProjectInfoPage, StatusPage } from './ProjectInfoPage'
 import { ChangesPage } from './ChangesPage'
@@ -66,7 +68,6 @@ import { CrashScreen } from './CrashScreen'
 
 export type { FlashAction } from './flash'
 
-const SIDE_W = 244, SIDE_MIN = 200, SIDE_MAX = 480
 
 export function App() {
   const route = useRoute()
@@ -257,37 +258,9 @@ export function App() {
   const terminalHere = useTerminalAvailable(), agentCol = agentColHere.current = route.page === 'agent' && !!route.id && route.id !== CENTRAL_PAGE, agentSideAble = agentSideHere.current = globalPage && !globalRightAble && (route.page !== 'agent' || (terminalHere && !agentCol)), agentSideShown = agentSideAble && agentSide
   const showSide = (!globalPage && !!rid && sideOpen) || (!!globalSide && sideOpen)
   const rightOpenNow = globalPage ? (agentSideAble ? agentSide : globalRight) : layout.ctx, toggleRight = () => { if (agentSideAble) setAgentSide((v) => !v); else if (globalPage) setGlobalRight((v) => !v); else setLayout((l) => ({ ...l, ctx: !l.ctx })) }
-  // 왼쪽 사이드바 폭: 오른쪽 경계를 끌어 바꾸고, 두 번 누르면 처음 폭 (10/29 09:15 피드백: 오른쪽처럼 폭 조절)
-  const [sideW, setSideW] = useState(() => { try { const v = Number(localStorage.getItem('rw-side-width')); return v >= SIDE_MIN && v <= SIDE_MAX ? v : SIDE_W } catch { return SIDE_W } })
-  const saveSideW = (w: number) => { setSideW(w); try { localStorage.setItem('rw-side-width', String(w)) } catch { /* 저장 못 해도 이번에는 바뀐다 */ } }
-  const dragSide = (e: React.PointerEvent) => {
-    e.preventDefault()
-    const x0 = e.clientX, w0 = sideW
-    let w = w0
-    const onMove = (ev: PointerEvent) => { w = Math.min(SIDE_MAX, Math.max(SIDE_MIN, w0 + ev.clientX - x0)); setSideW(w) }
-    const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); document.body.classList.remove('resizing'); saveSideW(w) }
-    document.body.classList.add('resizing')
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-  }
+  const { sideW, dragSide, resetSideW } = useSideWidth()
 
-  // 빠른 메모: 글을 쓰는 중이 아닐 때 M 키 (브라우저에서 ⌘M은 창 최소화라 쓰지 않는다)
-  useEffect(() => {
-    const on = (e: KeyboardEvent) => {
-      const el = document.activeElement as HTMLElement | null
-      const typing = !!el && (/^(TEXTAREA|INPUT|SELECT)$/.test(el.tagName) || el.isContentEditable)
-      // ⌘\ 왼쪽 사이드바, ⌥⌘\ 오른쪽 사이드바 (⌥를 누르면 e.key가 바뀌어 e.code로 본다)
-      if ((e.metaKey || e.ctrlKey) && e.code === 'Backslash' && e.altKey) { e.preventDefault(); if (agentSideHere.current) setAgentSide((v) => !v); else if (onGlobalPage.current) setGlobalRight((v) => !v); else setLayout((l) => ({ ...l, ctx: !l.ctx })); return }
-      if ((e.metaKey || e.ctrlKey) && e.key === '\\') { e.preventDefault(); setSideOpen((v) => !v); return }
-      if (typing || e.metaKey || e.ctrlKey || e.altKey || dialog || quickMemo || feedback || search) return
-      // 전역 검색: "/" (⌘K는 개념노트 편집기의 명령 메뉴라 쓰지 않는다)
-      if (e.key === '/') { e.preventDefault(); setSearch(true); return }
-      if (!rid) return
-      if (e.key === 'm' || e.key === 'M' || e.key === 'ㅡ') { e.preventDefault(); setQuickMemo(true) }
-    }
-    window.addEventListener('keydown', on)
-    return () => window.removeEventListener('keydown', on)
-  }, [dialog, quickMemo, feedback, search, rid, setLayout, setSideOpen, setGlobalRight, setAgentSide])
+  useAppKeys({ dialog, quickMemo, feedback, search, rid, setLayout, setSideOpen, setGlobalRight, setAgentSide, setSearch, setQuickMemo, agentSideHere, onGlobalPage })
 
   // 레일의 프로젝트 버튼도 끌어서 순서를 바꾼다 (10/7 18:07). 홈 목록·카드와 같은 순서(설정)에 저장한다
   const [railDrag, setRailDrag] = useState<{ from: string | null; over: string | null }>({ from: null, over: null })
@@ -303,31 +276,7 @@ export function App() {
   /** 지금 연 노트 (연구노트 · 계산 노트) */
   const openNote = noteOfRoute(route, notes)
   setFeedbackNote(openNote && current ? `${current.title} › ${openNote.title} (${openNote.file})` : undefined)
-  /**
-   * 제목줄의 위치 표시 (10/5 시안 "상단바" 1번 나): 노트는 "프로젝트 › 주 주제"까지, 이름마다 그 화면으로.
-   * 노트 이름은 탭 · 나무 · 본문 제목이 보이고, 파일 경로는 오른쪽 사이드바 맨 아래에 있다
-   */
-  const crumbs: Crumb[] = current && rid
-    ? [{ label: current.title, to: { page: 'overview', rid }, title: t(`${current.path} — 첫 화면으로`, `${current.path}: go to the start page`) }, ...(openNote ? (() => {
-        const topic = topics.find((x) => x.id === openNote.topics[0])
-        return [topic ? { label: topic.title, to: { page: 'topic', rid, tid: topic.id } as Route, title: t('주제 화면으로', 'Go to the topic') } : { label: LOOSE_NOTES_LABEL, to: { page: 'topic', rid, tid: LOOSE_TOPIC_ID } as Route, title: t('주제가 없는 노트 — 노트들 화면으로', 'A note without a topic: go to loose notes') }]
-      })()
-      : route.page === 'doc' ? [{ label: t('자료', 'Materials') }, { label: route.name }]
-      : route.page === 'file' ? [{ label: t('파일', 'File') }, { label: route.path }]
-        : route.page === 'concept' || route.page === 'paper' ? [{ label: route.page === 'concept' ? t('개념노트', 'Concept note') : t('문헌노트', 'Literature note') }, { label: library?.notes.find((n) => n.kind === route.page && n.id === route.id)?.title ?? route.id }]
-        : route.page === 'task' ? [{ label: t('기록', 'Records'), to: { page: 'records', rid } as Route }, { label: taskTitles.get(route.task) ?? route.task }]
-        : route.page === 'topic' ? [{ label: route.tid === LOOSE_TOPIC_ID ? LOOSE_NOTES_LABEL : topics.find((x) => x.id === route.tid)?.title ?? route.tid }]
-        : route.page === 'part' ? (() => {
-          const ms = msOfFile(route.file)
-          const chapter = ms?.parts.find((p) => p.file === route.file && !p.line)?.title
-          // 원고의 장: 원고 › 장 (파일 경로는 쓰지 않는다)
-          return [{ label: ms?.name ?? t('원고', 'Manuscript'), ...(ms && { to: { page: 'part', rid, file: ms.main } as Route }) }, ...(chapter ? [{ label: chapter }] : [])]
-        })()
-        : route.page === 'statement' ? [{ label: t('진술', 'Statement') }, { label: (() => { const x = summary?.statements.find((y) => y.id === route.sid); return x ? shortLabel(x) : route.sid })() }]
-          : [{ label: PAGE_LABEL[route.page] ?? t('첫 화면', 'Start') }])]
-    : route.page === 'kmap' ? [{ label: PAGE_LABEL.library!, to: { page: 'library' } }, { label: PAGE_LABEL.kmap! }]
-    : route.page === 'about' && route.part ? [{ label: PAGE_LABEL.about!, to: { page: 'about' } }, { label: partOf(route.part).title }]
-    : [{ label: PAGE_LABEL[route.page] ?? 'Emergence Workbench' }]
+  const crumbs = crumbsOf({ current, rid, route, openNote, topics, library, msOfFile, summary, titles: taskTitles })
   const place = [...crumbs.map((c) => c.label), ...(openNote ? [openNote.title] : [])]
 
   // 브라우저 탭·기록에 지금 화면이 보이게 (에이전트가 어느 화면인지 제목으로 안다). 같은 값이면 브라우저가 무시한다
@@ -480,7 +429,7 @@ export function App() {
 
         {showSide && <aside className="side" data-ui="사이드바">
           <div className="side-resize" data-ui="사이드바 폭 조절" role="separator" aria-orientation="vertical" title={t('끌어 폭 바꾸기 · 두 번 누르면 처음 폭', 'Drag to resize · double-click to reset')}
-            onPointerDown={dragSide} onDoubleClick={() => saveSideW(SIDE_W)} />
+            onPointerDown={dragSide} onDoubleClick={resetSideW} />
           {globalSide ? (
             <div className="side-scroll">{globalSide({ route, version, library, onLibraryChanged: libraryChanged, ui, onUi: changeUi, onSaved: flash, rightOpen: globalRightAble && globalRight, sideOpen: showSide, onSide: () => setSideOpen(true) })}</div>
           ) : current && <>
@@ -581,47 +530,4 @@ export function App() {
       )}
     </div>
   )
-}
-
-const PAGE_LABEL: Partial<Record<Route['page'], string>> = {
-  home: t('홈', 'Home'), overview: t('첫 화면', 'Start'), info: t('프로젝트 정보', 'Project info'), agents: t('규칙', 'Rules'), status: t('현황', 'Status'), changes: t('변경사항', 'Changes'), repo: t('저장소', 'Repository'), files: t('파일', 'Files'), notes: t('원고', 'Manuscript'), concepts: t('개념노트', 'Concept notes'), papers: t('문헌노트', 'Literature notes'), todo: t('기록', 'Records'), records: t('기록', 'Records'), log: t('기록', 'Records'), map: t('지도', 'Map'), edits: t('수정 검토', 'Edit review'), problems: t('흐름', 'Flow'),
-  ...Object.fromEntries(GLOBAL_PAGES.map((g) => [g.page, g.name])),
-}
-
-/** 원고 PDF 탭의 key. 예전에 연 탭은 key ''(이름순 첫 연구노트)일 수 있다: 적은 원고가 없으면 그 노트(목록 첫째)로 읽는다 (10/5 경로 key) */
-function msKeyOfPdfTab(t: { ms?: string }, manuscripts: ManuscriptInfo[]): string {
-  const k = t.ms ?? ''
-  return k === '' && !manuscripts.some((m) => m.key === '') && manuscripts[0] ? manuscripts[0].key : k
-}
-
-function tabTitle(tab: Tab, summary: ResearchSummary | null, manuscripts: ManuscriptInfo[] = [], library: LibraryInfo | null = null, topics: Topic[] = [], ko = false): string {
-  // ko: 피드백 부위 이름(data-ui-item)으로 쓸 한국어 이름
-  const L = (k: string, e: string) => (ko ? k : t(k, e))
-  switch (tab.k) {
-    case 'overview': return L('첫 화면', 'Start')
-    case 'todo':
-    case 'records': return L('기록', 'Records')
-    case 'info': return L('프로젝트 정보', 'Project info')
-    case 'agents': return L('규칙', 'Rules')
-    case 'status': return L('현황', 'Status')
-    case 'changes': return L('변경사항', 'Changes')
-    case 'repo': return L('저장소', 'Repository')
-    case 'files': return L('저장소', 'Repository')
-    case 'log': return L('기록', 'Records')
-    case 'map': return L('지도', 'Map')
-    case 'notes': return L('원고', 'Manuscript')
-    case 'concepts': return L('개념노트', 'Concept notes')
-    case 'papers': return L('문헌노트', 'Literature notes')
-    case 'edits': return L('수정 검토', 'Edit review')
-    case 'problems': return L('흐름', 'Flow')
-    case 'statement': { const x = summary?.statements.find((y) => y.id === tab.sid); return x ? shortLabel(x) : tab.sid }
-    case 'doc': return tab.name
-    case 'file': return tab.path.split('/').pop()!
-    case 'task': return taskTitles.get(tab.task) ?? tab.task
-    case 'chat': return chatTitles.get(tab.chat) ?? L('대화', 'Conversation')
-    case 'topic': return tab.tid === LOOSE_TOPIC_ID ? (ko ? LOOSE_NOTES_UI : LOOSE_NOTES_LABEL) : topics.find((x) => x.id === tab.tid)?.title ?? tab.tid
-    case 'part': return manuscripts.flatMap((m) => m.parts).find((p) => p.file === tab.file && !p.line)?.title ?? manuscripts.find((m) => m.main === tab.file)?.name ?? tab.file.split('/').pop()!
-    case 'mspdf': { const m = manuscripts.find((x) => x.key === msKeyOfPdfTab(tab, manuscripts)); return `${L('원고 PDF', 'Manuscript PDF')}${m ? ` · ${m.name}` : ''}` }
-    case 'concept': case 'paper': return library?.notes.find((n) => n.kind === tab.k && n.id === tab.id)?.title ?? tab.id
-  }
 }
