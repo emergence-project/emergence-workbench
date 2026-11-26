@@ -270,7 +270,7 @@ export class AgentChats {
       scope,
       write: b.write ?? 'notes',
       state: 'idle',
-      // 계획 모드는 Claude만 (계획 카드 = ExitPlanMode). Codex · Gemini는 묻고 하기로
+      // 계획은 Claude만 (계획 카드 = ExitPlanMode). Codex · Gemini는 수동으로
       mode: b.mode === 'plan' && b.agent && b.agent !== 'claude-code' ? 'ask' : b.mode ?? 'edit',
       model: startModel(b.agent ?? 'claude-code', b.model),
       effort: b.effort ?? 'medium',
@@ -380,7 +380,7 @@ export class AgentChats {
     const it = c.items.find((x): x is Extract<ChatItem, { kind: 'ask' }> => x.kind === 'ask' && x.id === ask)
     const resolve = this.asks.get(ask)
     if (!it || it.answer || !resolve) throw new WorkbenchError(409, t('이미 답했거나 없는 허락 요청입니다', 'This request was already answered or does not exist'))
-    if (more.mode === 'plan') throw new WorkbenchError(400, t('계획을 승인하면 묻고 하기 · 편집 자동 허용 가운데 하나로 이어 갑니다', 'After approving a plan, continue with ask before edits or accept edits'))
+    if (more.mode === 'plan') throw new WorkbenchError(400, t('계획을 승인하면 수동 · 편집 자동 수락 가운데 하나로 이어 갑니다', 'After approving a plan, continue with manual or auto-accept edits'))
     it.answer = a
     if (a === 'deny' && more.note) it.note = clip(more.note, 2000)
     if (a !== 'deny' && it.plan !== undefined && more.mode) it.mode = more.mode
@@ -881,7 +881,7 @@ export class AgentChats {
         const it = c.items.find((x) => x.kind === 'ask' && x.id === id)
         if (it && it.kind === 'ask' && !it.answer) { it.answer = a; if (abort.signal.aborted) it.expired = true }
         // 계획 카드의 「늘」은 이 차례만 (계획마다 다시 본다)
-        // 「늘」: 토글이 있는 일은 그 토글을 켜고(편집은 편집 자동 허용으로), 실행은 프로그램마다 기억한다. 삭제 · 외부는 「늘」이 없다
+        // 「늘」: 토글이 있는 일은 그 토글을 켜고(편집은 편집 자동 수락으로), 실행은 프로그램마다 기억한다. 삭제 · 외부는 「늘」이 없다
         if (a === 'always' && v.plan === undefined && !v.once) {
           if (v.turnOn === 'edit') { ctx.mode = 'edit'; c.mode = 'edit' }
           else if (v.turnOn) c.auto = { ...autoOf({ write: c.write, mode: ctx.mode, ...(c.auto && { auto: c.auto }) }), [v.turnOn]: true }
@@ -892,7 +892,7 @@ export class AgentChats {
           if (v.plan !== undefined) {
             ctx.planOk = true
             c.planOk = true
-            // 승인하며 고른 맡기는 정도로 이어 간다 (묻고 하기 = 노트도 하나씩 묻기, 고치기 바로)
+            // 승인하며 고른 맡기는 정도로 이어 간다 (수동 = 노트도 하나씩 묻기, 고치기 바로)
             if (got.mode) { ctx.mode = got.mode; c.mode = got.mode }
           }
           ran(a === 'always' ? 'always' : 'once')

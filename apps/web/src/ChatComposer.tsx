@@ -33,9 +33,9 @@ export type Fill = { text?: string; n: number; attach?: Attach[]; images?: Image
 
 /** 권한(예전 이름 맡기는 정도): 읽기 전용(write read) 또는 고치는 대화의 모드 셋 */
 export type Trust = 'read' | ChatMode
-/** ⇧⇥ 차례: Claude Code처럼 묻고 하기 → 편집 자동 허용 → 자동 → 계획 모드, 그다음 읽기 전용 (10/22 사용자 결정 "Claude Code 방식", 자동은 11/23) */
-const TRUSTS: Trust[] = ['ask', 'edit', 'auto', 'plan', 'read']
-export const TRUST_NAME: Record<Trust, string> = { read: t('읽기 전용', 'Read only'), ask: t('묻고 하기', 'Ask before edits'), plan: t('계획 모드', 'Plan mode'), edit: t('편집 자동 허용', 'Accept edits'), auto: t('자동', 'Auto') }
+/** 메뉴와 ⇧⇥ 차례: Claude의 모드 메뉴와 같은 이름 · 순서로 자동 → 수동 → 편집 자동 수락 → 계획, 그다음 읽기 전용 (11/26 사용자 결정 "이름을 Claude와 같게") */
+const TRUSTS: Trust[] = ['auto', 'ask', 'edit', 'plan', 'read']
+export const TRUST_NAME: Record<Trust, string> = { read: t('읽기 전용', 'Read only'), ask: t('수동', 'Manual'), plan: t('계획', 'Plan'), edit: t('편집 자동 수락', 'Auto-accept edits'), auto: t('자동', 'Auto') }
 /** 앱 고치기 대화의 맡기는 정도 설명 (작업 폴더에서 고치고 시험, 올리기는 앱) */
 export const APP_HINT: Record<Trust, string> = {
   read: t('읽기만 합니다', 'Reads only'),

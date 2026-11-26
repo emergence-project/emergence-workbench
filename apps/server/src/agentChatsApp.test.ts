@@ -20,7 +20,7 @@ describe('앱 고치기 대화의 허락 규칙', () => {
     expect(judge(ctx(), 'Edit', { file_path: `${repo}/../other/a.ts` }).kind).toBe('deny')
     expect(judge(ctx(), 'Write', { file_path: `${repo}/.git/config` }).kind).toBe('deny')
   })
-  it('명령은 작업 폴더에서 돌린다: 고치기 바로는 그대로, 묻고 하기는 묻고, 계획 승인 전 · 읽기만은 막는다', () => {
+  it('명령은 작업 폴더에서 돌린다: 고치기 바로는 그대로, 수동은 묻고, 계획 승인 전 · 읽기만은 막는다', () => {
     expect(judge(ctx({ mode: 'edit' }), 'Bash', { command: 'pnpm test' })).toEqual({ kind: 'allow' })
     expect(judge(ctx({ mode: 'ask' }), 'Bash', { command: 'pnpm test' })).toMatchObject({ kind: 'ask', key: 'Bash:pnpm test' })
     expect(judge(ctx({ mode: 'plan' }), 'Bash', { command: 'pnpm test' }).kind).toBe('deny')
@@ -35,7 +35,7 @@ describe('앱 고치기 대화의 허락 규칙', () => {
     }
     expect(judge(ctx({ mode: 'edit' }), 'Bash', { command: 'git commit -am x && git fetch origin main && git merge origin/main' }).kind).toBe('allow')
   })
-  it('묻고 하기는 파일 · PR 올리기를 묻고, 계획 먼저는 승인 전에 막고, 읽기만은 늘 막는다', () => {
+  it('수동은 파일 · PR 올리기를 묻고, 계획 먼저는 승인 전에 막고, 읽기만은 늘 막는다', () => {
     expect(judge(ctx({ mode: 'ask' }), 'Edit', { file_path: 'a.ts' })).toMatchObject({ kind: 'ask', key: 'edit:a.ts', claim: 'a.ts' })
     expect(judge(ctx({ mode: 'ask' }), `${W}app_submit`, { title: '고침' }).kind).toBe('ask')
     expect(judge(ctx({ mode: 'plan' }), 'Edit', { file_path: 'a.ts' }).kind).toBe('deny')
@@ -44,7 +44,7 @@ describe('앱 고치기 대화의 허락 규칙', () => {
     expect(judge(ctx({ write: 'read' }), 'Edit', { file_path: 'a.ts' }).kind).toBe('deny')
     expect(judge(ctx({ write: 'read' }), `${W}app_submit`, { title: '고침' }).kind).toBe('deny')
     expect(judge(ctx({ write: 'read' }), `${W}app_checks`, {}).kind).toBe('allow')
-    // 자기 PR squash 합치기 (11/19): 고치기 바로는 그대로, 묻고 하기는 묻고, 승인 전 · 읽기만은 막는다
+    // 자기 PR squash 합치기 (11/19): 고치기 바로는 그대로, 수동은 묻고, 승인 전 · 읽기만은 막는다
     expect(judge(ctx(), `${W}app_merge`, {}).kind).toBe('allow')
     expect(judge(ctx({ mode: 'ask' }), `${W}app_merge`, {})).toMatchObject({ kind: 'ask', key: 'app_merge' })
     expect(judge(ctx({ mode: 'plan' }), `${W}app_merge`, {}).kind).toBe('deny')

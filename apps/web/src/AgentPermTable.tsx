@@ -49,7 +49,7 @@ export function PermTable({ chat, onSaved }: { chat: Chat; onSaved(m: string): v
           </div>
         )
       })}
-      {chat.mode === 'plan' && !readOnly && <span className="muted ac-hint">{t('계획 모드: 계획을 승인하기 전에는 편집 · 삭제를 막습니다', 'Plan mode: edits and deletes are blocked until you approve the plan')}</span>}
+      {chat.mode === 'plan' && !readOnly && <span className="muted ac-hint">{t('계획: 승인하기 전에는 편집 · 삭제를 막습니다', 'Plan: edits and deletes are blocked until you approve the plan')}</span>}
     </div>
   )
 }

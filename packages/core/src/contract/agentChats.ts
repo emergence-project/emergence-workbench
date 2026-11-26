@@ -35,7 +35,7 @@ export const CENTRAL_RID = '_central'
 export const CHAT_STATES = ['running', 'waiting', 'queued', 'idle', 'stopped', 'error'] as const
 export const ASK_ANSWERS = ['allow', 'always', 'deny'] as const
 /**
- * 얼마나 맡길지 (10/21 "에이전트 창 구조"): ask 묻고 하기(노트 고치기도 하나씩 묻는다) ·
+ * 얼마나 맡길지 (10/21 "에이전트 창 구조"): ask 수동(노트 고치기도 하나씩 묻는다) ·
  * plan 계획 먼저(계획을 승인하기 전에는 읽기만, 승인 뒤 범위 안 노트는 묻지 않고) · edit 고치기 바로(범위 안 노트는 묻지 않고).
  * 명령 · 웹 · 범위 밖은 어느 모드든 묻거나 막는다.
  * auto 자동(11/23 "클로드 자동 모드처럼"): edit에 더해 읽기(어디든, 비밀이 든 곳 빼고) · 실행 · 웹을 묻지 않고, 크리티컬한 일만 한 번 묻는다
