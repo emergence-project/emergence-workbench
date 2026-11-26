@@ -176,6 +176,8 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
           {recordsError && <div className="banner danger" role="alert">{recordsError}</div>}
           {/* 일지를 받지 못하면 그 줄만 조용히 빠져 기록이 적어 보였다 (11/21) */}
           {journalError && <div className="banner danger" role="alert">{t(`일지를 읽지 못해 일지의 기록이 빠져 있습니다: ${journalError}`, `The journal could not be read, so its entries are missing: ${journalError}`)}</div>}
+          {/* 맡긴 일을 받지 못하면 「판단 0 기다림」처럼 없는 것으로 보였다 (11/27). 「모두 › 맡긴 일」은 목록이 이유를 적는다 */}
+          {tasksError && view !== 'all' && <div className="banner danger" role="alert">{t(`맡긴 일을 읽지 못해 맡긴 일이 빠져 있습니다: ${tasksError}`, `Delegated tasks could not be read, so they are missing: ${tasksError}`)}</div>}
           {view === 'mine' && <>
             <TaskWeek rid={rid} tasks={tasks} entries={entries} todos={summary.todos} />
             <div className="tk-list" data-ui="내 차례 목록">

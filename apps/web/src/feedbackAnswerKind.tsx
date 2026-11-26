@@ -26,6 +26,7 @@ export interface AnswerParts {
   tip?: string
 }
 
+const SIZE_SHOWN: Record<string, string> = { 작음: t('작음', 'small'), 중간: t('중간', 'medium'), 큼: t('큼', 'large') }
 const ANSWER_SHOWN: Record<string, string> = { 있음: t('지금 앱에 있음', 'In the app now'), 없음: t('지금 앱에 없음', 'Not in the app yet'), 일부: t('지금 앱에 일부', 'Partly in the app') }
 
 /** 처리 첫 줄에서 결론을 읽는다: 「수정 완료 (#414)」 · 「답변: 없음」 · 「의견에 동의 (중간)」 */
@@ -34,7 +35,7 @@ export function resultOf(state: FeedbackState, note = '', commit = ''): string {
   if (state === '반영') return first.match(/\(#(\d+)\)/)?.[0].slice(1, -1) ?? (/^#\d+$/.test(commit) ? commit : commit.slice(0, 7))
   // 「없음」만으로는 "답이 없다"로 읽혀서(11/8 20:38), 무엇이 있고 없는지 붙여 보인다. 기록은 그대로 「답변: 없음」
   if (state === '답변') { const v = first.match(/^답변:\s*(있음|없음|일부)/)?.[1]; return v ? (ANSWER_SHOWN[v] ?? '') : '' }
-  if (state === '동의') { const size = first.match(/\((작음|중간|큼)\)/)?.[1]; return size ? `${t('크기', 'Size')} ${size}` : '' }
+  if (state === '동의') { const size = first.match(/\((작음|중간|큼)\)/)?.[1]; return size ? `${t('크기', 'Size')} ${SIZE_SHOWN[size]}` : '' }
   return ''
 }
 
