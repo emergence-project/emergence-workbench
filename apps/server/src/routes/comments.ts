@@ -5,7 +5,7 @@ import { readAiKey } from '../aiKey.js'
 import { agentAnswer, answeredBy, appendAnswer, applyAnswerFixes, askPrompt, claudeClassifierRunner, questionRunner, recordChatPrompt, replyToRecord } from '../ask.js'
 import { repeat } from '../scheduler.js'
 import { fixPrompt } from '../recordFix.js'
-import { tidyHint } from '../recordArchive.js'
+import { archivePlan, tidyHint } from '../recordArchive.js'
 import * as C from '@rw/core/contract/comments'
 import { calledAgent, LIBRARY_RID } from '@rw/core'
 import { parseBody, replies } from '../contract.js'
@@ -35,8 +35,8 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
     const tidy: C.RecordTidy[] = []
     for (const rid of [...registry.ids(), ...(registry.libraryPath ? [LIBRARY_RID] : [])]) {
       try {
-        const files = listComments(recordsRoot(rid))
-        const hint = tidyHint(files)
+        const root = recordsRoot(rid), files = listComments(root)
+        const hint = tidyHint(files, Date.now(), () => archivePlan(root).reduce((n, m) => n + m.ids.length, 0))
         if (hint) tidy.push({ rid, ...hint })
         for (const f of files) for (const c of f.comments) if (isUserTurnRecord(c)) turns.push({ rid, target: f.target, title: f.title, id: c.id, kind: c.kind, by: c.by!, body: c.body })
       } catch { /* 저장소가 없거나 읽지 못하면 그 곳은 건너뛴다 */ }
