@@ -264,3 +264,33 @@ describe('비밀이 든 곳을 건드리는 명령 (자동 모드에서 한 번 
     for (const c of ['cat README.md', 'ls src/environment.ts', 'pnpm test', 'echo .envrc-notes']) expect(touchesSecret(c), c).toBe(false)
   })
 })
+
+describe('gh api · gh --web · uniq 의 둘째 이름 (11/26 검토: 옵션의 값을 메서드로 읽어 쓰기가 지나갔다)', () => {
+  it('값을 받는 옵션의 값은 메서드 · 주소가 아니다: 몸을 붙이고 GET 을 적지 않은 것은 POST 다', () => {
+    for (const c of ['gh api repos/o/r/issues -f title=x -p graphql', 'gh api repos/o/r/issues -f title=x -p -XGET', 'gh api repos/o/r/issues -f title=x -q --method=GET', 'gh api repos/o/r/issues -f title=x -t -XGET',
+      'gh api repos/o/r/issues -f title=x -H -XGET', 'gh api repos/o/r/issues -f title=x --cache -XGET', 'gh api repos/o/r/actions/workflows/ci.yml/dispatches -f ref=main -p -XGET', 'gh api repos/o/r/issues -f title=x --jq graphql',
+      'gh api repos/o/r/issues -f title=x --preview=graphql', 'gh api repos/o/r/issues -f title=x -p -XGET 2>&1 | tail -3'])
+      expect(stateOnlyCommand(c), c).toBe('no')
+  })
+  it('모르는 옵션 · 주소가 둘 · 메서드를 두 번 적은 것은 막는다', () => {
+    for (const c of ['gh api a b', 'gh api --unknown a', 'gh api -X GET -X POST a', 'gh api --method=GET --method=DELETE a', 'gh api -X', 'gh api', 'gh api -f a=b'])
+      expect(stateOnlyCommand(c), c).toBe('no')
+  })
+  it('파일 · 입력을 읽어 보내는 것과 다른 곳으로 보내는 것은 막는다', () => {
+    for (const c of ['gh api -X GET repos/o/r/commits -F sha=@/etc/hosts', 'gh api --method GET repos/o/r/commits -F sha=@../other/file', 'gh api -X GET search/code -F q=@-', 'gh api -X GET a --field=x=@f',
+      'gh api https://other.example/x', 'gh api --hostname other.example user', 'gh api user --hostname=other.example', 'gh --help=false api https://other.example/x', 'gh --help=false pr view 1'])
+      expect(stateOnlyCommand(c), c).toBe('no')
+  })
+  it('읽기는 그대로 묻지 않는다', () => {
+    for (const c of ['gh api -XGET repos/o/r/pulls', 'gh api repos/o/r -q .name', 'gh api -X GET search/issues -f q=x', 'gh api --method=GET a -F per_page=100', "gh api graphql -f query='{ viewer { login } }'",
+      'gh api repos/x/y/pulls --paginate --jq ".[].number"', 'gh api -H "Accept: application/vnd.github+json" repos/o/r', 'gh api repos/o/r -i', 'gh api /repos/o/r', 'gh api repos/o/r --cache 1h', 'gh --version'])
+      expect(stateOnlyCommand(c), c).toBe('ok')
+  })
+  it('--web=true 도 브라우저를 연다', () => {
+    for (const c of ['gh pr view 1 --web=true', 'gh pr list --web=1', 'gh repo view --web=true', 'gh search repos x --web=true']) expect(stateOnlyCommand(c), c).toBe('no')
+  })
+  it('uniq 의 둘째 이름은 쓸 파일: 입력을 뜻하는 - 와 -- 뒤의 낱말도 센다', () => {
+    for (const c of ['cat f | uniq - out.sh', 'uniq -c - out', 'uniq -- - out', 'uniq -- -a out', 'uniq -f1 - out']) expect(stateOnlyCommand(c), c).toBe('no')
+    for (const c of ['uniq a', 'uniq -c a', 'cat f | uniq -c -', 'cat f | uniq', 'uniq -- a']) expect(stateOnlyCommand(c), c).toBe('ok')
+  })
+})

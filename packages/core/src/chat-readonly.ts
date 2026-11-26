@@ -47,16 +47,38 @@ const GIT: Record<string, Rule> = {
     && !a.some((x) => /^(--add|--replace-all|--unset|--unset-all|--rename-section|--remove-section|--edit|-e|--file|-f|--blob)(=|$)/.test(x))
     && !/^(set|unset|edit|rename-section|remove-section)$/.test(positional(a)[0] ?? ''),
 }
-/** gh api: GET만. 몸을 붙이는 -f · -F · --input은 POST가 되므로 -X GET을 적었을 때만, graphql은 mutation이 없을 때만 */
+/** gh api 의 옵션 가운데 값을 받는 것: 다음 낱말은 -로 시작해도 그 옵션의 값이다 (gh api a -f t=x -p -XGET 의 -XGET 은 -p 의 값) */
+const GH_API_VALUE = /^(-H|--header|-f|--raw-field|-F|--field|-q|--jq|-t|--template|-p|--preview|-X|--method|--cache|--input|--hostname)$/
+const GH_API_FLAG = /^(-i|--include|--paginate|--slurp|--silent|--verbose)$/
+/**
+ * gh api: GET만. 몸을 붙이는 -f · -F는 POST가 되므로 -X GET을 적었을 때만, graphql은 mutation이 없을 때만.
+ * 옵션을 차례로 읽는다 (11/26 검토): 값을 받는 옵션의 값을 메서드 · 주소로 읽으면 `gh api repos/o/r/issues -f title=x -p -XGET` 이 POST인데 지나갔다.
+ * 모르는 옵션 · 붙여 쓴 짧은 옵션(-iXDELETE · -if k=v. -XGET 만 둔다) · 주소가 둘 이상이면 막는다.
+ * 파일 · 입력을 읽어 보내는 것(--input · -F k=@파일 · @-)과 다른 곳으로 보내는 것(--hostname · 주소를 통째로 적은 것)도 막는다
+ */
 const ghApi: Rule = (a) => {
-  // 붙여 쓴 짧은 옵션(-iXDELETE · -if k=v)은 읽지 않고 막는다: -X · -f 가 그 안에 숨는다 (11/25 검토). -XGET 만 둔다
-  if (a.some((x) => /^-[a-zA-Z]{2,}/.test(x) && !/^-X[A-Za-z]+$/.test(x))) return false
-  const method = a.flatMap((x, i) => x === '-X' || x === '--method' ? [a[i + 1] ?? ''] : x.startsWith('--method=') ? [x.slice(9)] : x.startsWith('-X') && x.length > 2 ? [x.slice(2)] : [])
-  if (method.some((m) => m.toUpperCase() !== 'GET') || a.some((x) => /^--input/.test(x))) return false
-  // graphql: mutation이 없을 때만. 파일에서 읽는 질의(-F query=@파일)는 안을 볼 수 없어 막는다
-  // 질의를 변수 · 치환으로 넣은 것도 안을 볼 수 없다 (-f query="$(cat q.txt)")
-  if (a.includes('graphql')) return !a.some((x) => /\bmutation\b/i.test(x) || /=@/.test(x) || /SUBST|\$/.test(x))
-  return method.length > 0 || !a.some((x) => /^(-f|-F|--field|--raw-field)/.test(x))
+  let endpoint: string | undefined
+  let method: string | undefined
+  const fields: string[] = []
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i]!
+    if (!x.startsWith('-') || x === '-') { if (endpoint !== undefined) return false; endpoint = x; continue }
+    const eq = /^(--[a-z-]+)=([\s\S]*)$/.exec(x)
+    const glued = /^-X([A-Za-z]+)$/.exec(x)
+    const name = eq ? eq[1]! : glued ? '-X' : x
+    let value = eq ? eq[2] : glued ? glued[1] : undefined
+    if (GH_API_VALUE.test(name)) { if (value === undefined) { value = a[++i]; if (value === undefined) return false } }
+    else if (!GH_API_FLAG.test(name) || value !== undefined) return false
+    if (name === '--input' || name === '--hostname') return false
+    if (name === '-X' || name === '--method') { if (method !== undefined || value!.toUpperCase() !== 'GET') return false; method = 'GET' }
+    if (/^(-f|-F|--field|--raw-field)$/.test(name)) fields.push(value!)
+  }
+  if (endpoint === undefined || endpoint.includes('://')) return false
+  // -F k=@파일 · k=@- 는 파일 · 입력을 읽어 보낸다
+  if (fields.some((f) => /=@/.test(f))) return false
+  // graphql: mutation이 없을 때만. 질의를 변수 · 치환으로 넣은 것은 안을 볼 수 없다 (-f query="$(cat q.txt)")
+  if (endpoint.replace(/^\//, '') === 'graphql') return !a.some((x) => /\bmutation\b/i.test(x) || /SUBST|\$/.test(x))
+  return method !== undefined || !fields.length
 }
 const LOOK: Rule = sub({ view: any, list: any })
 const GH: Record<string, Rule> = {
@@ -128,7 +150,8 @@ function gitRule(table: Record<string, Rule>): Rule {
 function ghRule(table: Record<string, Rule>): Rule {
   return (a) => {
     if (versionOnly(a)) return true
-    if (a.some((x) => x === '--web' || /^-[a-zA-Z]*w/.test(x))) return false
+    // --web=true 도 브라우저를 연다. 하위 명령 앞의 옵션(--help=false api …)은 읽지 않고 막는다: 하위 명령을 잘못 짚는다 (11/26 검토)
+    if (a.some((x) => /^--web(=|$)/.test(x) || /^-[a-zA-Z]*w/.test(x)) || a[0]?.startsWith('-')) return false
     // gh api -X GET <경로>: 첫 낱말이 api면 옵션 값(GET)을 하위 명령으로 읽지 않게 따로 본다
     return a[0] === 'api' ? ghApi(a.slice(1)) : sub(table)(a)
   }
@@ -282,7 +305,8 @@ const PROGRAMS: Record<string, Rule> = {
   // -C는 magic 파일을 컴파일해 쓴다
   file: (a) => !a.some((x) => /^-[a-zA-Z]*C/.test(x) || longOpt('--compile')(x)),
   // 둘째 이름은 쓸 파일이다: 별표가 두 파일로 펼쳐져도 그렇다
-  uniq: (a) => positional(a).length <= 1 && !a.some(GLOB),
+  // 둘째 이름은 쓸 파일이다. 입력을 뜻하는 - 와 -- 뒤의 낱말도 이름으로 센다 (cat f | uniq - out, 11/26 검토)
+  uniq: (a) => a.filter((x, n) => x === '-' || !x.startsWith('-') || a.slice(0, n).includes('--')).length <= 1 && !a.some(GLOB),
   date: (a) => positional(a).every((x) => x.startsWith('+')) && !a.includes('-s') && !a.some(longOpt('--set')),
   hostname: (a) => positional(a).length === 0,
   find: findRule,

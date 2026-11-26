@@ -466,7 +466,8 @@ function kindOf(prog: string, args: string[]): ChatKind {
   if (prog === 'sort' && args.some((a) => /^--compress-program/.test(a))) return 'run'
   if (prog === 'sort' && (shortHas('o') || args.some((a) => /^--output(=|$)/.test(a)))) return 'edit'
   if (prog === 'tree' && args.some((a) => /^-[a-zA-Z]*[oR]/.test(a))) return 'edit'
-  if (prog === 'uniq' && positional.length > 1) return 'edit'
+  // uniq [입력 [출력]]: 둘째 이름은 쓸 파일이다. 입력을 뜻하는 - 와 -- 뒤의 낱말도 이름으로 센다 (uniq - out · uniq -- -a out, 11/26 검토)
+  if (prog === 'uniq' && args.filter((a, n) => a === '-' || !a.startsWith('-') || args.slice(0, n).includes('--')).length > 1) return 'edit'
   // 둘째 이름은 쓸 파일이다
   if (prog === 'xxd' && (shortHas('r') || args.filter((a, n) => !a.startsWith('-') && !/^-[lscgon]$/.test(args[n - 1] ?? '')).length > 1)) return 'edit'
   if (prog === 'yq' && (shortHas('i') || args.some((a) => /^--inplace/.test(a)))) return 'edit'

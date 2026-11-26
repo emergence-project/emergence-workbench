@@ -445,3 +445,11 @@ describe('읽기로 보이던 쓰기 · 실행 (11/20 보안 검토)', () => {
     expect(Date.now() - t0).toBeLessThan(3000)
   })
 })
+
+describe('uniq 의 둘째 이름은 쓸 파일 (11/26 검토): 입력을 뜻하는 - 와 -- 뒤의 낱말도 이름으로 센다', () => {
+  it('쓰는 꼴은 편집, 읽는 꼴은 읽기', () => {
+    for (const c of ['cat f | uniq - out.sh', 'uniq -c - out', 'uniq -- - out', 'uniq -- -a out', 'uniq -f1 - out', 'uniq a b']) expect(k(c), c).toBe('edit')
+    for (const c of ['uniq a', 'uniq -c a', 'cat f | uniq -c -', 'cat f | uniq', 'uniq -- a']) expect(k(c), c).toBe('read')
+    expect(k('cat f | uniq - /etc/x')).toBe('outside')
+  })
+})
