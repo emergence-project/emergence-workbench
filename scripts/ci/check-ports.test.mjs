@@ -35,5 +35,7 @@ test('없는 경로 · 목록에서 빠진 안내서 · 머리 없는 안내서�
 })
 
 test('코드만 바꾼 PR은 막지 않는다 (11/27: 안내서는 옮길 때 맞춘다)', () => {
-  assert.deepEqual(checkPorts({ ...base(), files: ['src/a.ts'] }), [])
+  // 예전에는 바뀐 파일(files)을 받아 막았다. 이제 받아도 보지 않는다
+  const input = { ...base(), files: ['src/a.ts'] }
+  assert.deepEqual(checkPorts(input), [])
 })
