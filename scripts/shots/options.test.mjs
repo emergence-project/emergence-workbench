@@ -38,12 +38,16 @@ test('help is available without starting a browser', () => {
 })
 
 
-test('the existing CI scope stays 138 screens with exactly two dark captures', () => {
+// 화면 수는 적지 않는다 (11/27): 숫자를 적어 두면 화면을 더할 때마다 실패해 숫자만 고쳤고(20번), 걸러 낸 것은 없었다.
+// 대신 범위가 어긋나는 꼴(이름 겹침 · 다른 샘플 섞임 · 어두운 그림 수)을 본다.
+test('the default CI scope has unique screen names, no other sample, and exactly two dark captures', () => {
   const defaults = parseShotOptions([], {})
   const screens = selectScreens(defaults.sample)
-  assert.equal(screens.length, 138)
+  assert.ok(screens.length > 0)
+  assert.equal(new Set(screens.map(([name]) => name)).size, screens.length)
+  assert.ok(screens.every(([name]) => !name.startsWith('subjects-')))
   assert.deepEqual(screens.filter(([name]) => screenScheme(defaults.theme, name) === 'dark').map(([name]) => name), ['dark-topic', 'dark-note-info'])
-  assert.equal(selectScreens('subjects').length, 11)
+  assert.ok(selectScreens('subjects').length > 0)
   assert.ok(selectScreens('subjects').every(([name]) => name.startsWith('subjects-')))
   assert.ok(screens.every(([name]) => screenScheme('light', name) === 'light'))
   assert.ok(screens.every(([name]) => screenScheme('dark', name) === 'dark'))
@@ -67,7 +71,7 @@ test('the actual CI capture command selects the same bounded default scope', () 
   const command = workflow.jobs.shots.steps.find((step) => step.run?.startsWith('pnpm shots')).run
   const options = parseShotOptions(command.split(/\s+/).slice(2), {})
   assert.deepEqual(options, { viewport: { width: 1200, height: 735 }, theme: 'mixed', sample: 'default', lang: 'ko', scale: 2, help: false })
-  assert.equal(selectScreens(options.sample).length, 138)
+  assert.deepEqual(selectScreens(options.sample), selectScreens(parseShotOptions([], {}).sample))
   assert.equal(selectScreens(options.sample).filter(([name]) => screenScheme(options.theme, name) === 'dark').length, 2)
 })
 
