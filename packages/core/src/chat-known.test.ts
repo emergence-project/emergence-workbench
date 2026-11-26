@@ -148,6 +148,17 @@ describe('검토 2차에서 나온 꼴', () => {
   })
 })
 
+describe('검토 3차에서 나온 꼴', () => {
+  it('묻는다', () => {
+    for (const c of ["sed -n 's/x/[/;e zz;#]/' f", "sed -n 's/[[:alpha:]/]/#/;e zz' f", "sed -n ':a;1e zz' f", 'read x < f; echo $[x]', 'read x < f; echo ${s:x}', "read x < f; printf -v 'a[x]' %s 1", 'read x < f; [[ -v a[x] ]]',
+      'read "x" < f; (( x ))', 'printf -v "x" %s 1; (( x ))', 'for x in a*; do (( x )); done', "cat $'\\' x <<'E''\nzzevil\nE", 'cat $[x<<E]\nzzevil\nE',
+      `awk 'BEGIN{x=1} $0~/"/{} BEGIN{system("x")} $0~/"/{}'`, `awk '$0~/"/{print 1 | "sh"}'`, "echo x | xargs -I{} sh -c {}", "find . -exec sh -c 'cat {}' \;", 'git merge -s ours x', 'git pull -s x']) expect(unreadWhy(c), c).toBeDefined()
+  })
+  it('지나간다', () => {
+    for (const c of ["sed 's/[[:space:]]*$//' f", "sed -n '/^[a-z]/p' f", "sed 's/x/[y]/g' f", "sed -n ':a;N;ba' f", 'for f in *.md; do wc -l "$f"; done', 'for f in src/*.ts; do [[ -f $f ]] && echo $f; done', "awk '$3 > 100 {print $1}' f", 'x=${y:-a}; echo ${x:+b}']) expect(unreadWhy(c), c).toBeUndefined()
+  })
+})
+
 describe('dataHeredocsRemoved', () => {
   it('자료 본문과 끝 줄을 빼고 받는 줄은 남긴다', () => {
     expect(dataHeredocsRemoved("cat > a <<'EOF'\nx\nEOF\nls")).toBe('cat > a </dev/null\nls')

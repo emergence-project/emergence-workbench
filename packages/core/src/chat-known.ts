@@ -93,16 +93,20 @@ export function unreadWhy(cmd: string, o: KnownOpts = {}, depth = 0): Unread | u
  */
 function taintedArith(text: string): boolean {
   const names = new Set<string>()
-  for (const m of text.matchAll(/\b(?:read|mapfile|readarray)\b([^;&|\n)]*)/g)) for (const x of m[1]!.split(/\s+/)) { if (/^[A-Za-z_]\w*$/.test(x)) names.add(x) }
-  for (const m of text.matchAll(/\bprintf\s+-v\s*([A-Za-z_]\w*)/g)) names.add(m[1]!)
+  for (const m of text.matchAll(/\b(?:read|mapfile|readarray)\b([^;&|\n)]*)/g)) for (const x of m[1]!.replace(/['"]/g, '').split(/\s+/)) { const nm = /^([A-Za-z_]\w*)/.exec(x)?.[1]; if (nm) names.add(nm) }
+  for (const m of text.matchAll(/\bprintf\s+-v\s*['"]?([A-Za-z_]\w*)/g)) names.add(m[1]!)
   for (const m of text.matchAll(/(?:^|[\s;&|(])([A-Za-z_]\w*)\+?=(?:[^\s;&|]*[$`]|["'][^"']*[$`])/g)) names.add(m[1]!)
-  for (const m of text.matchAll(/\bfor\s+([A-Za-z_]\w*)\s+in\s+[^;\n]*[$`]/g)) names.add(m[1]!)
+  // 무늬 위를 도는 for 도: 파일 이름이 a[$(…)] 일 수 있다
+  for (const m of text.matchAll(/\bfor\s+([A-Za-z_]\w*)\s+in\s+[^;\n]*[$`*?[]/g)) names.add(m[1]!)
   if (!names.size) return false
   const spots: string[] = []
   for (const m of text.matchAll(/\(\(([\s\S]*?)\)\)/g)) spots.push(m[1]!)
-  for (const m of text.matchAll(/\[\[([\s\S]*?)\]\]/g)) if (/-(eq|ne|lt|le|gt|ge)\b/.test(m[1]!)) spots.push(m[1]!)
+  for (const m of text.matchAll(/\[\[([\s\S]*?)\]\]/g)) if (/-(eq|ne|lt|le|gt|ge|v)\b/.test(m[1]!)) spots.push(m[1]!)
   for (const m of text.matchAll(/\blet\b([^;\n]*)/g)) spots.push(m[1]!)
-  for (const m of text.matchAll(/\$\{[A-Za-z_]\w*\[([^\]]*)\]/g)) spots.push(m[1]!)
+  // $[ … ] (옛 셈) · 어디든 이름 뒤의 [ … ] (첨자) · ${x:시작:길이}
+  for (const m of text.matchAll(/\$\[([^\]]*)\]/g)) spots.push(m[1]!)
+  for (const m of text.matchAll(/[A-Za-z_]\w*\[([^\]]*)\]/g)) spots.push(m[1]!)
+  for (const m of text.matchAll(/\$\{[A-Za-z_]\w*:(?![-=?+])([^}]*)\}/g)) spots.push(m[1]!)
   return spots.some((x) => [...x.matchAll(/[A-Za-z_]\w*/g)].some((m) => names.has(m[0])))
 }
 
@@ -151,7 +155,8 @@ function shellWhy(prog: string, args: string[]): string | undefined {
   for (let j = 0; j < args.length; j++) {
     const a = args[j]!
     if (a === '--') { const f = args[j + 1]; return f && !/^\/|SUBST|[$`]|^~/.test(f) && !f.split('/').includes('..') ? undefined : why }
-    if (/^-[eluvxnc]+$/.test(a)) { if (a.includes('c')) return args[j + 1] !== undefined ? undefined : why; continue }
+    // -c 의 글이 xargs · find 의 자리표시 {} 를 담으면 받은 글이 코드가 된다 (xargs -I{} sh -c {}, 11/26 검토 3차)
+    if (/^-[eluvxnc]+$/.test(a)) { if (a.includes('c')) return args[j + 1] !== undefined && !args[j + 1]!.includes('{}') ? undefined : why; continue }
     if (a === '-o') { if (!/^(errexit|nounset|pipefail|xtrace)$/.test(args[j + 1] ?? '')) return why; j++; continue }
     if (/^[-+]/.test(a)) return why
     // 스크립트 파일: 작업 폴더 안의 글자 그대로의 경로만 (/dev/stdin · <( … ) · 변수는 아니다)
@@ -182,6 +187,7 @@ function gitWhy(args: string[]): string | undefined {
   if (longs.some((l) => l.length >= 3 && danger.some((d) => d.startsWith(l)))) return `git ${sub}`
   if (sub === 'grep' && rest.some((a) => /^-[a-zA-Z]*O/.test(a))) return 'git grep -O'
   if (sub === 'rebase' && rest.some((a) => /^-[a-zA-Z]*x/.test(a))) return 'git rebase -x'
+  if (/^(merge|pull|rebase)$/.test(sub) && rest.some((a) => /^-[a-zA-Z]*s/.test(a))) return `git ${sub} -s`
   return undefined
 }
 
@@ -220,10 +226,11 @@ function sedRunsOrWrites(t: string): boolean {
   let i = 0
   const n = t.length
   // 구분자까지 건너뛰기: 역슬래시 다음 글자와 [ … ] 안은 구분자가 아니다
-  const skipDelim = (d: string): boolean => {
+  // 괄호 식은 정규식 자리에서만 (바꿀 글의 [ 는 글자다), [[:alpha:]] 같은 이름 묶음은 한 덩이로 (11/26 검토 3차)
+  const skipDelim = (d: string, regex = true): boolean => {
     for (i++; i < n && t[i] !== d; i++) {
       if (t[i] === '\\') { i++; continue }
-      if (t[i] === '[') { const e = /^\[\^?\]?[^\]]*\]/.exec(t.slice(i)); if (!e) return false; i += e[0].length - 1 }
+      if (regex && t[i] === '[') { const e = /^\[\^?\]?(?:\[:[a-z]+:\]|\[\.[^\]]*\.\]|\[=[^\]]*=\]|[^\][])*\]/.exec(t.slice(i)); if (!e) return false; i += e[0].length - 1 }
     }
     if (i >= n) return false
     i++
@@ -242,14 +249,14 @@ function sedRunsOrWrites(t: string): boolean {
       i++
       if (!skipDelim(d)) return true
       i--
-      if (!skipDelim(d)) return true
+      if (!skipDelim(d, ch !== 's')) return true
       if (ch === 's') { const f = /^[gpiImM0-9]*/.exec(t.slice(i))![0]; i += f.length; if (/[ewW]/.test(t[i] ?? '')) return true }
       continue
     }
     if (/[ewW]/.test(ch)) return true
     // a i c r R 와 이름표(b t T :)는 줄 끝까지가 그 글이다
     if (/[aicrRbtT:]/.test(ch)) {
-      for (;;) { while (i < n && t[i] !== '\n' && !(/[btT]/.test(ch) && t[i] === ';')) i++; if (/[aic]/.test(ch) && t[i] === '\n' && t[i - 1] === '\\') { i++; continue } break }
+      for (;;) { while (i < n && t[i] !== '\n' && !(/[btT:]/.test(ch) && t[i] === ';')) i++; if (/[aic]/.test(ch) && t[i] === '\n' && t[i - 1] === '\\') { i++; continue } break }
       continue
     }
     if (/[pPdDnNgGhHxlq=QzFv]/.test(ch)) { i++; continue }
@@ -268,8 +275,10 @@ function awkWhy(args: string[]): string | undefined {
     if (/^-[Fv]./.test(a)) continue
     return 'awk 옵션'
   }
-  const prog = (args[j] ?? '').replace(/"(?:[^"\\]|\\.)*"/gs, '""')
-  if (/system\s*\(|getline|\bprintf?\b[^\n]*[>|]|\bclose\s*\(|@\s*[A-Za-z_]|\bfflush\b|ENVIRON|PROCINFO/.test(prog) || /"/.test(prog.replace(/""/g, ''))) return 'awk system · >'
+  // 문자열 · 정규식 리터럴을 짝 맞춰 빼지 않고 글 전체에서 본다 (/"/ 가 짝을 어긋나게 했다, 11/26 검토 3차): print 뒤 어디든 > · | 가 있으면 묻는다
+  const prog = args[j] ?? ''
+  const pr = prog.search(/\bprintf?\b/)
+  if (/system|getline|\bclose\b|fflush|@|ENVIRON|PROCINFO/.test(prog) || (pr >= 0 && /[>|]/.test(prog.slice(pr)))) return 'awk system · >'
   return undefined
 }
 
@@ -405,7 +414,7 @@ function dataHeredoc(before: string, nl: string, head: string, op: string, quote
   if (head.includes('<<') || tail.includes('<<')) return undefined
   // << 가 진짜인지 틀림없을 때만: 글 처음부터 차례로 읽어 따옴표 · 주석 안이 아니고 역슬래시 뒤가 아니다 (cat # <<E · cat "<<E" · 앞 줄에서 연 따옴표 안, 11/26 검토).
   // 셈 (( · $(( 의 << (비트 밀기) · ${…} 안 · <<< 도 아니다
-  if (!plainBefore(before) || /\(\(|\$\{/.test(before) || head.endsWith('<')) return undefined
+  if (!plainBefore(before) || /\(\(|\$\{|\$\[|\$'/.test(before) || head.endsWith('<')) return undefined
   if (indent && (op !== '<<-' || /[^\t]/.test(indent))) return undefined
   if (!quote && /[$`\\]/.test(body)) return undefined
   const receiver = head.split(/&&|\|\||[;&|(`]|\$\(/).pop()!.trim()
