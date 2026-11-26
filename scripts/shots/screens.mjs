@@ -104,18 +104,20 @@ export const DEFAULT_SCREENS = [
   ['agent-background', '#/agent/{done}', '[data-ui="에이전트 대화"]'],
   // 새 대화의 프로젝트 고르기 (11/8 14:16 제안): 입력란 아래 알약 버튼의 메뉴(찾기 · 여럿 고르는 프로젝트 목록 · 고칠 곳 안내, 11/19)
   ['agent-new', '#/agent', '대화 프로젝트 고르기 항목', ['대화 프로젝트 고르기']],
+  // 권한 메뉴 (11/26): Claude의 모드 메뉴와 같은 이름 · 순서 (자동 · 수동 · 편집 자동 수락 · 계획, 그다음 읽기 전용)
+  ['agent-trust', '#/agent', '맡기는 정도 항목', ['맡기는 정도']],
   // 사이드바를 닫은 에이전트 화면 (같은 제안 안 A): 새 대화 아래 최근 대화 (shots.mjs가 찍기 전에 닫고 뒤에 되돌린다)
   ['agent-recent', '#/agent', '최근 대화'],
-  ['agent-panel', '#/r/{rid}', '에이전트 패널', '[data-ui="오른쪽 사이드바 갈래"] button[data-mode="agent"]'],
+  ['agent-panel', '#/r/{rid}', '에이전트 패널', ['+맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button[data-mode="agent"]']],
   // 에이전트 고르기 (10/30 Codex · Gemini): 새 대화의 모델 메뉴 맨 위 에이전트 줄 (예제 맥에는 Codex · Gemini가 없어 「설치 안 됨」)
-  ['agent-pick', '#/r/{rid}', '모델 고르기 항목', ['[data-ui="오른쪽 사이드바 갈래"] button[data-mode="agent"]', '모델 고르기']],
+  ['agent-pick', '#/r/{rid}', '모델 고르기 항목', ['+맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button[data-mode="agent"]', '모델 고르기']],
   // 입력란 ＋ 메뉴 (11/19 지금 화면 · 고른 글 붙이기): 고른 글이 없어 「고른 글 붙이기」는 흐리다
-  ['agent-attach', '#/r/{rid}', '붙이기 버튼 항목', ['[data-ui="오른쪽 사이드바 갈래"] button[data-mode="agent"]', '붙이기 버튼']],
+  ['agent-attach', '#/r/{rid}', '붙이기 버튼 항목', ['+맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button[data-mode="agent"]', '붙이기 버튼']],
   // 노트 본문에서 글을 끌어 고른 메뉴 (11/19 「? 질문」): 4색 · 코멘트 · 질문 (shots.mjs가 첫 문단을 세 번 눌러 고른다)
   ['note-select', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '고른 글 질문'],
   // 패널 자리 (#233): 작업 화면 아래, 노트 옆 칸에 나란히(끝난 대화를 연 패널에서 자리 › 나란히)
-  ['agent-dock', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '에이전트 아래 자리', ['맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button[data-mode="agent"]']],
-  ['agent-beside', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '[data-ui="에이전트 대화"]', ['맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button[data-mode="agent"]', '대화 자리', '[data-ui="대화 자리 항목"] button:nth-of-type(3)']],
+  ['agent-dock', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '에이전트 아래 자리', ['+맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button[data-mode="agent"]']],
+  ['agent-beside', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '[data-ui="에이전트 대화"]', ['+맥락 칸 켜고 끄기', '[data-ui="오른쪽 사이드바 갈래"] button[data-mode="agent"]', '대화 자리', '[data-ui="대화 자리 항목"] button:nth-of-type(3)']],
   // 중앙 대화 (11/16 "중앙 에이전트"): 처음 말하는 화면, 그리고 하위 대화 둘(앱 고치기 · 프로젝트 작성)을 연 중앙 (shots.mjs, {central})
   ['agent-central-start', '#/agent/central', '중앙 시작'],
   ['agent-central', '#/agent/{central}', '작업 현황'],
@@ -123,8 +125,9 @@ export const DEFAULT_SCREENS = [
   ['agent-debate', '#/agent/{debate}', '토론 설정'],
   // 상단바 알림 종 (11/20 시안 4절 안 B): 누르면 지난 7일 알림 (반영됨 · 에이전트 · 피드백 · 오류)
   ['notice-bell', '#/agent', '알림 목록', '알림 종'],
-  // 어느 화면에서나 오른쪽 사이드바의 에이전트 (11/16): 소개 화면에서 사이드바를 열면 맨 위 「중앙」, 최근 대화, 중앙에게 말하는 입력란
-  ['agent-side', '#/about', '에이전트 사이드바', '맥락 칸 켜고 끄기'],
+  // 어느 화면에서나 오른쪽 사이드바의 에이전트 (11/16): 설정 화면에서 사이드바를 열면 맨 위 「중앙」, 최근 대화, 중앙에게 말하는 입력란.
+  // 소개는 11/24부터 자기 오른쪽 사이드바(이력 · 수정 | 에이전트)라 설정에서 찍는다
+  ['agent-side', '#/settings', '에이전트 사이드바', '맥락 칸 켜고 끄기'],
   // 자기 오른쪽 사이드바가 있는 지식 첫 화면: 사이드바 맨 위 「정보 | 에이전트」에서 에이전트
   ['knowledge-agent', '#/library', '에이전트 사이드바', '[data-ui="오른쪽 사이드바 갈래"] button[data-mode="agent"]'],
   // 피드백 맡기기 (2단계 나): 수정 요청이 온 항목을 앱 고치기 대화에 맡겨 처리한 뒤, 그 항목의 진행 줄 (shots.mjs가 맡기고 처리 기록을 적는다)
@@ -144,11 +147,11 @@ export const DEFAULT_SCREENS = [
   ['about-ports', '#/about/reference/ports', '다른 앱에 옮기기'],
   // 기능 소개 절 맨 아래의 이식 안내서 줄 (11/19): 에이전트 대화 절 → docs/ports/agent-chat.md
   ['about-port-link', '#/about/agents/conversations', '이식 안내서'],
-  // 소개 오른쪽 사이드바 (11/20 시안 2 · 3절): 시계로 열고 이력 표의 첫 줄을 누르면 그 절로 가서 바꾼 문장에 하이라이트, 줄 아래 요약.
+  // 소개 오른쪽 사이드바 (11/20 시안 2 · 3절, 11/24부터 앱 오른쪽 사이드바의 정보 갈래): 상단바 정보 아이콘으로 열고 이력 표의 첫 줄을 누르면 그 절로 가서 바꾼 문장에 하이라이트, 줄 아래 요약.
   // 그다음 「수정」 탭에서 화면 구조 절의 첫 문단을 고른 모습. 사이드바와 탭이 기억되므로 소개 화면 맨 끝
   // 11/20: 카드의 「고칠 점」을 눌러 카드 바로 아래에 고칠 점 칸을 펼친 모습 (요약 줄의 💬는 커밋 본문이 있어야 보여, 얕게 받는 CI에는 없다).
   // 카드는 날짜 글자를 누른다: CI에는 제목이 없어 카드 가운데가 「맞아요」라 절 전체가 확인함이 되었다
-  ['about-check-history', '#/about/principles', '이력 표', ['이력 보기', '[data-ui="이력 표"] [data-ui="고친 업데이트"] .about-hist-top .muted','[data-ui="이력 표"] [data-ui="고칠 점"]']],
+  ['about-check-history', '#/about/principles', '이력 표', ['+맥락 칸 켜고 끄기', '[data-ui="이력 표"] [data-ui="고친 업데이트"] .about-hist-top .muted','[data-ui="이력 표"] [data-ui="고칠 점"]']],
   ['about-fix', '#/about', '소개 고치기', ['[data-ui="소개 사이드바 갈래"] button:text-matches("^(수정|Edit)")', '[data-ui="화면 구조"] .about-lead']],
   ['settings', '#/settings', '설정'],
   // 설정 › 계정 (10/21): 시작 준비 (꼭 할 것 · 선택)

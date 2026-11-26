@@ -13,3 +13,8 @@
 .chg-table .chg-ag { width: 56px; text-align: center; color: var(--text-3); }
 .chg-table td.chg-ag.cc.on { background: var(--ag-cc-bg); color: var(--ag-cc); font-weight: var(--fw-strong); }
 .chg-table td.chg-ag.cx.on { background: var(--ag-cx-bg); color: var(--ag-cx); font-weight: var(--fw-strong); }
+
+/* 에이전트 대화 사이드바의 변경사항 아이콘 점 (11/23 시안 side-icons-review-changes): 고친 곳이 있음, 수는 툴팁.
+   주황은 사용자 차례라 +n과 같은 초록. (agent-chats.css의 .ac-side-tab 곁) */
+.ac-side-tab:has(.ac-side-dot) { position: relative; }
+.ac-side-dot { position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--s-solved); box-shadow: 0 0 0 1.5px var(--bg); }

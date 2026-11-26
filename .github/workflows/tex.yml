@@ -70,4 +70,7 @@ jobs:
       - run: sudo DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 install -y -qq --no-install-recommends zsh latexmk texlive-xetex texlive-lang-korean texlive-latex-extra texlive-publishers texlive-pictures texlive-fonts-recommended texlive-plain-generic texlive-science fonts-nanum python3-fonttools
       - run: python3 scripts/ci/mac-fonts.py && fc-cache -f
       - run: pnpm install --frozen-lockfile
+      # RW_REQUIRE_TEX: TeX나 서식이 쓰는 패키지가 없으면 컴파일 테스트를 건너뛰지 않고 실패한다 (testkit.ts의 hasLatex)
       - run: pnpm --filter @rw/server test
+        env:
+          RW_REQUIRE_TEX: '1'

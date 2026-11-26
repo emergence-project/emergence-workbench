@@ -6,7 +6,7 @@ import crypto from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import { CENTRAL_RID, type ChatMode, type ChatScope, type ChatWrite } from '@rw/core/contract/agentChats'
-import { autoOf, commandKind, LIBRARY_RID, neverBypass, runProgram, runPrograms, stateOnlyCommand, touchesSecret, type ChatAutoValues, type ChatKind, type NeverBypass } from '@rw/core'
+import { autoOf, commandKind, heredocBodiesRemoved, LIBRARY_RID, neverBypass, writesFiles, runProgram, runPrograms, stateOnlyCommand, touchesSecret, type ChatAutoValues, type ChatKind, type NeverBypass } from '@rw/core'
 import { commandCritical } from './critical.js'
 import { isInside } from './fsutil.js'
 import { t } from './i18n.js'
@@ -23,7 +23,7 @@ export const MCP = `mcp__${MCP_NAME}__`
 export const READ_TOOLS = new Set(['Read', 'Glob', 'Grep', 'LS', 'NotebookRead'])
 /** 묻지 않고 두는 것: 스킬 읽기(스킬이 시키는 명령 · 고치기는 같은 규칙을 거친다) · 할 일 목록 · 서브에이전트(그 도구 호출도 같은 규칙을 거친다) · 도구 찾기 · 셸 결과 보기 */
 export const FREE_TOOLS = new Set(['Skill', 'TodoWrite', 'Task', 'Agent', 'ToolSearch', 'BashOutput', 'KillBash', 'KillShell', 'EnterPlanMode'])
-/** 계획 모드에서 계획을 보이는 도구: 계획 승인 카드가 된다 */
+/** 「계획」 권한에서 계획을 보이는 도구: 계획 승인 카드가 된다 */
 export const PLAN_TOOL = 'ExitPlanMode'
 /** 파일을 바로 쓰는 도구: 1단계에서는 막는다 (노트는 edit_note로) */
 export const FILE_WRITE_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'] as const
@@ -146,7 +146,8 @@ export function describeStep(ctx: Pick<PolicyCtx, 'rid' | 'scope' | 'repo'>, too
  * 앱 고치기 대화에서 에이전트가 직접 하지 않는 명령: 올리기 · PR · 합치기는 앱이(app_submit · app_merge, 합치기 설정),
  * 실사용 앱 서비스는 사용자가 다룬다. 나머지(시험 · 형식 검사 · 화면 그림 · 커밋 · main 받기)는 작업 폴더에서 돌린다.
  */
-export const APP_OWNED = /\bgit\s+push\b|\bgh\s+(pr|release|repo|workflow|api)\b|\bservice:|\blaunchctl\b|\bgit\s+worktree\b/
+// git과 하위 명령 사이의 전역 옵션(-C <폴더> · -c k=v · --no-pager)을 건너뛴다: `git -C . push`가 비켜 가지 않게
+export const APP_OWNED = /\bgit(?:\s+(?:-[Cc]\s+\S+|--?[\w-]+(?:=\S+)?))*\s+(push|worktree)\b|\bgh\s+(pr|release|repo|workflow|api)\b|\bservice:|\blaunchctl\b/
 
 /**
  * 중앙 대화 (11/16 "중앙 에이전트"): 읽기와 하위 대화 열기 · 보내기 · 닫기만. 고치기 · 명령 · 기록 쓰기는 막고,
@@ -156,7 +157,7 @@ export const APP_OWNED = /\bgit\s+push\b|\bgh\s+(pr|release|repo|workflow|api)\b
  * 파일을 바꾸는 checkout · merge · pull · stash 등은 막힌다. 중앙이 띄운 보조 에이전트도 같은 판정을 거친다.
  * 그 밖(웹 등)은 보통 규칙대로. undefined = 보통 규칙으로.
  * 우회 (11/20 "언제나 막기보다 사용자 허락으로 푸는 길"): 목록에 없는 명령은 막지 않고 명령 · 까닭 · 폴더를 보이며 묻는다.
- * 허락은 한 번, 또는 이 대화에서 바로 그 명령만 늘. 자동 허락 · 시간 초과 기본값은 없고, neverBypass는 허락해도 막는다
+ * 허락은 한 번, 또는 이 대화에서 바로 그 명령만 늘. 자동 허락 · 시간 초과 기본값은 없고, neverBypass와 임시 폴더 밖 파일 쓰기(writesFiles, 11/24)는 허락해도 막는다
  */
 function judgeCentral(ctx: PolicyCtx, tool: string, input: Record<string, unknown>): Verdict | undefined {
   const name = tool.startsWith(MCP) ? tool.slice(MCP.length) : ''
@@ -167,6 +168,8 @@ function judgeCentral(ctx: PolicyCtx, tool: string, input: Record<string, unknow
     if (seen === 'sensitive') return { kind: 'ask', summary: clip(cmd), key: `Bash:${cmd}`, label: t(`비밀이 든 곳 읽기 · ${clip(cmd, 80)}`, `Read secrets · ${clip(cmd, 80)}`), does: 'read', once: true }
     const never = neverBypass(cmd)
     if (never) return neverVerdict(never)
+    // 파일 쓰기는 허락으로도 풀지 않는다 (11/24: 중앙이 우회로 앱 코드를 heredoc으로 쓰며 명령마다 허락을 물었다). 임시 폴더는 된다
+    if (writesFiles(cmd)) return centralWrites
     if (cmd.trim()) return bypassAsk(ctx, cmd, str(input.description))
   }
   const writes = name ? RESEARCH_WRITES.has(name) || name === APP_SUBMIT || name === APP_CHECKS || name === APP_MERGE || name === FEEDBACK_ANSWER : tool === 'Bash' || (FILE_WRITE_TOOLS as readonly string[]).includes(tool)
@@ -176,6 +179,12 @@ function judgeCentral(ctx: PolicyCtx, tool: string, input: Record<string, unknow
     reason: t('중앙 대화는 파일을 고치거나 명령을 돌리지 않고 하위 대화에 맡깁니다 (상태 보기와 git · gh 커밋 · 푸시 · PR · 합치기는 됩니다)', 'The central conversation does not edit files or run commands; it hands work to a sub-conversation (looking at state and git/gh commit, push, PR and merge are fine)'),
     message: `You are the central conversation: you read and orchestrate. Commands that only look at state run directly (ls, cat, grep, find (with -exec only for these read commands), which, ps, sysctl -n, vm_stat, top -l 1, git log/status/diff/show, git -C <dir> remote get-url, gh pr view/checks, gh run view --log, gh repo list/view, gh api GET without -f/-F unless -X GET, npm ls, python3 -I -c with read-only code that takes file names from sys.argv, python3 -I -m json.tool <file>), joined with |, && or ; and inside for … in …; do …; done loops over literal words or globs, without writing redirects (> file), heredocs, env-variable prefixes or command-running programs (xargs, sh -c, awk, sed). Git and gh changes also run directly: git add/commit -m/branch/fetch/tag, git push <remote> <branch> (name the branch; not main), gh pr create/edit/ready, gh pr merge --squash. Pushing straight to main (or a push that names no branch) and gh pr comment ask the user first. Blocked: force pushes, deleting remote branches, git branch -D, reset, clean, and anything that changes files in your folder (checkout, switch, merge, rebase, pull, stash, restore), because your folder is the running app's checkout. To change or run anything else, open a sub-conversation with ${MCP}chat_open (role app, project or feedback) or send to an existing one with ${MCP}chat_send.`,
   }
+}
+
+const centralWrites: Verdict = {
+  kind: 'deny',
+  reason: t('중앙 대화는 파일을 쓰지 않습니다. 고칠 일은 앱 고치기 · 프로젝트 대화에 맡깁니다', 'The central conversation does not write files; it hands edits to an app or project conversation'),
+  message: `Writing files (redirects, heredocs into files, cp/mv/tee, sed -i, scripts that write) is not available to the central conversation, not even with the user's permission: your folder is the running app's checkout. Do not try another form of the same write and do not probe the guard. Open a sub-conversation with ${MCP}chat_open (role app for app code, project for research files) or send the work to an existing one with ${MCP}chat_send. Files under /tmp are fine for your own scratch notes.`,
 }
 
 const NEVER: Record<NeverBypass, [string, string]> = {
@@ -227,7 +236,8 @@ function judgeApp(ctx: PolicyCtx, tool: string, input: Record<string, unknown>):
   }
   if (tool === 'Bash') {
     const cmd = str(input.command)
-    if (APP_OWNED.test(cmd)) {
+    // cat 이 받는 확실한 히어독의 본문(메모에 든 글)은 명령이 아니다 (11/26): 빼고 본다. python 본문은 빼지 않는다 (코드가 그 글을 돌릴 수 있다)
+    if (APP_OWNED.test(heredocBodiesRemoved(cmd))) {
       return {
         kind: 'deny',
         reason: t('올리기 · PR · 합치기와 앱 서비스는 앱이 맡습니다', 'Pushing, PRs, merging and the app service are left to the app'),
@@ -238,7 +248,9 @@ function judgeApp(ctx: PolicyCtx, tool: string, input: Record<string, unknown>):
     if (gated) return notYet
     if (ctx.mode === 'auto') return judgeAuto(ctx, cmd, clip(cmd))
     if (ctx.mode === 'ask') return { kind: 'ask', summary: clip(cmd), key: `Bash:${cmd}`, label: t(`명령 · ${clip(cmd, 80)}`, `Command · ${clip(cmd, 80)}`) }
-    return { kind: 'allow' }
+    // 편집 자동 수락 · 승인한 계획 (11/26 "편집 자동 수락도 명령 판정을 거치게"): 전에는 APP_OWNED만 막고 나머지는 읽지 않고 허락했다. 자동과 같은 판정을 거친다.
+    // 읽기 명령과 작업 폴더 안의 실행은 이 권한이 맡은 일이라 토글과 상관없이 묻지 않는다 (앱 고치기 대화에는 토글 표가 없다)
+    return judgeAuto(ctx, cmd, clip(cmd), { read: true, run: true })
   }
   if (tool.startsWith(MCP)) {
     const name = tool.slice(MCP.length)
@@ -279,7 +291,8 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
     return { kind: 'ask', summary: t('계획', 'Plan'), plan: clip(str(input.plan), 6000), key: `${PLAN_TOOL}:${crypto.randomBytes(4).toString('hex')}`, label: t('계획', 'Plan') }
   }
   if (READ_TOOLS.has(tool)) {
-    const p = pathOf(input)
+    // 읽는 도구는 ~ 를 홈으로 푼다: 풀지 않고 보면 ~/.zshrc 가 프로젝트 안의 「~」 폴더로 읽혀 묻지 않았다 (11/25 검토)
+    const p = pathOf(input).replace(/^~(?=\/|$)/, os.homedir())
     const base = p ? path.resolve(ctx.repo, p) : ctx.repo
     const ok = (at: string) => isInside(ctx.repo, at) || at === ctx.repo || ctx.readable.some((d) => at === d || isInside(d, at))
     // Glob의 무늬가 폴더를 벗어나면(/etc/** · ../../**) 그 자리를 본다: 별표 앞까지가 찾는 폴더다
@@ -366,7 +379,7 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
 
 /**
  * 명령 한 줄 (10/28 사용자 결정 "권한을 명령 대신 하는 일로"): 하는 일로 나눠 토글대로.
- * 읽기 · 실행은 토글이 켜져 있으면 묻지 않고, 편집은 맡기는 정도(편집 자동 허용)가, 삭제 · 외부는 늘 한 번씩 묻는다
+ * 읽기 · 실행은 토글이 켜져 있으면 묻지 않고, 편집은 맡기는 정도(편집 자동 수락)가, 삭제 · 외부는 늘 한 번씩 묻는다
  */
 function judgeCommand(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
   const roots = [ctx.repo, ...ctx.readable]
@@ -394,33 +407,46 @@ function judgeCommand(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
     const prog = missing[0] ?? runProgram(cmd)
     return { kind: 'ask', summary, key: `run:${prog}`, label: t(`실행 · ${prog}`, `Run · ${prog}`), does }
   }
+  // gh 로 읽기만 하는 명령 (11/26): 웹 검색 · 페이지 읽기와 같이 「웹 보기」 토글을 따른다. 그 줄의 나머지는 읽기뿐이라(commandKind) 읽기도 켜져 있어야 묻지 않는다
+  if (does === 'web') {
+    if (!auto.web) return { kind: 'ask', summary, key: 'web', label: t('웹 보기', 'Web'), does, turnOn: 'web' }
+    return auto.read ? { kind: 'allow' } : { kind: 'ask', summary, key: 'read', label: t('읽기', 'Read'), does: 'read', turnOn: 'read' }
+  }
   return { kind: 'ask', summary, key: `${does}:${cmd}`, label: t(`외부 · ${what}`, `Outside · ${what}`), does: 'outside', once: true }
 }
 
 /** pnpm install --frozen-lockfile: 잠금 파일 그대로 까는 것이라 새 꾸러미를 받지 않는다 (작업 폴더를 처음 열 때) */
-const FROZEN_INSTALL = /^\s*pnpm\s+(install|i)\s+(--[\w-]+\s*)*$/
+// (--옵션\s*)* 꼴은 맞지 않는 긴 줄에서 되짚기가 폭발한다(옵션 28개에 6초): 옵션 사이 빈칸을 꼭 하나 이상으로
+const FROZEN_INSTALL = /^\s*pnpm\s+(install|i)(\s+--[\w-]+)*\s*$/
 
 /**
  * 자동 모드의 명령 (11/23 사용자 "클로드 자동 모드처럼"): 읽기는 어디든, 작업 폴더 안의 편집 · 실행은 묻지 않는다.
  * 크리티컬한 일(지우기 · 외부로 내보내기 · 합치기 · 앱 다시 시작 · 돈 · 계정)과 비밀이 든 곳, 폴더 밖을 바꾸거나 돌리는 것만 한 번 묻는다.
- * 읽기 전용 · 계획 승인 전은 부르기 전에 걸렀다
+ * 읽기 전용 · 계획 승인 전은 부르기 전에 걸렀다. on = 읽기 · 실행을 묻지 않을지 (기본은 이 대화의 토글, 앱 고치기의 편집 자동 수락은 늘 켬)
  */
-function judgeAuto(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
+function judgeAuto(ctx: PolicyCtx, cmd: string, summary: string, on: Pick<ChatAutoValues, 'read' | 'run'> = autoNow(ctx)): Verdict {
   const what = clip(cmd, 80)
   const once = (does: ChatKind, label: string): Verdict => ({ kind: 'ask', summary, key: `${does}:${cmd}`, label: `${label} · ${what}`, does, once: true })
-  if (touchesSecret(cmd)) return { kind: 'ask', summary, key: `secret:${cmd}`, label: t(`비밀 · ${what}`, `Secret · ${what}`), once: true }
+  // cat 이 받는 확실한 히어독의 본문에 든 글 (11/26)로는 묻지 않는다: 비밀 · 크리티컬 모두 그 본문만 빼고 본다 (python 코드는 파일을 읽고 프로그램을 돌린다)
+  const bare = heredocBodiesRemoved(cmd)
+  if (touchesSecret(bare)) return { kind: 'ask', summary, key: `secret:${cmd}`, label: t(`비밀 · ${what}`, `Secret · ${what}`), once: true }
   const anywhere = commandKind(cmd, { cwd: ctx.repo, home: os.homedir(), inside: () => true })
   if (anywhere === 'delete') return once('delete', t('삭제', 'Delete'))
-  const crit = commandCritical(cmd)
+  const crit = commandCritical(bare)
   if (crit) return once('outside', t(crit.ko, crit.en))
   if (ctx.scope.kind === 'app' && FROZEN_INSTALL.test(cmd) && cmd.includes('--frozen-lockfile')) return { kind: 'allow' }
   if (anywhere === 'outside') return once('outside', t('외부', 'Outside'))
-  if (anywhere === 'read') return autoNow(ctx).read ? { kind: 'allow' } : { kind: 'ask', summary, key: 'read', label: t('읽기', 'Read'), does: 'read', turnOn: 'read' }
+  // gh 로 읽기만 하는 명령 (11/26): 「웹 보기」 토글을 따른다 (자동 모드는 켜져 있다)
+  if (anywhere === 'web') {
+    if (!autoNow(ctx).web) return { kind: 'ask', summary, key: 'web', label: t('웹 보기', 'Web'), does: 'web', turnOn: 'web' }
+    return on.read ? { kind: 'allow' } : { kind: 'ask', summary, key: 'read', label: t('읽기', 'Read'), does: 'read', turnOn: 'read' }
+  }
+  if (anywhere === 'read') return on.read ? { kind: 'allow' } : { kind: 'ask', summary, key: 'read', label: t('읽기', 'Read'), does: 'read', turnOn: 'read' }
   // 편집 · 실행이 작업 폴더 밖 경로를 건드리면 묻는다 (고치기는 이 대화의 작업 폴더 안에서만, 함께 읽는 폴더도 고치지 않는다)
   if (commandKind(cmd, { cwd: ctx.repo, home: os.homedir(), inside: (abs) => abs === ctx.repo || isInside(ctx.repo, abs) }) === 'outside') return once('outside', t('폴더 밖', 'Outside the folder'))
   if (anywhere === 'edit') return { kind: 'allow' }
   const progs = runPrograms(cmd)
-  if (autoNow(ctx).run || (progs.length > 0 && progs.every((p) => ctx.always?.(`run:${p}`)))) return { kind: 'allow' }
+  if (on.run || (progs.length > 0 && progs.every((p) => ctx.always?.(`run:${p}`)))) return { kind: 'allow' }
   const prog = progs.find((p) => !ctx.always?.(`run:${p}`)) ?? runProgram(cmd)
   return { kind: 'ask', summary, key: `run:${prog}`, label: t(`실행 · ${prog}`, `Run · ${prog}`), does: 'run' }
 }

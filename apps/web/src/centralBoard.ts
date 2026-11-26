@@ -65,11 +65,18 @@ export function boardRows(s: Pick<CentralState, 'kids' | 'held' | 'feedback' | '
   return { rows, moreFeedback: Math.max(0, fb.length - FEEDBACK_MAX) }
 }
 
-/** 머리 · 「중앙」 줄의 수: 남음(끝남 밖) · 내 차례 · 정체 */
+/**
+ * 작업 현황 머리와 「중앙」 줄의 수: 남음(끝남 밖) · 내 차례 · 정체.
+ * 내 차례는 둘로 나뉜다: 결정(허락 · 계획 · 피드백처럼 내 답을 기다림)과 멈춤(오류 · 멈춤 · 차례 끝남 · 정체)
+ */
 export function boardCounts(rows: BoardRow[], moreFeedback = 0) {
+  const turn = rows.filter((r) => r.group === 'turn')
+  const decide = turn.filter((r) => r.mark === 'user' && r.stalled === undefined).length + moreFeedback
   return {
     left: rows.filter((r) => r.group !== 'done').length + moreFeedback,
-    turn: rows.filter((r) => r.group === 'turn').length + moreFeedback,
+    turn: turn.length + moreFeedback,
     stalled: rows.filter((r) => r.stalled !== undefined).length,
+    decide,
+    stopped: turn.length + moreFeedback - decide,
   }
 }

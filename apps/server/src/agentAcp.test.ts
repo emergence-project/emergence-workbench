@@ -265,7 +265,7 @@ describe('앱 MCP HTTP 입구', () => {
 })
 
 describe('대화의 에이전트', () => {
-  it('Codex 대화는 Codex 실행기로, 계획 모드는 묻고 하기로, 안내에서 Claude만의 줄은 뺀다', async () => {
+  it('Codex 대화는 Codex 실행기로, 계획은 수동으로, 안내에서 Claude만의 줄은 뺀다', async () => {
     const { AgentChats } = await import('./agentChats.js')
     const { vi } = await import('vitest')
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-chat-agent-'))

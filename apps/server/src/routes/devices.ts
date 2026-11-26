@@ -2,10 +2,10 @@
 // 1단계: 다른 컴퓨터는 개인 저장소에 올린 마지막 값. 2단계 ("맥스튜디오를 서버로"): 서버로 정한 컴퓨터에 다른 컴퓨터가 1분마다 알리고(실시간), 서버가 기기마다 로그아웃을 건다
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 import * as C from '@rw/core/contract/devices'
-import { parseBody, replies } from '../contract.js'
+import { knownOnly, parseBody, replies } from '../contract.js'
 import { machineName } from '../backup.js'
 import { logoutDevice, otherDevices, setDeviceAccounts, setDeviceLogout, thisDevice } from '../devices.js'
-import { BEAT_MS, DEVICE_KEY_HEADER, deviceKeyOk, hubOf, mergeDevices, readServerConfig, writeServerConfig, type ServerConfig } from '../deviceServer.js'
+import { BEAT_MS, DEVICE_KEY_HEADER, beatFromOther, deviceKeyOk, hubOf, markLogout, mergeDevices, readServerConfig, replyFromServer, writeServerConfig, type ServerConfig } from '../deviceServer.js'
 import { deviceBuild } from '../deviceBuild.js'
 import { t } from '../i18n.js'
 import type { PhoneStatus } from '@rw/core/contract/phone'
@@ -105,7 +105,17 @@ export function registerDevices(app: FastifyInstance, ctx: RouteContext, deps: D
     const cfg = config()
     if (!cfg) throw new WorkbenchError(409, t('서버로 정한 컴퓨터가 없습니다. 먼저 한 컴퓨터를 서버로 정해 주세요', 'No computer is set as the server yet'))
     if (cfg.machine === me) hub.requestLogout(name)
-    else await callServer(cfg, '/api/devices/remote-logout', { name })
+    else { await callServer(cfg, '/api/devices/remote-logout', { name }); if (reach) reach = { ...reach, devices: markLogout(reach.devices, name, true) } }
+    return view()
+  })
+  /** 걸어 둔 로그아웃 취소 (11/26): 그 컴퓨터가 아직 받지 않았으면 없던 일이 된다. 걸려 있지 않아도 오류가 아니다 (두 창에서 함께 누름) */
+  app.delete<{ Params: { name: string } }>('/api/devices/:name/logout', replies(C.Devices), async (req): Promise<C.Devices> => {
+    const name = req.params.name
+    if (opts.sandbox) { samplePending.delete(name); return view() }
+    const cfg = config()
+    if (!cfg) throw new WorkbenchError(409, t('서버로 정한 컴퓨터가 없습니다. 먼저 한 컴퓨터를 서버로 정해 주세요', 'No computer is set as the server yet'))
+    if (cfg.machine === machineName()) hub.cancelLogout(name)
+    else { await callServer(cfg, '/api/devices/remote-logout-cancel', { name }, t('서버 컴퓨터의 앱이 옛 버전이라 취소하지 못했습니다. 서버 컴퓨터의 앱을 업데이트한 뒤 다시 눌러 주세요', 'The app on the server computer is too old to cancel this. Update the app there, then try again')); if (reach) reach = { ...reach, devices: markLogout(reach.devices, name, false) } }
     return view()
   })
 
@@ -118,24 +128,34 @@ export function registerDevices(app: FastifyInstance, ctx: RouteContext, deps: D
   }
   app.post('/api/devices/beat', replies(C.DeviceBeatReply), async (req): Promise<C.DeviceBeatReply> => {
     checkKey(req)
-    const rec = parseBody(C.DeviceBeat, req.body)
+    const rec = parseBody(C.DeviceBeat, beatFromOther(req.body))
     const { logout, feedback, drop } = hub.beat(rec)
     const me = { ...deviceForBackup(ctx), this: false, online: true, live: true, server: true }
-    return { devices: [me, ...hub.live().filter((d) => d.name !== rec.name)], logout, ...(feedback.length && { feedback }), ...(drop.length && { drop }) }
+    // 서버 자신은 맨 앞의 지금 값 하나만: 「이 기기를 서버로」 때 한 번 넣은 낡은 줄이 뒤에 또 실리면 받는 쪽이 그것으로 덮어 서버가 꺼진 것으로 보인다
+    return { devices: [me, ...hub.live().filter((d) => d.name !== rec.name && d.name !== me.name)], logout, ...(feedback.length && { feedback }), ...(drop.length && { drop }) }
   })
   app.post('/api/devices/remote-logout', replies(C.DeviceOk), async (req): Promise<C.DeviceOk> => {
     checkKey(req)
-    const { name } = parseBody(C.DeviceLogoutBody, req.body)
+    const { name } = parseBody(C.DeviceLogoutBody, knownOnly(C.DeviceLogoutBody, req.body))
     if (name === machineName()) await logoutDevice()
     else hub.requestLogout(name)
     return { ok: true }
   })
+  // 취소는 따로 둔다: 같은 주소에 칸을 더하면 옛 버전의 서버가 그 칸을 버리고 로그아웃을 건다
+  app.post('/api/devices/remote-logout-cancel', replies(C.DeviceOk), async (req): Promise<C.DeviceOk> => {
+    checkKey(req)
+    const { name } = parseBody(C.DeviceLogoutBody, knownOnly(C.DeviceLogoutBody, req.body))
+    hub.cancelLogout(name)
+    return { ok: true }
+  })
 
   // ── 다른 컴퓨터 쪽: 1분마다 서버에 알린다 ──
-  async function callServer(cfg: ServerConfig, p: string, body: unknown): Promise<unknown> {
+  /** old = 서버의 앱이 옛 버전이라 그 주소가 없을 때(404) 보일 말 */
+  async function callServer(cfg: ServerConfig, p: string, body: unknown, old?: string): Promise<unknown> {
     const r = await fetch(`${cfg.url}${p}`, { method: 'POST', headers: { 'content-type': 'application/json', [DEVICE_KEY_HEADER]: cfg.secret }, body: JSON.stringify(body), signal: AbortSignal.timeout(15_000) })
     const j: unknown = await r.json().catch(() => null)
     if (!r.ok) {
+      if (r.status === 404 && old) throw new WorkbenchError(502, old)
       const msg = j && typeof j === 'object' && 'error' in j && typeof j.error === 'string' ? j.error : `HTTP ${r.status}`
       throw new WorkbenchError(502, t(`서버에 닿지 못했습니다: ${msg}`, `Could not reach the server: ${msg}`))
     }
@@ -152,7 +172,7 @@ export function registerDevices(app: FastifyInstance, ctx: RouteContext, deps: D
         try {
           // 피드백 돕기 (11/23 안 A): 켜 두었으면 자리 · 도는 수를 함께 알리고, 서버가 맡긴 피드백을 답으로 받아 이 맥에서 시작한다
           const helper = ctx.feedbackHelp?.info()
-          const res = C.DeviceBeatReply.parse(await callServer(cfg, '/api/devices/beat', { ...deviceForBackup(ctx), ...(helper && { helper }) }))
+          const res = replyFromServer(await callServer(cfg, '/api/devices/beat', { ...deviceForBackup(ctx), ...(helper && { helper }) }))
           reach = { at: new Date().toISOString(), devices: res.devices }
           log.ok()
           if (res.drop?.length) ctx.feedbackHelp?.drop(res.drop)

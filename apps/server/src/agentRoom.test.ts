@@ -35,6 +35,7 @@ describe('중앙 방', () => {
   const fake: AgentRunner = Object.assign(async function* (input: RunInput): AsyncGenerator<RunEvent> {
     turns.push(input.prompt)
     yield { type: 'session', id: `s${turns.length}` }
+    yield { type: 'mark', uuid: `m${turns.length}` } // 되돌릴 자리 (지시마다)
     yield { type: 'text', text: '방장 답' }
     yield { type: 'result', ok: true }
   } as (input: RunInput) => AsyncIterable<RunEvent>, { side: async (o: { prompt: string }) => { asked.push(o.prompt); return '곁 답' } })
@@ -113,6 +114,54 @@ describe('중앙 방', () => {
     chats.send(c.id, { text: '그럼 고쳐' })
     await vi.waitFor(() => expect(turns).toHaveLength(3))
     expect(turns[2]).toContain('[Codex answered in the room:]\nCodex 답')
+  })
+
+  // 되돌리면(rewind) 대화 줄이 줄어드는데 「방장에게 넘긴 줄 수」는 그대로여서, 그 뒤의 방 사람 답이 방장에게 가지 않았다.
+  // 되돌린 세션은 지운 차례에서 받은 답도 모르므로, 방장의 마지막 글 뒤의 것을 다시 넘긴다
+  it('되돌린 뒤에도 방 사람의 답이 방장에게 간다', async () => {
+    const { chats, review } = make()
+    const c = chats.talk('시작')
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    review.mockResolvedValueOnce('첫 답')
+    chats.send(c.id, { text: '@Codex 하나' })
+    await vi.waitFor(() => expect(chats.get(c.id).items.some((x) => x.kind === 'member' && x.text === '첫 답')).toBe(true))
+    chats.send(c.id, { text: '고쳐' })
+    await vi.waitFor(() => expect(turns).toHaveLength(2))
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    expect(turns[1]).toContain('[Codex answered in the room:]\n첫 답')
+    const said = chats.get(c.id).items.find((x) => x.kind === 'user' && x.text === '고쳐')
+    await chats.rewind(c.id, said?.kind === 'user' ? said.point! : '')
+    // 되돌린 자리 뒤에 방 사람에게 다시 묻고, 방장에게 말한다
+    review.mockResolvedValueOnce('둘째 답')
+    chats.send(c.id, { text: '@Codex 둘' })
+    await vi.waitFor(() => expect(chats.get(c.id).items.some((x) => x.kind === 'member' && x.text === '둘째 답')).toBe(true))
+    chats.send(c.id, { text: '그럼 이렇게 고쳐' })
+    await vi.waitFor(() => expect(turns).toHaveLength(3))
+    expect(turns[2]).toContain('[Codex answered in the room:]\n둘째 답')
+    // 지운 차례에서 받았던 답도 되돌린 세션은 모른다
+    expect(turns[2]).toContain('[Codex answered in the room:]\n첫 답')
+  })
+
+  // 방 규칙의 「한 번에 n명」은 방장이 부르는 수다. 전에는 사용자가 @로 부른 것 · 토론 자리의 물음까지 한 수로 세어, 토론 중에는 방장의 room_ask가 거절됐다
+  it('방장이 한 번에 부르는 수는 방장이 부른 것만 센다 (사용자가 부른 것 · 토론은 세지 않는다)', async () => {
+    const { chats, review } = make()
+    const c = chats.talk('시작')
+    await vi.waitFor(() => expect(chats.get(c.id).state).toBe('idle'))
+    chats.setRules({ callMax: 1 })
+    const waits: ((v: string) => void)[] = []
+    review.mockImplementation(() => new Promise<string>((ok) => waits.push(ok)))
+    // 사용자가 부른 Codex가 답하는 중
+    chats.send(c.id, { text: '@Codex 봐 줘' })
+    await vi.waitFor(() => expect(waits).toHaveLength(1))
+    const first = chats.hostAsk('codex', '이건 어때?')
+    await vi.waitFor(() => expect(waits).toHaveLength(2))
+    // 방장이 부른 것이 하나 도는 동안 하나 더는 규칙대로 거절
+    await expect(chats.hostAsk('codex', '하나 더')).rejects.toThrow(/1명|at once/)
+    for (const ok of waits) ok('답')
+    expect(await first).toBe('답')
+    // 끝나면 다시 부를 수 있다
+    review.mockResolvedValueOnce('또 답')
+    expect(await chats.hostAsk('codex', '다시')).toBe('또 답')
   })
 
   it('@모두는 다른 사람이 먼저 답하고 방장이 마지막에 정리한다. 사용자의 말은 한 번, 답들 앞에', async () => {

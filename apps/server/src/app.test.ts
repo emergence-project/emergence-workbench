@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { buildApp } from './app.js'
 import { hashOf } from './fsutil.js'
 import * as comments from './comments.js'
-import { judgeCompile } from './latex.js'
+import { COMPILE_STOPPED, judgeCompile } from './latex.js'
 import { pathKeyOf } from './manuscript.js'
 import { app, hasLatex, makeRepo, R, repo, tmp, useSampleApp } from './testkit.js'
 import { watchWorkbench, type WorkbenchEvent } from './watcher.js'
@@ -400,6 +400,10 @@ describe('컴파일 성공 판단', () => {
     expect(r.ok).toBe(false)
     expect(r.problems[0]!.message).toMatch(/PDF를 새로 만들지 못했습니다/)
     expect(judgeCompile({ hasPdf: false, fresh: false, exitCode: -1, problems: [] }).problems[0]!.message).toMatch(/latexmk를 실행하지 못했습니다/)
+    // 시간 한도로 멈춘 컴파일은 TeX가 없다는 안내가 아니라 멈췄다고 알린다 (TeX가 있는데 설치하라고 하던 것)
+    const stopped = judgeCompile({ hasPdf: false, fresh: false, exitCode: COMPILE_STOPPED, problems: [] }).problems[0]!.message
+    expect(stopped).toMatch(/끝나지 않아 멈췄습니다/)
+    expect(stopped).not.toMatch(/설치/)
   })
   it('LaTeX 오류가 있으면 PDF가 있어도 실패이고 오류를 그대로 돌려준다', () => {
     expect(judgeCompile({ hasPdf: true, fresh: false, exitCode: 0, problems: [err] })).toEqual({ ok: false, problems: [err] })

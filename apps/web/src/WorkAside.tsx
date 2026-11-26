@@ -1,4 +1,4 @@
-import { useEffect, useState, type PointerEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import { t } from './i18n'
 import { Icon } from './icons'
 import { store } from './store'
@@ -102,6 +102,10 @@ export function useSideColumn(chatPage: boolean, rid?: string) {
   const tools = <button className={`icon-btn sm${work || showTerm ? ' on' : ''}`} data-ui="세부 패널 버튼" aria-pressed={work || showTerm} data-tip={t('사이드바 (이 대화 · 변경사항 · 검토 · 터미널)', 'Sidebar (this conversation, changes, review, terminal)')} aria-label={t('사이드바', 'Sidebar')} onClick={togglePane}>{Icon.panelRight}</button>
   /** 아이콘 줄 끝의 터미널 칸 (이 컴퓨터에서 터미널을 쓸 수 있을 때) */
   const termTab: SideTab | null = canTerm ? { key: 'terminal', ui: '터미널 버튼', icon: Icon.terminal, tip: t('터미널 (이 대화의 프로젝트 폴더)', 'Terminal (this conversation\'s project folder)'), label: t('터미널', 'Terminal'), on: showTerm, onClick: openTerm } : null
-  const terminal = (tabs?: ReactNode) => (opened && canTerm && rid ? <TerminalColumn rid={rid} hidden={!showTerm} onClose={() => setTerm(false)} tabs={tabs} /> : null)
+  // 처음 여는 대화는 받는 동안 rid가 잠깐 비는데, 그때 칸을 빼면 셸이 죽는다: 마지막으로 안 rid로 그대로 둔다
+  const lastRid = useRef(rid)
+  if (rid) lastRid.current = rid
+  const termRid = rid ?? lastRid.current
+  const terminal = (tabs?: ReactNode) => (opened && canTerm && termRid ? <TerminalColumn rid={termRid} hidden={!showTerm} onClose={() => setTerm(false)} tabs={tabs} /> : null)
   return { work, togglePane, tools, terminal, tab: showTerm ? null : tab, show, termTab }
 }

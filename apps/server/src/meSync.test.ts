@@ -63,7 +63,8 @@ describe('내 정보 맞추기', () => {
 
   it('PDF 폴더를 하나도 적지 않으면 라이브러리 안의 pdfs를 쓴다', () => {
     const { root, config } = setup({}, {})
-    const lib = path.join(root, 'library')
+    // 맥의 임시 폴더는 /var → /private/var 링크라, 실제 경로로 맞춰 비교한다
+    const lib = path.join(fs.realpathSync(root), 'library')
     fs.mkdirSync(lib)
     fs.writeFileSync(path.join(config, 'config.yaml'), YAML.stringify({ researches: [], library: lib }))
     const registry = new Registry(config)
@@ -98,7 +99,8 @@ describe('네트워킹 사람 목록 맞추기', () => {
     const { registry, personal } = setup({ people: [C] }, { people: [A], peopleAt: '2026-11-20T01:00:00Z' })
     expect(adoptOtherMe(registry, personal, 'Macmini')).toEqual(['people'])
     expect(registry.people.map((p) => p.name)).toEqual(['Ada E. Example', 'Cy Sample'])
-    expect(registry.peopleAt).toBe('2026-11-20T01:00:00Z')
+    // 이 컴퓨터에만 있던 사람을 더했으니 고친 때가 그쪽보다 늦어야 한다: 같으면 그쪽이 합친 목록을 받지 않고, 다음에 그쪽을 통째로 따를 때 Cy가 지워진다
+    expect(Date.parse(registry.peopleAt!)).toBeGreaterThan(Date.parse('2026-11-20T01:00:00Z'))
   })
 
   it('내 정보와 사람 목록은 고친 때가 따로다', () => {

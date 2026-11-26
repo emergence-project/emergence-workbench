@@ -20,6 +20,7 @@
     "agent:problem": "node scripts/agent-problem.mjs",
     "library:memos": "node scripts/library-memos.mjs",
     "agent:check-tasks": "node scripts/agent-check-tasks.mjs",
+    "agent:contained": "node scripts/agent-contained.mjs",
     "mcp": "node scripts/mcp.mjs",
     "design:check": "node scripts/ci/check-design.mjs",
     "wording:check": "node scripts/ci/check-wording.mjs",
@@ -34,7 +35,7 @@
     "service:status": "zsh scripts/service.sh status",
     "service:logs": "zsh scripts/service.sh logs",
     "service:uninstall": "zsh scripts/service.sh uninstall",
-    "test:autosave-close": "node scripts/shots/autosave-close.mjs",
+    "test:browser": "node scripts/shots/browser-check.mjs",
     "test:scripts": "node --test scripts/remote/*.test.mjs",
     "shots": "node scripts/shots/shots.mjs",
     "safety:check": "node scripts/safety/check-repo.mjs"

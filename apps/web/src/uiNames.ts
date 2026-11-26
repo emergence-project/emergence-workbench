@@ -2,12 +2,15 @@
  * English names for screen parts (data-ui). The stored value stays Korean, because feedback records and
  * jumping back to a part (feedbackJump.ts) match on it; only what the screen shows follows the language.
  * Names not in the table are shown as they are. Table: uiNames.en.json (add a line when a data-ui is added).
+ * Parts that left the screen keep their English name in uiNames.old.en.json, so old feedback records still read in English
+ * (move the line there when a data-ui is removed; uiNames.test.ts tells you which).
  */
 import { lang } from './i18n'
 import { parseUiPath } from './feedbackJump'
 import table from './uiNames.en.json'
+import old from './uiNames.old.en.json'
 
-const EN: Record<string, string> = table
+const EN: Record<string, string> = { ...old, ...table }
 
 /**
  * Korean names that changed after the part was named (docs/design-system.md §5 term table, the same old names

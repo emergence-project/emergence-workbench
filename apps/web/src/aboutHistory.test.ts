@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { findSpans, historyRows } from './AboutHistorySide'
-import { fixText } from './AboutFix'
+import { fixTarget, fixText } from './AboutFix'
 import type { AboutPart } from './aboutContent'
 
 describe('소개 이력 표 (11/20 시안 2절)', () => {
@@ -39,5 +39,12 @@ describe('소개 고치기 탭 (11/20 시안 3절 안 C)', () => {
       '2. 정의 › 문단 「새」', '   전: (없음)', '   후: 새 글', '',
       '바라는 점: 줄 더하기',
     ].join('\n'))
+  })
+
+  it('보낼 대상 이름: 한 쪽이면 그 쪽(절이 하나면 절까지), 여러 쪽에서 담았으면 쪽 이름 없이', () => {
+    expect(fixTarget([], '정의')).toBe('소개 › 정의 › 고치기')
+    expect(fixTarget([{ part: '정의', name: '원고' }, { part: '정의', name: '원고' }], '화면')).toBe('소개 › 정의 › 원고 › 고치기')
+    expect(fixTarget([{ part: '정의', name: '원고' }, { part: '정의', name: '노트' }], '정의')).toBe('소개 › 정의 › 고치기')
+    expect(fixTarget([{ part: '정의', name: '원고' }, { part: '화면', name: '레일' }], '화면')).toBe('소개 › 고치기')
   })
 })

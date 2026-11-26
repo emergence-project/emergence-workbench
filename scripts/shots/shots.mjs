@@ -21,7 +21,7 @@ const base = `http://127.0.0.1:${port}/`
 const options = parseShotOptions(process.argv.slice(2))
 if (options.help) { console.log(SHOTS_HELP); process.exit(0) }
 const SCREENS = selectScreens(options.sample)
-console.log(`화면 검사: ${options.viewport.width}×${options.viewport.height} · ${options.theme} · ${options.sample} · ${SCREENS.length}개`)
+console.log(`화면 검사: ${options.viewport.width}×${options.viewport.height}${options.scale === 1 ? ' · 1x' : ''} · ${options.theme} · ${options.sample} · ${SCREENS.length}개`)
 
 function run(cmd, args, env = {}) {
   return new Promise((resolve, reject) => {
@@ -62,7 +62,7 @@ try {
 
   fs.mkdirSync(out, { recursive: true })
   const browser = process.env.SHOTS_BROWSER === 'webkit' ? await webkit.launch() : await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {})
-  const page = await browser.newPage({ viewport: options.viewport, deviceScaleFactor: 2, reducedMotion: 'reduce', colorScheme: screenScheme(options.theme, SCREENS[0]?.[0] ?? '') })
+  const page = await browser.newPage({ viewport: options.viewport, deviceScaleFactor: options.scale, reducedMotion: 'reduce', colorScheme: screenScheme(options.theme, SCREENS[0]?.[0] ?? '') })
   // Start in the capture language, so the first screen does not load in the browser language and reload (i18n.ts)
   await page.addInitScript((language) => { try { if (!localStorage.getItem('rw-ui')) localStorage.setItem('rw-ui', JSON.stringify({ language })) } catch { /* ignore */ } }, options.lang)
   // Sample conversations finished before the page opened: count them as not checked yet, so the agent screens show the unread dot and badge (agentSeen.ts)
@@ -120,7 +120,7 @@ try {
       }
     }
     if (hash.includes('{done}') && !done) {
-      // 노트를 고치고 끝난 대화 하나 (편집 자동 허용: 명령 허락에 "네"로 답한다). 바뀐 곳 패널을 보이려고
+      // 노트를 고치고 끝난 대화 하나 (편집 자동 수락: 명령 허락에 "네"로 답한다). 바뀐 곳 패널을 보이려고
       const res = await fetch(`${base}api/agent-chats`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-rw-lang': options.lang }, body: JSON.stringify({ rid, text: options.lang === 'en' ? 'Run the Kempe check up to degree 5' : '켐페 확인 계산을 차수 5까지 돌려 줘', scope: { kind: 'project' }, mode: 'edit' }) })
       done = res.ok ? (await res.json()).chat.id : ''
       if (!done) problems.push(`${name}: 예제 대화를 만들지 못함 (${res.status})`)
@@ -257,14 +257,17 @@ try {
       }, undefined, { timeout: 10_000, polling: 250 }).catch(() => {})
     }
     // 누를 부위는 하나 또는 차례로 여럿. '['로 시작하면 그대로 선택자로 쓴다. '!'로 시작하면 다른 것에 가려 있어도 그 자리를 누른다.
-    // 켜고 끄는 단추(aria-pressed)는 이미 켜져 있으면 누르지 않는다: 주소만 같은 앞 화면에서 켠 채로 이어지면 다시 눌러 꺼 버린다(상단바 갈래 아이콘, 11/21)
-    for (const c0 of [click ?? []].flat()) {
+    // 켜고 끄는 단추(aria-pressed)는 이미 켜져 있으면 누르지 않는다: 주소만 같은 앞 화면에서 켠 채로 이어지면 다시 눌러 꺼 버린다(갈래 아이콘, 11/21).
+    // '+'로 시작하면 켜기만 한다(이미 켜져 있으면 건너뜀: 오른쪽 사이드바 여닫기는 앞 화면의 상태가 남는다, 11/24)
+    for (const c1 of [click ?? []].flat()) {
+      const on = c1.startsWith('+')
+      const c0 = on ? c1.slice(1) : c1
       const force = c0.startsWith('!')
       const c = force ? c0.slice(1) : c0
       const sel = c.startsWith('[') ? c : `[data-ui="${c}"]`
       // 숨은 탭(열어 둔 다른 노트)에도 같은 부위가 있으니 보이는 것을 누른다
       const target = page.locator(sel).filter({ visible: true }).first()
-      if (sel.includes('data-mode=') && await target.getAttribute('aria-pressed', { timeout: 10_000 }).catch(() => null) === 'true') continue
+      if ((on || sel.includes('data-mode=')) && await target.evaluate((el) => el.getAttribute('aria-pressed') === 'true' || el.getAttribute('aria-selected') === 'true', undefined, { timeout: 10_000 }).catch(() => false)) continue
       await target.click({ timeout: 10_000, force }).catch(() => problems.push(`${name}: ${sel}를 누르지 못함`))
     }
     if (name === 'note-select') await page.locator('.note-ask p').filter({ visible: true }).first().click({ clickCount: 3, timeout: 10_000 }).catch(() => problems.push(`${name}: 본문 글을 고르지 못함`))
@@ -365,7 +368,7 @@ try {
   }
   // 폰 (10/30, styles/phone.css): 폭 390의 따로 연 창에서 찍는다. 폰은 사이드바를 닫아 기억하므로 위 화면들과 저장소를 나누지 않는다
   if (options.sample !== 'subjects') {
-    const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2, reducedMotion: 'reduce', colorScheme: 'light' })
+    const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: options.scale, reducedMotion: 'reduce', colorScheme: 'light' })
     await phone.addInitScript((language) => { try { if (!localStorage.getItem('rw-ui')) localStorage.setItem('rw-ui', JSON.stringify({ language })) } catch { /* ignore */ } }, options.lang)
     phone.on('pageerror', (e) => problems.push(`${current}: ${e.message}`))
     phone.on('console', (m) => { if (m.type() === 'error' && !expected(m)) problems.push(`${current}: console ${m.text()} ${m.location().url ?? ''}`) })

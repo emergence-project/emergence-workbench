@@ -18,6 +18,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import zlib from 'node:zlib'
 import { CENTRAL_RID, ChatItem, ChatRow, type CentralArchived, type Chat } from '@rw/core/contract/agentChats'
+import { agentAsks } from '@rw/core'
 import { AgentChats, LIVE, rowOf, type Stored } from './agentChats.js'
 import { packFile } from './agentTidy.js'
 import { machineName } from './backup.js'
@@ -168,6 +169,7 @@ export class SharedChats extends AgentChats {
     if (!undo && c.archived) throw new WorkbenchError(409, t('이미 보관함에 있습니다', 'Already archived'))
     if (undo && !c.archived) throw new WorkbenchError(409, t('보관함에 없습니다', 'Not archived'))
     if (LIVE.has(c.state)) throw new WorkbenchError(409, t('일하는 중이라 보관하지 않습니다. 끝나기를 기다리세요', 'Still working; wait until it finishes before archiving'))
+    if (!undo && agentAsks(c.items)) throw new WorkbenchError(409, t('에이전트가 사용자에게 묻고 답을 기다리는 대화라 보관하지 않습니다', 'The agent asked the user and waits for an answer; not archived'))
     this.archive(c.id, !undo)
     return { id: c.id, title: c.title }
   }
@@ -177,6 +179,7 @@ export class SharedChats extends AgentChats {
     if (!f) throw new WorkbenchError(404, t('그런 대화가 없습니다', 'No such conversation'))
     if (!undo && f.archived) throw new WorkbenchError(409, t(`${f.machine}에서 이미 보관했습니다`, `Already archived on ${f.machine}`))
     if (undo && !f.archived) throw new WorkbenchError(409, t(`${f.machine}에서 보관함에 있지 않습니다`, `Not archived on ${f.machine}`))
+    if (!undo && f.row.asks) throw new WorkbenchError(409, t('에이전트가 사용자에게 묻고 답을 기다리는 대화라 보관하지 않습니다', 'The agent asked the user and waits for an answer; not archived'))
     if (this.pendingAsks().some((x) => x.id === id)) throw new WorkbenchError(409, t(`이미 ${f.machine}에 청했습니다. 다음 맞추기를 기다리세요`, `Already asked of ${f.machine}; wait for its next sync`))
     const ask: ArchiveAsk = { machine: f.machine, id, title: f.row.title, reason: reason.trim().slice(0, 300), at: new Date().toISOString(), ...(undo && { undo: true }) }
     fs.appendFileSync(path.join(this.deps.dir, ASKS_FILE), `\n${JSON.stringify(ask)}`)
@@ -237,6 +240,8 @@ export class SharedChats extends AgentChats {
     const done = [...this.chats.values()].find((c) => fromOf(c)?.id === id)
     if (done) return this.get(done.id)
     const r = f.row
+    // 중앙은 컴퓨터에 하나다 (11/26): 다른 컴퓨터의 옛 중앙 대화를 이어 오면 중앙이 둘이 되고, 방금 이어 온 쪽이 중앙 자리를 차지했다
+    if (r.rid === CENTRAL_RID && [...this.chats.values()].some((c) => c.rid === CENTRAL_RID && !c.archived)) throw new WorkbenchError(409, t('이 컴퓨터에는 중앙 대화가 이미 있어 이어 오지 않습니다 (중앙은 컴퓨터에 하나). 이 대화는 읽기만 하고, 이어 갈 내용은 이 컴퓨터의 중앙에 말해 주세요', 'This computer already has a central conversation, so this one is not continued here (one central per computer). Read it here and tell this computer\'s central what to carry on'))
     if (r.scope.kind === 'app' && !this.app) throw new WorkbenchError(404, t('이 컴퓨터에는 앱 저장소가 없어 앱 고치기 대화를 이어 갈 수 없습니다', 'No app repository on this computer, so app conversations cannot continue here'))
     if (r.scope.kind !== 'app') {
       try { this.deps.project(r.rid) } catch { throw new WorkbenchError(404, t('이 컴퓨터에 그 프로젝트가 없습니다. 프로젝트를 받은 뒤 이어 가세요', 'That project is not on this computer. Get the project first, then continue')) }

@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import table from './uiNames.en.json'
+import oldTable from './uiNames.old.en.json'
 import { koName } from './uiNames'
 
 const SRC = path.dirname(new URL(import.meta.url).pathname)
@@ -25,6 +26,23 @@ describe('English names for screen parts (data-ui)', () => {
   })
   it('English names carry no Korean', () => {
     expect(Object.entries(en).filter(([, v]) => /[가-힣]/.test(v))).toEqual([])
+    expect(Object.entries(oldTable).filter(([, v]) => /[가-힣]/.test(v))).toEqual([])
+  })
+  // 11/26 "영어 부위 이름 표의 옛 항목": 화면에서 없어진 부위의 이름은 지우지 않고 uiNames.old.en.json으로 옮긴다 (옛 피드백 기록이 그 이름을 영어로 보인다).
+  // 지금 표에는 화면 코드에 있는 이름만 둔다: 글자 그대로 있거나, data-ui={`${ui} 창`} 같은 틀에 끼워 넣는 말이 코드에 있거나
+  it('keeps only names the screen code still has (move a removed part to uiNames.old.en.json)', () => {
+    const all = (dir: string): string[] => fs.readdirSync(dir, { withFileTypes: true })
+      .flatMap((d) => (d.isDirectory() ? all(path.join(dir, d.name)) : /\.tsx?$/.test(d.name) && !/\.test\./.test(d.name) ? [path.join(dir, d.name)] : []))
+    const src = all(SRC).map((f) => fs.readFileSync(f, 'utf8')).join('\n')
+    const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const templates = [...new Set([...src.matchAll(/data-ui=\{`([^`]*)`\}/g)].map((m) => m[1]!).filter((t) => /[가-힣]/.test(t)))]
+    const dynamic = templates.map((t) => new RegExp(`^${t.split(/\$\{[^}]*\}/).map(esc).join('(.+)')}$`))
+    const literal = (s: string) => src.includes(`'${s}'`) || src.includes(`"${s}"`) || src.includes(`\`${s}\``)
+    const live = (name: string) => src.includes(name) || dynamic.some((re) => { const m = re.exec(name); return !!m && m.slice(1).every(literal) })
+    expect(Object.keys(en).filter((name) => !live(name))).toEqual([])
+  })
+  it('an old name is not also a current one', () => {
+    expect(Object.keys(oldTable).filter((name) => name in en)).toEqual([])
   })
 })
 

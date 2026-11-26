@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { isUnseenIn, seenWith, type Seen } from './agentSeen'
+import type { ChatRow } from './api'
+import { isUnseenIn, myTurn, seenWith, type Seen } from './agentSeen'
 
 const base: Seen = { since: '2026-11-16T00:00:00Z', ids: {} }
 const chat = (o: Partial<{ id: string; state: 'idle' | 'running' | 'waiting' | 'queued' | 'stopped' | 'error'; archived: boolean; updated: string; tasks: number }> = {}) =>
@@ -24,5 +25,13 @@ describe('확인하지 않은 대화', () => {
   it('더 오래된 시각으로는 되돌리지 않는다', () => {
     const seen = seenWith(base, 'a', '2026-11-16T02:00:00Z')
     expect(seenWith(seen, 'a', '2026-11-16T01:00:00Z')).toBe(seen)
+  })
+})
+
+describe('내 차례인 대화 (레일의 수)', () => {
+  const row = (o: Partial<ChatRow>) => ({ id: 'a', state: 'running', archived: false, updated: '2026-11-16T01:00:00Z', ...o }) as ChatRow
+  it('오류로 멈춘 대화는 내 차례지만, 보관하면 세지 않는다 (보관함에 둔 오류 대화가 레일 수에 남던 것)', () => {
+    expect(myTurn(row({ state: 'error' }))).toBe(true)
+    expect(myTurn(row({ state: 'error', archived: true }))).toBe(false)
   })
 })

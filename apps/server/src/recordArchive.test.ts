@@ -98,8 +98,23 @@ describe('완료 기록 보관', () => {
 describe('정리 권하기', () => {
   const many = (n: number, year: number) => parseComments('project', Array.from({ length: n }, (_, i) => `## c-${year}0101-${String(1000 + i)} · 메모 · 전체\n- 상태: 끝냄\n\n메모 ${i}\n`).join('\n'))
   const now = new Date(2026, 10, 23).getTime()
+  it('보관 파일에 같은 id의 다른 글이 있으면 옮기지 않고 그대로 둔다 (글이 어디에도 남지 않던 것)', () => {
+    archiveRecords(root, now)
+    // 같은 id로 다른 글이 다시 생긴 경우: 옛 시각으로 id를 만드는 길이나 두 컴퓨터의 충돌
+    fs.writeFileSync(file(), fs.readFileSync(file(), 'utf8') + '\n## c-20260101-0900 · 메모 · 전체\n- 상태: 끝냄\n\n같은 id의 다른 메모\n')
+    // 옮기지 않을 기록은 「옮길 것」으로 세지도 않는다 (전에는 세어서, 정리해도 줄지 않는 수가 화면에 남았다)
+    expect(archivePlan(root, now).flatMap((m) => m.ids)).not.toContain('c-20260101-0900')
+    const moved = archiveRecords(root, now).flatMap((m) => m.ids)
+    expect(moved).not.toContain('c-20260101-0900')
+    expect(fs.readFileSync(file(), 'utf8')).toContain('같은 id의 다른 메모')
+    expect(fs.readFileSync(path.join(root, 'comments', 'archive', 'note-x.md'), 'utf8')).toContain('오래된 완료 메모')
+  })
+
   it('완료 기록이 기준을 넘고 옮길 것이 있을 때만', () => {
     expect(tidyHint([many(TIDY_HINT_AT - 1, 2025)], now)).toBeNull()
     expect(tidyHint([many(TIDY_HINT_AT, 2025)], now)).toEqual({ done: TIDY_HINT_AT, ready: TIDY_HINT_AT })
+    // 실제로 옮길 것이 없으면(보관 파일과 글이 달라 그대로 두는 것뿐) 권하지 않는다
+    expect(tidyHint([many(TIDY_HINT_AT, 2025)], now, () => 0)).toBeNull()
+    expect(tidyHint([many(TIDY_HINT_AT, 2025)], now, () => 3)).toEqual({ done: TIDY_HINT_AT, ready: 3 })
   })
 })

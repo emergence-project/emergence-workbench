@@ -1,4 +1,5 @@
 import { useQueries, useQueryClient } from '@tanstack/react-query'
+import { SendArea } from './SendArea'
 import { useState } from 'react'
 import { agentChatsApi, mockupUrl } from './api'
 import { PictureGallery, type GalleryPicture } from './PictureGallery'
@@ -26,7 +27,7 @@ const PICTURE = ['.png', '.webp', '.jpg', '.jpeg', '.gif', '.svg']
 /**
  * 시안 (11/19 "시안이 있을 때 링크를 두거나 여기서 바로 볼 수 있게"): 대화 글에 시안 경로가 나오면 그 글 아래에 그림을 작게 보여 준다.
  * 그림을 누르면 앱 안에서 크게(PictureGallery), 「새 창에서 열기」는 html이 있으면 html, 없으면 그림을 새 창에 연다.
- * 파일은 서버 routes/agentMockups.ts가 그 대화 작업 폴더의 mockups/ 안에서만 내준다. 없는 시안은 그리지 않는다
+ * 파일은 서버 routes/agentMockups.ts가 그 대화 작업 폴더의 mockups/ 안에서만 내준다 (끝난 대화의 작업 폴더를 치운 뒤에는 남겨 둔 시안에서 같은 주소로). 없는 시안은 그리지 않는다
  */
 export function Mockups({ text, chat }: { text?: string; chat: string }) {
   const refs = text ? mockupRefs(text, chat) : []
@@ -84,8 +85,8 @@ function MockupSay({ chat, name }: { chat: string; name: string }) {
   if (sent) return <div className="fbp-mockup-decide muted" role="status">{t(`시안 ${name}에 지시를 보냈습니다`, `Sent the instruction on mockup ${name}`)}</div>
   return (
     <div className="fbp-mockup-decide" data-ui="시안 지시">
-      <textarea className="fbp-input" rows={2} value={text} placeholder={t('이 시안에서 고칠 것을 에이전트에게 말하세요', 'Tell the agent what to change in this mockup')} onChange={(ev) => setText(ev.target.value)}
-        onKeyDown={(ev) => { if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); send() } }} />
+      <SendArea className="fbp-input" rows={2} value={text} placeholder={t('이 시안에서 고칠 것을 에이전트에게 말하세요', 'Tell the agent what to change in this mockup')} onChange={(ev) => setText(ev.target.value)}
+        onSend={send} />
       <div className="fbp-mockup-decide-row">
         {error && <span className="error-text">{error}</span>}
         <button type="button" className="btn primary" data-ui="시안 지시 보내기" disabled={busy || !text.trim()} onClick={send}>{t('보내기 (⌘↵)', 'Send (⌘↵)')}</button>

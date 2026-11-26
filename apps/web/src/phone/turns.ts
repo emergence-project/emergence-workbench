@@ -9,24 +9,25 @@ import { userTurnRecords, type FlatRecord } from '../workRecords'
  * 폰의 내 차례 (10/31 사용자 결정 "안 A · 내 차례 먼저", 시안 https://claude.ai/artifact/M7D5NatDAN9agDCJTmPpop):
  * 모든 프로젝트에서 나를 기다리는 것을 한 목록으로. 계산은 맥 화면과 같다 —
  * 피드백은 피드백 화면의 "확인 필요"(userTurn), 기록은 기록 › 내 차례(userTurnRecords), 맡긴 일은 판단 카드(judgeOrder),
- * 수정 검토는 홈 카드의 수(research-issues edits).
+ * 수정 검토는 홈 카드의 수(research-issues edits), 흐름은 결정을 기다리는 방향 보고의 수(research-issues problems, 레일 · 사이드바 기록 줄이 세는 것).
  */
 export type TurnItem =
   | { kind: 'feedback'; key: string; at: string; item: FeedbackItem; turn: 'answer' | 'confirm' }
   | { kind: 'record'; key: string; at: string; rid: string; project: string; rec: FlatRecord }
   | { kind: 'task'; key: string; at: string; rid: string; project: string; task: Task }
+  | { kind: 'flow'; key: string; at: string; rid: string; project: string; n: number }
   | { kind: 'edits'; key: string; at: string; rid: string; project: string; n: number }
 
 /** 확인만 (11/23 결정 필요 · 확인만): 반영이 끝난 피드백과 종결 조건을 통과한 맡긴 일. 탭 수 · 알림에 넣지 않는다 */
 export const isConfirm = (x: TurnItem) => (x.kind === 'feedback' && x.turn === 'confirm') || (x.kind === 'task' && taskTurn(x.task) === 'confirm')
 
-export const TURN_GROUPS = ['feedback', 'record', 'task', 'edits'] as const satisfies TurnItem['kind'][]
+export const TURN_GROUPS = ['feedback', 'record', 'task', 'flow', 'edits'] as const satisfies TurnItem['kind'][]
 
 export function useTurns(): { items: TurnItem[]; loading: boolean; projects: ResearchListItem[] } {
   const list = useQuery({ queryKey: qk.researches, queryFn: () => api.researches() })
   const projects = (list.data?.researches ?? []).filter((r) => r.available && r.state === 'active')
   const feedback = useQuery({ queryKey: qk.feedbackAll, queryFn: () => api.feedbackAll() })
-  // 수정 검토 수: 레일 · 홈과 같은 자료 (useProjectIssues)
+  // 수정 검토 · 흐름 결정의 수: 레일 · 홈과 같은 자료 (useProjectIssues)
   const issues = useQuery({ queryKey: qk.researchIssues, queryFn: () => api.researchIssues(), enabled: projects.length > 0 })
   const records = useQueries({ queries: projects.map((r) => ({ queryKey: qk.records(r.id), queryFn: () => commentsApi(r.id).records() })) })
   const tasks = useQueries({ queries: projects.map((r) => ({ queryKey: qk.tasks(r.id), queryFn: () => tasksApi(r.id).scan() })) })
@@ -39,6 +40,8 @@ export function useTurns(): { items: TurnItem[]; loading: boolean; projects: Res
   projects.forEach((r, i) => {
     for (const rec of userTurnRecords(records[i]?.data?.files ?? [])) items.push({ kind: 'record', key: `rec:${r.id}:${rec.file.target}:${rec.entry.id}`, at: rec.entry.id, rid: r.id, project: r.title, rec })
     for (const task of judgeOrder(tasks[i]?.data?.tasks ?? [])) items.push({ kind: 'task', key: `task:${r.id}:${task.id}`, at: task.resultAt ?? '', rid: r.id, project: r.title, task })
+    const flows = issues.data?.problems[r.id] ?? 0
+    if (flows) items.push({ kind: 'flow', key: `flow:${r.id}`, at: '', rid: r.id, project: r.title, n: flows })
     const n = issues.data?.edits[r.id] ?? 0
     if (n) items.push({ kind: 'edits', key: `edits:${r.id}`, at: '', rid: r.id, project: r.title, n })
   })

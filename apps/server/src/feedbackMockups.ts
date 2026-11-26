@@ -4,12 +4,16 @@ import { FEEDBACK_MISSES, type FeedbackReply, type FeedbackRevision } from '@rw/
 import type { FeedbackAnswerBody } from '@rw/core/contract/agentChats'
 import { localDate, localTime } from './fsutil.js'
 import { t } from './i18n.js'
+import YAML from 'yaml'
+import { keptMockups } from './appWorktreeTidy.js'
+import { editYamlFile, STATUS_FILE } from './feedback.js'
 import { WorkbenchError } from './workbench.js'
 
 /**
  * 피드백 처리 · 답에 붙인 시안 (11/19 "피드백에서 시안을 제대로 볼 수 없어서 결정하지 않은 것"):
  * 에이전트가 작업 폴더 mockups/에 둔 그림과 같은 이름의 .html을 feedback/pictures/로 옮겨 적고, status.yaml의 mockups에 그 경로를 단다.
- * 작업 폴더는 PR이 합쳐지면 지워지므로 피드백 폴더에 사본을 둔다. 화면은 그림을 미리보기로, html은 새 창으로 연다.
+ * 작업 폴더의 시안은 그 컴퓨터의 앱 설정 폴더에만 있고(끝난 대화의 작업 폴더를 치운 뒤에도, appWorktreeTidy.ts), 피드백은 여러 컴퓨터가
+ * 함께 보므로 피드백 폴더에 사본을 둔다. 화면은 그림을 미리보기로, html은 새 창으로 연다.
  */
 
 /** feedback/pictures/ 안에서 보여 줄 수 있는 파일 (그림 · 시안 html). 그림 경로 /api/feedback/picture가 쓴다 */
@@ -65,12 +69,17 @@ export function readRevisions(v: unknown): FeedbackRevision[] | undefined {
 }
 
 /**
- * 작업 폴더 mockups/의 시안을 feedback/pictures/로 옮겨 적고 그 경로를 돌려준다.
+ * 작업 폴더 mockups/의 시안을 feedback/pictures/로 옮겨 적고 그 경로를 돌려준다. 작업 폴더를 치웠으면 남겨 둔 시안에서 찾는다.
  * 이름은 확장자가 있어도 없어도 된다: 같은 이름의 그림과 .html을 함께 옮긴다. 하나도 없으면 있는 이름을 알려 주며 거절한다.
  */
 export function copyMockups(worktree: string, fbDir: string, names: string[], now = new Date()): string[] {
-  const src = path.join(worktree, 'mockups')
-  const have = fs.existsSync(src) ? fs.readdirSync(src).filter((f) => COPY_EXT.includes(path.extname(f).slice(1).toLowerCase())) : []
+  // 작업 폴더의 것이 먼저, 없는 이름만 남겨 둔 시안에서
+  const from = new Map<string, string>()
+  for (const src of [path.join(worktree, 'mockups'), keptMockups(worktree)]) {
+    if (!fs.existsSync(src)) continue
+    for (const f of fs.readdirSync(src)) if (COPY_EXT.includes(path.extname(f).slice(1).toLowerCase()) && !from.has(f)) from.set(f, src)
+  }
+  const have = [...from.keys()]
   const out: string[] = []
   const stamp = `${localDate(now)}-${localTime(now).replace(':', '')}`
   for (const name of names) {
@@ -85,7 +94,7 @@ export function copyMockups(worktree: string, fbDir: string, names: string[], no
     const short = stem.replace(/^\d{4}-\d{2}-\d{2}-/, '')
     for (const f of files) {
       const rel = `pictures/${stamp}-mockup-${short}${path.extname(f).toLowerCase()}`
-      fs.copyFileSync(path.join(src, f), path.join(fbDir, rel))
+      fs.copyFileSync(path.join(from.get(f)!, f), path.join(fbDir, rel))
       out.push(rel)
     }
   }
@@ -102,4 +111,36 @@ export function answerMockups(b: FeedbackAnswerBody, worktree: string | undefine
     ...(mockups && { mockups }),
     ...(b.replies && { replies: b.replies.map((r) => { const m = copy(r.mockups); return { to: r.to, note: r.note, ...(m && { mockups: m }) } }) }),
   }
+}
+
+/**
+ * 쓰지 않게 된 시안을 그 항목의 피드백 답에서 뗀다 (11/24 사용자 「적용도 안 됐고 반영할 예정도 아니니 전후 그림만」).
+ * 피드백 답은 에이전트가 쓴 것이라 에이전트가 뗄 수 있다. 떼는 것은 mockups 칸(지금 처리 · 지난 처리 revised · 답 replies)의
+ * 그 시안 경로뿐이고, 사용자의 원문 · 판정 · 코멘트와 전후 그림(pictures)은 건드리지 않는다. 그림 파일은 지우지 않는다(이력).
+ * 이름은 시안 이름(확장자 · 날짜 없이, 예 agent-side-views). 뗀 경로 수를 돌려준다
+ */
+export function dropMockups(fbDir: string, key: string, names: string[]): number {
+  const stems = new Set(names.map((n) => n.replace(/\.[a-z]+$/i, '').replace(/^\d{4}-\d{2}-\d{2}-/, '')))
+  const hit = (p: unknown) => typeof p === 'string' && stems.has(path.basename(p, path.extname(p)).replace(/^\d{4}-\d{2}-\d{2}-\d{4}-mockup-/, ''))
+  return editYamlFile(fbDir, STATUS_FILE, (doc) => {
+    const item = doc.get(key, true)
+    if (!YAML.isMap(item)) throw new WorkbenchError(404, t('그 항목의 피드백 답이 없습니다', 'That item has no feedback answer'))
+    let n = 0
+    const clean = (m: unknown) => {
+      if (!YAML.isMap(m)) return
+      const seq = m.get('mockups', true)
+      if (!YAML.isSeq(seq)) return
+      const keep = seq.items.filter((x) => !(YAML.isScalar(x) && hit(x.value)))
+      n += seq.items.length - keep.length
+      if (keep.length) seq.items = keep
+      else m.delete('mockups')
+    }
+    clean(item)
+    for (const list of ['revised', 'replies']) {
+      const seq = item.get(list, true)
+      if (YAML.isSeq(seq)) for (const x of seq.items) clean(x)
+    }
+    if (!n) throw new WorkbenchError(400, t(`그 이름의 시안이 이 항목에 없습니다: ${[...stems].join(', ')}`, `No mockup by that name on this item: ${[...stems].join(', ')}`))
+    return n
+  })
 }

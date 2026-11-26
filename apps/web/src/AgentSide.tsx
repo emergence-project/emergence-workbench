@@ -2,19 +2,21 @@
 // 프로젝트 밖 화면(홈 · 피드백 · 소개 · 설정 …)의 오른쪽 사이드바: 맨 위에 「중앙」, 그 아래 모든 프로젝트의 최근 대화, 아래 입력란은 중앙에게 말한다.
 // 대화를 누르면 이 사이드바 안에서 연다(페이지를 옮기지 않음). 프로젝트 화면은 원래의 오른쪽 사이드바 에이전트 탭을 쓰고, 그 목록 맨 위에도 「중앙」이 있다
 import { useEffect, useState, type ReactNode } from 'react'
+import { useCmdEnter } from './cmdEnter'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { agentChatsApi, CENTRAL_RID, devicesApi } from './api'
 import { serverSkew } from './DeviceList'
 import { ChatLine, PanelChat, rank, useChatList } from './AgentChats'
-import { CENTRAL_PAGE, CentralLine } from './CentralChat'
+import { CENTRAL_PAGE, CentralLine, ChatListError } from './CentralChat'
 import { t } from './i18n'
 import { screenLine } from './screenView'
 import { Icon } from './icons'
-import { useOfferRightModes, useRightMode, type RightMode } from './noteScreen'
+import { useRightMode, type RightMode } from './noteScreen'
+import { RightModeTabs } from './RightModeTabs'
 import { qk } from './queries'
 import { go } from './router'
 import { store } from './store'
-import { TerminalPane, useTerminalAvailable } from './TerminalPane'
+import { SideTerminalClose, TerminalPane, useTerminalAvailable } from './TerminalPane'
 export { useTerminalAvailable } from './TerminalPane'
 
 const KEY = 'rw-agent-panel-all'
@@ -48,6 +50,7 @@ export function GlobalAgentPanel({ onSaved }: { onSaved(m: string): void }) {
       <div className="rs-scroll ac-panel-list">
         <div className="set-side">
           <ChatPlaceNote />
+          <ChatListError />
           <CentralLine row={central} on={false} onOpen={setOpen} />
           {!!recent.length && <div className="ac-sub-h">{t('최근 대화', 'Recent conversations')}</div>}
           {recent.map((c) => <ChatLine key={c.id} c={c} on={false} onOpen={() => setOpen(c.id)} />)}
@@ -78,13 +81,13 @@ function ServerSkewNote() {
 }
 
 /** 프로젝트 밖 화면의 터미널: rid의 폴더(중앙은 앱 저장소, 못 찾으면 홈)에서 연다. rid를 아직 모르면(대화 목록을 받는 중) 기다린다.
- *  한 번 열면 다른 갈래 · 다른 대화로 가도 셸을 그대로 둔다 */
-function useSideTerminal(mode: RightMode, rid: string | null = CENTRAL_RID) {
+ *  한 번 열면 다른 갈래 · 다른 대화로 가도 셸을 그대로 둔다. close: 닫기 단추로 터미널 갈래에서 나갈 수 있게 (터미널뿐인 칸에는 두지 않는다) */
+function useSideTerminal(mode: RightMode, rid: string | null = CENTRAL_RID, close = true) {
   const able = useTerminalAvailable()
   const [opened, setOpened] = useState(false)
   useEffect(() => { if (able && mode === 'terminal' && rid !== null) setOpened(true) }, [able, mode, rid])
   const on = able && mode === 'terminal'
-  return { able, on, pane: able && opened && <div className="rs-col" hidden={!on}><TerminalPane rid={rid ?? undefined} /></div> }
+  return { able, on, pane: able && opened && <div className="rs-col" hidden={!on}><TerminalPane rid={rid ?? undefined} tools={close ? <SideTerminalClose /> : undefined} /></div> }
 }
 
 /** 에이전트 화면에서 연 대화의 프로젝트 (중앙 · 대화를 고르지 않음은 중앙). 목록을 받는 중이면 null */
@@ -95,17 +98,17 @@ function useChatRid(id: string | undefined): string | null {
   return list.find((c) => c.id === id)?.rid ?? CENTRAL_RID
 }
 
-/** 자기 오른쪽 사이드바가 있는 화면(지식 · 논문 · 그림 첫 화면)의 사이드바: 상단바의 갈래 아이콘(정보 · 에이전트, 11/21 안 A)으로 그 화면 정보와 에이전트를 오간다.
- *  터미널은 상단바 아이콘에 없다(11/23: 에이전트 대화 창 안). 코드 블록 「터미널에서 실행」만 이 칸을 터미널로 연다.
+/** 자기 오른쪽 사이드바가 있는 화면(지식 · 논문 · 그림 첫 화면, 소개의 이력 · 수정)의 사이드바: 사이드바 맨 위 갈래 아이콘(정보 · 에이전트, 11/24 RightModeTabs)으로 그 화면 정보와 에이전트를 오간다.
+ *  터미널은 갈래 아이콘에 없다(11/23: 에이전트 대화 창 안). 코드 블록 「터미널에서 실행」만 이 칸을 터미널로 연다.
  *  고른 갈래는 노트 화면의 오른쪽 사이드바 갈래와 같은 기억(noteScreen) */
-export function InfoOrAgent({ ui, onSaved, children }: { ui: string; onSaved(m: string): void; children: ReactNode }) {
+export function InfoOrAgent({ ui, onSaved, infoClass, children }: { ui: string; onSaved(m: string): void; infoClass?: string; children: ReactNode }) {
   const chosen = useRightMode()
   const term = useSideTerminal(chosen)
   const mode: RightMode = chosen === 'agent' || term.on ? chosen : 'info'
   const side = mode !== 'info'
-  useOfferRightModes(['info', 'agent'], mode)
   return (
-    <aside className={`kh-side kh-side-tabs${side ? ' kh-side-agent' : ''}`} data-ui={mode === 'agent' ? '에이전트 사이드바' : mode === 'terminal' ? '터미널 사이드바' : ui}>
+    <aside className={`kh-side kh-side-tabs${side ? ' kh-side-agent' : infoClass ? ` ${infoClass}` : ''}`} data-ui={mode === 'agent' ? '에이전트 사이드바' : mode === 'terminal' ? '터미널 사이드바' : ui}>
+      {mode !== 'terminal' && <RightModeTabs modes={['info', 'agent']} mode={mode} />}
       {mode === 'agent' ? <GlobalAgentPanel onSaved={onSaved} /> : mode === 'info' && children}
       {term.pane}
     </aside>
@@ -117,8 +120,7 @@ export function InfoOrAgent({ ui, onSaved, children }: { ui: string; onSaved(m: 
 export function AgentSideBody({ onSaved, terminalOnly, chatId }: { onSaved(m: string): void; terminalOnly?: boolean; chatId?: string }) {
   const chosen = useRightMode()
   const chatRid = useChatRid(terminalOnly ? chatId : undefined)
-  const term = useSideTerminal(terminalOnly ? 'terminal' : chosen, chatRid)
-  useOfferRightModes(terminalOnly ? ['terminal'] : ['agent'], terminalOnly || term.on ? 'terminal' : 'agent')
+  const term = useSideTerminal(terminalOnly ? 'terminal' : chosen, chatRid, !terminalOnly)
   if (terminalOnly) return term.pane
   return <>
     {!term.on && <GlobalAgentPanel onSaved={onSaved} />}
@@ -144,11 +146,12 @@ function TalkToCentral({ onOpened }: { onOpened(id: string): void }) {
       onOpened(c.id)
     } catch (e) { setFail(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
   }
+  const sendKey = useCmdEnter(() => void submit())
   return (
     <div className="ac-side-talk" data-ui="중앙에게 말하기">
       <textarea className="ac-central-input" rows={3} value={text} placeholder={t('중앙에게 말하기 · ⌘↩ 보내기', 'Talk to Central · ⌘↩ to send')} aria-label={t('중앙에게 말하기', 'Talk to Central')}
         onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); void submit() } }} />
+        onKeyDown={sendKey.onKeyDown} onCompositionEnd={sendKey.onCompositionEnd} />
       <div className="ac-central-send">
         {fail && <span className="error-text">{fail}</span>}
         <button className="btn primary" disabled={!text.trim() || busy} onClick={() => void submit()}>{t('보내기', 'Send')}</button>

@@ -5,6 +5,7 @@ import { asksUser, feedbackBucket, stateOf } from './feedbackBuckets'
 import { t } from './i18n'
 import { REPLY, REPLY_MEANING } from './feedbackTags'
 import { Icon } from './icons'
+import { draftMap } from './unsent'
 
 // 피드백 항목에 답하는 부품 (11/8 처리와 대화 나누기, 시안 N7ik 3절): 지금 처리 카드의 승인 · 전후 그림, 대화 아래 입력란. 피드백 화면과 폰 내 차례가 함께 쓴다
 
@@ -50,7 +51,7 @@ export function ApproveButton({ e, onOpinion }: { e: FeedbackItem; onOpinion?():
  */
 type Opinion = '코멘트' | '반려' | '진행' | '중단' | '논의'
 const NEEDS_TEXT: Opinion[] = ['반려', '논의', '코멘트']
-const unsentAnswers = new Map<string, string>()
+const unsentAnswers = draftMap<string>()
 export function Compose({ e, focus, prefix }: { e: FeedbackItem; focus?: boolean; prefix?: string }) {
   // 적던 답은 다른 항목 · 다른 화면을 보고 와도 남는다 (보내면 지움, 앱을 다시 열면 없음)
   const draft = prefix ? `${e.key}\n${prefix}` : e.key

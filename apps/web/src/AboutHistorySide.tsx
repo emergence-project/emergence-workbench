@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { SendArea } from './SendArea'
 import { useQuery } from '@tanstack/react-query'
 import type { AboutPart } from './aboutContent'
 import { sectionAnchor } from './aboutContent'
@@ -9,7 +10,7 @@ import { Icon } from './icons'
 import { href } from './router'
 
 /**
- * 소개 오른쪽 사이드바 (11/20 시안 2 · 3절, 「시안대로 구현하자」): 탭 「이력 · 수정」.
+ * 소개 오른쪽 사이드바 (11/20 시안 2 · 3절, 「시안대로 구현하자」): 탭 「이력 · 수정」. 11/24부터 앱 오른쪽 사이드바의 정보 갈래 (에이전트 갈래와 한 칸).
  * 이력은 (절, 업데이트)마다 카드 하나: 첫 줄 #번호 · 날짜 · 절과 오른쪽 맞아요 · 고칠 점(11/20, 예전 「답하기」), 다음 줄 제목 전문 (11/20 시안 3절 안 C: 표가 좁아
  * 이력을 두 칸의 오른쪽 칸에 띄운다). 카드를 누르면 본문이 그 절로 가고 그 업데이트가 바꾼 문장에 하이라이트가 붙으며, 카드 아래에 바꾼 것 요약이 펼쳐진다.
  * 예전(11/16–11/19)에는 본문 위 「이 쪽의 확인 항목」 상자와 업데이트마다 한 줄인 목록이 같은 업데이트를 두 번 보였다.
@@ -38,22 +39,22 @@ const shortDate = (d: string) => { const m = /^\d{4}-(\d{2})-(\d{2})/.exec(d); r
 export type SideTab = 'history' | 'fix'
 export interface Picked { n: number; sec: number }
 
-export function AboutSide({ part, tab, onTab, picked, onPick, onClose, fix }: {
-  part: AboutPart; tab: SideTab; onTab(v: SideTab): void; picked: Picked | null; onPick(v: Picked | null): void; onClose(): void; fix: ReactNode
+/** 앱 오른쪽 사이드바의 정보 갈래에 들어가는 몸 (AboutPage가 InfoOrAgent 안에 둔다. 여닫기는 상단바 · 툴바 시계) */
+export function AboutSide({ part, tab, onTab, picked, onPick, fix }: {
+  part: AboutPart; tab: SideTab; onTab(v: SideTab): void; picked: Picked | null; onPick(v: Picked | null): void; fix: ReactNode
 }) {
   return (
-    <aside className="pane about-rs" data-ui="소개 이력" aria-label={t('이 쪽의 이력과 수정', 'History and edits of this page')}>
+    <>
       <div className="rs-head side-tabbar">
         <div className="segmented small full" role="tablist" aria-label={t('소개 사이드바 갈래', 'About sidebar view')} data-ui="소개 사이드바 갈래">
           <button role="tab" aria-selected={tab === 'history'} className={tab === 'history' ? 'on' : ''} onClick={() => onTab('history')}>{t('이력', 'History')}</button>
           <button role="tab" aria-selected={tab === 'fix'} className={tab === 'fix' ? 'on' : ''} onClick={() => onTab('fix')}>{t('수정', 'Edit')}</button>
         </div>
-        <button className="icon-btn" aria-label={t('사이드바 닫기', 'Close sidebar')} data-tip={t('닫기', 'Close')} onClick={onClose}>{Icon.x}</button>
       </div>
       <div className="rs-scroll rs-pad">
         {tab === 'history' ? <HistoryTable part={part} picked={picked} onPick={onPick} /> : fix}
       </div>
-    </aside>
+    </>
   )
 }
 
@@ -147,11 +148,8 @@ function FixBox({ quote, label, onSend, onClose }: { quote?: string; label: stri
   return (
     <div className="about-hist-box" data-ui="고칠 점 칸" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
       {quote && <div className="about-hist-quote">{quote}</div>}
-      <textarea rows={2} autoFocus aria-label={label} placeholder={quote ? t('이 문장에서 고칠 점', 'What to fix in this sentence') : label} value={v} onChange={(e) => setV(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void go() }
-          else if (e.key === 'Escape') { e.preventDefault(); onClose() }
-        }} />
+      <SendArea rows={2} autoFocus aria-label={label} placeholder={quote ? t('이 문장에서 고칠 점', 'What to fix in this sentence') : label} value={v} onChange={(e) => setV(e.target.value)} onSend={() => void go()}
+        onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); onClose() } }} />
       <div className="about-hist-box-bar">
         <span className="muted">{t('⌘↵ 보내기 · Esc 닫기', '⌘↵ send · Esc close')}</span>
         <span className="sp" />

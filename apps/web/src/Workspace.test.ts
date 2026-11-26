@@ -416,9 +416,11 @@ describe('closing after the save completes', () => {
     expect(groups.has('part:a.tex')).toBe(false)
   })
 
-  it('registers the sandbox autosave-close regression command', () => {
+  // The browser regression runs from pnpm test:browser, which CI runs on every PR
+  it('keeps the sandbox autosave-close regression in the browser check command', () => {
     const pkg = JSON.parse(fs.readFileSync(new URL('../../../package.json', import.meta.url), 'utf8'))
-    expect(pkg.scripts['test:autosave-close']).toBe('node scripts/shots/autosave-close.mjs')
+    expect(pkg.scripts['test:browser']).toBe('node scripts/shots/browser-check.mjs')
+    expect(fs.readFileSync(new URL('../../../scripts/shots/browser-check.mjs', import.meta.url), 'utf8')).toContain("'autosave-close'")
   })
 
   it('does not change selection when another tab was selected while saving', () => {

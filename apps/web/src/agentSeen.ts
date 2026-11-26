@@ -40,8 +40,10 @@ const read = (): Seen => {
 if (typeof window !== 'undefined') window.addEventListener('storage', (e) => { if (e.key === KEY) { current = null; listeners.forEach((f) => f()) } })
 
 export const isUnseen = (c: ChatRow) => isUnseenIn(read(), c)
-/** 사용자 차례: 허락 · 계획을 기다리거나 오류로 멈춘 대화, 끝났는데 아직 열어 보지 않은 대화 */
-export const myTurn = (c: ChatRow) => c.state === 'waiting' || c.state === 'error' || isUnseen(c)
+/** 에이전트가 묻고 끝낸 대화: 읽기만 해서는 풀리지 않고 답해야 풀린다 (11/24, 서버의 asks) */
+export const asksMe = (c: Partial<Pick<ChatRow, 'asks' | 'archived'>>) => !!c.asks && !c.archived
+/** 사용자 차례: 허락 · 계획을 기다리거나 오류로 멈춘 대화, 에이전트가 묻고 끝낸 대화, 끝났는데 아직 열어 보지 않은 대화 */
+export const myTurn = (c: ChatRow) => c.state === 'waiting' || (c.state === 'error' && !c.archived) || asksMe(c) || isUnseen(c)
 export function markSeen(id: string, updated: string) {
   const next = seenWith(read(), id, updated)
   if (next === current) return

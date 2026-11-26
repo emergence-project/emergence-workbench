@@ -6,7 +6,7 @@ import { CodeBlock } from './CodeBlock'
 import { journalWhen } from './format'
 import { go } from './router'
 import { onListKey } from './listInput'
-import { isSendKey } from './cmdEnter'
+import { SendBox } from './SendArea'
 import { Icon } from './icons'
 import { askConfirm } from './askText'
 import { journalDeletePrompt, journalEntryActions } from './journalActions'
@@ -15,6 +15,7 @@ import { shown, t } from './i18n'
 import { RepoPathContext } from './repoPaths'
 import { textLinks } from './textLinks'
 import { AppLinkCode, AppLinkText } from './AppLinkText'
+import { draftMap } from './unsent'
 export { isNoteTarget } from './journalTargets'
 export { AppLinkProvider } from './AppLinkText'
 
@@ -62,7 +63,7 @@ export function MemoText({ text }: { text: string }) {
 
 /** 메모 입력칸. 빠른 메모 창과 메모 탭이 함께 쓴다 */
 /** 빠른 메모를 Esc · 바깥 누르기로 닫아도 적던 글이 남게: 붙는 곳마다 하나, 저장하면 지운다 (화면을 새로 열면 없어진다) */
-const quickDrafts = new Map<string, string>()
+const quickDrafts = draftMap<string>()
 
 export function MemoComposer({ target, targetLabel, autoFocus, compact, keepDraft, onSave, onEscape }: {
   target: string
@@ -87,6 +88,8 @@ export function MemoComposer({ target, targetLabel, autoFocus, compact, keepDraf
     setBusy(true)
     try {
       await onSave(todo ? 'todo' : 'memo', text.trim(), target)
+      // 저장하면 창이 먼저 닫혀(QuickMemo) 아래 setText가 닿지 않는다: 적던 글을 여기서 지운다
+      if (keepDraft) quickDrafts.delete(target)
       setText(''); setTodo(false); setError(null)
     } catch (e) {
       setError((e as Error).message)
@@ -96,10 +99,9 @@ export function MemoComposer({ target, targetLabel, autoFocus, compact, keepDraf
   }
   const has = text.trim() !== ''
   return (
-    <div className={`memo${compact ? ' compact' : ''}${has ? ' has-text' : ''}`} data-ui="메모 입력" onKeyDown={(e) => {
+    <SendBox className={`memo${compact ? ' compact' : ''}${has ? ' has-text' : ''}`} data-ui="메모 입력" onSend={() => void save()} onKeyDown={(e) => {
       // ⌘↵ · Esc는 칸 전체에서: 할 일로 단추로 옮겨 간 뒤에도 (11/19 피드백 09:04)
-      if (isSendKey(e)) { e.preventDefault(); void save() }
-      else if (e.key === 'Escape' && !e.nativeEvent.isComposing) onEscape?.()
+      if (e.key === 'Escape' && !e.nativeEvent.isComposing) onEscape?.()
     }}>
       <textarea ref={ta} rows={compact ? 1 : 3} value={text} aria-label={t('메모', 'Memo')}
         placeholder={compact ? t(`${targetLabel}에 메모 — 생각, 의문, 다음 할 일 (- 목록, $수식$)`, `Memo on ${targetLabel}: thoughts, doubts, next steps (- list, $math$)`) : t('떠오른 생각을 적고 ⌘↵ — Esc로 닫기. - 로 목록, $…$로 수식', 'Write a thought and press ⌘↵. Esc closes. - for a list, $…$ for math')}
@@ -115,7 +117,7 @@ export function MemoComposer({ target, targetLabel, autoFocus, compact, keepDraf
           <svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
         </button>
       </div>
-    </div>
+    </SendBox>
   )
 }
 
@@ -184,7 +186,7 @@ function MemoItem({ e, rid, noteOf, onToggle, onEdit, onDelete, hideTodoKind }: 
       {e.kind === 'todo'
         ? <button className={`mi-icon todo${e.done ? ' done' : ''}`} aria-label={`${e.done ? t('할 일 되돌리기', 'Mark to-do undone') : t('할 일 완료', 'Complete to-do')}: ${short(e.text)}`} onClick={() => onToggle(e)}>{e.done && Icon.check}</button>
         : <span className={`mi-icon ${e.kind === 'status' ? 'status' : 'note'}`} />}
-      <div onKeyDown={draft === null ? undefined : (ev) => { if (ev.key === 'Escape') setDraft(null); if (isSendKey(ev)) save() }}>
+      <SendBox onSend={() => { if (draft !== null) save() }} onKeyDown={(ev) => { if (draft !== null && ev.key === 'Escape') setDraft(null) }}>
         {draft !== null
           ? <textarea className="mi-edit" autoFocus value={draft} rows={Math.min(8, draft.split('\n').length + 1)} onChange={(ev) => setDraft(ev.target.value)} />
           : <div className="mi-text"><MemoText text={e.text} /></div>}
@@ -200,7 +202,7 @@ function MemoItem({ e, rid, noteOf, onToggle, onEdit, onDelete, hideTodoKind }: 
                 {deletable && onDelete && <button className="icon-btn" data-tip={t('삭제', 'Delete')} aria-label={`${t('삭제', 'Delete')}: ${short(e.text)}`} onClick={() => void askConfirm(journalDeletePrompt(e)).then((y) => { if (y) onDelete(e) })}>{Icon.trash}</button>}
               </span>}
         </div>
-      </div>
+      </SendBox>
     </div>
   )
 }

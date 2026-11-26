@@ -87,6 +87,26 @@ describe('다른 컴퓨터의 대화', () => {
     expect(() => book.continueHere('nope')).toThrow()
   })
 
+  // 중앙은 컴퓨터에 하나다: 다른 컴퓨터의 옛 중앙 대화를 이어 오면 중앙이 둘이 되고, 방금 이어 온 쪽이 중앙 자리를 차지했다
+  it('다른 컴퓨터의 중앙 대화는 이 컴퓨터에 중앙이 있으면 이어 오지 않는다 (없으면 그 대화가 중앙이 된다)', async () => {
+    const personal = tmp()
+    fs.mkdirSync(path.join(personal, SHARE_ROOT, 'Macmini'), { recursive: true })
+    const mini = make(tmp(), ['p', CENTRAL_RID])
+    const theirs = mini.create({ rid: CENTRAL_RID, text: '맥미니의 중앙' })
+    await vi.waitFor(() => expect(mini.get(theirs.id).state).toBe('idle'))
+    fs.writeFileSync(path.join(personal, SHARE_ROOT, 'Macmini', `${theirs.id}.json`), mini.sharedFiles()[theirs.id]!)
+    const book = make(tmp(), ['p', CENTRAL_RID])
+    book.shareDir = personal
+    const mine = book.create({ rid: CENTRAL_RID, text: '이 컴퓨터의 중앙' })
+    await vi.waitFor(() => expect(book.get(mine.id).state).toBe('idle'))
+    expect(() => book.continueHere(theirs.id)).toThrow('중앙')
+    expect(book.list().filter((c) => c.rid === CENTRAL_RID)).toHaveLength(1)
+    // 이 컴퓨터의 중앙을 보관했으면 이어 올 수 있다
+    book.archive(mine.id, true)
+    expect(book.continueHere(theirs.id).rid).toBe(CENTRAL_RID)
+    mini.stopAll(); book.stopAll()
+  })
+
   it('앞 대화가 길면 뒤쪽만 넘긴다', () => {
     const at = ''
     const items = Array.from({ length: 40 }, (_, i) => ({ kind: 'text' as const, at, text: `글 ${i} ${'x'.repeat(600)}` }))

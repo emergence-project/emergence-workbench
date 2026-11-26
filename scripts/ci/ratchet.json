@@ -3,8 +3,8 @@
     "apps/server/src/agentChats.ts": 1062,
     "apps/server/src/comments.ts": 643,
     "apps/server/src/feedback.ts": 634,
-    "apps/web/src/AgentChats.tsx": 1096,
-    "apps/web/src/App.tsx": 628,
+    "apps/web/src/AgentChats.tsx": 1022,
+    "apps/web/src/App.tsx": 627,
     "apps/web/src/Workspace.tsx": 641
   },
   "casts": {
@@ -83,7 +83,7 @@
     "apps/web/src/about/principles/status-and-turns.tsx": 1,
     "apps/web/src/about/project/work-and-records.tsx": 1,
     "apps/web/src/AddNotesDialog.tsx": 1,
-    "apps/web/src/AgentChats.tsx": 15,
+    "apps/web/src/AgentChats.tsx": 14,
     "apps/web/src/AgentEditsPage.tsx": 8,
     "apps/web/src/api/comments.ts": 2,
     "apps/web/src/api/http.ts": 2,

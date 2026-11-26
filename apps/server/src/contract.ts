@@ -19,6 +19,33 @@ export function parseBody<S extends z.ZodTypeAny>(schema: S, body: unknown): z.o
   throw new WorkbenchError(400, t(`요청 형식이 맞지 않음: ${what}`, `Invalid request: ${what}`))
 }
 
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
+
+/**
+ * 다른 컴퓨터가 보낸 것에서 이 버전의 계약이 모르는 칸을 뺀다 (기기 알림과 그 답: 컴퓨터마다 앱 버전이 다를 수 있다, 11/26).
+ * 아는 칸은 건드리지 않으므로 모양이 틀리면 뒤의 계약 검사가 그대로 잡는다. 화면과 주고받는 것은 같은 빌드라 쓰지 않는다(모르는 칸도 실패)
+ */
+export function knownOnly(schema: z.ZodTypeAny, data: unknown): unknown {
+  let cur = data
+  // 한 번에 다 나오지만, 안쪽 칸이 뒤에 드러나는 경우를 생각해 몇 번까지 본다
+  for (let round = 0; round < 3; round++) {
+    const r = schema.safeParse(cur)
+    if (r.success) return cur
+    let dropped = false
+    const next: unknown = structuredClone(cur)
+    for (const issue of r.error.issues) {
+      if (issue.code !== 'unrecognized_keys') continue
+      let at: unknown = next
+      for (const key of issue.path) at = isRecord(at) ? at[String(key)] : undefined
+      if (!isRecord(at)) continue
+      for (const key of issue.keys) { delete at[key]; dropped = true }
+    }
+    if (!dropped) return cur
+    cur = next
+  }
+  return cur
+}
+
 /** 라우트 옵션: 응답 계약. 핸들러의 반환 타입(Promise<C.X>)은 따로 적는다 */
 export const replies = (schema: z.ZodTypeAny) => ({ config: { reply: schema } })
 

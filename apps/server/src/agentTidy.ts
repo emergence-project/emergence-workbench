@@ -1,7 +1,7 @@
 /**
  * 오래된 대화 정리와 압축 (11/16 시안 https://claude.ai/artifact/9x2Bud4dVQyYkS6RhdnbAG §6 · §9 ④).
  *
- * - 끝난 대화(일하지 않고 사용자 차례도 아님)가 TIDY_DAYS 동안 손대지 않으면 보관한다. 합쳐지지 않은 PR이 있는 앱 고치기 대화와 중앙 대화는 두지 않는다.
+ * - 끝난 대화(일하지 않고 사용자 차례도 아님, 에이전트가 묻고 끝낸 대화도 아님)가 TIDY_DAYS 동안 손대지 않으면 보관한다. 합쳐지지 않은 PR이 있는 앱 고치기 대화와 중앙 대화는 두지 않는다.
  * - 보관한 대화는 결과 요약(작은 모델, 서너 줄)을 남기고, 원문(대화 줄)은 같은 폴더의 <id>.items.json.gz로 압축해 메모리에서 뺀다.
  *   지우지 않는다: 그 대화를 열면(must) 다시 풀어 그대로 보인다. 지우기는 사용자가 보관함에서 고를 때만.
  * - 요약은 색인일 뿐 정본이 아니다: 고친 코드는 PR, 노트는 노트와 수정 검토, 답은 기록에 있다.
@@ -9,6 +9,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import zlib from 'node:zlib'
+import { agentAsks } from '@rw/core'
 import { CENTRAL_RID, type CentralMemo, type ChatItem } from '@rw/core/contract/agentChats'
 
 /** 끝난 대화를 보관할 때까지 (일) */
@@ -24,6 +25,8 @@ export const packFile = (dir: string, id: string) => path.join(dir, `${id}.items
 export function due(c: Tidyable, now = Date.now()): boolean {
   if (c.archived || c.rid === CENTRAL_RID || !['idle', 'stopped', 'error'].includes(c.state)) return false
   if (c.pr && !c.merged) return false
+  // 에이전트가 묻고 끝낸 대화는 사용자가 답할 때까지 둔다 (11/24)
+  if (agentAsks(c.items)) return false
   return now - Date.parse(c.updated) >= TIDY_DAYS * 86_400_000
 }
 

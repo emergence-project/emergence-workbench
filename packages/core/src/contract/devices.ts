@@ -41,7 +41,7 @@ export const Device = DeviceRecord.extend({
   live: z.boolean().optional(),
   /** 서버 컴퓨터 */
   server: z.boolean().optional(),
-  /** 로그아웃을 걸어 두었고 그 컴퓨터가 아직 서버에 닿지 않았다 */
+  /** 로그아웃을 걸어 두었고, 그 컴퓨터의 계정이 빠진 것을 서버가 아직 보지 못했다 (서버를 다시 켜도 남는다) */
   logout: z.boolean().optional(),
   /** 피드백 돕기를 켠 맥 (서버가 본 값) */
   helper: DeviceHelper.optional(),

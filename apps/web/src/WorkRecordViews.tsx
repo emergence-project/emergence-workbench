@@ -1,5 +1,6 @@
 import { RESEARCH_TARGET, type JournalEntry } from '@rw/core'
 import { useRef, useState } from 'react'
+import { useCmdEnter } from './cmdEnter'
 import type { CommentEntry, ResearchApi } from './api'
 import { askConfirm } from './askText'
 import { journalWhen } from './format'
@@ -10,6 +11,7 @@ import type { NoteOf } from './journalTargets'
 import { RecordRow } from './RecordList'
 import { WORK_FILTER_LABEL, type RecordFilter } from './workRecords'
 import { t } from './i18n'
+import { useUnsent } from './unsent'
 
 /** 예전 일지 메모도 공용 기록 줄로 읽되 고치기·지우기는 일지 API를 쓴다. */
 export function JournalRecordRow({ entry, rid, noteOf, rapi, reload, onSaved }: {
@@ -66,13 +68,12 @@ export function WorkComposer({ filter, onSave }: { filter: RecordFilter; onSave(
     } catch (e) { setErrors((current) => ({ ...current, [kind]: (e as Error).message })) }
     finally { locked.current = false; setBusy(false) }
   }
+  const sendKey = useCmdEnter(() => void save())
+  useUnsent(Object.values(drafts).some((draft) => draft.trim() !== '')) // 다른 필터에 적어 둔 글은 화면의 입력란에 없다
   return <div className={`memo compact${text.trim() ? ' has-text' : ''}`} data-ui="메모 입력">
     <textarea rows={1} value={text} disabled={busy} aria-label={t(`${filter} 입력란`, `${WORK_FILTER_LABEL[filter]} input`)}
       placeholder={filter === '질문' ? t('무엇이 궁금한가요? 적으면 Claude에게 묻습니다.', 'What do you want to know? Claude will answer it.') : filter === '지시' ? t('에이전트가 할 일을 적으세요. 하고 나서 답을 답니다.', 'What should an agent do? It answers when done.') : t(`이 프로젝트에 남길 ${filter}`, `${WORK_FILTER_LABEL[filter]} for this project`)}
-      onChange={(e) => setText(e.target.value)} onKeyDown={(e) => {
-        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); void save() }
-        else onListKey(e, setText)
-      }} />
+      onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (!sendKey.onKeyDown(e)) onListKey(e, setText) }} onCompositionEnd={sendKey.onCompositionEnd} />
     <div className="memo-bar">
       <span className="memo-chip" data-ui="붙는 곳">↳ {t('이 프로젝트', 'This project')}</span>
       <span className="sp" />

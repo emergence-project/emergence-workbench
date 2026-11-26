@@ -351,7 +351,7 @@ export class CentralChats extends ReviewChats {
         const app = this.workOf(k); if (!app) continue
         const live = LIVE.has(k.state)
         if (!live && !k.merged && k.pr && k.worktree && k.branch && app.prMerged) {
-          const m = await app.prMerged(k.worktree, k.branch)
+          const m = await app.prMerged(k.worktree, k.branch, k.pr.number)
           if (m) { k.merged = m.sha || 'merged'; this.touch(k) }
         }
         if (k.merged) { if (!live) this.note(k.id, { kind: 'merged' }, `merged:${k.id}`); continue }

@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { SendArea } from './SendArea'
 import { api, type FeedbackItem } from './api'
 import { REPLY } from './feedbackTags'
 import { feedbackConversation } from './feedbackThread'
-import { josa, t } from './i18n'
+import { eulReul, josa, t } from './i18n'
 
 /**
  * 피드백 처리 · 답에 붙은 시안 (11/19 "고르지 않은 결정은 피드백에서 시안을 제대로 볼 수 없어서"):
@@ -92,12 +93,12 @@ export function Decide({ e, name }: { e: FeedbackItem; name: string }) {
     api.reviewFeedback(e.key, v, v === '진행' ? t(`시안 ${name}${josa(name, '로')} 진행`, `Go ahead with mockup ${name}`) : `${t('시안', 'Mockup')} ${name}: ${text.trim()}`)
       .then(() => { setSent(v); setError(null) }, (err: Error) => setError(err.message)).finally(() => setBusy(false))
   }
-  if (sent) return <div className="fbp-mockup-decide muted" role="status">{t(`시안 ${name}에 「${REPLY[sent]}」을 보냈습니다`, `Sent "${REPLY[sent]}" on mockup ${name}`)}</div>
+  if (sent) return <div className="fbp-mockup-decide muted" role="status">{t(`시안 ${name}에 「${REPLY[sent]}」${eulReul(REPLY[sent] ?? '')} 보냈습니다`, `Sent "${REPLY[sent]}" on mockup ${name}`)}</div>
   return (
     <div className="fbp-mockup-decide" data-ui="시안 결정">
       {talk && (
-        <textarea className="fbp-input" autoFocus rows={2} value={text} placeholder={t('이 시안에서 이야기할 것', 'What to talk over in this mockup')} onChange={(ev) => setText(ev.target.value)}
-          onKeyDown={(ev) => { if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); send('논의') } }} />
+        <SendArea className="fbp-input" autoFocus rows={2} value={text} placeholder={t('이 시안에서 이야기할 것', 'What to talk over in this mockup')} onChange={(ev) => setText(ev.target.value)}
+          onSend={() => send('논의')} />
       )}
       <div className="fbp-mockup-decide-row">
         {error && <span className="error-text">{error}</span>}
