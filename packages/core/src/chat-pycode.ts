@@ -25,7 +25,7 @@ const CODE_ROOT = new RegExp([
  * os 를 다른 이름으로 들이는 꼴(from os import · import os as · getattr(os, …))과 홀로 선 system( · popen( 도 본다.
  * 고칠 소스 글에 흔한 .exec( · .compile( (정규식 · JS)는 아니다
  */
-const CODE_SPAWNS = /\bos\s*\.\s*(?:system|popen|exec\w*|spawn\w*|posix_spawn\w*|startfile)\b|subprocess|\bfrom\s+os\s+import\b|\bimport\s+os\s+as\b|\bgetattr\s*\(\s*\(?\s*os\b|\bposix\s*\.|\bctypes\b|\bimport\s+pty\b|\bpty\s*\.|\bpexpect\b|\bgetoutput\b|\bshell\s*=\s*True\b|\b__import__\b|\bimportlib\b|\bsys\s*\.\s*modules\b|\bbuiltins\b|(?<![\w.])(?:exec|eval|compile|system|popen|execv\w*|execl\w*|spawn[lv]\w*)\s*\(/
+const CODE_SPAWNS = /\bos\s*\.\s*(?:system|popen|exec\w*|spawn\w*|posix_spawn\w*|startfile)\b|subprocess|\bfrom\s+os\s+import\b|\bimport\s+os\s+as\b|\bgetattr\s*\(\s*\(?\s*os\b|\bvars\s*\(\s*os\b|\(\s*os\s*\)\s*\.|(?<![\w.])posix\s*\.|\bimport\s+sh\b|\bplumbum\b|\bctypes\b|\bimport\s+pty\b|\bpty\s*\.|\bpexpect\b|\bgetoutput\b|\bshell\s*=\s*True\b|\b__import__\b|\bimportlib\b|\bsys\s*\.\s*modules\b|\bbuiltins\b|(?<![\w.])(?:exec|eval|compile|system|popen|execv\w*|execl\w*|spawn[lv]\w*)\s*\(/
 
 /** 파이썬 코드의 한 줄 문자열('…' · "…")들. 세 겹 따옴표 글(고칠 소스를 통째로 담는 곳)과 주석은 건너뛴다 */
 function pyLineStrings(code: string): string[] {

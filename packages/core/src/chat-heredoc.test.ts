@@ -23,10 +23,10 @@ describe('확실한 히어독: 둘째 검토', () => {
     expect(py('os.system("rm -rf ../other")')).toBe('outside')
     expect(py('os.system("rm -rf /")')).toBe('outside')
     // os 를 다른 이름으로 들이거나 다른 길로 셸을 부르는 꼴 (셋째 검토): zsh에서 본문의 글이 실제로 돌았다
-    for (const head of ['from os import system\nsystem(', 'import os as o\no.system(', 'import asyncio\nasyncio.run(asyncio.create_subprocess_shell(', 'import os\ngetattr(os, "system")(', 'import posix\nposix.system(', 'import ctypes\nctypes.CDLL(None).system('])
+    for (const head of ['from os import system\nsystem(', 'import os as o\no.system(', 'import asyncio\nasyncio.run(asyncio.create_subprocess_shell(', 'import os\ngetattr(os, "system")(', 'import posix\nposix.system(', 'import ctypes\nctypes.CDLL(None).system(', 'import os\n(os).system(', 'import os\nvars(os)["system"](', 'import sh\nsh.bash("-c", '])
       expect(k(`python3 - <<'EOF'\n${head}"""\nrm -rf build\n""")\nEOF`), head).toBe('delete')
     // 고칠 소스 글에 든 .exec( · .compile( 은 프로그램을 돌리는 코드가 아니다
-    expect(py('s = s.replace("m = re.exec(x); p = rx.compile(y)", "x")')).toBe('run')
+    expect(py('s = s.replace("m = re.exec(x); p = rx.compile(y); q = path.posix.join(a, b)", "x")')).toBe('run')
     // exec( 가 있으면 본문을 전처럼 줄마다 읽는다: 줄 처음의 rm 이 지우기로 보인다
     expect(py('exec(open("x.py").read())\nrm = 1')).toBe('delete')
     // 한 줄에 선 지우기 글은 전에도 실행으로만 보였다 (python -c 와 같다)
