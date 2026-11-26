@@ -134,6 +134,28 @@ const DEPTH_MAX = 40
 /** 한 줄에서 변수에 값을 넣어 다시 판정하는 횟수의 한도 */
 export const VARIANTS_MAX = 600
 
+/**
+ * 확실한 히어독의 본문이 셸 명령으로 돌 수 없는가. cat: 받는 줄에 | 가 없을 때(있으면 본문이 다른 프로그램으로 간다).
+ * python: 다른 프로그램을 돌리는 코드(os.system · subprocess · exec …)가 없고, 출력을 받는 프로그램이 읽기만 할 때
+ * (python3 - <<E | sh 는 문자열 속 글이 실제로 돈다, 11/26)
+ */
+const bodyIsNotShell = (hd: NonNullable<ReturnType<typeof certainHeredoc>>) => (hd.prog === 'cat' ? !hd.piped : hd.reader && !codeSpawns(hd.body))
+
+/**
+ * cat 이 받는 확실한 히어독의 본문(자료)을 뺀 명령 글 (11/26): 명령 글 전체를 읽는 다른 판정(앱이 맡는 일 · 크리티컬 · 비밀)이 메모에 든 글에 걸리지 않게.
+ * python 이 받는 본문은 빼지 않는다: 코드는 파일을 스스로 읽고 프로그램을 스스로 돌리며, 그 길을 다 알아낼 수 없다
+ * (o = os; o.system(…) · pydoc.pipepager · 전각 글자 이름이 codeSpawns 를 지나갔다, 다섯째 검토)
+ */
+export function heredocBodiesRemoved(cmd0: string): string {
+  let cmd = cmd0
+  for (let n = 0; n < 20; n++) {
+    const hd = certainHeredoc(cmd)
+    if (!hd || hd.prog !== 'cat' || hd.piped) break
+    cmd = hd.rest ? `${hd.head}\n${hd.rest}` : hd.head
+  }
+  return cmd
+}
+
 export function commandKind(cmd0: string, o: Where, depth = 0): ChatKind {
   // 확실한 히어독(certainHeredoc)을 cat 이나 python 이 받으면 본문은 셸 명령이 아니다 (11/26 "heredoc 본문 오탐"): 본문을 빼고 판정한다.
   // cat 은 본문을 자료로 받는다(받는 줄에 | 가 있으면 본문이 다른 프로그램으로 가므로 빼지 않는다). python 은 코드로 받는다: 셸 글로 읽지 않고
@@ -143,8 +165,7 @@ export function commandKind(cmd0: string, o: Where, depth = 0): ChatKind {
   let code: ChatKind = 'read'
   for (let n = 0; depth === 0 && n < 20; n++) {
     const hd = certainHeredoc(cmd)
-    // 다른 프로그램을 돌리는 python 코드(os.system · subprocess · exec …)는 문자열 속 셸 글이 실제로 돈다: 빼지 않고 전처럼 읽는다
-    if (!hd || (hd.prog === 'cat' && hd.piped) || (hd.prog === 'python' && codeSpawns(hd.body))) break
+    if (!hd || !bodyIsNotShell(hd)) break
     if (hd.prog === 'python' && codeTouchesOutside(hd.body, o, (p) => touchesOutside(p, o))) code = 'outside'
     cmd = hd.rest ? `${hd.head}\n${hd.rest}` : hd.head
   }

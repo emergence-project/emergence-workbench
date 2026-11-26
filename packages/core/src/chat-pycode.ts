@@ -25,7 +25,7 @@ const CODE_ROOT = new RegExp([
  * os 를 다른 이름으로 들이는 꼴(from os import · import os as · getattr(os, …))과 홀로 선 system( · popen( 도 본다.
  * 고칠 소스 글에 흔한 .exec( · .compile( (정규식 · JS)는 아니다
  */
-const CODE_SPAWNS = /\bos\s*\.\s*(?:system|popen|exec\w*|spawn\w*|posix_spawn\w*|startfile)\b|subprocess|\bfrom\s+os\s+import\b|\bimport\s+os\s+as\b|\bgetattr\s*\(\s*\(?\s*os\b|\bvars\s*\(\s*os\b|\(\s*os\s*\)\s*\.|(?<![\w.])posix\s*\.|\bimport\s+sh\b|\bplumbum\b|\bctypes\b|\bimport\s+pty\b|\bpty\s*\.|\bpexpect\b|\bgetoutput\b|\bshell\s*=\s*True\b|\b__import__\b|\bimportlib\b|\bsys\s*\.\s*modules\b|\bbuiltins\b|(?<![\w.])(?:exec|eval|compile|system|popen|execv\w*|execl\w*|spawn[lv]\w*)\s*\(/
+const CODE_SPAWNS = /\bos\s*\.\s*(?:system|popen|exec\w*|spawn\w*|posix_spawn\w*|startfile)\b|subprocess|\bfrom\s+os\s+import\b|\bos\s+as\b|\b(?:vars|locals)\s*\(|\b__builtins__\b|\bpkgutil\b|\bwebbrowser\b|\bdistutils\b|\bgetattr\s*\(\s*\(?\s*os\b|\bvars\s*\(\s*os\b|\(\s*os\s*\)\s*\.|(?<![\w.])posix\s*\.|\bimport\s+sh\b|\bplumbum\b|\bctypes\b|\bimport\s+pty\b|\bpty\s*\.|\bpexpect\b|\bgetoutput\b|\bshell\s*=\s*True\b|\b__import__\b|\b__dict__\b|\b__getattribute__\b|\bglobals\s*\(|\bimportlib\b|\bfrom\s+posix\s+import\b|\bimport\s+posix\b|\w\s*\.\s*os\b|\bpydoc\b|\bpipepager\b|\bmultiprocessing\b|\btimeit\b|\bsys\s*\.\s*modules\b|\bbuiltins\b|(?<![\w.])(?:exec|eval|compile|system|popen|execv\w*|execl\w*|spawn[lv]\w*)\s*\(/
 
 /** 파이썬 코드의 한 줄 문자열('…' · "…")들. 세 겹 따옴표 글(고칠 소스를 통째로 담는 곳)과 주석은 건너뛴다 */
 function pyLineStrings(code: string): string[] {
@@ -77,4 +77,13 @@ export function codeTouchesOutside(code: string, o: { cwd: string; home?: string
 }
 
 /** 다른 프로그램을 돌리거나 글을 코드로 돌리는 코드인가 (그러면 본문을 빼지 않고 전처럼 읽는다) */
-export const codeSpawns = (code: string): boolean => CODE_SPAWNS.test(code)
+/** os 를 값으로 쓰는 꼴 (o = os · [os] · (os,) …): import 줄과 os.이름 · 따옴표 · 경로 안의 os 는 아니다 */
+const OS_VALUE = /(?<![\w.'"\/:@-])os\b(?![ \t]*[.\w'"\/:-])/
+/**
+ * 다른 프로그램을 돌리거나 글을 코드로 돌리는 코드인가 (그러면 본문을 빼지 않고 전처럼 읽는다).
+ * python 은 이름을 NFKC 로 고쳐 읽으므로(전각 ｏs = os) 같은 꼴로 고쳐서 본다. 목록은 걸러 내는 것이다: 낯선 길은 지나간다
+ */
+export function codeSpawns(code0: string): boolean {
+  const code = code0.normalize('NFKC')
+  return CODE_SPAWNS.test(code) || OS_VALUE.test(code.replace(/^[ \t]*import[ \t][^\n;]*/gm, ''))
+}
