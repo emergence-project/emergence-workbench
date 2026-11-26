@@ -34,9 +34,12 @@ const PREFIX = /^(time|nice|nohup|command|builtin|exec|noglob|nocorrect|-|timeou
 /** 묶음 머리: 이것들 뒤의 낱말이 명령 자리다 */
 const GROUP_HEAD = /^(if|then|else|elif|do|while|until|always|!|\{|\(|\(\(|\[\[)$/
 /** set 가운데 읽은 것으로 치는 꼴 (설계 5.2): -e -u -x -o pipefail 만 */
+/** 맞지 않는 무늬를 그대로 두거나 지우기만 하는 setopt: 낱말 쪼개기 · 무늬 펼침의 뜻을 바꾸지 않는다 */
+const SAFE_SETOPT = (args: string[]): boolean => args.length > 0 && args.every((a) => /^(no_?nomatch|nonomatch|null_?glob|no_?null_?glob)$/i.test(a))
 const SET_READ = /^set(?: [-+](?:[eux]+|[eux]*o pipefail))*$/
 /** 옵션 하나로 하는 일이 바뀌는 프로그램 (설계 5.2 다): 인자 맨 앞에 값을 모르는 변수가 오면 묻는다 */
-const OPTION_PROGS = /^(g?find|fd|fdfind|git|g?sed|sort|xargs|g?awk|rg|tar|rsync|grep|egrep|cp|mv|ln|tee|chmod|touch|mkdir|curl|wget)$/
+// grep은 넣지 않는다: 어느 옵션도 프로그램을 돌리거나 파일을 쓰지 않는다 (11/26 실제 기록 비교: f=$(…); grep x $f 가 묻는 줄의 대부분이었다)
+const OPTION_PROGS = /^(g?find|fd|fdfind|git|g?sed|sort|xargs|g?awk|rg|tar|rsync|cp|mv|ln|tee|chmod|touch|mkdir|curl|wget)$/
 /** 쓰는 프로그램: 인자 어디든 값을 모르는 변수 · 치환이 있으면 어디를 쓸지 모른다 */
 const WRITE_PROGS = /^(mv|cp|tee|ln|touch|mkdir|chmod|patch|install|rsync)$/
 /** 값을 아는 환경 변수 (경로로 시작한다) */
@@ -97,11 +100,13 @@ function wordsWhy(all: string[], o: KnownOpts, depth: number, known: (n: string)
   // 명령 자리의 낱말: 묶음 머리 · 대입 · 앞말과 그 옵션 뒤
   for (let i = 0; i < raw.length; i++) {
     const w = raw[i]!
+    if (w === 'setopt' && SAFE_SETOPT(raw.slice(i + 1))) return undefined
     if (SYNTAX.has(w) || /^[A-Za-z_][\w-]*\(\)$/.test(w) || (raw[i + 1] === '()' && /^[A-Za-z_][\w-]*$/.test(w))) return { why: 'syntax', name: w.replace(/\(\)$/, '') }
     const assign = /^([A-Za-z_]\w*)=(.*)$/s.exec(w)
     // 이 명령에만 붙는 환경 변수(A=1 cmd)와 홀로 선 대입(PATH=… ; cmd) 모두: 찾는 길 · 다른 프로그램을 바꾸는 이름은 묻는다
     if (assign && RISKY_ENV.test(assign[1]!)) return { why: 'env', name: assign[1]! }
-    if (assign && i + 1 < raw.length && (!LITERAL.test(assign[2]!) || assign[2]!.includes('SUBST'))) return { why: 'env', name: assign[1]! }
+    // 값의 $HOME · $PWD 는 정해진 값이다 (HOME을 바꾸는 대입은 위에서 묻는다)
+    if (assign && i + 1 < raw.length && (!LITERAL.test(assign[2]!.replace(/\$\{?(HOME|PWD)\}?(?![\w])/g, '')) || assign[2]!.includes('SUBST'))) return { why: 'env', name: assign[1]! }
     if (GROUP_HEAD.test(w) || assign || PREFIX.test(w.split('/').pop()!) || (i > 0 && PREFIX.test(raw[i - 1]!.split('/').pop()!) && (w.startsWith('-') || /^\d/.test(w)))) continue
     break
   }
@@ -110,9 +115,10 @@ function wordsWhy(all: string[], o: KnownOpts, depth: number, known: (n: string)
   if (!w.length) return undefined
   const first = unmask(w[0]!)
   // 변수 · 치환 · 무늬 · 중괄호로 만든 프로그램 이름
-  if (!/^\[\[?$/.test(first) && (/[$`*?[{]|SUBST/.test(first) || /^~/.test(first))) return { why: 'var-prog' }
+  if (!/^\[\[?$/.test(first) && (/[$`*?[{]|SUBST/.test(first) || /^~(?!\/)/.test(first))) return { why: 'var-prog' }
   const prog = first.split('/').pop()!
   const args = w.slice(1).map(unmask)
+  if (prog === 'setopt' && SAFE_SETOPT(args)) return undefined
   if (SYNTAX.has(prog)) return { why: 'syntax', name: prog }
   if (prog === 'set' && !SET_READ.test(['set', ...args].join(' '))) return { why: 'syntax', name: 'set' }
   // export · local 로 찾는 길을 바꾸는 이름
@@ -131,7 +137,7 @@ function wordsWhy(all: string[], o: KnownOpts, depth: number, known: (n: string)
 function knownProg(word: string, prog: string, o: KnownOpts): boolean {
   if (KNOWN.has(prog) || o.known?.(prog)) return true
   // 작업 폴더 안의 스크립트 (./scripts/x.sh · scripts/x.sh): 에이전트가 쓸 수 있는 파일이라 인라인 코드와 같다
-  return word.includes('/') && !word.startsWith('/') && !word.split('/').includes('..')
+  return word.includes('/') && !/^[/~]/.test(word) && !word.split('/').includes('..')
 }
 
 /** 낱말에 값을 모르는 변수 · 치환이 있는가 (쓰기 대상) */

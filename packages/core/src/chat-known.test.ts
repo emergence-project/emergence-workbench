@@ -15,6 +15,8 @@ describe('읽은 것으로 치는 줄 (설계 5.2)', () => {
       './scripts/x.sh', 'scripts/check.mjs a', '/opt/homebrew/bin/python3 x.py', 'sh -c "rm x"', 'xargs -n1 echo', 'x=out; cp a "$x"',
       'cp a "$HOME/x"', 'ls > out.txt 2>&1', 'git log $(git merge-base a b)..HEAD', 'python3 -c "import os; os.system(1)"',
       'find . -name "$pat"', 'cat <<< "$x"',
+      // 11/26 실제 기록 비교에서 나온 것: grep의 인자 변수 · 홈 아래 프로그램 · 값이 $PWD 인 환경 변수 · 무늬를 그대로 두는 setopt
+      'f=$(git ls-files | grep x); grep -n y $f', '~/.cargo/bin/cargo check', 'SHOTS_DIR=$PWD/out pnpm shots', 'setopt nonomatch; ls *.x', 'setopt nullglob 2>/dev/null; ls',
     ]) expect(unreadWhy(c), c).toBeUndefined()
   })
   it('자료를 주는 히어독: 본문의 따옴표 · 괄호 · 명령 같은 글은 읽지 않는다', () => {
@@ -33,13 +35,15 @@ describe('읽지 못한 줄 (설계 5.2 가 · 나 · 다)', () => {
     expect(unreadWhy('foo bar')).toEqual({ why: 'prog', name: 'foo' })
     expect(unreadWhy('make build')).toEqual({ why: 'prog', name: 'make' })
     expect(unreadWhy('../x.sh')).toEqual({ why: 'prog', name: 'x.sh' })
+    expect(unreadWhy('~/bin/x')).toEqual({ why: 'prog', name: 'x' })
+    expect(why('X=$PWD$(ls) pnpm test')).toBe('env')
     // 감싸 돌리는 안의 명령도 (find -exec · xargs · sh -c · 치환)
     for (const c of ['find . -exec foo {} \\;', 'echo hi | xargs bar', 'sh -c "baz"', 'echo $(qux)', 'echo <(qux)', 'nice -n 5 qux']) expect(why(c), c).toBe('prog')
     // 실행 「늘」로 허락한 프로그램은 안다
     expect(unreadWhy('foo bar', { known: (p) => p === 'foo' })).toBeUndefined()
   })
   it('가. 변수 · 치환 · 무늬로 만든 프로그램 이름', () => {
-    for (const c of ['$cmd -rf x', '"$p" a', '${p} a', '$(which x) a', '* a', 'sh -c "$x"', '~/bin/x']) expect(why(c), c).toBe('var-prog')
+    for (const c of ['$cmd -rf x', '"$p" a', '${p} a', '$(which x) a', '* a', 'sh -c "$x"', '~u/x']) expect(why(c), c).toBe('var-prog')
   })
   it('나. 풀지 못한 치환 · 다 넣어 보지 못한 변수', () => {
     expect(why('echo $(ls')).toBe('subst')
@@ -56,11 +60,11 @@ describe('읽지 못한 줄 (설계 5.2 가 · 나 · 다)', () => {
   })
   it('다. 다시 읽히는 글 · 다루지 않는 문법', () => {
     for (const c of ['eval "$x"', 'source ~/.zshrc', '. ./env.sh', 'exec bash', 'trap "rm x" EXIT', 'alias ls=rm', 'builtin cd x', 'noglob ls *',
-      'repeat 3 ls', 'coproc ls', 'select x in a b; do ls; done', 'case $x in a) ls;; esac', 'setopt nullglob; ls', 'unsetopt x', 'f() { ls; }; f',
+      'repeat 3 ls', 'coproc ls', 'select x in a b; do ls; done', 'case $x in a) ls;; esac', 'setopt shwordsplit; ls', 'setopt nonomatch shwordsplit', 'unsetopt x', 'f() { ls; }; f',
       'function f { ls; }', 'time eval x', 'set -o noglob', 'set +e -f', 'emulate sh', 'r', 'fc -e - ', 'hash -d x=/tmp']) expect(why(c), c).toBe('syntax')
   })
   it('다. 옵션을 가리는 프로그램의 인자 맨 앞에 값을 모르는 변수', () => {
-    for (const c of ['find . $x', 'git $sub', 'sed $s f', 'sort $o f', 'rg $flag x', 'rsync $o a b', 'xargs $o echo', 'read x; grep $x f']) expect(why(c), c).toBe('var')
+    for (const c of ['find . $x', 'git $sub', 'sed $s f', 'sort $o f', 'rg $flag x', 'rsync $o a b', 'xargs $o echo', 'read x; awk $x f']) expect(why(c), c).toBe('var')
   })
   it('다. 쓰기 대상에 값을 모르는 변수 · 치환', () => {
     for (const c of ['cp a "$dest"', 'ls > "$out"', 'mv a $(pwd)/b', 'tee "$f" < x', 'for f in *; do cp a "$f"; done']) expect(why(c), c).toBe('var')
