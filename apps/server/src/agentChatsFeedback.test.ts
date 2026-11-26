@@ -444,6 +444,25 @@ describe('자동 처리: 쌓인 대기를 한 번에 맡기기 (11/20 22:37 제�
     expect(hub.free()).toBeUndefined()
   })
 
+  it('돕는 맥이 받은 항목을 시작하지 못하면 다시 맡긴다 (11/26)', async () => {
+    const hub = new DeviceHub()
+    const beat = () => hub.beat({ name: 'laptop', seen: '', accounts: [], helper: { slots: 1, busy: 0, keys: [] } }).feedback
+    beat()
+    const chats = new FeedbackChats({
+      dir: path.join(tmp, 'chats-retry'), runner, limit: 1,
+      project: () => ({ repo: tmp, title: 'x' }), readable: () => [], extraDirs: () => [], notify: () => {},
+      app: sampleAppWork(path.join(tmp, 'wt-retry')), feedback: { dir: fb, helpers: hub }, settings: () => ({ ...DEFAULT_AGENT_SETTINGS, feedback: 'instant' }),
+    })
+    await chats.pickFeedback()
+    const sent = beat()
+    expect(sent.length).toBeGreaterThan(0)
+    // 그 맥이 시작하지 못했다: 다음 알림들에 그 항목을 맡아 도는 대화가 없다. 서버는 맡긴 것으로만 기억하지 않고 다시 맡긴다
+    // (실제로는 그 맥이 맡음을 풀어 올린 뒤에: 맡음이 살아 있으면 claims.taken이 막는다)
+    const later: string[] = []
+    for (let i = 0; i < 12; i++) { await chats.pickFeedback(); later.push(...beat()) }
+    for (const k of sent) expect(later).toContain(k)
+  })
+
   it('서버로 정한 컴퓨터가 따로 있으면 이 컴퓨터는 저절로 맡지 않는다 (11/20)', async () => {
     const chats = make(8, () => true)
     await chats.pickFeedback()

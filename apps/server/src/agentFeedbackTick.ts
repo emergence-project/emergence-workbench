@@ -134,6 +134,8 @@ export class FeedbackChats extends SharedChats {
     // 서버로 정한 컴퓨터가 따로 있으면 저절로 맡기는 것은 그 서버만 (11/20: 여러 맥이 저마다 맡지 않게)
     if (this.deps.feedback?.elsewhere?.()) return false
     if (s.feedback !== 'instant') return false
+    // 돕는 맥에 보냈지만 돌고 있지 않은 항목은 맡긴 것으로 기억한 표시를 지운다 (11/26): 전에는 그 맥이 시작하지 못해 맡음을 풀어도 다시 맡기지 않았다
+    this.unpick(fb.helpers?.unstarted?.() ?? [])
     // 이 서버의 자리가 차면 피드백 돕기를 켠 맥에 맡긴다 (11/23 안 A): 맡음은 그 맥 이름으로 적어, 그 맥에서도 다른 맥이 맡은 것으로 보지 않는다
     const helper = this.running() + this.queue.length >= this.deps.limit ? fb.helpers?.free() : undefined
     if (this.running() + this.queue.length >= this.deps.limit && !helper) return false
