@@ -20,6 +20,7 @@
     "agent:problem": "node scripts/agent-problem.mjs",
     "library:memos": "node scripts/library-memos.mjs",
     "agent:check-tasks": "node scripts/agent-check-tasks.mjs",
+    "agent:contained": "node scripts/agent-contained.mjs",
     "mcp": "node scripts/mcp.mjs",
     "design:check": "node scripts/ci/check-design.mjs",
     "wording:check": "node scripts/ci/check-wording.mjs",
