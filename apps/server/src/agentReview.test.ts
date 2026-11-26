@@ -99,7 +99,7 @@ describe('Codex 검토', () => {
 })
 
 describe('에이전트마다 설정', () => {
-  it('계획 모드는 Claude만, 검토는 Codex · Gemini (11/23), auto: null은 기본값으로', () => {
+  it('계획은 Claude만, 검토는 Codex · Gemini (11/23), auto: null은 기본값으로', () => {
     const s = normalizeAgentSettings({ per: { codex: { trust: 'plan', role: 'review', auto: { read: true, run: true, web: false } }, gemini: { role: 'review' }, 'claude-code': { role: 'review', trust: 'plan' } }, review: 'edits' })
     expect(s.per.codex).toEqual({ trust: 'ask', role: 'review', auto: { read: true, run: true, web: false } })
     expect(s.per.gemini.role).toBe('review')

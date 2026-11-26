@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import YAML from 'yaml'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { answerMockups, copyMockups, readMockups } from './feedbackMockups.js'
+import { answerMockups, copyMockups, dropMockups, readMockups } from './feedbackMockups.js'
 import { listAllFeedback, writeFeedbackAnswer } from './feedback.js'
 
 const FIX = path.resolve(import.meta.dirname, '../../../fixtures/sandbox-feedback')
@@ -48,6 +48,21 @@ describe('피드백 시안', () => {
     expect(st.mockups).toEqual(['pictures/2026-11-19-1432-mockup-place.png', 'pictures/2026-11-19-1432-mockup-nav-tabs.html', 'pictures/2026-11-19-1432-mockup-nav-tabs.png'])
     expect(st.replies?.at(-1)).toMatchObject({ note: '이것도', mockups: ['pictures/2026-11-19-1432-mockup-place.png'] })
     expect(YAML.parse(fs.readFileSync(path.join(fb, 'status.yaml'), 'utf8'))[NEW].state).toBe('확인 필요')
+  })
+
+  it('쓰지 않을 시안은 답에서만 떼고, 그림 파일 · 다른 칸은 그대로 둔다 (11/24)', () => {
+    const file = path.join(fb, 'status.yaml')
+    const before = YAML.parse(fs.readFileSync(file, 'utf8'))[NEW]
+    expect(dropMockups(fb, NEW, ['nav-tabs'])).toBe(2)
+    expect(dropMockups(fb, NEW, ['place.png'])).toBe(2) // 지금 처리와 답 replies 둘 다
+    const after = YAML.parse(fs.readFileSync(file, 'utf8'))[NEW]
+    expect(after.mockups).toBeUndefined()
+    expect(after.replies.at(-1).mockups).toBeUndefined()
+    expect({ ...after, replies: undefined }).toEqual({ ...before, mockups: undefined, replies: undefined })
+    expect(after.replies.at(-1).note).toBe('이것도')
+    expect(fs.existsSync(path.join(fb, 'pictures/2026-11-19-1432-mockup-place.png'))).toBe(true)
+    expect(() => dropMockups(fb, NEW, ['place'])).toThrow(/시안|mockup/)
+    expect(() => dropMockups(fb, '2026-01-01 00:00 없음', ['place'])).toThrow()
   })
 
   it('처리가 없는 항목에 시안만 보내면 거절한다', () => {

@@ -20,8 +20,8 @@ const ROLE_NAME: Record<AgentRole, () => string> = { write: () => t('쓰기', 'W
 const AUTO_NAME = { read: () => t('읽기', 'Read'), run: () => t('실행', 'Run'), web: () => t('웹 보기', 'Web') } as const
 const AUTO_KEYS = ['read', 'run', 'web'] as const
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e))
-/** 그 에이전트가 고를 수 있는 시작 권한 (계획 모드는 Claude만) */
-const trustsOf = (a: AgentKind): AgentTrust[] => (a === 'claude-code' ? ['read', 'ask', 'plan', 'edit'] : ['read', 'ask', 'edit'])
+/** 그 에이전트가 고를 수 있는 시작 권한 (계획은 Claude만) */
+const trustsOf = (a: AgentKind): AgentTrust[] => (a === 'claude-code' ? ['auto', 'ask', 'edit', 'plan', 'read'] : ['auto', 'ask', 'edit', 'read'])
 /** 자동 허용의 지금 값: 고친 적 없으면 권한 이름의 기본값 */
 export const autoShown = (p: AgentPref) => p.auto ?? (p.trust === 'read' ? presetAuto('read', 'ask') : presetAuto('notes', p.trust))
 const account = (k: Kind | undefined) => [k?.email, k?.plan].filter(Boolean).join(' · ')

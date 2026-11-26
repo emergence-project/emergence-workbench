@@ -50,3 +50,15 @@ export function useLeftSide(agentPage: boolean): [boolean, Dispatch<SetStateActi
   const [agent, setAgent] = useStoredFlag('rw-side-agent', true)
   return agentPage ? [agent, setAgent, () => { setAll(false); setAgent(false) }] : [all, setAll, () => { setAll(false); setAgent(false) }]
 }
+
+/**
+ * 프로젝트 밖 화면의 오른쪽 사이드바 켜짐 (globalPages.tsx의 right). 소개는 따로 기억하고 처음엔 닫혀 있다:
+ * 소개의 이력 · 수정은 본문을 반으로 나눠 보는 확인 도구라, 지식 화면에서 정보를 열어 둔 것이 소개를 반으로 줄이지 않게 (11/24).
+ * 셋째 값은 둘 다 닫기 (폰에서 다른 화면으로 갈 때)
+ */
+export function useGlobalRight(aboutPage: boolean): [boolean, Dispatch<SetStateAction<boolean>>, () => void] {
+  const [all, setAll] = useStoredFlag('rw-global-right', true)
+  const [about, setAbout] = useStoredFlag('rw-about-right', false)
+  const closeBoth = () => { setAll(false); setAbout(false) }
+  return aboutPage ? [about, setAbout, closeBoth] : [all, setAll, closeBoth]
+}

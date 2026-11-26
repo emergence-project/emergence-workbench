@@ -1,5 +1,8 @@
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import type { IncomingMessage } from 'node:http'
+import net from 'node:net'
+import type { Duplex } from 'node:stream'
+import { defineConfig, type Plugin } from 'vite'
 
 // 개발(pnpm dev)은 서버 8130·화면 5173, 실사용(pnpm start)은 서버 8131·화면 5174.
 // 둘을 동시에 띄워도 부딪히지 않는다.
@@ -15,8 +18,34 @@ const VENDOR_CHUNKS: [name: string, match: RegExp][] = [
   ['markdown', /node_modules\/(\.pnpm\/[^/]*\/node_modules\/)?(markdown-it|mdurl|uc\.micro|linkify-it|entities|punycode(\.js)?)\//],
 ]
 
+/**
+ * 예제 모드(pnpm dev)에서 서버 파일을 고치면 tsx watch가 백엔드를 다시 띄운다. 그 몇 초 동안 화면의 /api 요청이 502로 떨어지고
+ * 실시간 알림 웹소켓이 연결에 실패했다 (11/26). 백엔드 포트가 다시 열릴 때까지 /api 요청과 웹소켓 연결을 잠깐 붙잡았다가 넘긴다.
+ * 한도(8초)를 넘으면 전처럼 그대로 넘긴다. 백엔드가 죽는 순간에 가 있던 요청은 어쩔 수 없이 끊긴다. 실사용 앱은 이 프록시를 쓰지 않는다
+ */
+let apiProxy: { ws(req: IncomingMessage, socket: Duplex, head: Buffer): void } | undefined
+function waitForBackend(port: number, limitMs = 8000): Plugin {
+  const open = () => new Promise<boolean>((resolve) => {
+    const s = net.connect(port, '127.0.0.1')
+    s.once('connect', () => { s.destroy(); resolve(true) })
+    s.once('error', () => resolve(false))
+  })
+  const ready = async () => { for (const end = Date.now() + limitMs; Date.now() < end && !(await open());) await new Promise((r) => setTimeout(r, 100)) }
+  const isApi = (url?: string) => !!url && (url === '/api' || url.startsWith('/api/') || url.startsWith('/api?'))
+  return {
+    name: 'rw-wait-for-backend',
+    apply: 'serve',
+    configureServer(server) {
+      // 여기서 더한 미들웨어는 Vite의 프록시보다 먼저 돈다
+      server.middlewares.use((req, _res, next) => { if (isApi(req.url)) void ready().then(() => next()); else next() })
+      // 웹소켓은 미들웨어를 지나지 않는다: 프록시의 ws를 끄고(아래 ws: false) 여기서 기다렸다가 넘긴다. Vite 자신의 웹소켓(HMR)은 /api가 아니라 건드리지 않는다
+      server.httpServer?.on('upgrade', (req: IncomingMessage, socket: Duplex, head: Buffer) => { if (isApi(req.url)) void ready().then(() => { if (!socket.destroyed) apiProxy?.ws(req, socket, head) }) })
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), waitForBackend(Number(apiPort))],
   build: {
     rolldownOptions: {
       output: {
@@ -35,6 +64,6 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 5173,
     strictPort: true,
-    proxy: { '/api': { target: `http://127.0.0.1:${apiPort}`, ws: true } },
+    proxy: { '/api': { target: `http://127.0.0.1:${apiPort}`, ws: false, configure: (proxy) => { apiProxy = proxy } } },
   },
 })

@@ -87,7 +87,14 @@ function adoptPeople(registry: Registry, others: OtherMe[]): MeField[] {
   const merge = (...lists: Person[][]) => normalizePeople(lists.flat())
   const newest = others.filter((o) => o.peopleAt).sort((a, b) => time(b.peopleAt) - time(a.peopleAt))[0]
   let next: Person[] | undefined, at: string | undefined
-  if (newest && time(newest.peopleAt) > time(registry.peopleAt)) [next, at] = [registry.peopleAt ? newest.people : merge(newest.people, mine), newest.peopleAt]
+  if (newest && time(newest.peopleAt) > time(registry.peopleAt)) {
+    if (registry.peopleAt) [next, at] = [newest.people, newest.peopleAt]
+    else {
+      next = merge(newest.people, mine)
+      // 이 컴퓨터에만 있던 사람을 더했으면 고친 때를 그쪽보다 늦게 적는다: 같은 때로 적으면 그쪽이 합친 목록을 받지 않고, 다음에 그쪽 목록을 통째로 따를 때 그 사람이 지워진다
+      at = JSON.stringify(next) === JSON.stringify(merge(newest.people)) ? newest.peopleAt : new Date(Math.max(Date.now(), time(newest.peopleAt) + 1)).toISOString()
+    }
+  }
   else if (!registry.peopleAt) next = merge(mine, ...others.filter((o) => !o.peopleAt).map((o) => o.people))
   if (!next) return []
   const same = JSON.stringify(next) === JSON.stringify(mine)

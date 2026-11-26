@@ -169,10 +169,11 @@ export class ReviewChats extends FeedbackChats {
     if (this.reviews.has(c.id)) throw new WorkbenchError(409, t('이 대화는 이미 깊은 검토 중입니다', 'A deep review of this conversation is already running'))
     const ask = this.deps.runner.side
     if (!ask || !w.diff) throw new WorkbenchError(404, t('이 컴퓨터에서는 깊은 검토를 쓸 수 없습니다', 'Deep review is not available on this computer'))
-    const files = await w.diff(c.worktree)
-    if (!files.length) throw new WorkbenchError(409, t('바뀐 코드가 없습니다', 'No changed code'))
+    // 바뀐 코드를 읽기(await) 전에 적어 둔다 (11/26): 전에는 그 사이에 한 번 더 부르면 둘 다 시작해, 먼저 끝난 쪽이 표시를 지워 보류가 일찍 풀렸다
     const r: Review = { ...(b.hold && { hold: t('깊은 검토 중', 'under deep review') }) }
     this.reviews.set(c.id, r)
+    const files = await w.diff(c.worktree).catch((e: unknown) => { this.reviews.delete(c.id); throw e })
+    if (!files.length) { this.reviews.delete(c.id); throw new WorkbenchError(409, t('바뀐 코드가 없습니다', 'No changed code')) }
     const diff = diffText(files), ledger = this.ledger(), cwd = c.worktree
     const one = (prompt: string) => ask({ prompt, cwd, model: REVIEW_MODEL, effort: 'high' })
     void (async () => {

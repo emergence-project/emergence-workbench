@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { AboutFixTab } from './AboutFix'
 import { AboutSide, markChanges, useAboutChanges, type Picked, type SideTab } from './AboutHistorySide'
 import { HistoryButton } from './NoteHistory'
+import { InfoOrAgent } from './AgentSide'
+import { closeRight, openRight, rightModeNow, useRightMode } from './noteScreen'
 import { ABOUT_PARTS, type AboutPart, type AboutSection, COLOR_ROWS, partOf, sectionAnchor, SYMBOL_GROUPS } from './aboutContent'
 import { checkKey, checkState, lastPr, prsSince, useAboutChecks, type AboutCheckState } from './aboutChecks'
 import type { AboutCheck, AboutChecks } from './api'
@@ -17,7 +19,8 @@ import * as portingGuides from './about/reference/porting-guides'
 /**
  * 이 앱 소개: 앱의 왼쪽 사이드바에서 한 쪽을 고른다 (#/about/<쪽>).
  * 쪽마다 지금 앱이 어떤지를 화면의 짜임대로 절로 나눠 보여 준다 (내용은 aboutContent.tsx).
- * 툴바 오른쪽 시계로 오른쪽 사이드바를 연다 (11/20 시안 2 · 3절, AboutHistorySide.tsx): 탭 「이력」은 이 쪽을 고친 (절, 업데이트) 표로
+ * 툴바 오른쪽 시계나 상단바의 정보 아이콘으로 앱의 오른쪽 사이드바를 연다 (11/20 시안 2 · 3절, AboutHistorySide.tsx. 11/24부터 따로 띄운 칸이 아니라
+ * 앱 사이드바 한 칸이라 에이전트 사이드바와 둘이 함께 열리지 않는다): 탭 「이력」은 이 쪽을 고친 (절, 업데이트) 표로
  * 줄마다 확인을 받고, 줄을 누르면 그 절로 가서 그 업데이트가 바꾼 문장에 하이라이트를 붙인다. 탭 「수정」은 본문의 한 곳을 눌러 고친 글을 담아 보낸다(AboutFix.tsx).
  * 확인 전인 절은 절 제목 옆 「확인 전」과 왼쪽 목록의 「확인 n」으로 보인다(본문 위 확인 항목 상자는 11/20에 없앰).
  * 둘 다 누르면 이력 탭을 열고 그 절의 가장 최근 확인 전 줄을 고른다 (11/20 피드백 08:54 「클릭하면 오른쪽 사이드바가 뜨거나 알려 줘야」).
@@ -26,7 +29,7 @@ const REVIEW_EVENT = 'rw-about-review'
 /** 「확인 전」 · 「확인 n」을 눌렀을 때: 그 쪽의 그 절(없으면 첫 확인 전 절)을 이력에서 연다 */
 export function openReview(part: string, sec?: number) { window.dispatchEvent(new CustomEvent(REVIEW_EVENT, { detail: { part, sec } })) }
 
-export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) {
+export function AboutPage({ part, anchor, rightOpen, onSaved }: { part?: string; anchor?: string; rightOpen: boolean; onSaved(m: string): void }) {
   const p = partOf(part)
   // 절이 있는 쪽은 절 하나씩 따로 연다 (10/15 14:12 "서브섹션보다 서브페이지 구조로, 스크롤이 힘들다"). #/about/<쪽>은 첫 절
   const at = sectionIndex(p, anchor)
@@ -36,7 +39,11 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
   const i = pages.findIndex((x) => x.part === p && x.at === at)
   const prev = pages[i - 1]
   const next = pages[i + 1]
-  const [side, setSide] = useState(historyOn)
+  // 오른쪽 사이드바가 열려 있고 에이전트 · 터미널이 아닌 갈래면 이력 · 수정이 보인다 (AgentSide.tsx의 InfoOrAgent)
+  const mode = useRightMode()
+  const side = rightOpen && mode !== 'agent' && mode !== 'terminal'
+  // 이력 · 수정을 연다. 에이전트 · 터미널을 보던 때만 갈래를 바꾼다: 「기록」을 「정보」로 바꿔 적으면 프로젝트의 오른쪽 사이드바가 다음에 정보로 열린다
+  const openSide = () => openRight(rightModeNow() === 'agent' || rightModeNow() === 'terminal' ? 'info' : rightModeNow())
   const [tab, setTab] = useState<SideTab>(tabOn)
   const [picked, setPicked] = useState<Picked | null>(null)
   // 다른 쪽의 「확인 n」을 누르면 쪽을 옮긴 뒤 고를 줄
@@ -53,7 +60,7 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
       const ns = i >= 0 ? todo(i) : []
       if (!ns.length) return
       const v = { n: Math.max(...ns), sec: i }
-      setSide(true); keepHistory(true); setTab('history'); keepTab('history')
+      openSide(); setTab('history'); keepTab('history')
       if (x.id !== p.id) pending.current = v
       else setPicked(v)
       if (x.id !== p.id || i !== at) go({ page: 'about', part: x.id, ...(i > 0 && { anchor: sectionAnchor(x.sections[i]!, i) }) })
@@ -62,7 +69,8 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
     return () => window.removeEventListener(REVIEW_EVENT, on)
   }, [checks, p.id, at])
   const sec = at >= 0 ? p.sections![at] : undefined
-  const showSide = (v: boolean) => { setSide(v); keepHistory(v); if (!v) setPicked(null) }
+  const showSide = (v: boolean) => { if (v) openSide(); else closeRight() }
+  useEffect(() => { if (!side) setPicked(null) }, [side])
   const showTab = (v: SideTab) => { setTab(v); keepTab(v); if (v === 'fix') setPicked(null) }
   // 줄을 고르면 그 절로 간다
   const pick = (v: Picked | null) => {
@@ -85,7 +93,7 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
     return x ? { key: checkKey(p, sectionAnchor(x, i)), pr: lastPr(x), name: x.ui ?? x.title } : undefined
   }, [p])
   return (
-    <main className={`stage full${side ? ' about-with-side' : ''}`} data-ui="소개">
+    <main className={`stage full${rightOpen ? ' about-with-side' : ''}`} data-ui="소개">
       <section className="pane">
         <div className="pane-head about-tools" data-ui="머리줄">
           <span className="crumb"><b>{sec ? sec.title : p.title}</b></span><span className="sp" />
@@ -109,8 +117,10 @@ export function AboutPage({ part, anchor }: { part?: string; anchor?: string }) 
           </PartTitle.Provider>
         </div>
       </section>
-      {side && <AboutSide part={p} tab={tab} onTab={showTab} picked={picked} onPick={pick} onClose={() => showSide(false)}
-        fix={<AboutFixTab key={`${p.id}-${at}`} root={article} partName={p.ui ?? p.title} sectionKey={sectionKey} />} />}
+      {rightOpen && <InfoOrAgent ui="소개 이력" infoClass="about-rs" onSaved={onSaved}>
+        <AboutSide part={p} tab={tab} onTab={showTab} picked={picked} onPick={pick}
+          fix={<AboutFixTab key={`${p.id}-${at}`} root={article} partName={p.ui ?? p.title} sectionKey={sectionKey} />} />
+      </InfoOrAgent>}
     </main>
   )
 }
@@ -192,7 +202,7 @@ function Intro() {
       <Section name={t('화면 구조', 'Screen layout')} ui="화면 구조">
         <p className="about-lead">{t('한 창이 다섯 영역으로 나뉩니다. 영역을 누르면 그 설명으로 갑니다.', 'One window is divided into five areas. Click an area to go to its description.')}</p>
         <div className="about-map" role="img" aria-label={t('화면 구조: 위에 상단바, 왼쪽에 레일과 왼쪽 사이드바, 가운데 작업 패널, 오른쪽에 오른쪽 사이드바', 'Screen layout: top bar on top, rail and left sidebar on the left, work panel in the middle, right sidebar on the right')}>
-          <a className="m-title" data-ui="상단바" href={toPart('project')}><b>{t('상단바', 'Top bar')}</b><span>{t('왼쪽 사이드바 여닫기 · 뒤로 · 앞으로 · 위치', 'Toggle left sidebar · Back · Forward · Location')}</span><span className="m-title-actions">{t('(새 버전) · 검색 · 두 패널 · 피드백 · 오른쪽 사이드바 갈래 · 여닫기', '(New version) · Search · Two panes · Feedback · Right sidebar views · Toggle')}</span></a>
+          <a className="m-title" data-ui="상단바" href={toPart('project')}><b>{t('상단바', 'Top bar')}</b><span>{t('왼쪽 사이드바 여닫기 · 뒤로 · 앞으로 · 위치', 'Toggle left sidebar · Back · Forward · Location')}</span><span className="m-title-actions">{t('(새 버전) · 검색 · 두 패널 · 피드백 · 오른쪽 사이드바 여닫기', '(New version) · Search · Two panes · Feedback · Toggle right sidebar')}</span></a>
           <div className="m-rail" data-ui="레일">
             <b>{t('레일', 'Rail')}</b>
             <a href={toPart('home')}>{t('홈', 'Home')}</a>
@@ -219,7 +229,7 @@ function Intro() {
           </div>
           <a className="m-main" data-ui="주 패널" href={toPart('project')}><b>{t('주 패널 (왼쪽)', 'Main pane (left)')}</b><span>{t('고른 노트·화면. 탭이 없으면 프로젝트 첫 화면. 노트는 늘 여기', 'The chosen note or screen. With no tabs, the project home screen. Notes always open here')}</span></a>
           <a className="m-other" data-ui="옆 패널" href={toPart('reading')}><b>{t('옆 패널 (오른쪽)', 'Side pane (right)')}</b><span>{t('노트의 PDF, 함께 볼 논문·진술', 'The note\'s PDF, papers and statements to view alongside')}</span></a>
-          <a className="m-ctx" data-ui="오른쪽 사이드바" href={toPart('notes')}><b>{t('오른쪽 사이드바', 'Right sidebar')}</b><span>{t('정보 | 기록 (메모 · 할 일 · 질문)', 'Info | Records (memos · to-dos · questions)')}</span></a>
+          <a className="m-ctx" data-ui="오른쪽 사이드바" href={toPart('notes')}><b>{t('오른쪽 사이드바', 'Right sidebar')}</b><span>{t('맨 위 아이콘 줄: 정보 · 기록 (메모 · 할 일 · 질문) · 에이전트', 'Icon row on top: Info · Records (memos · to-dos · questions) · Agent')}</span></a>
         </div>
         <p className="about-note">{t('프로젝트 화면의 구조입니다. 상단바의 두 패널 버튼은 프로젝트 화면에만, 오른쪽 사이드바 버튼은 프로젝트와 지식·논문·그림 첫 화면에 있습니다. 홈·지식·논문·그림·네트워킹·피드백·소개·설정은 프로젝트 밖 화면이고, 지식·논문·그림·네트워킹·소개·설정은 자기 왼쪽 사이드바가 있습니다.', 'This is the layout of the project screen. The Two panes button in the top bar is only on project screens, and the right sidebar button is on projects and on the Knowledge, Papers and Figures home screens. Home, Knowledge, Papers, Figures, Networking, Feedback, About and Settings are screens outside projects, and Knowledge, Papers, Figures, Networking, About and Settings have their own left sidebar.')}</p>
       </Section>
@@ -304,10 +314,7 @@ export function AboutRailCount() {
   return <span className="rail-count" data-ui="확인할 곳 수" title={t(`소개에서 확인 전인 절 ${n}`, `About sections not reviewed: ${n}`)}>{n}</span>
 }
 
-/** 이력 보기 켬 · 끔 (툴바 시계). 고른 상태는 이 브라우저가 기억한다 */
-const HISTORY_KEY = 'rw.aboutHistory'
-function historyOn(): boolean { try { return localStorage.getItem(HISTORY_KEY) === '1' } catch { return false } }
-function keepHistory(on: boolean) { try { localStorage.setItem(HISTORY_KEY, on ? '1' : '0') } catch { /* 기억하지 못해도 지금 화면은 바뀐다 */ } }
+/** 이력 · 수정 가운데 고른 탭. 사이드바를 여닫는 것은 앱의 오른쪽 사이드바가 기억한다 */
 const TAB_KEY = 'rw.aboutSideTab'
 function tabOn(): SideTab { try { return localStorage.getItem(TAB_KEY) === 'fix' ? 'fix' : 'history' } catch { return 'history' } }
 function keepTab(v: SideTab) { try { localStorage.setItem(TAB_KEY, v) } catch { /* 위와 같다 */ } }

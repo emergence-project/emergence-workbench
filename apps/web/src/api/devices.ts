@@ -10,4 +10,6 @@ export const devicesApi = {
   /** 서버가 다른 컴퓨터인지 · 닿는지 (새 대화의 서버 | 이 맥 고르기, 에이전트 패널 한 줄) */
   chatPlace: () => req('/api/chat-place').then((r) => json<ChatPlace>(r)),
   logout: (name: string) => req(`/api/devices/${enc(name)}/logout`, send('POST', {})).then((r) => json<Devices>(r)),
+  /** 걸어 둔 로그아웃 취소 */
+  cancelLogout: (name: string) => req(`/api/devices/${enc(name)}/logout`, { method: 'DELETE' }).then((r) => json<Devices>(r)),
 }

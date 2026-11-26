@@ -13,8 +13,8 @@ const PERM_ROWS: PermRow[] = [
   { ui: '편집', name: t('편집', 'Edit'), what: t('범위 안 노트 수정 · sed -i · mv', 'Edit notes in scope · sed -i · mv'), turn: 'edit' },
   { ui: '지우기', name: t('삭제', 'Delete'), what: t('rm · 파일 삭제 · 고친 것 버리기', 'rm · deleting files · discarding changes'), asks: true },
   { ui: '실행', name: t('실행', 'Run'), what: t('python · julia · pnpm test …', 'python · julia · pnpm test …'), turn: 'run' },
-  { ui: '웹 보기', name: t('웹 보기', 'Web'), what: t('웹 검색 · 페이지 읽기', 'Web search · reading pages'), turn: 'web' },
-  { ui: '외부', name: t('외부', 'Outside'), what: t('폴더 밖 · git push · 설치 · 내려받기', 'Outside the folders · git push · installs · downloads'), asks: true },
+  { ui: '웹 보기', name: t('웹 보기', 'Web'), what: t('웹 검색 · 페이지 읽기 · gh 로 읽기(pr view · list …)', 'Web search · reading pages · reading with gh (pr view · list …)'), turn: 'web' },
+  { ui: '외부', name: t('외부', 'Outside'), what: t('폴더 밖 · git push · gh 로 쓰기 · 설치 · 내려받기', 'Outside the folders · git push · writing with gh · installs · downloads'), asks: true },
 ]
 
 export function PermTable({ chat, onSaved }: { chat: Chat; onSaved(m: string): void }) {
@@ -36,7 +36,7 @@ export function PermTable({ chat, onSaved }: { chat: Chat; onSaved(m: string): v
     <div className="ac-perm" role="table" aria-label={t('권한', 'Permissions')}>
       <div className="ac-perm-row ac-perm-head" role="row"><span role="columnheader">{t('하는 일', 'Does')}</span><span role="columnheader">{t('자동 허용', 'Auto')}</span></div>
       {PERM_ROWS.map((r) => {
-        const on = r.turn === 'edit' ? chat.mode === 'edit' && !readOnly : r.turn ? auto[r.turn] : false
+        const on = r.turn === 'edit' ? (chat.mode === 'edit' || chat.mode === 'auto') && !readOnly : r.turn ? auto[r.turn] : false
         const blocked = readOnly && (r.turn === 'edit' || r.ui === '삭제')
         return (
           <div key={r.ui} className="ac-perm-row" role="row" data-ui={`권한 ${r.ui}`}>
@@ -49,7 +49,7 @@ export function PermTable({ chat, onSaved }: { chat: Chat; onSaved(m: string): v
           </div>
         )
       })}
-      {chat.mode === 'plan' && !readOnly && <span className="muted ac-hint">{t('계획 모드: 계획을 승인하기 전에는 편집 · 삭제를 막습니다', 'Plan mode: edits and deletes are blocked until you approve the plan')}</span>}
+      {chat.mode === 'plan' && !readOnly && <span className="muted ac-hint">{t('계획: 승인하기 전에는 편집 · 삭제를 막습니다', 'Plan: edits and deletes are blocked until you approve the plan')}</span>}
     </div>
   )
 }

@@ -35,7 +35,7 @@ export const FEEDBACK_HELPERS = [0, 1, 2, 3] as const
  * trust = 새 대화의 시작 권한(대화 안에서 바꾼 것은 그 대화에만), auto = 시작할 때 자동 허용(읽기 · 실행 · 웹 보기, 없으면 권한 이름의 기본값 presetAuto),
  * role = 하는 일: write 새 대화를 맡음 · review 검토만(새 대화의 에이전트 줄에 없음) · both. 검토는 Codex만 하고, 검토로 불리면 늘 읽기 전용
  */
-export const AGENT_TRUSTS = ['read', 'ask', 'plan', 'edit'] as const
+export const AGENT_TRUSTS = ['read', 'ask', 'plan', 'edit', 'auto'] as const
 export type AgentTrust = (typeof AGENT_TRUSTS)[number]
 export const AGENT_ROLES = ['write', 'review', 'both'] as const
 export type AgentRole = (typeof AGENT_ROLES)[number]
@@ -59,7 +59,7 @@ export interface AgentSettings {
   review: ReviewMode
 }
 
-/** Claude는 지금까지의 새 대화 처음 값(편집 자동 허용), Codex · Gemini는 묻고 하기 (계획 모드는 Claude만). 자동 허용은 권한 이름의 기본값 */
+/** Claude는 지금까지의 새 대화 처음 값(편집 자동 수락), Codex · Gemini는 수동 (계획은 Claude만). 자동 허용은 권한 이름의 기본값 */
 export const DEFAULT_AGENT_PREFS: Record<AgentPrefKind, AgentPref> = {
   'claude-code': { trust: 'edit', role: 'write' },
   codex: { trust: 'ask', role: 'both' },
@@ -91,7 +91,7 @@ export function normalizeAgentSettings(raw: unknown, current?: AgentSettings): A
 const has = <T extends string>(list: readonly T[], v: unknown): v is T => (list as readonly unknown[]).includes(v)
 const rec = (v: unknown): Record<string, unknown> => (v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.entries(v)) : {})
 
-/** 바꾼 칸만 와도 된다 (예: { codex: { role: 'review' } }). 계획 모드는 Claude만, 검토는 Codex만, Claude는 쓰기만. auto: null이면 권한 이름의 기본값으로 */
+/** 바꾼 칸만 와도 된다 (예: { codex: { role: 'review' } }). 계획은 Claude만, 검토는 Codex만, Claude는 쓰기만. auto: null이면 권한 이름의 기본값으로 */
 function normalizePrefs(raw: unknown, base: Record<AgentPrefKind, AgentPref>): Record<AgentPrefKind, AgentPref> {
   const src = rec(raw)
   const one = (k: AgentPrefKind): AgentPref => {

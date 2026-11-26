@@ -2,7 +2,7 @@
 import Fastify from 'fastify'
 import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
-import { checkReplies, parseBody, replies } from './contract.js'
+import { checkReplies, knownOnly, parseBody, replies } from './contract.js'
 import { WorkbenchError } from './workbench.js'
 
 describe('계약 검사', () => {
@@ -53,3 +53,36 @@ describe('계약 검사', () => {
     }
   })
 })
+
+describe('다른 버전의 컴퓨터가 보낸 것 (knownOnly)', () => {
+  const Inner = z.object({ a: z.number(), tags: z.array(z.object({ t: z.string() }).strict()) }).strict()
+  const Outer = z.object({ name: z.string(), inner: Inner.optional(), list: z.array(Inner) }).strict()
+
+  it('모르는 칸은 깊이와 상관없이 빼고, 받은 것은 고치지 않는다', () => {
+    const sent = { name: 'x', later: 1, inner: { a: 1, tags: [{ t: 'k', more: true }], extra: {} }, list: [{ a: 2, tags: [], z: null }] }
+    const copy = structuredClone(sent)
+    const got = knownOnly(Outer, sent)
+    expect(got).toEqual({ name: 'x', inner: { a: 1, tags: [{ t: 'k' }] }, list: [{ a: 2, tags: [] }] })
+    expect(Outer.safeParse(got).success).toBe(true)
+    expect(sent).toEqual(copy)
+  })
+
+  it('계약과 맞으면 받은 그대로 돌려준다', () => {
+    const sent = { name: 'x', list: [] }
+    expect(knownOnly(Outer, sent)).toBe(sent)
+  })
+
+  it('아는 칸의 틀린 모양은 그대로 둔다: 뒤의 계약 검사가 잡는다', () => {
+    const got = knownOnly(Outer, { name: 1, later: 1, list: [{ a: 'two', tags: [], z: 1 }] })
+    expect(got).toEqual({ name: 1, list: [{ a: 'two', tags: [] }] })
+    expect(Outer.safeParse(got).success).toBe(false)
+    for (const odd of [null, 'text', 3, []]) expect(knownOnly(Outer, odd)).toEqual(odd)
+  })
+
+  it('이름이 __proto__ · constructor인 칸도 그 칸만 뺀다', () => {
+    const got = knownOnly(Outer, JSON.parse('{"name":"x","list":[],"__proto__":{"polluted":true},"constructor":1}'))
+    expect(Outer.safeParse(got).success).toBe(true)
+    expect(Object.prototype).not.toHaveProperty('polluted')
+  })
+})
+

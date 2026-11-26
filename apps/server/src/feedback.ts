@@ -204,7 +204,7 @@ export function readFeedbackComments(dir: string): Map<string, FeedbackComment[]
 }
 
 /** reviews.yaml · status.yaml을 YAML 문서로 열어 고친 뒤 쓴다. 다른 항목과 다른 칸은 그대로 둔다 */
-function editYamlFile<T>(dir: string, name: string, edit: (doc: YAML.Document) => T): T {
+export function editYamlFile<T>(dir: string, name: string, edit: (doc: YAML.Document) => T): T {
   const file = path.join(dir, name)
   const doc = fs.existsSync(file) ? YAML.parseDocument(fs.readFileSync(file, 'utf8')) : new YAML.Document({})
   if (doc.errors.length) throw new Error(t(`${name}을 읽지 못했습니다: ${doc.errors[0]!.message.split('\n')[0]}`, `Could not read ${name}: ${doc.errors[0]!.message.split('\n')[0]}`))

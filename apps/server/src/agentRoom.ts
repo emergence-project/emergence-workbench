@@ -69,6 +69,8 @@ export class RoomChats extends CentralChats {
   protected readonly asking = new Map<AgentKind, number>()
   /** 중앙 대화마다 방장에게 넘긴 마지막 항목 수 (그 뒤의 방 사람 답 · 방 소식을 다음 차례 앞에 붙인다). 오래된 줄을 잘라 낸 수(trimmed)까지 센 값이다 */
   private readonly fed = new Map<string, number>()
+  /** 방장이 부른 것 가운데 아직 답하는 중인 수 (방 규칙 callMax는 이것만 센다) */
+  private hostCalls = 0
   /** 이번 차례에 방장에게 덧붙일 말 (@모두: 마지막에 정리) */
   private hostLine = ''
   /** 방장이 아직 못 본 토론 결과 (다음 차례 앞에 붙인다) */
@@ -156,10 +158,13 @@ export class RoomChats extends CentralChats {
     if (!c) throw new WorkbenchError(409, t('중앙 대화가 없습니다', 'There is no central conversation'))
     const m = this.member(agent)
     if (agent === this.saved.host) throw new WorkbenchError(400, t('방장 자신에게는 묻지 않습니다', 'The host does not ask itself'))
-    const busy = [...this.asking.values()].reduce((a, b) => a + b, 0)
-    if (busy >= this.saved.rules.callMax) throw new WorkbenchError(409, t(`방 규칙상 한 번에 ${this.saved.rules.callMax}명까지 부릅니다. 앞 답을 기다리세요`, `Room rules allow ${this.saved.rules.callMax} at once. Wait for the earlier answer`))
-    const it = await this.ask(c, m, question, 'host')
-    return it.text ?? t(`(답하지 못함: ${it.error ?? ''})`, `(no answer: ${it.error ?? ''})`)
+    // 방장이 부른 것만 센다 (11/26): asking은 사용자가 @로 부른 것 · 토론 자리의 물음도 세므로, 그것으로 재면 토론 중에는 방장이 아무도 부르지 못했다
+    if (this.hostCalls >= this.saved.rules.callMax) throw new WorkbenchError(409, t(`방 규칙상 한 번에 ${this.saved.rules.callMax}명까지 부릅니다. 앞 답을 기다리세요`, `Room rules allow ${this.saved.rules.callMax} at once. Wait for the earlier answer`))
+    this.hostCalls++
+    try {
+      const it = await this.ask(c, m, question, 'host')
+      return it.text ?? t(`(답하지 못함: ${it.error ?? ''})`, `(no answer: ${it.error ?? ''})`)
+    } finally { this.hostCalls-- }
   }
 
   /** 방 사람 하나에게 묻고 답을 방에 남긴다 */
@@ -194,6 +199,16 @@ export class RoomChats extends CentralChats {
     const side = this.deps.runner.side
     if (!side) throw new WorkbenchError(404, t(`여기서는 ${nameOf(agent)}에게 물을 수 없습니다`, `${nameOf(agent)} cannot be asked here`))
     return side({ prompt, cwd, ...pick })
+  }
+
+  /**
+   * 되돌리면(rewind) 방장의 세션도 그 앞으로 돌아가 지운 차례에서 받은 방 사람의 답을 모른다 (11/26): 넘긴 줄 수를 잊어,
+   * 다음 차례에 방장의 마지막 글 뒤의 것부터 다시 넘긴다. 전에는 줄 수가 줄기 전의 값이라 그 뒤의 답이 방장에게 가지 않았다
+   */
+  override async rewind(id: string, point: string): ReturnType<CentralChats['rewind']> {
+    const r = await super.rewind(id, point)
+    this.fed.delete(id)
+    return r
   }
 
   /** 방장이 아직 못 본 방 사람의 답 · 방 소식 (agentCentral.ts의 send가 다음 차례 앞에 붙인다) */

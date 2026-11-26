@@ -133,6 +133,11 @@ describe('피드백 맡기기 API', () => {
     // 결과를 알린 답에는 중단을 쓰지 않고, 논의는 말이 있어야 한다
     expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${id}/feedback/answer`, payload: { verdict: '중단' } })).statusCode).toBe(400)
     expect((await app.inject({ method: 'POST', url: `/api/agent-chats/${id}/feedback/answer`, payload: { verdict: '논의' } })).statusCode).toBe(400)
+    // 처리를 적지 못하면(없는 시안을 빼라고 함) 판정도 적지 않는다: 전에는 판정만 적히고 처리는 빠져, 다시 부르면 판정이 두 번이 됐다
+    const was = listAllFeedback(fb).find((x) => x.key === REWORK)!.review
+    const half = await app.inject({ method: 'POST', url: `/api/agent-chats/${id}/feedback/answer`, payload: { verdict: '진행', verdictNote: '좁은 폭도 맞춰 줘', state: '반영', note: '수정 완료', dropMockups: ["no-such-mockup"] } })
+    expect(half.statusCode, half.body).toBe(400)
+    expect(listAllFeedback(fb).find((x) => x.key === REWORK)!.review).toEqual(was)
     const r = await app.inject({ method: 'POST', url: `/api/agent-chats/${id}/feedback/answer`, payload: { verdict: '진행', verdictNote: '좁은 폭도 맞춰 줘', state: '반영', note: '수정 완료 (#234)\n좁은 폭도 맞춘다.' } })
     expect(r.statusCode, r.body).toBe(200)
     expect(r.json()).toMatchObject({ verdict: '진행', state: '반영' })
@@ -303,6 +308,23 @@ describe('피드백 대화 돌보기 (설정 › 에이전트 "앱 피드백")',
     userMerged = undefined
   })
 
+  // 전에는 합친 대화가 이어서 새 PR을 올려도 「합침」이 남았다: 열린 PR이 있는 대화를 끝난 것으로 보아
+  // app_merge가 "이미 합쳤습니다"로 거절하고, 그 PR이 고친 파일을 다른 대화가 고칠 수 있었다
+  it('합친 대화가 이어서 새 PR을 올리면 합친 것이 아니다: 새 PR이 합쳐지고 앱에 들어온 뒤에 다시 보관한다', async () => {
+    const id = chats.list().find((c) => !c.feedback && c.merged === 'fff0001')!.id
+    expect(chats.get(id)).toMatchObject({ merged: 'fff0001', shipped: true, archived: false })
+    await chats.appSubmit(id, { title: '메뉴 2', body: '' })
+    expect(chats.get(id).merged).toBeUndefined()
+    expect(chats.get(id).shipped).toBeFalsy()
+    await chats.tickFeedback()
+    expect(chats.get(id)).toMatchObject({ archived: false })
+    expect(chats.get(id).merged).toBeUndefined()
+    userMerged = 'fff0009'
+    await chats.tickFeedback()
+    expect(chats.get(id)).toMatchObject({ merged: 'fff0009', shipped: true, archived: true })
+    userMerged = undefined
+  })
+
   it('cloud.yaml에 이 컴퓨터의 시간대를 적어 클라우드의 pnpm agent:feedback이 맞춘다 (11/9)', () => {
     writeFeedbackCloud(fb, true, new Date('2026-11-09T01:00:00Z'), 'Asia/Seoul')
     expect(fs.readFileSync(path.join(fb, 'cloud.yaml'), 'utf8')).toContain('timezone: Asia/Seoul\n')
@@ -339,6 +361,46 @@ describe('피드백 대화 돌보기 (설정 › 에이전트 "앱 피드백")',
     expect(prompts.at(-1)).toContain('origin/main')
     expect(stored.merged).toBeUndefined()
     settings = { ...settings, feedback: 'manual' }
+  })
+
+  // 전에는 피드백 대화의 PR은 앱이 합친 것만 알았다: 설정이 「합치지 않음」 · 「승인 뒤」여서 사용자가 손으로 합치면
+  // 그 대화는 끝내 합쳐지지 않은 것으로 남아, 고친 파일을 다른 앱 고치기 대화가 못 고치고 반영됨 · 보관 · 작업 폴더 치우기도 오지 않았다
+  it('피드백 대화의 PR을 사용자가 손으로 합쳐도 알아챈다: 합친 것으로 적고, 앱에 들어오면 반영됨', async () => {
+    settings = { ...settings, merge: 'never' }
+    const id = chats.list().find((c) => c.feedback && c.feedback !== REWORK)!.id
+    await idle(id)
+    await chats.appSubmit(id, { title: '본문', body: '' })
+    ci = { done: true, ok: true, link: 'r3' }
+    inApp = false
+    const byApp = merged.length
+    await chats.tickFeedback()
+    expect(chats.get(id).merged).toBeFalsy()
+    userMerged = 'fff0002'
+    await chats.tickFeedback()
+    expect(chats.get(id).merged).toBe('fff0002')
+    expect(merged).toHaveLength(byApp)
+    expect(chats.get(id).shipped).toBeFalsy()
+    inApp = true
+    await chats.tickFeedback()
+    expect(chats.get(id).shipped).toBe(true)
+    userMerged = undefined
+
+    // 다시 맡아 새 PR을 올린 뒤 보관한 대화: 손으로 합친 것은 알아채되 바뀐 때는 그대로 둔다 (같은 항목의 새 대화보다 앞서지 않게)
+    addFeedbackComment(fb, chats.get(id).feedback!, '한 번 더')
+    chats.handOff(chats.get(id).feedback!)
+    await idle(id)
+    await chats.appSubmit(id, { title: '본문 2', body: '' })
+    inApp = false
+    await chats.tickFeedback()
+    expect(chats.get(id).merged).toBeFalsy()
+    chats.archive(id, true)
+    const at = chats.get(id).updated
+    userMerged = 'fff0003'
+    await chats.tickFeedback()
+    inApp = true
+    await chats.tickFeedback()
+    expect(chats.get(id)).toMatchObject({ merged: 'fff0003', shipped: true, archived: true, updated: at })
+    userMerged = undefined
   })
 })
 
@@ -402,6 +464,25 @@ describe('자동 처리: 쌓인 대기를 한 번에 맡기기 (11/20 22:37 제�
     expect(sent.length).toBeGreaterThan(0)
     expect(sent.some((k) => keysIn(chats).includes(k))).toBe(false)
     expect(hub.free()).toBeUndefined()
+  })
+
+  it('돕는 맥이 받은 항목을 시작하지 못하면 다시 맡긴다 (11/26)', async () => {
+    const hub = new DeviceHub()
+    const beat = () => hub.beat({ name: 'laptop', seen: '', accounts: [], helper: { slots: 1, busy: 0, keys: [] } }).feedback
+    beat()
+    const chats = new FeedbackChats({
+      dir: path.join(tmp, 'chats-retry'), runner, limit: 1,
+      project: () => ({ repo: tmp, title: 'x' }), readable: () => [], extraDirs: () => [], notify: () => {},
+      app: sampleAppWork(path.join(tmp, 'wt-retry')), feedback: { dir: fb, helpers: hub }, settings: () => ({ ...DEFAULT_AGENT_SETTINGS, feedback: 'instant' }),
+    })
+    await chats.pickFeedback()
+    const sent = beat()
+    expect(sent.length).toBeGreaterThan(0)
+    // 그 맥이 시작하지 못했다: 다음 알림들에 그 항목을 맡아 도는 대화가 없다. 서버는 맡긴 것으로만 기억하지 않고 다시 맡긴다
+    // (실제로는 그 맥이 맡음을 풀어 올린 뒤에: 맡음이 살아 있으면 claims.taken이 막는다)
+    const later: string[] = []
+    for (let i = 0; i < 12; i++) { await chats.pickFeedback(); later.push(...beat()) }
+    for (const k of sent) expect(later).toContain(k)
   })
 
   it('서버로 정한 컴퓨터가 따로 있으면 이 컴퓨터는 저절로 맡지 않는다 (11/20)', async () => {

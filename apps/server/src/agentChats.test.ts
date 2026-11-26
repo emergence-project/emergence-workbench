@@ -24,7 +24,7 @@ describe('모드', () => {
     expect(judge(ctx(), 'Skill', { skill: 'my-skills:lean-check' }).kind).toBe('allow')
     expect(judge(ctx(), 'mcp__zotero__search', { q: 'x' })).toMatchObject({ kind: 'ask', key: 'mcp__zotero__search' })
   })
-  it('묻고 하기: 노트 고치기도 파일마다 묻고, 허락하면 그 파일을 잡는다', () => {
+  it('수동: 노트 고치기도 파일마다 묻고, 허락하면 그 파일을 잡는다', () => {
     expect(judge(ctx({ mode: 'ask' }), `${W}edit_note`, edit)).toMatchObject({ kind: 'ask', key: `edit_note:${edit.file}`, claim: edit.file })
     expect(judge(ctx({ mode: 'ask' }), `${W}add_record`, { project: 'proj' }).kind).toBe('ask')
     expect(judge(ctx({ mode: 'ask' }), `${W}read_note`, edit).kind).toBe('allow')
@@ -132,10 +132,10 @@ describe('허락 규칙', () => {
     expect(chained).toMatchObject({ kind: 'ask', key: 'run:deploy.sh' })
     expect(judge(ctx({ always: (k) => k === 'run:python' }), 'Bash', { command: 'python other.py | tail -3' }).kind).toBe('allow')
     expect(judge(ctx({ auto: () => ({ read: true, run: true, web: false }) }), 'Bash', { command: 'julia x.jl' }).kind).toBe('allow')
-    // 편집 자동 허용: 읽기 · 편집은 묻지 않는다
+    // 편집 자동 수락: 읽기 · 편집은 묻지 않는다
     expect(judge(ctx(), 'Bash', { command: 'ls workbench | head -3 && git log -1' }).kind).toBe('allow')
     expect(judge(ctx(), 'Bash', { command: "sed -i '' 's/a/b/' x.md" }).kind).toBe('allow')
-    // 묻고 하기: 읽기도 묻고, 「늘」은 그 토글을 켠다
+    // 수동: 읽기도 묻고, 「늘」은 그 토글을 켠다
     expect(judge(ctx({ mode: 'ask' }), 'Bash', { command: 'ls' })).toMatchObject({ kind: 'ask', does: 'read', turnOn: 'read' })
     expect(judge(ctx({ mode: 'ask' }), 'Bash', { command: 'mv a.md b.md' })).toMatchObject({ kind: 'ask', does: 'edit', turnOn: 'edit' })
     expect(judge(ctx({ write: 'read' }), 'Bash', { command: 'mv a.md b.md' }).kind).toBe('deny')
@@ -188,7 +188,7 @@ describe('SDK 메시지', () => {
     expect(eventsOf({ type: 'system', subtype: 'background_tasks_changed', tasks: [{}, { ambient: true }] })).toEqual([{ type: 'tasks', count: 1 }])
     // 토큰(캐시 포함)과 마지막 요청의 맥락 크기 · 맥락 창
     expect(eventsOf({ type: 'result', subtype: 'success', is_error: false, usage: { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 100, cache_creation_input_tokens: 20 }, modelUsage: { 'claude-opus-5-5': { contextWindow: 200_000 } } }, 3_000))
-      .toEqual([{ type: 'result', ok: true, tokens: { in: 130, out: 5 }, context: { used: 3_000, window: 200_000 } }])
+      .toEqual([{ type: 'result', ok: true, tokens: { in: 130, out: 5 }, context: { used: 3_000, window: 200_000, compactAt: 167_000 } }])
   })
   it('모델 목록: 이름 · 실제 id · 받는 생각 깊이, 계약에 맞지 않는 id · 깊이는 뺀다', () => {
     expect(choicesOf([
@@ -452,7 +452,7 @@ describe('대화 API', () => {
     expect(done.always).toEqual([])
   })
 
-  it('계획을 승인하며 묻고 하기를 고르면 노트 고치기도 묻고, 거절하며 한 말은 카드에 남는다. 목록 줄에 무엇을 기다리는지 보인다', async () => {
+  it('계획을 승인하며 수동을 고르면 노트 고치기도 묻고, 거절하며 한 말은 카드에 남는다. 목록 줄에 무엇을 기다리는지 보인다', async () => {
     const file = 'workbench/topics/gauge/fix/note.md'
     const c = await create({ text: `plan ${file}`, mode: 'plan' })
     await settle(c.id, 'waiting')

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import type { ChatRow } from './api'
+import type { ChatRow, FeedbackItem } from './api'
 import { isUnseenIn, type Seen } from './agentSeen'
-import { needCount, noticesOf, unread } from './NoticeBell'
+import { NEED_FIRST, NEWS_FIRST, needCount, noticesOf, sectionsOf, unread, type Notice } from './NoticeBell'
+import { newSuggestions } from './network/Suggestions'
 
 const now = Date.parse('2026-11-20T12:00:00Z')
 const chat = (id: string, state: ChatRow['state'], o: Partial<ChatRow> = {}) =>
@@ -87,5 +88,55 @@ describe('알림 종: 읽은 소식은 빠진다 (11/23 피드백 "읽고 나서
     }, now)
     const seen = [list.find((n) => n.text === '읽은 오류')!.key, list.find((n) => n.need)!.key]
     expect(unread(list, seen).map((n) => n.text)).toEqual(['물음', '새 오류'])
+  })
+})
+
+describe('알림 종: 피드백은 결정할 것만 답할 것 (11/23 결정 필요 · 확인만)', () => {
+  const item = (key: string, o: Partial<FeedbackItem>) => ({ key, n: 1, date: '2026-11-19', time: '09:00', kind: '수정', target: '홈', text: key, ...o }) as FeedbackItem
+  it('결정을 묻는 답은 답할 것, 결과를 알린 답(확인만)은 소식: 종의 수가 레일의 피드백 수와 같다', () => {
+    const list = noticesOf({ feedback: [
+      item('묻는 답', { status: { state: '확인 필요', ask: '폴더까지 지울까요?', handled_at: '2026-11-19T10:00' } }),
+      item('알린 답', { status: { state: '반영', handled_at: '2026-11-19T11:00' } }),
+      item('처리 전', {}),
+    ] }, now)
+    expect(list.map((n) => [n.text, n.need])).toEqual([['묻는 답', true], ['알린 답', false]])
+    expect(needCount(list)).toBe(1)
+  })
+})
+
+describe('알림 종: 답할 것과 소식을 구역으로 나눈다 (11/26 "답할 것이 8개를 넘으면 소식이 더 보기 뒤로 숨는다")', () => {
+  const need = (i: number, n?: number): Notice => ({ key: `n${i}`, kind: 'question', need: true, text: `물음 ${i}`, ...(n && { n }) })
+  const news = (i: number): Notice => ({ key: `s${i}`, kind: 'update', need: false, text: `소식 ${i}` })
+  const list = (needs: number, newses: number) => [...Array.from({ length: needs }, (_, i) => need(i)), ...Array.from({ length: newses }, (_, i) => news(i))]
+
+  it('답할 것이 아무리 많아도 소식이 처음부터 보인다', () => {
+    const page = sectionsOf(list(12, 4), { need: false, news: false })
+    expect(page.need).toHaveLength(NEED_FIRST)
+    expect(page.news.map((n) => n.text)).toEqual(['소식 0', '소식 1', '소식 2'])
+    expect([page.needRest, page.newsRest]).toEqual([12 - NEED_FIRST, 4 - NEWS_FIRST])
+  })
+  it('구역마다 따로 편다', () => {
+    const page = sectionsOf(list(12, 4), { need: false, news: true })
+    expect([page.need.length, page.news.length, page.needRest, page.newsRest]).toEqual([NEED_FIRST, 4, 12 - NEED_FIRST, 0])
+    expect(sectionsOf(list(12, 4), { need: true, news: false }).need).toHaveLength(12)
+  })
+  it('머리의 수와 더 보기의 수는 종의 수와 같은 셈: 한 줄이 여럿이면 그 수만큼', () => {
+    const page = sectionsOf([need(0, 10), ...list(6, 0).map((n, i) => ({ ...n, key: `m${i}` }))], { need: false, news: false })
+    expect(page.needCount).toBe(16)
+    // 보이는 다섯 줄 = 10 + 1 + 1 + 1 + 1, 남은 두 줄 = 2
+    expect(page.needRest).toBe(2)
+  })
+  it('소식이 없으면 소식 구역이, 답할 것이 없으면 답할 것 구역이 비어 있다', () => {
+    expect(sectionsOf(list(3, 0), { need: false, news: false })).toMatchObject({ news: [], newsCount: 0, newsRest: 0, needRest: 0 })
+    expect(sectionsOf(list(0, 2), { need: false, news: false })).toMatchObject({ need: [], needCount: 0, newsCount: 2 })
+  })
+})
+
+describe('새 추천: 알림 종에서 읽으면 레일의 점도 꺼진다 (11/26)', () => {
+  it('뺀 것도 본 것도 아닌 추천만 새 추천', () => {
+    const all = [{ name: '가' }, { name: '나' }, { name: '다' }]
+    expect(newSuggestions(all, ['나'], [])).toEqual(['가', '다'])
+    // 종이 읽은 것으로 적는 이름은 지금의 새 추천 전부: 적고 나면 남는 것이 없다
+    expect(newSuggestions(all, ['나'], newSuggestions(all, ['나'], []))).toEqual([])
   })
 })

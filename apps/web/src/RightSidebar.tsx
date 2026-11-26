@@ -1,5 +1,5 @@
 import { useEffect, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { isSendKey } from './cmdEnter'
+import { SendArea, SendBox } from './SendArea'
 import { ConflictError, notesApi, type NoteCategory, type NoteHeadPatch, type NoteLinks, type NoteRow, type ProjectKind, type Statement, type Topic, LIMITS } from './api'
 import { descriptionLines, MathText } from './cardParts'
 import { useConceptMacros } from './conceptMacros'
@@ -7,15 +7,16 @@ import { Icon } from './icons'
 import { shortLabel } from './notes'
 import { LOOSE_NOTES_LABEL, NO_KIND_LABEL, NOTE_KIND_LABEL, noteKindChoices } from './noteKinds'
 import { NoteHistorySide, useNoteHistory } from './NoteHistory'
-import { headWriterOf, useOfferRightModes, useRightMode, type RightMode } from './noteScreen'
+import { headWriterOf, useRightMode, type RightMode } from './noteScreen'
+import { RightModeTabs } from './RightModeTabs'
 import { go, type Route } from './router'
 import { StatusDot } from './StatusDot'
 import { store } from './store'
 import { josa, t } from './i18n'
-import { TerminalPane, useTerminalAvailable } from './TerminalPane'
+import { SideTerminalClose, TerminalPane, useTerminalAvailable } from './TerminalPane'
 
 /**
- * 오른쪽 사이드바: 정보 · 기록 · 에이전트 (10/22 안 A). 갈래는 상단바 아이콘으로 고른다(11/21 안 A, useOfferRightModes). 갈래를 바꿔도 적던 내용은 남긴다.
+ * 오른쪽 사이드바: 정보 · 기록 · 에이전트 (10/22 안 A). 갈래는 사이드바 맨 위 아이콘 줄로 고른다(11/24, RightModeTabs. 11/21~11/23에는 상단바 아이콘). 갈래를 바꿔도 적던 내용은 남긴다.
  * 에이전트 탭은 이 프로젝트의 대화(레일 › 에이전트와 같은 목록)이고, 패널 자리를 작업 화면 아래로 옮겼으면 그 자리를 알린다.
  * 터미널 칸(terminalRid가 있고 이 컴퓨터에서 연 화면일 때)은 그 프로젝트 폴더의 셸로, 코드 블록 「터미널에서 실행」만 연다(상단바 아이콘은 11/23에 뺌). 한 번 열면 다른 갈래로 가도 셸을 그대로 둔다
  */
@@ -26,16 +27,15 @@ export function RightSidebar({ info, records, agent, terminalRid }: { info: Reac
   const mode = (chosen === 'agent' && !agent) || (chosen === 'terminal' && !terminal) ? 'info' : chosen
   const [termOpened, setTermOpened] = useState(false)
   useEffect(() => { if (mode === 'terminal') setTermOpened(true) }, [mode])
-  // 갈래 단추는 상단바에 (11/21 안 A, TopBar.tsx의 RightModeIcons)
-  // 터미널은 상단바 아이콘에 두지 않는다(11/23: 터미널은 에이전트 대화 창 안). 코드 블록 「터미널에서 실행」(openRight)만 이 칸을 연다
+  // 터미널은 갈래 아이콘에 두지 않는다(11/23: 터미널은 에이전트 대화 창 안). 코드 블록 「터미널에서 실행」(openRight)만 이 칸을 연다
   const modes: RightMode[] = ['info', 'records', ...(agent ? ['agent' as const] : [])]
-  useOfferRightModes(modes, mode)
   return (
     <div className="rs" data-ui="오른쪽 사이드바">
+      {mode !== 'terminal' && <RightModeTabs modes={modes} mode={mode} />}
       {mode === 'info' && <div className="rs-scroll">{info}</div>}
       <div className="rs-col" hidden={mode !== 'records'}>{records}</div>
       {mode === 'agent' && agent && <div className="rs-col">{agent}</div>}
-      {terminal && (termOpened || mode === 'terminal') && <div className="rs-col" hidden={mode !== 'terminal'}><TerminalPane key={terminalRid} rid={terminalRid} attach /></div>}
+      {terminal && (termOpened || mode === 'terminal') && <div className="rs-col" hidden={mode !== 'terminal'}><TerminalPane key={terminalRid} rid={terminalRid} attach tools={<SideTerminalClose />} /></div>}
     </div>
   )
 }
@@ -129,7 +129,8 @@ function NoteInfoBody({ rid, row, topics, proves = [], projectKind, version, onC
   /** 설명 저장: 저장된 뒤에만 입력 칸을 닫는다 (실패하면 적던 글이 남는다) */
   const saveDesc = (v: string) => { void patch({ description: v }, t('설명을 적었습니다', 'Saved the description')).then((ok) => { if (ok) setDesc((d) => (d === v ? null : d)) }) }
   // 설명 칸과 그 아래 취소 · 저장 단추에서 같이 받는다 (11/19 피드백 09:04)
-  const descKeys = (e: KeyboardEvent) => { if (desc === null) return; if (e.key === 'Escape') setDesc(null); if (isSendKey(e) && lengthOf(desc) <= LIMITS.description) saveDesc(desc) }
+  const descKeys = (e: KeyboardEvent) => { if (desc !== null && e.key === 'Escape') setDesc(null) }
+  const sendDesc = () => { if (desc !== null && lengthOf(desc) <= LIMITS.description) saveDesc(desc) }
   const titleOfTopic = (id: string) => topics.find((t) => t.id === id)?.title ?? id
   const rest = topics.filter((t) => !row.topics.includes(t.id))
   const moveUp = (i: number) => { const next = [...row.topics]; [next[i - 1], next[i]] = [next[i]!, next[i - 1]!]; void patch({ topics: next }, i === 1 ? t(`주 주제를 "${titleOfTopic(next[0]!)}"${josa(titleOfTopic(next[0]!), '로')} 바꿨습니다`, `Main topic is now "${titleOfTopic(next[0]!)}"`) : t('주제 순서를 바꿨습니다', 'Changed the topic order')) }
@@ -170,14 +171,14 @@ function NoteInfoBody({ rid, row, topics, proves = [], projectKind, version, onC
             ? <div className={row.descriptionAuto ? 'muted' : ''} title={row.descriptionAuto ? t('적은 설명이 없어 본문 첫 문단에서 뽑았습니다', 'No description written, so the first paragraph is used') : undefined}><DescriptionText text={row.description} /></div>
             : <p className="empty rs-empty" title={t('연필을 눌러 설명을 적습니다', 'Click the pencil to write a description')}>{t('없음', 'None')}</p>
           : <>
-            <textarea className="rs-desc-input" autoFocus rows={4} value={desc} aria-label={t('설명', 'Description')} placeholder={t('여러 줄로 적고 "- "로 목록을 만듭니다. 비우면 본문 첫 문단을 씁니다.', 'Write several lines. Start a line with "- " for a list. Leave empty to use the first paragraph.')}
-              onChange={(e) => setDesc(e.target.value)} onKeyDown={descKeys} />
-            <div className="rs-desc-bar" onKeyDown={descKeys}>
+            <SendArea className="rs-desc-input" autoFocus rows={4} value={desc} aria-label={t('설명', 'Description')} placeholder={t('여러 줄로 적고 "- "로 목록을 만듭니다. 비우면 본문 첫 문단을 씁니다.', 'Write several lines. Start a line with "- " for a list. Leave empty to use the first paragraph.')}
+              onChange={(e) => setDesc(e.target.value)} onSend={sendDesc} onKeyDown={descKeys} />
+            <SendBox className="rs-desc-bar" onSend={sendDesc} onKeyDown={descKeys}>
               <span className={`rs-count${lengthOf(desc) > LIMITS.description ? ' over' : ''}`}>{lengthOf(desc)}/{LIMITS.description}</span>
               <span className="sp" />
               <button className="btn sm" onClick={() => setDesc(null)}>{t('취소', 'Cancel')}</button>
               <button className="btn primary sm" disabled={lengthOf(desc) > LIMITS.description} onClick={() => saveDesc(desc)}>{t('저장', 'Save')}</button>
-            </div>
+            </SendBox>
           </>}
       </Section>
       <Section label={t('본문에 쓴 개념노트', 'Concept notes used')} count={links?.bodyConcepts.length} hint={t('본문에 [[링크]]로 쓴 개념노트', 'Concept notes linked with [[links]] in the text')} ui="쓰는 개념노트">

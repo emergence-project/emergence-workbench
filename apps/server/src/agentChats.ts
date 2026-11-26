@@ -16,9 +16,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { APP_RID, CENTRAL_RID, startModel, type Reviewer } from '@rw/core/contract/agentChats'
 import type { AppChecks, AppSubmitBody, AppSubmitted, AskAnswer, Attach, CentralOpenBody, Chat, ChatEffort, ChatItem, ChatMessageBody, ChatMode, ChatModel, ChatRow, ChatScope, ChatSettings, ChatWrite, ImageIn, ModelChoice, NewChatBody, Todo, WorkState } from '@rw/core/contract/agentChats'
-import { appEnv, notStarted, personalReadable, type AppWork, type Snap } from './appWorktree.js'
+import { appEnv, newPrRound, notStarted, personalReadable, type AppWork, type Snap } from './appWorktree.js'
 export { appEnv } from './appWorktree.js'
-import { autoCustom, autoOf, type AgentSettings } from '@rw/core'
+import { agentAsks, autoCustom, autoOf, type AgentSettings } from '@rw/core'
 import { fillReview, reviewerName, reviewerOf } from './agentReviewers.js'
 import { HERE, t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
@@ -155,7 +155,7 @@ export interface AgentChatsDeps {
    * 앱 피드백 폴더 (맡기기 · 처리 기록). written = 처리 기록을 적은 뒤 (저절로 올리기).
    * claims = 저절로 맡기기를 한 컴퓨터만 (feedbackClaims.ts): taken은 다른 컴퓨터가 이번 차례에 맡았는지, claim은 이 컴퓨터(machine을 주면 그 돕는 맥)가 맡기 (since = 그 항목을 마지막으로 손댄 때). elsewhere = 저절로 맡는 것은 서버(다른 컴퓨터)라 이 컴퓨터는 맡지 않음 (serverRelay.ts). helpers = 피드백 돕기 (11/23 안 A, deviceServer.ts의 DeviceHub): 서버의 자리가 찼을 때 넘치는 항목을 맡길 돕는 맥. free = 자리가 남은 맥 이름, assign = 그 맥의 다음 알림 답에 실어 보낸다
    */
-  feedback?: { dir: string; written?: () => void; claims?: { taken(key: string, since: number): boolean; claim(key: string, since: number, machine?: string): Promise<boolean> }; elsewhere?: () => boolean; helpers?: { free(): string | undefined; assign(name: string, keys: string[]): void } }
+  feedback?: { dir: string; written?: () => void; claims?: { taken(key: string, since: number): boolean; claim(key: string, since: number, machine?: string): Promise<boolean> }; elsewhere?: () => boolean; helpers?: { free(): string | undefined; assign(name: string, keys: string[]): void; unstarted?(): string[] } }
   /** 설정 › 에이전트 (피드백을 언제 맡기고 언제 합치나 · 한 차례 한도) */
   settings?: () => AgentSettings
   /** 합친 커밋이 지금 도는 앱에 들어 있는가 (모르면 undefined) */
@@ -174,7 +174,7 @@ export class AgentChats {
   /** 줄 선 대화의 지시 (순서대로) */
   protected readonly queue: { id: string; prompt: string; images?: ImageIn[] }[] = []
   /** 열어 둔 에이전트 */
-  private readonly sessions = new Map<string, Session>()
+  protected readonly sessions = new Map<string, Session>()
   private readonly draftTimers = new Map<string, NodeJS.Timeout>()
   /** 앱이 다시 켜질 때 돌고 있어 저절로 이어 갈 대화 (resumeRestarted) */
   private readonly restarted: string[] = []
@@ -190,7 +190,7 @@ export class AgentChats {
         delete c.tasks
         delete c.compacting
         delete c.draft
-        for (const it of c.items) if ((it.kind === 'side' && it.answer === undefined || it.kind === 'review' && it.text === undefined) && !it.error) it.error = t('앱이 다시 켜져 답하지 못했습니다', 'Not answered because the app restarted')
+        for (const it of c.items) if ((it.kind === 'side' && it.answer === undefined || (it.kind === 'review' || it.kind === 'member') && it.text === undefined) && !it.error) it.error = t('앱이 다시 켜져 답하지 못했습니다', 'Not answered because the app restarted')
         // 줄 선 대화는 저장해 둔 차례로 다시 줄을 선다 (예전엔 "이어서"만 받아 사용자의 새 지시를 잃고 "이미 답했다"고 끝났다, 11/19)
         if (c.state === 'queued' && c.turn) this.queue.push({ id: c.id, ...c.turn })
         else if (LIVE.has(c.state)) {
@@ -270,7 +270,7 @@ export class AgentChats {
       scope,
       write: b.write ?? 'notes',
       state: 'idle',
-      // 계획 모드는 Claude만 (계획 카드 = ExitPlanMode). Codex · Gemini는 묻고 하기로
+      // 계획은 Claude만 (계획 카드 = ExitPlanMode). Codex · Gemini는 수동으로
       mode: b.mode === 'plan' && b.agent && b.agent !== 'claude-code' ? 'ask' : b.mode ?? 'edit',
       model: startModel(b.agent ?? 'claude-code', b.model),
       effort: b.effort ?? 'medium',
@@ -380,7 +380,7 @@ export class AgentChats {
     const it = c.items.find((x): x is Extract<ChatItem, { kind: 'ask' }> => x.kind === 'ask' && x.id === ask)
     const resolve = this.asks.get(ask)
     if (!it || it.answer || !resolve) throw new WorkbenchError(409, t('이미 답했거나 없는 허락 요청입니다', 'This request was already answered or does not exist'))
-    if (more.mode === 'plan') throw new WorkbenchError(400, t('계획을 승인하면 묻고 하기 · 편집 자동 허용 가운데 하나로 이어 갑니다', 'After approving a plan, continue with ask before edits or accept edits'))
+    if (more.mode === 'plan') throw new WorkbenchError(400, t('계획을 승인하면 수동 · 편집 자동 수락 가운데 하나로 이어 갑니다', 'After approving a plan, continue with manual or auto-accept edits'))
     it.answer = a
     if (a === 'deny' && more.note) it.note = clip(more.note, 2000)
     if (a !== 'deny' && it.plan !== undefined && more.mode) it.mode = more.mode
@@ -424,7 +424,7 @@ export class AgentChats {
     if (!pt || !it || it.kind !== 'user') throw new WorkbenchError(409, t('여기로는 되돌릴 수 없습니다', 'Cannot rewind to this message'))
     const app = this.workOf(c)
     let files: number | undefined
-    if (app?.restore && c.worktree && pt.snap) files = await app.restore(c.worktree, pt.snap)
+    if (app?.restore && c.worktree && pt.snap && fs.existsSync(c.worktree)) files = await app.restore(c.worktree, pt.snap) // 치운 작업 폴더(11/25)면 대화만 되돌린다
     const s = this.sessions.get(id)
     if (s) this.close(s)
     c.items.splice(at)
@@ -504,7 +504,7 @@ export class AgentChats {
     this.chats.delete(id)
     for (const f of [this.fileOf(id), packFile(this.deps.dir, id)]) fs.rmSync(f, { force: true })
     const w = this.workOf(c)
-    if (c.worktree && w) void w.dispose(c.worktree).catch(() => undefined)
+    if (c.worktree && w) void w.dispose(c.worktree, c.branch).catch(() => undefined)
   }
 
   /** 기록에 이어진 대화 (보관한 것도 찾는다: 한 기록에 대화 하나) */
@@ -551,7 +551,7 @@ export class AgentChats {
   async appSubmit(id: string, b: AppSubmitBody): Promise<AppSubmitted> {
     const { c, w } = this.appOf(id)
     const pr = await w.submit(c.worktree!, c.branch!, { title: b.title, body: b.body })
-    c.pr = { number: pr.number, url: pr.url }; c.ci = 'pending'
+    c.pr = { number: pr.number, url: pr.url }; c.ci = 'pending'; newPrRound(c)
     this.touch(c)
     return pr
   }
@@ -695,7 +695,7 @@ export class AgentChats {
   }
 
   private cwdOf(c: Stored): string {
-    return c.worktree ?? (c.scope.kind === 'app' ? this.deps.dir : (() => { try { return this.deps.project(c.rid).repo } catch { return this.deps.dir } })())
+    return (c.worktree && fs.existsSync(c.worktree) ? c.worktree : undefined) ?? (c.scope.kind === 'app' ? this.deps.dir : (() => { try { return this.deps.project(c.rid).repo } catch { return this.deps.dir } })())
   }
 
   protected touch(c: Stored): void {
@@ -881,7 +881,7 @@ export class AgentChats {
         const it = c.items.find((x) => x.kind === 'ask' && x.id === id)
         if (it && it.kind === 'ask' && !it.answer) { it.answer = a; if (abort.signal.aborted) it.expired = true }
         // 계획 카드의 「늘」은 이 차례만 (계획마다 다시 본다)
-        // 「늘」: 토글이 있는 일은 그 토글을 켜고(편집은 편집 자동 허용으로), 실행은 프로그램마다 기억한다. 삭제 · 외부는 「늘」이 없다
+        // 「늘」: 토글이 있는 일은 그 토글을 켜고(편집은 편집 자동 수락으로), 실행은 프로그램마다 기억한다. 삭제 · 외부는 「늘」이 없다
         if (a === 'always' && v.plan === undefined && !v.once) {
           if (v.turnOn === 'edit') { ctx.mode = 'edit'; c.mode = 'edit' }
           else if (v.turnOn) c.auto = { ...autoOf({ write: c.write, mode: ctx.mode, ...(c.auto && { auto: c.auto }) }), [v.turnOn]: true }
@@ -892,7 +892,7 @@ export class AgentChats {
           if (v.plan !== undefined) {
             ctx.planOk = true
             c.planOk = true
-            // 승인하며 고른 맡기는 정도로 이어 간다 (묻고 하기 = 노트도 하나씩 묻기, 고치기 바로)
+            // 승인하며 고른 맡기는 정도로 이어 간다 (수동 = 노트도 하나씩 묻기, 고치기 바로)
             if (got.mode) { ctx.mode = got.mode; c.mode = got.mode }
           }
           ran(a === 'always' ? 'always' : 'once')
@@ -1056,7 +1056,7 @@ export const rowOf = (c: Stored): ChatRow => {
   return {
     id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state,
     mode: c.mode, model: c.model, effort: c.effort, ...(c.account && { account: c.account }), ...(c.auto && { auto: { ...c.auto } }), claims: [...c.claims], changed: [...c.changed], added, removed,
-    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.handed && { handed: c.handed }), ...(c.bundle && { bundle: [...c.bundle] }), ...(c.record && { record: { ...c.record } }), ...(c.needsEdit && { needsEdit: true }), ...(c.parent && { parent: c.parent }), ...(c.summary && { summary: c.summary }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), ...(c.debate && { debate: structuredClone(c.debate) }), created: c.created, updated: c.updated,
+    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.handed && { handed: c.handed }), ...(c.bundle && { bundle: [...c.bundle] }), ...(c.record && { record: { ...c.record } }), ...(c.needsEdit && { needsEdit: true }), ...(c.parent && { parent: c.parent }), ...(c.summary && { summary: c.summary }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.state === 'idle' && !c.tasks && agentAsks(c.items) && { asks: true }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), ...(c.debate && { debate: structuredClone(c.debate) }), created: c.created, updated: c.updated,
   }
 }
 const wireOf = (c: Stored): Chat => ({ ...rowOf(c), items: c.items.map((i) => ({ ...i })), always: (c.alwaysKeys ?? []).map((a) => a.label), todos: c.todos.map((x) => ({ ...x })), ...(c.trimmed && { trimmed: c.trimmed }) })

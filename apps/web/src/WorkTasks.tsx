@@ -1,4 +1,5 @@
 import type { JournalEntry } from '@rw/core'
+import { SendBox } from './SendArea'
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ConflictError, taskRules, tasksApi, type NewTask, type OpenTodo, type Task, type TaskDiagnostic, type Topic, type Verdict } from './api'
@@ -18,6 +19,7 @@ import {
 } from './taskView'
 import { t } from './i18n'
 import { MarkIcon } from './marks'
+import { draftMap } from './unsent'
 
 /**
  * 기록 화면의 맡긴 일 (10/7 사용자 결정, 시안 v31. 10/21 작업 탭을 기록 안으로 합침): 브리핑 · 한 주 달력, 판단 카드, 맡긴 일 목록, 맡기기 창.
@@ -310,7 +312,7 @@ export type TaskDraft = Partial<NewTask> & { mode?: 'new' | 'proposal' | 'next';
  * 다음 지시를 고쳐 맡길 때와 종결 조건 제안을 고쳐 승인할 때도 같은 창을 쓴다.
  */
 /** 새로 맡기는 창을 Esc · 바깥 누르기로 닫아도 적던 것이 남게: 프로젝트마다 하나, 맡기면 지운다 (화면을 새로 열면 없어진다) */
-const keptTasks = new Map<string, TaskDraft & { endMode?: 'self' | 'agent' }>()
+const keptTasks = draftMap<TaskDraft & { endMode?: 'self' | 'agent' }>()
 
 export function TaskDialog({ rid, topics, draft: given, onClose, onSaved, reload }: {
   rid: string; topics: Topic[]; draft: TaskDraft; onClose(): void; onSaved: Saved; reload(): unknown
@@ -372,7 +374,7 @@ export function TaskDialog({ rid, topics, draft: given, onClose, onSaved, reload
       <button className="btn" onClick={onClose}>{t('취소', 'Cancel')}</button>
       <button className="btn primary" disabled={!ready || busy} onClick={() => void submit()} title="⌘↵">{proposal ? t('승인', 'Approve') : t('맡기기', 'Delegate')}</button>
     </>}>
-      <div className="tk-form" onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void submit() } }}>
+      <SendBox className="tk-form" onSend={() => void submit()}>
         {error && <div className="banner danger" role="alert">{error}</div>}
         {proposal ? <>
           <p className="muted tk-form-note">{draft.from?.title} · {t('에이전트가 제안한 종결 조건을 고칩니다. 승인하면 이 조건으로 시작합니다.', 'Edit the completion criteria the agent proposed. Approving starts the task with these criteria.')}</p>
@@ -398,7 +400,7 @@ export function TaskDialog({ rid, topics, draft: given, onClose, onSaved, reload
           <label className="field"><span>{t('참고 자료', 'References')} <em>{t('선택 · 에이전트가 먼저 읽을 노트 · 논문 · 폴더, 한 줄에 하나', 'Optional · notes, papers, or folders the agent reads first, one per line')}</em></span><textarea rows={2} value={refs} onChange={(e) => setRefs(e.target.value)} /></label>
           <label className="field"><span>{t('하지 말 것', "Don't")} <em>{t('선택', 'Optional')}</em></span><input value={avoid} placeholder={t('예: 공개 함수 이름은 바꾸지 않는다', 'Example: do not rename public functions')} onChange={(e) => setAvoid(e.target.value)} /></label>
         </>}
-      </div>
+      </SendBox>
     </Dialog>
   )
 }

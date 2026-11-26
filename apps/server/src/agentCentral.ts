@@ -351,7 +351,7 @@ export class CentralChats extends ReviewChats {
         const app = this.workOf(k); if (!app) continue
         const live = LIVE.has(k.state)
         if (!live && !k.merged && k.pr && k.worktree && k.branch && app.prMerged) {
-          const m = await app.prMerged(k.worktree, k.branch)
+          const m = await app.prMerged(k.worktree, k.branch, k.pr.number)
           if (m) { k.merged = m.sha || 'merged'; this.touch(k) }
         }
         if (k.merged) { if (!live) this.note(k.id, { kind: 'merged' }, `merged:${k.id}`); continue }
@@ -407,7 +407,7 @@ export class CentralChats extends ReviewChats {
       if (!r.ok) break
       const b = c.held.shift()!
       try {
-        const kid = this.create({ rid: APP_RID, text: b.task, title: b.title, mode: 'edit', ...(b.app && { scope: { kind: 'app', app: b.app } }) }, { parent: c.id })
+        const kid = this.create({ rid: APP_RID, text: b.task, title: b.title, mode: 'auto', ...(b.app && { scope: { kind: 'app', app: b.app } }) }, { parent: c.id })
         c.items.push({ kind: 'text', at: new Date().toISOString(), text: t(`자동: 기다리던 「${b.title}」을 열었습니다 (${kid.id}, ${this.roomWhy(r)})`, `Automatic: opened the held "${b.title}" (${kid.id}, ${this.roomWhy(r)})`) })
       } catch { /* 열지 못하면 버리지 않고 다음 차례에 */ c.held.unshift(b); break }
       this.touch(c)
@@ -439,7 +439,7 @@ export class CentralChats extends ReviewChats {
       // 앱 버그 · 앱이 멈춘 때만: 메모리 · 줄과 상관없이 바로 연다. 한 번에 하나
       const busy = [...this.chats.values()].find((k) => k.urgent && LIVE.has(k.state))
       if (busy) throw new WorkbenchError(409, t(`급한 앱 고치기는 한 번에 하나입니다 (「${busy.title}」 ${busy.id}). 그 대화에 이어 보내세요`, `Only one urgent app conversation at a time ("${busy.title}" ${busy.id}). Send to it with chat_send`))
-      return kidOf(this.must(this.create({ rid: APP_RID, text: b.task, title: b.title, mode: 'edit', ...(b.app && { scope: { kind: 'app', app: b.app } }) }, { parent: c.id, urgent: true }).id))
+      return kidOf(this.must(this.create({ rid: APP_RID, text: b.task, title: b.title, mode: 'auto', ...(b.app && { scope: { kind: 'app', app: b.app } }) }, { parent: c.id, urgent: true }).id))
     }
     if (b.role === 'app') {
       const r = await this.room()
@@ -450,7 +450,7 @@ export class CentralChats extends ReviewChats {
           `No room for another app conversation (${this.roomWhy(r)}: ${names}). Wait for one to finish or send to it with chat_send`,
         ))
       }
-      return kidOf(this.must(this.create({ rid: APP_RID, text: b.task, title: b.title, mode: 'edit', ...(b.app && { scope: { kind: 'app', app: b.app } }) }, { parent: c.id }).id))
+      return kidOf(this.must(this.create({ rid: APP_RID, text: b.task, title: b.title, mode: 'auto', ...(b.app && { scope: { kind: 'app', app: b.app } }) }, { parent: c.id }).id))
     }
     if (b.role === 'project') {
       if (!b.project) throw new WorkbenchError(400, t('프로젝트 작성에는 project(프로젝트 id)가 필요합니다', 'role project needs project (a project id from list_projects)'))

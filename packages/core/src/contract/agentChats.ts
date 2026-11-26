@@ -35,11 +35,12 @@ export const CENTRAL_RID = '_central'
 export const CHAT_STATES = ['running', 'waiting', 'queued', 'idle', 'stopped', 'error'] as const
 export const ASK_ANSWERS = ['allow', 'always', 'deny'] as const
 /**
- * 얼마나 맡길지 (10/21 "에이전트 창 구조"): ask 묻고 하기(노트 고치기도 하나씩 묻는다) ·
+ * 얼마나 맡길지 (10/21 "에이전트 창 구조"): ask 수동(노트 고치기도 하나씩 묻는다) ·
  * plan 계획 먼저(계획을 승인하기 전에는 읽기만, 승인 뒤 범위 안 노트는 묻지 않고) · edit 고치기 바로(범위 안 노트는 묻지 않고).
- * 명령 · 웹 · 범위 밖은 어느 모드든 묻거나 막는다
+ * 명령 · 웹 · 범위 밖은 어느 모드든 묻거나 막는다.
+ * auto 자동(11/23 "클로드 자동 모드처럼"): edit에 더해 읽기(어디든, 비밀이 든 곳 빼고) · 실행 · 웹을 묻지 않고, 크리티컬한 일만 한 번 묻는다
  */
-export const CHAT_MODES = ['ask', 'plan', 'edit'] as const
+export const CHAT_MODES = ['ask', 'plan', 'edit', 'auto'] as const
 /**
  * 명령이 하는 일 (10/28 사용자 결정 "권한을 명령 대신 하는 일로", 시안 4절): 앱이 명령의 첫 낱말과 경로로 판정하고, 모르면 run.
  * read 읽기(프로젝트와 등록한 폴더 안) · edit 편집 · delete 삭제 · run 실행 · web 웹 보기 · outside 외부(폴더 밖 쓰기 · 올리기 · 설치)
@@ -119,7 +120,7 @@ export const ChatItem = z.discriminatedUnion('kind', [
    * 차례 끝. cost = 쓴 토큰을 API 요금으로 친 값(구독 로그인이면 청구되지 않음), tokens = 이 차례에 넣고(in, 캐시 포함) 낸(out) 토큰,
    * context = 마지막 요청의 맥락 크기와 그 모델의 맥락 창
    */
-  z.object({ kind: z.literal('result'), at: z.string(), ok: z.boolean(), cost: z.number().optional(), seconds: z.number().optional(), tokens: z.object({ in: z.number(), out: z.number() }).strict().optional(), context: z.object({ used: z.number(), window: z.number() }).strict().optional() }).strict(),
+  z.object({ kind: z.literal('result'), at: z.string(), ok: z.boolean(), cost: z.number().optional(), seconds: z.number().optional(), tokens: z.object({ in: z.number(), out: z.number() }).strict().optional(), context: z.object({ used: z.number(), window: z.number(), compactAt: z.number().optional() }).strict().optional() }).strict(),
   /** crash = Claude Code 프로세스가 비정상으로 끝남 (사용자가 멈춘 것 밖, 11/20). 같은 대화의 이력으로 세어 중앙에게 알린다 */
   z.object({ kind: z.literal('error'), at: z.string(), text: z.string(), crash: z.boolean().optional() }).strict(),
   /** 앞 내용을 요약해 이어 감 (Claude Code의 맥락 줄이기). auto = 맥락이 커져 저절로, before · after = 줄이기 전후 맥락 토큰 */
@@ -212,6 +213,8 @@ export const ChatRow = z.object({
    */
   live: z.boolean().optional(),
   tasks: z.number().optional(),
+  /** 끝난 차례의 마지막 글이 사용자에게 묻는 말: 답할 때까지 내 차례(답 기다림)이고 저절로 보관하지 않는다 (11/24, chat-asks.ts) */
+  asks: z.boolean().optional(),
   compacting: z.boolean().optional(),
   /** 에이전트가 지금 쓰는 중인 글 (다 쓰면 대화 줄이 되고 지워진다. 기록에는 남기지 않는다) */
   draft: z.string().optional(),
@@ -367,9 +370,11 @@ export const FeedbackAnswerBody = z.object({
   after: z.string().regex(/^[\w-]+$/).max(80).optional(),
   mockups: MockupNames.optional(),
   replies: z.array(z.object({ to: z.string().min(1), note: z.string().trim().min(1).max(4000), mockups: MockupNames.optional() }).strict()).max(20).optional(),
+  /** 쓰지 않게 된 시안을 이 항목의 피드백 답(지금 · revised · replies)에서 뗀다 (11/24). 그림 · 원문 · 판정 · 코멘트는 그대로 */
+  dropMockups: MockupNames.optional(),
   verdict: z.enum(FEEDBACK_VERDICTS).optional(),
   verdictNote: z.string().trim().max(4000).optional(),
-}).strict().refine((b) => b.state ? !!b.note : !!b.replies?.length || !!b.mockups?.length || !!b.verdict, { message: 'state needs note; without state send replies, mockups or verdict' })
+}).strict().refine((b) => b.state ? !!b.note : !!b.replies?.length || !!b.mockups?.length || !!b.dropMockups?.length || !!b.verdict, { message: 'state needs note; without state send replies, mockups, dropMockups or verdict' })
 export const FeedbackAnswered = z.object({ key: z.string(), state: z.string().optional(), verdict: z.string().optional(), pictures: z.array(z.string()).optional(), replies: z.number() }).strict()
 
 export type ChatScope = z.infer<typeof ChatScope>

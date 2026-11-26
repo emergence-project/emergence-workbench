@@ -13,6 +13,7 @@ import { go } from './router'
 import { useProblems } from './Problems'
 import { openTaskId, splitJudge, taskRowKey } from './taskView'
 import { TurnCounts, TurnGroupHead } from './TurnGroup'
+import { turnParts } from './turnCounts'
 import { ConfirmTaskList } from './TurnConfirmTasks'
 import { agentTurnRecords, isRecordFilter, openTodoRecords, parseWorkFilter, clearTodoFocus, peekTodoFocus, RECORD_VIEWS, SECTION_FILTERS, TODO_FOCUS_EVENT, todoKey, RECORD_PLACE_EVENT, peekRecordPlace, clearRecordPlace, hasRecordPlace, userTurnRecords, WORK_FILTER_EVENT, WORK_FILTER_KEY, WORK_FILTER_LABEL, workRecordGroups, recordPlaces, PLACE_KINDS, PLACE_KIND_LABEL, type FlatRecord, type RecordPlace, type WorkRecordGroup, type RecordFilter, type RecordView, type WorkFilter } from './workRecords'
 import { EditReviewRow, FlowDecisionRow, TurnRecordRow } from './RecordTurns'
@@ -132,8 +133,10 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
   const todoRecords = openTodoRecords(files)
   const agentRecords = agentTurnRecords(files)
   const agentTasks = tasks.filter((x) => x.state === 'working' || x.state === 'paused')
-  const decideCount = judgeCount + askRecords.length + reviews.length + editCount + todoRecords.length
-  const mineCount = decideCount + judge.confirm.length
+  // 탭의 주황 수는 결정할 것만 센다: 레일의 프로젝트 배지 · 사이드바 줄의 합과 같다. 남은 할 일은 내가 적은 일이라 옆에 옅은 수로 따로 (11/26 "수가 서로 다른 곳")
+  const turns = turnParts({ ask: askRecords.length, task: judge.decide.length, flow: flowTurns.length, edit: editCount, review: reviews.length })
+  const decideCount = turns.total
+  const mineCount = decideCount + judge.confirm.length + todoRecords.length
   const agentCount = agentTasks.length + agentRecords.length
   const count = filter === '맡긴 일' ? tasks.length + new Set(diagnostics.map((d) => d.file)).size : groups.reduce((n, group) => n + group.items.length, 0)
   // 내 차례 · 에이전트 차례에서 펼친 줄 하나 (판단 카드와 기록 줄이 함께 쓴다)
@@ -161,8 +164,8 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
           <div className="segmented small" role="group" aria-label={t('기록 보기', 'Records view')} data-ui="기록 차례">
             {RECORD_VIEWS.map((v) => <button key={v} className={view === v ? 'on' : ''} aria-pressed={view === v} onClick={() => { setView(v); setOpenRow(null) }}>
               {v === 'mine' ? t('내 차례', 'Your turn') : v === 'agent' ? t('에이전트 차례', "Agents' turn") : t('모두', 'All')}
-              {v === 'mine' && (judgeCount + askRecords.length + reviews.length + editCount > 0 ? <TurnCounts decide={decideCount} confirm={judge.confirm.length} className="tk-turn" />
-                : mineCount > 0 && <span className="tk-cnt">{mineCount}</span>)}
+              {v === 'mine' && <TurnCounts decide={decideCount} confirm={judge.confirm.length} className="tk-turn" />}
+              {v === 'mine' && todoRecords.length > 0 && <span className="tk-cnt" data-ui="남은 할 일 수" title={t(`남은 할 일 ${todoRecords.length}개 (내가 적은 일이라 내 차례 수에 넣지 않습니다)`, `${todoRecords.length} to-do(s) left (your own list, not counted as your turn)`)}>{t(`할 일 ${todoRecords.length}`, `${todoRecords.length} to-do`)}</span>}
               {v === 'agent' && agentCount > 0 && <span className="tk-cnt">{agentCount}</span>}</button>)}
           </div>
           <span className="sp" />

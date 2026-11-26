@@ -36,6 +36,20 @@ describe('빌드한 화면 내보내기', () => {
     expect(js.headers['cache-control']).toContain('immutable')
   })
 
+  // 줄여 보내려고 읽다가 실패하면(파일이 그 사이 지워짐 · 권한) 500이 나가는데, 그 응답에 「1년 저장」 머리가 그대로 붙어 있었다:
+  // 브라우저나 중간 서버가 그 실패를 저장하면 새로 고쳐도 같은 주소의 화면 코드가 계속 실패한다
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)('읽지 못한 파일의 실패 응답에는 오래 저장하라는 머리를 붙이지 않는다', async () => {
+    const file = path.join(tmp, 'dist/assets/locked-abc.js')
+    fs.writeFileSync(file, BIG)
+    fs.chmodSync(file, 0o000)
+    try {
+      const r = await app.inject({ url: '/assets/locked-abc.js', headers: { 'accept-encoding': 'gzip' } })
+      expect(r.statusCode).toBe(500)
+      expect(r.headers['cache-control']).toBe('no-store')
+      expect(r.headers['content-encoding']).toBeUndefined()
+    } finally { fs.chmodSync(file, 0o644) }
+  })
+
   it('큰 글 파일은 받는 쪽이 받을 수 있을 때만 줄여 보낸다', async () => {
     const plain = await app.inject({ url: '/assets/big-abc.js' })
     expect(plain.headers['content-encoding']).toBeUndefined()

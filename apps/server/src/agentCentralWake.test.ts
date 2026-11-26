@@ -19,12 +19,15 @@ describe('중앙을 저절로 깨우기', () => {
   let mem: Mem = { free: 0.9, total: 32 * GB }
   const seen: RunInput[] = []
   let release: (() => void) | undefined
-  // [web] = 웹 읽기 허락을 기다림, [rm] = 지우기 허락을 기다림, [hold] = release까지 일하는 중
+  // [web] = 웹 읽기 허락을 기다림, [odd] = 모르는 도구 허락을 기다림(자동 모드도 묻는다), [rm] = 지우기 허락을 기다림, [hold] = release까지 일하는 중
   const fake: AgentRunner = async function* (input): AsyncIterable<RunEvent> {
     seen.push(input)
     yield { type: 'session', id: `s${seen.length}` }
     if (input.prompt.includes('[web]')) {
       const d = await input.canUseTool('WebFetch', { url: 'https://example.com/doc', prompt: '읽기' })
+      yield { type: 'text', text: d.allow ? 'ran' : 'declined' }
+    } else if (input.prompt.includes('[odd]')) {
+      const d = await input.canUseTool('Mystery', { what: 'x' })
       yield { type: 'text', text: d.allow ? 'ran' : 'declined' }
     } else if (input.prompt.includes('[rm]')) {
       const d = await input.canUseTool('Bash', { command: 'rm out.txt' })
@@ -167,7 +170,7 @@ describe('중앙을 저절로 깨우기', () => {
 
   it('크리티컬하지 않은 허락은 중앙이 답하고(카드에 표시), 크리티컬한 것은 막아 사용자에게 남긴다', async () => {
     const { chats } = await make(60_000)
-    const run = await chats.openKid({ role: 'app', title: '돌리기', task: '[web]' })
+    const run = await chats.openKid({ role: 'app', title: '돌리기', task: '[odd]' })
     const del = await chats.openKid({ role: 'project', project: 'chiral', title: '지우기', task: '[rm]' })
     await vi.waitFor(() => expect(chats.centralState().kids.filter((k) => k.state === 'waiting')).toHaveLength(2))
     const kids = chats.centralState().kids
@@ -256,8 +259,10 @@ describe('중앙을 저절로 깨우기', () => {
     const app: AppWork = {
       ...base,
       async checks() { return { pr: 234, checks: [{ name: 'check', state: 'FAILURE' }], done: true, ok: false, log: 'expected 1 to be 2' } },
-      async prMerged() { return merged ? { number: 234, sha: 'abc' } : undefined },
+      // 같은 브랜치의 옛 PR(#1)은 이미 합쳐져 있다: 지금 연 PR 번호로 물어야 그것을 합쳐짐으로 읽지 않는다
+      async prMerged(_dir, _branch, number) { asked.push(number); return number === 1 ? { number: 1, sha: 'old' } : merged ? { number: number ?? 234, sha: 'abc' } : undefined },
     }
+    const asked: (number | undefined)[] = []
     const { chats, c } = await make(60_000, app)
     const kid = await chats.openKid({ role: 'app', title: '그림', task: '고쳐' })
     await vi.waitFor(() => expect(chats.get(kid.id).state).toBe('idle'))
@@ -279,6 +284,8 @@ describe('중앙을 저절로 깨우기', () => {
     expect(centralPrompts().at(-1)).toContain('its pull request was merged')
     expect(chats.centralState().kids.find((k) => k.id === kid.id)).toMatchObject({ merged: 'abc' })
     expect(chats.centralState().kids.find((k) => k.id === kid.id)?.ci).toBeUndefined()
+    expect(asked.length).toBeGreaterThan(0)
+    expect(asked.every((n) => n === chats.get(kid.id).pr?.number)).toBe(true)
     chats.stopAll()
   })
 

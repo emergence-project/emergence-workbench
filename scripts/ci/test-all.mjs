@@ -3,6 +3,7 @@ import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { startRunTmp } from './test-tmp.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const tests = (dir) => fs.readdirSync(path.join(root, dir)).filter((f) => f.endsWith('.test.mjs')).map((f) => `${dir}/${f}`)
@@ -24,6 +25,8 @@ const steps = [
   ['파일 이름 대소문자', 'node', ['scripts/ci/check-case.mjs']],
   ['구조 래칫', 'node', ['scripts/ci/check-ratchet.mjs']],
 ]
+// 스크립트 테스트(node --test)가 만드는 임시 폴더도 실행 전용 폴더 하나에 모아 끝에 지운다 (11/26)
+const runTmp = startRunTmp()
 const failed = []
 const skipped = []
 for (const [name, cmd, args, skip] of steps) {
@@ -35,4 +38,5 @@ for (const [name, cmd, args, skip] of steps) {
 }
 if (skipped.length) console.log(`\n건너뜀: ${skipped.join(', ')}`)
 console.log(failed.length ? `\n실패: ${failed.join(', ')}` : skipped.length ? '\n나머지 검사 모두 통과' : '\n검사 모두 통과')
+runTmp.stop()
 process.exit(failed.length ? 1 : 0)

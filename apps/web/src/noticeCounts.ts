@@ -7,7 +7,7 @@ import { APP_RID, conceptsApi, figuresApi, papersApi } from './api'
 import { aboutRailRoute, useAboutUncheckedCount } from './AboutPage'
 import { t } from './i18n'
 import type { Notice } from './NoticeBell'
-import { useNewSuggestionCount } from './network/Suggestions'
+import { markSuggestionsSeen, useNewSuggestions } from './network/Suggestions'
 import { useAgentEdits } from './projectQueries'
 import { useReposDiffCount } from './ReposPage'
 import { go } from './router'
@@ -25,7 +25,8 @@ export function useNoticeCounts(): Omit<Notice, 'key'>[] {
   const figures = useQuery({ queryKey: ['notice-counts', 'figures'], queryFn: () => figuresApi.brief(1), ...SLOW }).data
   const papers = useQuery({ queryKey: ['notice-counts', 'papers'], queryFn: () => papersApi.brief(1), ...SLOW }).data
   const edits = useAgentEdits('library').data
-  const suggested = useNewSuggestionCount()
+  const suggestedNames = useNewSuggestions()
+  const suggested = suggestedNames.length
   const repos = useReposDiffCount()
   const about = useAboutUncheckedCount()
   const knowledge = (concepts ? concepts.check.unchecked.count + concepts.check.changedAfterCheck.count + concepts.check.draftsToReview.count : 0) + (edits ? edits.reviews.length + edits.attempts.length : 0)
@@ -36,7 +37,7 @@ export function useNoticeCounts(): Omit<Notice, 'key'>[] {
     { kind: 'check', need: true, place: FIGURES, n: broken, text: t(`그림으로 못 바꾼 tikz ${broken}개`, `${broken} tikz source(s) failed to render`), open: () => go({ page: 'figures' }) },
     { kind: 'repo', need: true, n: repos, text: t(`GitHub와 다른 프로젝트 ${repos}개`, `${repos} project(s) differ from GitHub`), open: () => go({ page: 'repos' }) },
     { kind: 'about', need: true, place: APP_RID, n: about, text: t(`확인 전인 소개 절 ${about}개`, `${about} About section(s) not reviewed`), open: () => go(aboutRailRoute()) },
-    { kind: 'person', need: false, place: NETWORK, n: suggested, text: t(`새로 추천된 사람 ${suggested}명`, `${suggested} newly suggested people`), open: () => go({ page: 'network' }) },
+    { kind: 'person', need: false, place: NETWORK, n: suggested, text: t(`새로 추천된 사람 ${suggested}명`, `${suggested} newly suggested people`), open: () => go({ page: 'network' }), read: () => markSuggestionsSeen(suggestedNames) },
     { kind: 'answer', need: false, place: PAPERS, n: answered, text: t(`답이 온 논문 질문 ${answered}개`, `${answered} paper question(s) answered`), open: () => go({ page: 'shelf' }) },
-  ], [knowledge, broken, repos, about, suggested, answered])
+  ], [knowledge, broken, repos, about, suggested, suggestedNames, answered])
 }

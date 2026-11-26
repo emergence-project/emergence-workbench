@@ -94,12 +94,13 @@ export const GLOBAL_PAGES: {
   // 논문 라이브러리 (10/5). 10/6 L2: 첫 화면(PapersHome)과 목록(PapersPage)
   { page: 'shelf', label: '논문', name: t('논문', 'Papers'), aria: t('논문', 'Papers'), tip: t('논문 — 라이브러리의 논문과 책, PDF', 'Papers: papers, books and PDFs in the library'), icon: Icon.papers, rail: 'top',
     side: (p) => <PapersSide filter={p.route.page === 'shelf' ? p.route.filter : undefined} list={isListRoute(p.route) || (p.route.page === 'shelf' && (!!p.route.open || !!p.route.read))} open={p.route.page === 'shelf' && (!!p.route.open || !!p.route.read)} />,
-    right: (r) => r.page === 'shelf' && !r.open && !r.read && !isListRoute(r),
+    // 연 논문 · 넣기 전 논문의 정보 칸도 오른쪽 사이드바 (11/24: 상단바 단추로 여닫고 맨 위 아이콘 줄로 정보 · 에이전트)
+    right: (r) => r.page === 'shelf' && (!!r.open || !!r.read || !isListRoute(r)),
     render: (p) => (p.route.page === 'shelf' && p.route.read
-      ? <PaperRead id={p.route.read} onSaved={p.onSaved} />
+      ? <PaperRead id={p.route.read} rightOpen={p.rightOpen} onSaved={p.onSaved} />
       : p.route.page === 'shelf' && !p.route.open && !isListRoute(p.route)
       ? <PapersHome info={p.library} rightOpen={p.rightOpen} onSaved={p.onSaved} />
-      : <PapersPage filter={p.route.page === 'shelf' ? p.route.filter : undefined} open={p.route.page === 'shelf' ? p.route.open : undefined} onSaved={p.onSaved} />) },
+      : <PapersPage filter={p.route.page === 'shelf' ? p.route.filter : undefined} open={p.route.page === 'shelf' ? p.route.open : undefined} rightOpen={p.rightOpen} onSaved={p.onSaved} />) },
   // 그림 라이브러리 (10/5, 10/4 19:10 피드백 "반복해서 쓰는 그림을 공용 자산으로"). 10/6 L2: 첫 화면(FiguresHome)과 목록(FiguresPage)
   { page: 'figures', label: '그림', name: t('그림', 'Figures'), aria: t('그림', 'Figures'), tip: t('그림 — 노트에서 함께 쓰는 tikz · svg 그림', 'Figures: tikz and svg figures shared across notes'), icon: Icon.figures, rail: 'top',
     side: (p) => <FiguresSide filter={p.route.page === 'figures' ? (p.route.open ? figureListFilter() : p.route.filter) : undefined} list={isListRoute(p.route) || (p.route.page === 'figures' && !!p.route.open)} />,
@@ -133,7 +134,9 @@ export const GLOBAL_PAGES: {
   // 개념노트의 에이전트 고침 검토 (10/8): 띠 버튼 없이 지식 첫 화면 점검에서 연다. 연구노트의 고침은 프로젝트의 고침 검토 화면(10/14)
   { page: 'review', label: '고침 검토', name: t('수정 검토', 'Edit review'), aria: t('개념노트 수정 검토', 'Review concept note edits'), tip: t('개념노트 수정 검토', 'Review concept note edits'), icon: Icon.review, rail: 'none',
     render: (p) => <Lazy><AgentEditsPage selected={p.route.page === 'review' ? p.route.key : undefined} version={p.version} onSaved={p.onSaved} /></Lazy> },
-  { page: 'about', label: '소개', name: t('소개', 'About'), aria: t('이 앱 소개', 'About'), tip: t('이 앱 소개', 'About'), icon: Icon.info, rail: 'bottom', render: (p) => <AboutPage part={p.route.page === 'about' ? p.route.part : undefined} anchor={p.route.page === 'about' ? p.route.anchor : undefined} />,
+  { page: 'about', label: '소개', name: t('소개', 'About'), aria: t('이 앱 소개', 'About'), tip: t('이 앱 소개', 'About'), icon: Icon.info, rail: 'bottom', render: (p) => <AboutPage part={p.route.page === 'about' ? p.route.part : undefined} anchor={p.route.page === 'about' ? p.route.anchor : undefined} rightOpen={p.rightOpen} onSaved={p.onSaved} />,
+    // 이력 · 수정은 앱의 오른쪽 사이드바 한 칸 (11/24 피드백: 에이전트 사이드바와 둘이 함께 열리던 것을 하나로)
+    right: (r) => r.page === 'about',
     side: (p) => <AboutSidebar part={p.route.page === 'about' ? p.route.part : undefined} anchor={p.route.page === 'about' ? p.route.anchor : undefined} />,
     badge: () => <AboutRailCount />, railTo: aboutRailRoute },
   // 계정 (11/19 사용자 "설정 톱니 위에 두고, 계정 페이지는 유일한 페이지로"): GitHub · 동기화 · 구글 · Claude 계정을 한 페이지에서

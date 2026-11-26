@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
+import { useCmdEnter } from './cmdEnter'
 import { isDialogHostDisplayed } from './dialogVisibility'
 import { t } from './i18n'
 
@@ -63,16 +64,21 @@ export function CardEditDialog({ title, location, pc, ui, className = '', childr
     return () => { if (previous instanceof HTMLElement && isDialogHostDisplayed(previous)) previous.focus() }
   }, [displayed])
 
+  // ⌘↵ 저장: 한글을 친 직후(조합 중)에는 조합이 끝난 뒤 저장한다 (11/26). 전에는 조합 중 ⌘↵가 무시됐다
+  const sendKey = useCmdEnter(() => { if (canSave) onSave() })
+
   // page-body의 컨테이너와 스크롤 영역 밖에 띄워 사이드바에 가려지지 않게 한다.
   return <>
     <span ref={host} className="td-host" aria-hidden="true" />
     {displayed && createPortal(
       <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
         <div ref={dialog} className={`dialog topic-dialog ${className}`} role="dialog" aria-modal="true" aria-label={title} data-ui={ui}
+          onCompositionEnd={sendKey.onCompositionEnd}
           onKeyDown={(e) => {
-            if (!isDialogHostDisplayed(host.current) || e.nativeEvent.isComposing || e.defaultPrevented) return
+            if (!isDialogHostDisplayed(host.current) || e.defaultPrevented) return
+            if (sendKey.onKeyDown(e)) { e.stopPropagation(); return }
+            if (e.nativeEvent.isComposing) return
             if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose() }
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); e.stopPropagation(); if (canSave) onSave() }
             if (e.key === 'Tab') {
               const controls = [...(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), [tabindex="0"]') ?? [])]
                 .filter((el) => el.getClientRects().length > 0)

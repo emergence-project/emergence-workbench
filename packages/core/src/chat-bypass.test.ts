@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { inTemp, neverBypass } from './chat-bypass.js'
+import { inTemp, neverBypass, writesFiles } from './chat-bypass.js'
 
 describe('중앙 대화의 우회: 허락해도 돌리지 않는 명령', () => {
   it('허락하면 돌릴 수 있는 명령', () => {
@@ -10,6 +10,99 @@ describe('중앙 대화의 우회: 허락해도 돌리지 않는 명령', () => 
       'cat workbench/notes/a.md | wc -l', 'cp workbench/notes/a.md /tmp/a.md', 'python3 -c "print(open(\'workbench/a.md\').read())"', 'git log 2>&1 | head',
     ]) expect(neverBypass(c), c).toBeUndefined()
   })
+  // 11/25 검토 "분류기가 놓치는 것": 묶음 · find · xargs · $'…' 로 감싼 꼴
+  it('묶음 ( … ) · { …; } · find -exec · xargs -I {} · $\'…\' 로 감싸도 같다', () => {
+    for (const [c, why] of [
+      ['(git push --force)', 'force-push'], ['{ git reset --hard; }', 'reset-hard'], ["sh -c '(git push --force)'", 'force-push'], ["git push $'--force'", 'force-push'],
+      ['if true; then git reset --hard; fi', 'reset-hard'], ['find . -maxdepth 0 -exec git reset --hard \;', 'reset-hard'],
+      ['ls | xargs -I {} rm -rf {}', 'rm-outside-temp'], ['find . -exec rm -rf {} +', 'rm-outside-temp'], ['find . -name node_modules -delete', 'rm-outside-temp'],
+      ["sh -c 'echo $(rm -rf ~/x)'", 'rm-outside-temp'], ["echo $'a\\'' ; rm -rf ~/x ; echo '", 'rm-outside-temp'], ['(cd x && rm -rf ~/a)', 'rm-outside-temp'],
+      ['find workbench -name "*.md" -delete', 'workbench-write'], ['find workbench/notes -exec rm {} \;', 'workbench-write'], ['{ echo x > workbench/a.md; }', 'workbench-write'],
+      ['git push origin :heads/main', 'delete-main'], ['git push origin --delete heads/main', 'delete-main'],
+    ] as const) expect(neverBypass(c), c).toBe(why)
+    // 임시 폴더만 뒤지는 find, 따옴표 안의 > 는 그대로 된다
+    for (const c of ['find /tmp/shots-1 -name "*.png" -delete', 'find /tmp/x -exec rm -rf {} +', '(cd /tmp/a && ls)', 'find . -exec wc -l {} +', 'grep "a > workbench/b" notes.txt'])
+      expect(neverBypass(c), c).toBeUndefined()
+  })
+  // 11/25 별도 검토: 앞말에 옵션 · 경로가 붙은 꼴과 따옴표의 끝
+  it('앞말에 옵션이 붙거나 경로로 적어도, 주석 · 줄 잇기로 가려도 같다', () => {
+    for (const [c, why] of [
+      ['command -p git push --force', 'force-push'], ['command -- git push --force', 'force-push'], ['nohup -- git push --force', 'force-push'], ['exec -c git push --force', 'force-push'],
+      ['/usr/bin/nohup git push --force', 'force-push'], ['nice -10 git reset --hard', 'reset-hard'], ['nice -n5 git reset --hard', 'reset-hard'], ['/usr/bin/time rm -rf x', 'rm-outside-temp'],
+      ["echo $'\\c' ; rm -rf ~/x ; echo 'a'", 'rm-outside-temp'], ["git status # '\ngit push --force origin main # '", 'force-push'], ['git push --for\\\nce origin main', 'force-push'],
+      [`echo $(echo ")" ; git push --force) '"'`, 'force-push'], ['echo $( (git push --force) )', 'force-push'], [`${'echo $(true) ; '.repeat(21)}echo $(git push --force)`, 'force-push'],
+      [`awk 'BEGIN{print "x" > "workbench/a.md"}'`, 'workbench-write'], [`perl -e 'open(F, ">workbench/a.md")'`, 'workbench-write'],
+    ] as const) expect(neverBypass(c), c).toBe(why)
+  })
+  // 11/25 별도 검토의 나머지
+  it('zsh의 앞말 · 묶음, 옵션 줄임꼴, 펼침으로 만든 옵션도 같다', () => {
+    for (const [c, why] of [
+      ['noglob git push --force', 'force-push'], ['=git push --force', 'force-push'], ['repeat 1 git push --force', 'force-push'], ['case x in x) git push --force;; esac', 'force-push'],
+      ['() { git push --force }', 'force-push'], ["ksh -c 'git push --force'", 'force-push'], ["bash -c -- 'git push --force'", 'force-push'], ["sh -ce 'git reset --hard'", 'reset-hard'],
+      ['eval eval eval eval eval eval git push --force', 'force-push'], ['git --git-dir .git push --force', 'force-push'], ['git --work-tree . reset --hard', 'reset-hard'],
+      ['git reset --har', 'reset-hard'], ['git push --mirr origin', 'force-push'], ['git push --forc', 'force-push'], ['git push --force-with-l origin x', 'force-push'], ['git push origin --del main', 'delete-main'],
+      ['f=--force; git push origin main $f', 'force-push'], ['for o in --force; do git push origin x $o; done', 'force-push'], ['git push {--force,origin,main}', 'force-push'], ['git push --for${u}ce', 'force-push'],
+      ['git update-ref -d refs/heads/main', 'delete-main'], ['git -C workbench checkout -- .', 'workbench-write'], ['git -C ../x/workbench clean -fd', 'workbench-write'],
+      ['rm -rf /tmp/a/{.,}./{.,}./Users/u/Documents', 'rm-outside-temp'], ['rm -rf $TMPDIRx/Users/u/Documents', 'rm-outside-temp'], ['rm -rf {/tmp/a,~/b}', 'rm-outside-temp'],
+    ] as const) expect(neverBypass(c), c).toBe(why)
+    for (const c of ['git push --follow-tags origin x', 'git push --no-verify origin x', 'git reset --soft HEAD~1', 'git -C workbench status', 'rm -rf /tmp/a/{b,c}', 'rm -rf /tmp/shots-{1..3}', 'rm -rf $TMPDIR/x', 'git update-ref -d refs/heads/old',
+      'noglob git push origin x', 'f=origin; git push $f x'])
+      expect(neverBypass(c), c).toBeUndefined()
+  })
+  // 11/25 셋째 검토
+  it('여러 뜻으로 읽힐 수 있으면 무거운 쪽으로, 펼침의 나머지', () => {
+    for (const [c, why] of [
+      [`echo "a $(echo "<<'true' ")"\necho \`git push --force origin main\`\ntrue`, 'force-push'], ["echo ${(e):-'$(git push --force)'}", 'force-push'],
+      ['git push --forc{e..e} origin main', 'force-push'], ['git push --force{,}{,}{,}{,}{,} origin main', 'force-push'], ['git push $u--force origin main', 'force-push'],
+      ['git push --for$()ce origin main', 'force-push'], ["bash -c -e 'git push --force'", 'force-push'], ['git --attr-source HEAD push --force origin main', 'force-push'],
+      ['git --config-env a.b=HOME reset --hard', 'reset-hard'], ['for o in a b c d e f g h i j k l m n p q --force; do git push origin x $o; done', 'force-push'],
+      ['rm -rf /tmp/a { /Users/u/Documents', 'rm-outside-temp'], ['rm -rf ${HOME:-/tmp/a/b}', 'rm-outside-temp'], ['find ${HOME:-/tmp/a} -delete', 'rm-outside-temp'],
+      ['rm -rf /tmp/a/.$u./.$u./Users/u/Documents', 'rm-outside-temp'], [`rm -rf /tmp/a/${'{.,}'.repeat(12)}./x`, 'rm-outside-temp'], ['tee /tmp/x { workbench/a', 'workbench-write'],
+    ] as const) expect(neverBypass(c), c).toBe(why)
+    for (const c of ['rm -rf /tmp/a { /Users/u/Documents', 'tee /tmp/x { workbench/a']) expect(writesFiles(c), c).toBe(true)
+  })
+  // 11/25 넷째 검토
+  it('env -S 뒤의 옵션, 셸의 -c 뒤 옵션, 따옴표 친 빈칸이 든 중괄호 경로, 여러 가지로 읽히는 낱말', () => {
+    for (const [c, why] of [
+      ['env -S -- git push --force origin main', 'force-push'], ['env -S -i git reset --hard', 'reset-hard'], ['env -S -- mv a workbench/b', 'workbench-write'], ['env -S -- rm -rf /Users/u/D', 'rm-outside-temp'],
+      ["bash -c -o errexit 'git push --force'", 'force-push'], ["zsh -c -- '- git push --force'", 'force-push'], ["ls # <<X\ncat <<true\necho '\ntrue\ngit push --force origin main #'", 'force-push'],
+      ["rm -rf '/tmp/a b'/{.,}./{.,}./Users", 'rm-outside-temp'], ['rm -rf /tmp/a/{" ",.}./{" ",.}./Users/u/D', 'rm-outside-temp'],
+      ['find ${HOME:-/tmp/a} -{delete,print}', 'rm-outside-temp'], ['rm -r{f,f} ${HOME:-/tmp/a/b}', 'rm-outside-temp'],
+    ] as const) expect(neverBypass(c), c).toBe(why)
+    for (const c of ['env -S -- mv a workbench/b', 'echo x > ${HOME:-/tmp/a/b}', 'echo x >> {/tmp/a,~/b}']) expect(writesFiles(c), c).toBe(true)
+    expect(writesFiles('echo x > /tmp/a/{b,c}')).toBe(false)
+    expect(neverBypass("sh -c 'rm -rf \"$1\"' _ /tmp/x")).toBe('rm-outside-temp')
+    for (const c of ["rm -rf '/tmp/a b'/{c,d}", "sh -c 'ls \"$1\"' _ x"]) expect(neverBypass(c), c).toBeUndefined()
+  })
+  // 11/26: 인계 문서의 「아직 놓치는 것」 가운데 뜻이 하나로 정해지는 꼴
+  it('묶음 안에서 정한 변수 · 빈 변수와 기본값이 한 줄에 · fd -x', () => {
+    for (const c of ['(f=--force; git push origin main $f)', '{ f=--force; git push origin main $f; }', 'if true; then f=--force; git push origin main $f; fi', '() { f=--force; git push origin main $f }']) expect(neverBypass(c), c).toBe('force-push')
+    for (const c of ['rm -rf$u ${HOME:-/tmp/a/b}', 'find ${HOME:-/tmp/a} $u-delete', '( for x in -delete; do find . $x; done )', '(x=-delete; find . $x)', 'fd -x rm -rf', 'fd . /Users -X rm -rf', 'fd . --exec=rm -rf', "sh -c 'rm -rf$u ${HOME:-/tmp/a/b}'"]) expect(neverBypass(c), c).toBe('rm-outside-temp')
+    for (const c of ['(x=1; echo $x)', '( for x in a b; do cat $x; done )', 'rm -rf$u /tmp/a/b', 'find /tmp/a $u-delete', 'fd -e md -x cat', 'fd -x rm', 'rm -rf "${TMPDIR}/x"', 'fd -tx']) expect(neverBypass(c), c).toBeUndefined()
+  })
+  // 별도 검토(11/26)가 찾은 것: 묶음 안에서 같은 이름을 다시 정해도 바깥 값으로 본 판정은 그대로여야 한다
+  it('묶음 안의 값은 따로 센다: 바깥 값으로 본 판정을 밀어내지 않는다', () => {
+    const seq = (n: number) => Array.from({ length: n }, (_, i) => i + 1).join(' ')
+    expect(neverBypass(`a=-del; b=ete; (for a in ${seq(17)}; do :; done); (for b in ${seq(16)}; do :; done); find . $a$b`)).toBe('rm-outside-temp')
+    expect(neverBypass(`a=-; b=f; (for a in ${seq(17)}; do :; done); (for b in ${seq(16)}; do :; done); git push origin main $a$b`)).toBe('force-push')
+    expect(neverBypass(`f=--force; (for x in ${seq(64)}; do :; done); ${'echo $x; '.repeat(10)}git push origin main $f`)).toBe('force-push')
+    expect(neverBypass(`p=workbench/notes/a.md; (for x in ${seq(64)}; do :; done); ${'echo $x; '.repeat(10)}touch $p`)).toBe('workbench-write')
+    expect(neverBypass(`for f in ${seq(64)} --force; do (f=0); git push origin main $f; done`)).toBe('force-push')
+    expect(neverBypass(`for f in ${seq(64)} --hard; do (f=0); git reset $f; done`)).toBe('reset-hard')
+  })
+  // 두 번째 검토(11/26): 묶음 밖에서 다시 정한 이름은 옛 값으로 보지 않는다 (허락해도 돌리지 않는 것으로 막히면 풀 길이 없다)
+  it('다시 정한 변수의 옛 값으로는 막지 않는다', () => {
+    for (const c of [
+      'for b in main master; do git rev-parse $b; done; for b in old-1 old-2; do git branch -D $b; done',
+      'for b in main; do git log -1 $b; done; for b in tmp-branch; do git push origin :$b; done',
+      'f=--force; f=; git push origin main $f', 'mode=--hard; mode=--soft; git reset $mode HEAD~1',
+      'f=workbench/STATUS.md; head -5 $f\nf=/tmp/status.txt; date > $f',
+      'for f in workbench/notes/a.md workbench/notes/b.md; do wc -l $f; done; for f in /tmp/a.txt /tmp/b.txt; do touch $f; done',
+    ]) expect(neverBypass(c), c).toBeUndefined()
+    // 묶음 안에서 정한 값은 그 뒤에도 그럴 수 있는 값으로 본다
+    expect(neverBypass('f=x; (f=--force; git push origin main $f)')).toBe('force-push')
+  })
+
   it('되돌리기 어려운 git', () => {
     for (const [c, why] of [
       ['git push --force origin main', 'force-push'], ['git push -f', 'force-push'], ['git push -uf origin x', 'force-push'], ['git push origin +main', 'force-push'],
@@ -49,5 +142,40 @@ describe('이음표와 겹친 치환 (11/20 보안 검토)', () => {
     expect(neverBypass('ls & git push --force')).toBe('force-push')
     expect(neverBypass('echo "$(echo $(git reset --hard))"')).toBe('reset-hard')
     expect(neverBypass('make 2>&1 | tail')).toBeUndefined()
+  })
+})
+
+describe('writesFiles', () => {
+  it('sees writes outside temp folders', () => {
+    expect(writesFiles("cat > apps/server/src/a.ts <<'EOF'\nx\nEOF")).toBe(true)
+    expect(writesFiles('echo hi >> notes.md')).toBe(true)
+    expect(writesFiles('tee src/a.ts')).toBe(true)
+    expect(writesFiles("sed -i '' 's/a/b/' src/a.ts")).toBe(true)
+    expect(writesFiles('cp a.ts src/b.ts')).toBe(true)
+    expect(writesFiles(`python3 -c "open('a','w').write('x')"`)).toBe(true)
+  })
+  // 11/25 검토: &> 파일, 묶음 · find · xargs 로 감싼 쓰기
+  it('sees &> files and writes wrapped in groups, find and xargs', () => {
+    for (const c of ['echo x &> src/a.log', 'pnpm test &>> out.log', '{ rm src/a.ts; }', '(touch src/a.ts)', 'find src -name "*.bak" -delete', 'find . -exec touch {} \;',
+      'find . -fprint list.txt', 'ls | xargs rm', 'ls | xargs -I {} cp {} src/', "echo x > 'src/a.ts'"]) expect(writesFiles(c), c).toBe(true)
+    for (const c of ['ls &> /dev/null', 'ls &>/tmp/out.txt', 'find /tmp/a -name "*.png" -delete', 'find . -exec wc -l {} +', 'ls | xargs wc -l', 'grep "=>" src/a.ts', '(cd src && ls)'])
+      expect(writesFiles(c), c).toBe(false)
+  })
+  it('does not throw on thousands of nested quotes', () => {
+    const deep = `${'echo "$('.repeat(5000)}ls${')"'.repeat(5000)}`
+    expect(neverBypass(deep)).toBeUndefined()
+    expect(writesFiles(deep)).toBe(false)
+  })
+  it('sees writes inside awk and perl code', () => {
+    for (const c of [`awk 'BEGIN{print "x" > "app.ts"}'`, `awk '{print >> "out.txt"}' a`, `perl -e 'open(F, ">app.ts")'`]) expect(writesFiles(c), c).toBe(true)
+    expect(writesFiles("awk '$1 > 3 {print $2}' a.txt")).toBe(false)
+  })
+  it('lets temp files, sinks and reads through', () => {
+    expect(writesFiles("cat > /tmp/probe.txt <<'EOF'\nx\nEOF")).toBe(false)
+    expect(writesFiles('pnpm test 2>&1 | tail -5')).toBe(false)
+    expect(writesFiles('ls > /dev/null 2>&1')).toBe(false)
+    expect(writesFiles('git log --oneline -5')).toBe(false)
+    expect(writesFiles('mkdir -p /tmp/x && cp a /tmp/x/')).toBe(false)
+    expect(writesFiles("cat > /tmp/p.ts <<'EOF'\nconst f = (x) => x > 1\nEOF\nls")).toBe(false)
   })
 })

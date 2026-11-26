@@ -71,6 +71,12 @@ jobs:
         env:
           SHOTS_SKIP_BUILD: '1'
           CHROMIUM_PATH: /usr/bin/google-chrome
+      # 브라우저 검사: 누르고 적는 차례를 따라가며 초안 · 검색 결과가 사라지거나 뒤바뀌지 않는지, 저장이 안 될 때 탭을 닫아도 글이 남는지 본다 (약 1분).
+      # CI에서 돌지 않던 동안 사례 넷이 낡은 줄 아무도 몰랐다 (11/25 사용자 결정 "CI에 넣기"). 실패한 사례의 그림도 아래 산출물에 들어간다
+      - run: pnpm test:browser
+        env:
+          SHOTS_SKIP_BUILD: '1'
+          CHROMIUM_PATH: /usr/bin/google-chrome
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:

@@ -18,6 +18,7 @@ import { accountLabel, useAgentAccounts } from './ClaudeAccountsSettings'
 import type { ComposerRoom } from './CentralRoom'
 import { AgentLogo } from './agentLogos'
 import { AgentChoices, agentOf, agentSwitch, effortsOf, familyName, familyOf, fitEffort, isClaude, modelFamilies, modelName, pickFamily, useModels } from './AgentPick'
+import { draftMap } from './unsent'
 
 /**
  * 에이전트 입력란 (AgentChats.tsx의 대화 · 새 대화 · 패널이 함께 쓴다): / 명령 · @ 붙이기 · 그림,
@@ -32,15 +33,16 @@ export type Fill = { text?: string; n: number; attach?: Attach[]; images?: Image
 
 /** 권한(예전 이름 맡기는 정도): 읽기 전용(write read) 또는 고치는 대화의 모드 셋 */
 export type Trust = 'read' | ChatMode
-/** ⇧⇥ 차례: Claude Code처럼 묻고 하기 → 편집 자동 허용 → 계획 모드, 그다음 읽기 전용 (10/22 사용자 결정 "Claude Code 방식") */
-const TRUSTS: Trust[] = ['ask', 'edit', 'plan', 'read']
-export const TRUST_NAME: Record<Trust, string> = { read: t('읽기 전용', 'Read only'), ask: t('묻고 하기', 'Ask before edits'), plan: t('계획 모드', 'Plan mode'), edit: t('편집 자동 허용', 'Accept edits') }
+/** 메뉴와 ⇧⇥ 차례: Claude의 모드 메뉴와 같은 이름 · 순서로 자동 → 수동 → 편집 자동 수락 → 계획, 그다음 읽기 전용 (11/26 사용자 결정 "이름을 Claude와 같게") */
+const TRUSTS: Trust[] = ['auto', 'ask', 'edit', 'plan', 'read']
+export const TRUST_NAME: Record<Trust, string> = { read: t('읽기 전용', 'Read only'), ask: t('수동', 'Manual'), plan: t('계획', 'Plan'), edit: t('편집 자동 수락', 'Auto-accept edits'), auto: t('자동', 'Auto') }
 /** 앱 고치기 대화의 맡기는 정도 설명 (작업 폴더에서 고치고 시험, 올리기는 앱) */
 export const APP_HINT: Record<Trust, string> = {
   read: t('읽기만 합니다', 'Reads only'),
   ask: t('파일을 고치거나 명령을 돌리거나 PR을 올릴 때마다 묻습니다', 'Asks before each file edit, command and before opening the PR'),
   plan: t('계획을 승인한 뒤 파일을 고치고 시험한 뒤 PR을 올립니다', 'Edits, tests and opens the PR after you approve the plan'),
-  edit: t('작업 폴더에서 바로 고치고 시험한 뒤 PR을 올립니다', 'Edits and tests in its work folder, then opens the PR'),
+  edit: t('작업 폴더에서 바로 고치고 시험한 뒤 PR을 올립니다. 지우기 · 밖으로 보내기 · 설치 · 폴더 밖을 바꾸는 명령 · 비밀이 든 곳을 읽는 명령은 묻습니다', 'Edits and tests in its work folder, then opens the PR. Asks for commands that delete, send outside, install, change things outside the folder or read places that hold secrets'),
+  auto: t('읽기 · 작업 폴더의 명령 · 웹을 묻지 않고 고친 뒤 PR까지 올립니다. 지우기 · 밖으로 보내기 · 합치기 · 앱 다시 시작 · 돈 · 계정 · 비밀이 든 곳만 묻습니다', 'Reads, runs commands in its work folder and uses the web without asking, then opens the PR. Asks only for deleting, sending outside, merging, restarting the app, money, accounts and places that hold secrets'),
 }
 
 const TRUST_HINT: Record<Trust, string> = {
@@ -48,10 +50,11 @@ const TRUST_HINT: Record<Trust, string> = {
   ask: t('노트 수정과 명령을 하나씩 묻습니다', 'Asks before each note edit and command'),
   plan: t('먼저 계획을 보이고, 승인할 때 이어 갈 방법을 고릅니다', 'Shows a plan first; you choose how to continue when you approve it'),
   edit: t('범위 안 노트를 바로 고칩니다. 명령 · 웹 · 범위 밖은 묻거나 막습니다', 'Edits notes in scope right away. Commands, web and out-of-scope work ask or are blocked'),
+  auto: t('어디든 읽고, 폴더 안 명령 · 웹은 묻지 않습니다. 지우기 · 밖으로 보내기 · 돈 · 계정 · 비밀이 든 곳만 묻습니다', 'Reads anywhere; commands in its folder and the web run without asking. Asks only for deleting, sending outside, money, accounts and places that hold secrets'),
 }
 /** 중앙 대화 (11/20): 명령은 맡기는 정도와 상관없이 같은 판정 — 읽기 명령은 묻지 않고, 바꾸는 일은 하위 대화에 맡긴다 */
 const CENTRAL_COMMANDS = t('읽기 명령은 묻지 않고 돌립니다. 바꾸는 일은 하위 대화에 맡깁니다', 'Read commands run without asking. Changes go to a sub-conversation')
-const CENTRAL_HINT: Record<Trust, string> = { read: CENTRAL_COMMANDS, ask: CENTRAL_COMMANDS, plan: TRUST_HINT.plan, edit: CENTRAL_COMMANDS }
+const CENTRAL_HINT: Record<Trust, string> = { read: CENTRAL_COMMANDS, ask: CENTRAL_COMMANDS, plan: TRUST_HINT.plan, edit: CENTRAL_COMMANDS, auto: CENTRAL_COMMANDS }
 export const trustOf = (c: { write: string; mode: ChatMode }): Trust => (c.write === 'read' ? 'read' : c.mode)
 export const settingsOf = (v: Trust): ChatSettings => (v === 'read' ? { write: 'read' } : { write: 'notes', mode: v })
 /** ⇧⇥: 다음 맡기는 정도 */
@@ -63,7 +66,7 @@ export const effortLabel = (suffix: string) => Object.entries(EFFORT_NAME).find(
 /** 하나씩 바꿔 권한 이름의 기본값과 다를 때의 이름 */
 export const CUSTOM_NAME = t('직접 정함', 'Custom')
 /** 권한의 아이콘: 좁은 입력란에서는 이름 대신 이것만 보인다 (11/21 사용자 "아이콘을 두어 글을 생략", 한 줄로) */
-const TRUST_ICON: Record<Trust, ReactNode> = { read: Icon.eye, ask: Icon.ask, plan: Icon.list, edit: Icon.pencil }
+const TRUST_ICON: Record<Trust, ReactNode> = { read: Icon.eye, ask: Icon.ask, plan: Icon.list, edit: Icon.pencil, auto: Icon.spark }
 /** 생각 깊이: 막대 of개 가운데 level개가 진하다 (글 없이도 깊이가 보이게) */
 function EffortGauge({ level, of }: { level: number; of: number }) {
   const w = 14 / of
@@ -196,7 +199,7 @@ export function PopButton({ label, ui, tip, children, wide, down, icon, pill }: 
  * 대화 중에 바꾼 설정은 다음 차례부터 (onSettings)
  */
 /** 보내지 않은 글: 다른 화면을 보고 와도 남게 입력란마다(대화 · 새 대화의 프로젝트) 하나, 보내면 지운다 (화면을 새로 열면 없어진다) */
-const unsent = new Map<string, string>()
+const unsent = draftMap<string>()
 
 export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, placeholder, fail: outerFail, fill, autoFocus, agentFixed, lead, room, noTrust, keep }: {
   rid: string
@@ -343,7 +346,8 @@ export function Composer({ rid, auto, settings, onSettings, onSubmit, onStop, pl
     setBusy(true); setFail(null)
     try {
       const ok = await onSubmit({ text: v, view: screenLine(), ...(all.length && { attach: all }), ...(images.length && { images: images.map(({ type, data, name }) => ({ type, data, name: name.slice(0, 200) })) }) })
-      if (ok) { setText(''); setCaret(0); setAttach([]); setImages([]) }
+      // 새 대화는 보내자마자 그 대화 화면으로 옮겨 가 이 입력란이 먼저 사라진다(setText가 닿지 않는다): 적던 글을 여기서 지운다
+      if (ok) { if (keep) unsent.delete(keep); setText(''); setCaret(0); setAttach([]); setImages([]) }
     } catch (e) { setFail((e as Error).message) } finally { setBusy(false) }
   }
   const sendKey = useCmdEnter(() => void submit())

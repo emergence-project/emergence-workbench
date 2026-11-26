@@ -4,12 +4,11 @@
 // 종의 수는 답할 것만 센다(레일의 주황 수와 같은 뜻). 읽지 않은 소식만 있으면 무채색 점. 줄을 누르면 그 화면으로 가서 처리한다(목록 안에서 답하거나 승인하지 않는다: 실수 막기)
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { LIBRARY_RID } from '@rw/core'
+import { LIBRARY_RID, userTurn } from '@rw/core'
 import type { RecordTidy, RecordTurn } from '@rw/core/contract/comments'
 import { api, APP_RID, CENTRAL_RID, type ChatRow, type FeedbackItem, type ProjectIssues } from './api'
 import { useChatList, stateName } from './AgentChats'
-import { isUnseen, useSeen } from './agentSeen'
-import { feedbackBucket } from './feedbackBuckets'
+import { asksMe, isUnseen, useSeen } from './agentSeen'
 import { feedbackSummary } from './feedbackFormat'
 import { projectColor } from './format'
 import { t } from './i18n'
@@ -34,6 +33,8 @@ export interface Notice {
   /** 한 줄이 여럿을 뜻하면 그 수 (종의 수에 더한다) */
   n?: number
   open?(): void
+  /** 읽은 것으로 할 때 함께 할 일: 그 화면이 따로 기억하는 「본 것」에도 적는다 (네트워킹의 본 추천) */
+  read?(): void
 }
 
 const KIND_NAME: Record<Kind, string> = {
@@ -48,7 +49,9 @@ const PLACE = 'rw-notice-place'
 /** 예전 「#n 반영됨」에서 ×로 닫은 대화 (그 대화의 업데이트는 읽은 것으로) */
 const OLD_SHIPPED_SEEN = 'rw-feedback-shipped-seen'
 const WEEK = 7 * 24 * 3600_000
-const FIRST = 8
+/** 처음 보일 줄 수: 답할 것 · 소식 (11/26 개선 "답할 것이 많으면 소식이 더 보기 뒤로 숨는다") */
+export const NEED_FIRST = 5
+export const NEWS_FIRST = 3
 
 /** 기록 id(c-20261122-0900…)의 때 */
 const recordAt = (id: string) => { const m = /^c-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})/.exec(id); return m ? `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}` : undefined }
@@ -90,13 +93,15 @@ export function noticesOf({ chats = [], feedback = [], errors = [], records = []
     const place = c.rid === CENTRAL_RID ? undefined : c.rid
     if (c.shipped && c.pr) news.push({ key: `shipped:${c.id}`, kind: 'update', need: false, at: c.updated, place: APP_RID, text: `#${c.pr.number} ${c.title}`, open: () => go({ page: 'feedback', ...(c.feedback && { key: c.feedback }) }) })
     else if (c.archived) continue
-    else if (c.state === 'waiting') need.push({ key: `agent:${c.id}:${c.updated}`, kind: 'chat', need: true, at: c.updated, place, text: `「${c.title}」 ${stateName(c)}`, open: () => go({ page: 'agent', id: c.id }) })
+    else if (c.state === 'waiting' || asksMe(c)) need.push({ key: `agent:${c.id}:${c.updated}`, kind: 'chat', need: true, at: c.updated, place, text: `「${c.title}」 ${stateName(c)}`, open: () => go({ page: 'agent', id: c.id }) })
     else if (c.state === 'error' || unseen(c)) news.push({ key: `agent:${c.id}:${c.updated}`, kind: 'chat', need: false, at: c.updated, place, text: `「${c.title}」 ${c.state === 'idle' ? t('종료 · 아직 열어 보지 않음', 'Done · not opened yet') : stateName(c)}`, open: () => go({ page: 'agent', id: c.id }) })
   }
   for (const e of feedback) {
-    if (feedbackBucket(e, now) !== '확인 필요') continue
+    // 결정을 묻는 답만 답할 것. 결과를 알린 답(확인만)은 소식: 종의 수가 레일 · 피드백 화면의 「결정」 수와 같다 (11/23 결정 필요 · 확인만)
+    const turn = userTurn(e, now)
+    if (!turn) continue
     const at = e.status?.handled_at ?? `${e.date}T${e.time}`
-    need.push({ key: `feedback:${e.key}:${at}`, kind: 'feedback', need: true, at, place: APP_RID, text: feedbackSummary(e.status?.clean ?? e.text), open: () => go({ page: 'feedback', key: e.key }) })
+    ;(turn === 'answer' ? need : news).push({ key: `feedback:${e.key}:${at}`, kind: 'feedback', need: turn === 'answer', at, place: APP_RID, text: feedbackSummary(e.status?.clean ?? e.text), open: () => go({ page: 'feedback', key: e.key }) })
   }
   for (const e of errors) news.push({ key: `error:${e.at}`, kind: 'error', need: false, at: e.at, text: e.text })
   const newest = (a: Notice, b: Notice) => ms(b.at) - ms(a.at)
@@ -108,6 +113,24 @@ export const unread = (list: Notice[], seen: readonly string[]) => list.filter((
 
 /** 종의 수: 답할 것만 (한 줄이 여럿이면 그 수만큼) */
 export const needCount = (list: Notice[]) => list.reduce((n, x) => n + (x.need ? x.n ?? 1 : 0), 0)
+
+/**
+ * 목록의 두 구역: 답할 것 먼저, 그 아래 소식. 구역마다 처음 몇 줄만 보이고 나머지는 그 구역의 「더 보기」로 편다.
+ * 답할 것이 아무리 많아도 소식이 가려지지 않는다. 순수 함수: 테스트에서 부른다
+ */
+export function sectionsOf(list: Notice[], more: { need: boolean; news: boolean }) {
+  const need = list.filter((n) => n.need)
+  const news = list.filter((n) => !n.need)
+  const needShown = more.need ? need : need.slice(0, NEED_FIRST)
+  const newsShown = more.news ? news : news.slice(0, NEWS_FIRST)
+  return {
+    need: needShown, news: newsShown,
+    /** 구역 머리의 수: 답할 것은 종의 수와 같은 셈(한 줄이 여럿이면 그 수만큼), 소식은 줄 수 */
+    needCount: needCount(need), newsCount: news.length,
+    /** 「더 보기」의 수: 머리의 수에서 보이는 것을 뺀 것 */
+    needRest: needCount(need.slice(needShown.length)), newsRest: news.length - newsShown.length,
+  }
+}
 
 const clock = (iso: string) => {
   const d = new Date(iso)
@@ -129,7 +152,7 @@ export function NoticeBell() {
   useEffect(() => { const on = () => setErrorsTick((n) => n + 1); window.addEventListener(ERRORS, on); return () => window.removeEventListener(ERRORS, on) }, [])
   const [seen, setSeen] = useState<string[]>(() => [...store.get<string[]>(SEEN, []), ...store.get<string[]>(OLD_SHIPPED_SEEN, []).map((id) => `shipped:${id}`)])
   const [open, setOpen] = useState(false)
-  const [more, setMore] = useState(false)
+  const [more, setMore] = useState({ need: false, news: false })
   const [picked, setPicked] = useState<string>(() => store.get<string>(PLACE, ''))
   const box = useRef<HTMLSpanElement>(null)
   useDismiss(open, box, () => setOpen(false))
@@ -152,13 +175,25 @@ export function NoticeBell() {
   const list = place ? all.filter((n) => n.place === place) : all
   const count = needCount(all)
   const unreadNews = all.filter(fresh)
-  const mark = (keys: string[]) => { const next = [...new Set([...seen, ...keys])].slice(-1000); store.set(SEEN, next); setSeen(next) }
-  const shown = more ? list : list.slice(0, Math.max(FIRST, list.filter((n) => n.need).length))
+  const mark = (items: Notice[]) => { for (const n of items) n.read?.(); const next = [...new Set([...seen, ...items.map((n) => n.key)])].slice(-1000); store.set(SEEN, next); setSeen(next) }
+  const page = sectionsOf(list, more)
   const label = count ? t(`알림 · 답할 것 ${count}`, `Notifications, ${count} to answer`) : unreadNews.length ? t(`알림 · 새 소식 ${unreadNews.length}`, `Notifications, ${unreadNews.length} new`) : t('알림', 'Notifications')
+  const row = (n: Notice) => (
+    <button key={n.key} role="menuitem" className={`tb-bell-item${n.need ? ' need' : ' unread'}`}
+      onClick={() => { if (!n.need) mark([n]); if (n.open) { setOpen(false); n.open() } }}>
+      {n.need ? <span className="turn-dot" role="img" aria-label={t('답할 것', 'To answer')} /> : <span className="tb-bell-dot" role="img" aria-label={t('새 소식', 'New')} />}
+      <span className="tb-bell-kind">
+        {n.place && <span className="tb-bell-where">{placeIcon(n.place)}<span>{placeName(n.place)}</span></span>}
+        <span className={`tag${n.kind === 'error' ? ' error-text' : ''}`}>{KIND_NAME[n.kind]}</span>
+        {n.at && <span className="tb-bell-at">{clock(n.at)}</span>}
+      </span>
+      <span className="tb-bell-text" title={n.text}>{n.text}</span>
+    </button>
+  )
   return (
     <span className="tb-bell" ref={box}>
       <button className={`icon-btn${open ? ' on' : ''}`} data-ui="알림 종" data-tip={open ? undefined : label} aria-label={label}
-        aria-haspopup="menu" aria-expanded={open} onClick={() => { setOpen(!open); setMore(false) }}>
+        aria-haspopup="menu" aria-expanded={open} onClick={() => { setOpen(!open); setMore({ need: false, news: false }) }}>
         {Icon.bell}{count > 0 ? <span className="rail-count tb-bell-n" aria-hidden>{count > 99 ? '99+' : count}</span> : unreadNews.length > 0 && <span className="tb-bell-new" aria-hidden />}
       </button>
       {open && (
@@ -166,31 +201,21 @@ export function NoticeBell() {
           <div className="tb-bell-head">
             <span className="tb-bell-title">{t('알림', 'Notifications')}</span>
             {places.length > 1 && <select className="mini-select tb-bell-place" data-ui="알림 곳 고르기" aria-label={t('알림을 볼 곳', 'Where to show notifications from')} value={place}
-              onChange={(e) => { store.set(PLACE, e.target.value); setPicked(e.target.value); setMore(false) }}>
+              onChange={(e) => { store.set(PLACE, e.target.value); setPicked(e.target.value); setMore({ need: false, news: false }) }}>
               <option value="">{t('전체', 'All')}</option>
               {places.map((p) => <option key={p.id} value={p.id}>{placeName(p.id)}{p.need ? ` (${p.need})` : p.fresh ? ' •' : ''}</option>)}
             </select>}
           </div>
-          {list.length > 0 && <div className="tb-bell-sum" data-ui="알림 요약">
-            <span className="turn-dot" aria-hidden />{t(`답할 것 ${needCount(list)}`, `${needCount(list)} to answer`)}<span aria-hidden>·</span><span className="tb-bell-dot on" aria-hidden />{t(`새 소식 ${list.filter(fresh).length}`, `${list.filter(fresh).length} new`)}
-          </div>}
           {!list.length && <div className="muted tb-bell-none">{t('답할 것도, 새 소식도 없습니다', 'Nothing to answer and no new news')}</div>}
-          {shown.map((n, i) => (
-            <button key={n.key} role="menuitem" className={`tb-bell-item${n.need ? ' need' : fresh(n) ? ' unread' : ''}${!n.need && shown[i - 1]?.need ? ' first-news' : ''}`}
-              onClick={() => { if (!n.need) mark([n.key]); if (n.open) { setOpen(false); n.open() } }}>
-              {n.need ? <span className="turn-dot" role="img" aria-label={t('답할 것', 'To answer')} /> : <span className="tb-bell-dot" role="img" aria-label={t('새 소식', 'New')} />}
-              <span className="tb-bell-kind">
-                {n.place && <span className="tb-bell-where">{placeIcon(n.place)}<span>{placeName(n.place)}</span></span>}
-                <span className={`tag${n.kind === 'error' ? ' error-text' : ''}`}>{KIND_NAME[n.kind]}</span>
-                {n.at && <span className="tb-bell-at">{clock(n.at)}</span>}
-              </span>
-              <span className="tb-bell-text" title={n.text}>{n.text}</span>
-            </button>
-          ))}
-          {list.length > 0 && <div className="tb-bell-foot">
-            <button className="a" disabled={!list.some(fresh)} onClick={() => mark(list.filter(fresh).map((n) => n.key))}>{t('소식 모두 읽음', 'Mark news read')}</button>
-            {list.length > shown.length && <button className="a" data-tip={t('소식은 지난 7일', 'News from the last 7 days')} onClick={() => setMore(true)}>{t(`더 보기 (${list.length - shown.length})`, `Show more (${list.length - shown.length})`)}</button>}
+          {page.need.length > 0 && <div className="tb-bell-sec"><span><span className="turn-dot" aria-hidden />{t(`답할 것 ${page.needCount}`, `${page.needCount} to answer`)}</span></div>}
+          {page.need.map(row)}
+          {page.needRest > 0 && <button className="a tb-bell-more" onClick={() => setMore({ ...more, need: true })}>{t(`${page.needRest}개 더 보기`, `Show ${page.needRest} more`)}</button>}
+          {page.news.length > 0 && <div className="tb-bell-sec">
+            <span><span className="tb-bell-dot on" aria-hidden />{t(`새 소식 ${page.newsCount}`, `${page.newsCount} new`)}</span>
+            <button className="a" aria-label={t('소식 모두 읽음', 'Mark news read')} onClick={() => mark(list.filter(fresh))}>{t('모두 읽음', 'Mark all read')}</button>
           </div>}
+          {page.news.map(row)}
+          {page.newsRest > 0 && <button className="a tb-bell-more" data-tip={t('소식은 지난 7일', 'News from the last 7 days')} onClick={() => setMore({ ...more, news: true })}>{t(`${page.newsRest}개 더 보기`, `Show ${page.newsRest} more`)}</button>}
         </div>
       )}
     </span>

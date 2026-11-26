@@ -1,5 +1,6 @@
 /**
  * 피드백 · 앱 고치기 대화 돌보기 (1분마다, routes/agentChats.ts): CI · 합치기 · 반영됨 · 끝난 대화 보관 · 저절로 맡기기.
+ * 끝난 대화의 작업 폴더 치우기(tidyWorktrees, 10분마다)도 여기에.
  * 피드백 맡기기(handOff)와 처리 기록(feedbackAnswer)도 여기에. agentChats.ts가 길어 나눴다. CentralChats(agentCentral.ts)가 이 클래스를 잇는다
  */
 import fs from 'node:fs'
@@ -10,6 +11,7 @@ import { LIVE, handedAt, lastTouched, type Stored } from './agentChats.js'
 import { SharedChats } from './agentShare.js'
 import { feedbackAgainPrompt } from './agentPrompts.js'
 import { answerMockups, listAllFeedback, setFeedbackReview, writeFeedbackAnswer, type FeedbackListItem } from './feedback.js'
+import { dropMockups } from './feedbackMockups.js'
 import { bundlesOf, handOffPlan, keysOf } from './feedbackGroups.js'
 import { feedbackVerdictError } from './feedbackVerdict.js'
 import { HERE, t } from './i18n.js'
@@ -27,6 +29,7 @@ export class FeedbackChats extends SharedChats {
    * 피드백 대화 돌보기 (1분마다, 설정 › 에이전트 "앱 피드백"):
    * 1. 맡은 대화의 PR이 CI 빨강이면 실패 기록을 그 대화에 다시 보내 고치게 한다 (두 번까지).
    * 2. CI 초록이면 설정대로 합친다: green = 바로, approved = 사용자가 그 답을 승인한 뒤, never = 합치지 않음.
+   *    사용자가 손으로 합친 PR도 합친 것으로 본다 (prMerged).
    * 3. 합친 커밋이 지금 도는 앱에 들어오면 shipped (상단바 "#n 반영됨").
    *    main과 부딪혀 합치지 못하면 그 대화에 main을 받아 풀라고 한 번 보낸다.
    * 4. 저절로 맡기기(instant)면 pickFeedback.
@@ -45,16 +48,20 @@ export class FeedbackChats extends SharedChats {
         // 묶어 맡긴 대화(11/19)는 모든 항목을 승인해야 승인으로 본다
         const es = keysOf(c).map((k) => items.get(k))
         const approved = es.length > 0 && es.every((e) => !!e?.review && e.review.verdict === '승인' && (!e.status?.handled_at || e.review.at > e.status.handled_at))
-        // 앱 고치기 대화는 저절로 합치지 않으므로, 사용자가 합쳤는지 본다
+        // 앱 고치기 대화는 저절로 합치지 않으므로, 사용자가 합쳤는지 본다.
+        // 피드백 대화의 PR도 사용자가 손으로 합칠 수 있다(설정이 「합치지 않음」 · 「승인 뒤」일 때, 11/26): 전에는 보지 않아 그 대화가 끝내 합쳐지지 않은 것으로 남았다
+        // (고친 파일을 계속 잡고, 반영됨 · 보관 · 작업 폴더 치우기가 오지 않음). PR을 올린 뒤에만 그 번호로 묻는다: 다시 맡은 대화가 앞 PR로 합친 것이 되지 않게
         const w = this.workOf(c) ?? app
-        if (!c.feedback && !c.merged && c.worktree && c.branch && w.prMerged) {
-          const m = await w.prMerged(c.worktree, c.branch)
-          if (m) { c.merged = m.sha || 'merged'; this.touch(c) }
+        // 보관한 대화는 바뀐 때를 그대로 둔다: 같은 항목의 새 대화보다 앞서면 다음 맡기기가 옛 대화로 이어진다 (handOff는 가장 최근에 바뀐 대화를 고른다)
+        const save = () => (c.archived ? this.write(c) : this.touch(c))
+        if ((!c.feedback || c.pr) && !c.merged && c.worktree && c.branch && w.prMerged) {
+          const m = await w.prMerged(c.worktree, c.branch, c.pr?.number)
+          if (m) { c.merged = m.sha || 'merged'; save() }
         }
         if (c.merged) {
           // 다른 앱(11/20)은 이 앱이 다시 켜지는 것과 상관없다: 합치면 끝
-          if (!c.shipped && c.scope.app) { c.shipped = true; this.touch(c) }
-          if (!c.shipped && this.deps.inApp && (await this.deps.inApp(c.merged))) { c.shipped = true; this.touch(c) }
+          if (!c.shipped && c.scope.app) { c.shipped = true; save() }
+          if (!c.shipped && this.deps.inApp && (await this.deps.inApp(c.merged))) { c.shipped = true; save() }
           if (c.shipped && (!c.feedback || approved || s.merge === 'approved')) this.closeDone(c)
           continue
         }
@@ -127,6 +134,8 @@ export class FeedbackChats extends SharedChats {
     // 서버로 정한 컴퓨터가 따로 있으면 저절로 맡기는 것은 그 서버만 (11/20: 여러 맥이 저마다 맡지 않게)
     if (this.deps.feedback?.elsewhere?.()) return false
     if (s.feedback !== 'instant') return false
+    // 돕는 맥에 보냈지만 돌고 있지 않은 항목은 맡긴 것으로 기억한 표시를 지운다 (11/26): 전에는 그 맥이 시작하지 못해 맡음을 풀어도 다시 맡기지 않았다
+    this.unpick(fb.helpers?.unstarted?.() ?? [])
     // 이 서버의 자리가 차면 피드백 돕기를 켠 맥에 맡긴다 (11/23 안 A): 맡음은 그 맥 이름으로 적어, 그 맥에서도 다른 맥이 맡은 것으로 보지 않는다
     const helper = this.running() + this.queue.length >= this.deps.limit ? fb.helpers?.free() : undefined
     if (this.running() + this.queue.length >= this.deps.limit && !helper) return false
@@ -195,7 +204,7 @@ export class FeedbackChats extends SharedChats {
     }
     const p = handOffPlan(listAllFeedback(fb.dir), fb.dir, list, busyOf)
     // 모델은 Opus로 정한다: 계정 기본값은 계정마다 달라 크레딧이 드는 모델로 풀린 적이 있다 (11/20, 중앙과 같게)
-    return this.create({ rid: APP_RID, text: p.text, title: p.title, mode: 'edit', model: 'opus', ...(p.images.length && { images: p.images }) }, { feedback: p.keys[0], bundle: p.keys, ...(parent && { parent }) })
+    return this.create({ rid: APP_RID, text: p.text, title: p.title, mode: 'auto', model: 'opus', ...(p.images.length && { images: p.images }) }, { feedback: p.keys[0], bundle: p.keys, ...(parent && { parent }) })
   }
 
   /**
@@ -225,6 +234,10 @@ export class FeedbackChats extends SharedChats {
       fs.writeFileSync(path.join(fb.dir, name), png)
       pictures = e.picture && fs.existsSync(path.join(fb.dir, e.picture)) ? [e.picture, name] : undefined
     }
+    // 던질 수 있는 것(시안 모으기 · 빼기)을 판정보다 먼저 한다 (11/26): 전에는 판정을 적은 뒤에 시안 빼기가 실패하면(없는 이름 · 아직 답이 없는 항목)
+    // 사용자의 판정만 적히고 처리는 빠졌다
+    const mockups = answerMockups(b, c.worktree, fb.dir)
+    if (b.dropMockups?.length) dropMockups(fb.dir, key, b.dropMockups)
     if (b.verdict) setFeedbackReview(fb.dir, key, b.verdict, b.verdictNote || undefined)
     const r = writeFeedbackAnswer(fb.dir, key, {
       ...(b.state && { state: b.state }),
@@ -237,11 +250,34 @@ export class FeedbackChats extends SharedChats {
       ...(b.lesson && { lesson: b.lesson }),
       ...(b.state === '반영' && c.pr && { commit: `#${c.pr.number}` }),
       ...(pictures && { pictures }),
-      ...answerMockups(b, c.worktree, fb.dir),
+      ...mockups,
     })
     fb.written?.()
     this.touch(c)
     return { key, ...(r.state && { state: r.state }), ...(b.verdict && { verdict: b.verdict }), ...(pictures && { pictures }), replies: r.replies }
+  }
+
+  /**
+   * 끝난 대화의 작업 폴더 치우기 (10분마다, 11/25 사용자 결정 "작업 폴더 치우기"): PR을 합쳤거나 보관한 앱 고치기 대화 가운데
+   * 일하지 않고 에이전트도 닫힌 것. 치워도 되는지(올리지 않은 고침 · 커밋이 없는지)는 작업 폴더의 git에서 보고(AppWork.tidy),
+   * 안 되면 그대로 둔다. 시안은 남아 대화 화면에 계속 보이고, 그 대화를 이어 쓰면 작업 폴더를 새로 만든다. 치운 수를 돌려준다
+   */
+  async tidyWorktrees(): Promise<number> {
+    let n = 0
+    for (const c of [...this.chats.values()]) {
+      const w = this.workOf(c)
+      const idle = () => this.chats.get(c.id) === c && !LIVE.has(c.state) && !this.sessions.has(c.id)
+      if (!w?.tidy || !c.worktree || !c.branch || !(c.merged || c.archived) || !idle() || !fs.existsSync(c.worktree)) continue
+      try {
+        if (!(await w.tidy(c.worktree, c.branch, idle))) continue
+        n++
+        // 새로 만들 작업 폴더는 그때의 모습부터 다시 찍는다 (되돌릴 자리 · 명령으로 고친 파일 찾기)
+        delete c.snap
+        delete c.diffSeen
+        if (this.chats.get(c.id) === c) this.write(c)
+      } catch { /* git · gh 오류는 다음 차례에 다시 본다 (그동안 폴더는 그대로) */ }
+    }
+    return n
   }
 
   /** 목표를 이루고 확인을 받은 대화를 보관한다 (한 번만: 사용자가 꺼내면 다시 넣지 않는다) */

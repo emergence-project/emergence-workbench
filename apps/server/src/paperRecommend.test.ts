@@ -80,6 +80,19 @@ describe('추천 논문: 같은 논문 · 다시 묻기', () => {
     expect((await recommendPapers(swapped, t0 + 3_600_000)).picks.map((p) => p.id)).toEqual(['0000.00003'])
     expect(calls).toBe(4)
   })
+
+  it('일부 기준만 받지 못했으면 받은 것을 보이되 몇 분 뒤 다시 묻는다 (한도에 걸린 반쪽 답을 6시간 붙들지 않게)', async () => {
+    let calls = 0
+    usePaperFetcher(async (url) => { calls++; return url.includes('0000.00007') ? new Response('', { status: 404 }) : new Response('', { status: 429 }) })
+    const a = row('a', { eprint: '0000.00007' }, 0, 2), b = row('b', { eprint: '0000.00008' }, 1, 1)
+    const t0 = 2_000_000
+    expect(await recommendPapers([a, b], t0)).toMatchObject({ picks: [], offline: false })
+    usePaperFetcher(async (url) => { calls++; return url.includes('0000.00007') ? new Response('', { status: 404 }) : recs({ ArXiv: '0000.00009' }) })
+    expect((await recommendPapers([a, b], t0 + 60_000)).picks).toEqual([])
+    expect(calls).toBe(2)
+    expect((await recommendPapers([a, b], t0 + 5 * 60_000 + 1)).picks.map((p) => p.id)).toEqual(['0000.00009'])
+    expect(calls).toBe(4)
+  })
 })
 
 describe('추천 논문: 관심 분야 (분류에서 고르기)', () => {

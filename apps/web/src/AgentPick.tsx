@@ -16,7 +16,7 @@ export const AGENT_NAME: Record<AgentKind, string> = { 'claude-code': 'Claude', 
 const AGENT_CLASS: Record<AgentKind, string> = { 'claude-code': 'cc', codex: 'cx', gemini: 'gm' }
 /** 저장된 값이 모르는 에이전트면 Claude */
 export const agentOf = (v: string | undefined): AgentKind => (v === 'codex' || v === 'gemini' ? v : 'claude-code')
-/** Claude만 되는 것 (계획 모드 · 되돌리기 · 탐색 하위 에이전트 · 맥락 막대) */
+/** Claude만 되는 것 (계획 · 되돌리기 · 탐색 하위 에이전트 · 맥락 막대) */
 export const isClaude = (v: string | undefined) => agentOf(v) === 'claude-code'
 
 /** 에이전트 이름 표: 로고와 이름 (11/9 사용자 "에이전트별 아이콘으로", 디자인 문서 2절) */
@@ -139,7 +139,7 @@ export function AgentChoices({ agent, fixed, onPick }: { agent: string; fixed?: 
   </>
 }
 
-/** 에이전트를 바꿀 때 함께 바꾸는 것: 모델 · 생각 깊이는 기본으로, 계획 모드는 Claude만 되니 묻기로 */
+/** 에이전트를 바꿀 때 함께 바꾸는 것: 모델 · 생각 깊이는 기본으로, 계획은 Claude만 되니 묻기로 */
 export const agentSwitch = (a: AgentKind, trust: Settings['trust']): Partial<Settings> => ({ agent: a, model: a === 'claude-code' ? CLAUDE_START_MODEL : 'default', effort: 'medium', ...(a !== 'claude-code' && trust === 'plan' && { trust: 'ask' as const }) })
 
 const SETTINGS_KEY = 'rw-agent-settings'
