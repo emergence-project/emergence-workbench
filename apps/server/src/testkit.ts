@@ -21,7 +21,8 @@ export const texMissing: string[] = (() => {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
   // 주석 줄(예로 든 \usepackage{name})은 빼고 읽는다. rw-로 시작하는 것은 앱이 빌드 폴더에 넣어 주는 자기 스타일이라 TeX에 없어도 된다
   const text = [path.join(root, 'packages/core/src/latex-setup.ts'), path.join(root, 'templates/latex/rw-research-note.sty')]
-    .flatMap((f) => fs.readFileSync(f, 'utf8').split('\n')).filter((l) => !/^\s*(\/\*\*|\*|\/\/|%)/.test(l)).join('\n')
+    // 스타일 파일의 \ifPDFTeX … \else 갈래는 pdfTeX일 때만 쓴다: 앱은 XeTeX로 컴파일하므로 뺀다 (lmodern)
+    .flatMap((f) => fs.readFileSync(f, 'utf8').replace(/\\ifPDFTeX[\s\S]*?\\else/g, '').split('\n')).filter((l) => !/^\s*(\/\*\*|\*|\/\/|%)/.test(l)).join('\n')
   const need = new Set<string>()
   for (const m of text.matchAll(/\\+documentclass(?:\[[^\]]*\])?\{([\w-]+)\}/g)) need.add(`${m[1]}.cls`)
   for (const m of text.matchAll(/\\+(?:usepackage|RequirePackage)(?:\[[^\]]*\])?\{([^}]+)\}/g)) for (const p of m[1]!.split(',')) if (/^[\w-]+$/.test(p.trim()) && !p.trim().startsWith('rw-')) need.add(`${p.trim()}.sty`)
