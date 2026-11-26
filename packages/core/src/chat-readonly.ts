@@ -85,8 +85,10 @@ const ghApi: Rule = (a) => {
     if (/^(-f|-F|--field|--raw-field)$/.test(name)) fields.push(value!)
   }
   if (endpoint === undefined || endpoint.includes('://')) return false
-  // graphql: mutation이 없을 때만. 질의를 변수 · 치환으로 넣은 것은 안을 볼 수 없다 (-f query="$(cat q.txt)"). /graphql · graphql/ 도 같은 주소다
-  if (/graphql/i.test(endpoint)) return !a.some((x) => /\bmutation\b/i.test(x) || /SUBST|\$/.test(x))
+  // graphql: mutation이 없을 때만. 질의를 변수 · 치환으로 넣은 것은 안을 볼 수 없다 (-f query="$(cat q.txt)").
+  // 주소가 꼭 graphql 일 때만 graphql 이다(/graphql · graphql/ 도). 글자만 든 주소(repos/o/r/issues?graphql)는 REST 라, 몸을 붙이면 POST 다 (11/26 셋째 검토)
+  if (endpoint.replace(/^\/+|\/+$/g, '') === 'graphql') return !a.some((x) => /\bmutation\b/i.test(x) || /SUBST|\$/.test(x))
+  if (fields.length && /graphql/i.test(endpoint) && a.some((x) => /\bmutation\b/i.test(x))) return false
   return method !== undefined || !fields.length
 }
 /**
@@ -163,13 +165,23 @@ function gitRule(table: Record<string, Rule>): Rule {
 }
 /**
  * 다른 곳을 가리키는 gh (11/26 검토): github.com 이 아닌 주소, git@호스트:주인/저장소, 호스트가 붙은 저장소 이름(-R 호스트/주인/저장소 · repo view 호스트/주인/저장소).
- * gh 는 그 호스트에 붙으려 하고, 엔터프라이즈 열쇠가 있으면 함께 보낸다
+ * gh 는 그 호스트에 붙으려 하고, 엔터프라이즈 열쇠가 있으면 함께 보낸다.
+ * 주소 · git@ 은 낱말이 그것으로 시작할 때만 본다(제목 · 본문 · 찾을 말 속의 주소는 아니다). 저장소 이름은 -R · --repo 의 값(붙여 쓴 -cR 값 · -cR값 도)과 repo 의 이름 자리
  */
-const ghElsewhere = (a: string[]) => a.some((x, i) => {
-  if (/git@/.test(x) || /:\/\/(?!github\.com\/)/.test(x)) return true
-  const repo = x.startsWith('--repo=') ? x.slice(7) : /^-R./.test(x) ? x.slice(2) : a[i - 1] === '-R' || a[i - 1] === '--repo' ? x : a[0] === 'repo' && i >= 2 && !x.startsWith('-') && !x.includes('://') ? x : undefined
-  return repo !== undefined && (repo.split('/').length > 2 || repo.includes(':'))
-})
+const GH_HOSTS = /^https?:\/\/(gist\.)?github\.com(\/|$)/
+const REPO_VALUE_OPTS = /^(-b|--branch|--json|-q|--jq|-t|--template|-L|--limit|-l|--language|--visibility|--topic)$/
+const ghElsewhere = (a: string[]) => {
+  const hosted = (repo: string | undefined) => repo !== undefined && (repo.split('/').length > 2 || repo.includes(':'))
+  return a.some((x, i) => {
+    if (/^git@(?!github\.com(:|$))/.test(x) || (/^[A-Za-z][A-Za-z0-9+.-]*:\/\//.test(x) && !GH_HOSTS.test(x))) return true
+    if (x.startsWith('--repo=')) return hosted(x.slice(7))
+    if (x === '--repo') return hosted(a[i + 1])
+    // 짧은 옵션은 붙여 쓸 수 있다: -cR 값 · -cR값 · -R=값 (c 는 값을 받지 않는 옵션)
+    const short = /^-[a-zA-Z]*R(.*)$/.exec(x)
+    if (short && !x.startsWith('--')) return hosted(short[1] ? short[1]!.replace(/^=/, '') : a[i + 1])
+    return a[0] === 'repo' && i >= 2 && !x.startsWith('-') && !REPO_VALUE_OPTS.test(a[i - 1] ?? '') && hosted(x.replace(/^https?:\/\/(gist\.)?github\.com\//, ''))
+  })
+}
 function ghRule(table: Record<string, Rule>): Rule {
   return (a) => {
     if (versionOnly(a)) return true
