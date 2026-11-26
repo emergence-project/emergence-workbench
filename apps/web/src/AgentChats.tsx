@@ -30,7 +30,7 @@ import { AppFixHint, ProjectPick, RecentChats, scopeName } from './AgentProjectP
 import { ChatHerePick, useChatHere } from './ChatHere'
 import { AgentChip, agentOf, effortsOf, familyName, familyOf, fitEffort, isClaude, useChatSettings, useModels, useNewChatAccount } from './AgentPick'
 import { isReviewCommand, ReviewButton, ReviewCard, ReviewPane } from './AgentReview'
-import { CENTRAL_PAGE, CentralBoard, CentralBoardButton, CentralLine, CentralStart } from './CentralChat'
+import { CENTRAL_PAGE, CentralBoard, CentralBoardButton, CentralLine, CentralStart, ChatListError } from './CentralChat'
 import { HostWho, hostWhoAt, MemberItem, RoomItem, RoomManage, RoomStrip, useComposerRoom, VerdictLog } from './CentralRoom'; import { DebateEnd, DebateLine, DebateMember, DebatePanel, DebateStrip, debateComposer } from './Debate'
 import { APP_HINT, ATTACH_NAME, ChatQuoteMenu, Composer, CUSTOM_NAME, EFFORT_NAME, effortLabel, PopButton, settingsOf, sideQuestion, TRUST_NAME, trustOf, type Fill, type Settings } from './ChatComposer'
 import { contextName, tokensName } from './agentTokens'
@@ -910,7 +910,7 @@ export function AgentPanel({ rid, note, onSaved, place = 'right', onPlace, onBes
   )
   const newChat = <NewChat rid={rid} note={note} onCreated={(c) => setOpen(c.id)} />
   const chats = <div className="ac-panel-chats">
-    <div className="set-side"><CentralLine row={centralRow} on={false} onOpen={centralRow ? setOpen : undefined} /><ChatGroups chats={sorted} line={(c) => <ChatLine key={c.id} c={c} on={false} onOpen={() => setOpen(c.id)} />} /></div>
+    <div className="set-side"><ChatListError rid={rid} /><CentralLine row={centralRow} on={false} onOpen={centralRow ? setOpen : undefined} /><ChatGroups chats={sorted} line={(c) => <ChatLine key={c.id} c={c} on={false} onOpen={() => setOpen(c.id)} />} /></div>
   </div>
   return (
     <div className={`rs ac-panel${place === 'bottom' ? ' bottom' : ''}`} data-ui="에이전트 패널">
