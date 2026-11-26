@@ -5,6 +5,7 @@ code:
   - packages/core/src/contract/comments.ts
   - packages/core/src/comment-target.ts
   - apps/server/src/comments.ts
+  - apps/server/src/commentsRead.ts
   - apps/server/src/commentFormat.ts
   - apps/server/src/routes/comments.ts
   - apps/web/src/api/comments.ts
@@ -25,7 +26,8 @@ PDF(와 노트)에서 글을 끌어 고르면 메뉴가 뜨고, 그 자리에 �
 | --- | --- | --- |
 | core | `packages/core/src/contract/comments.ts` | 기록 · API 몸통의 모양 (zod) |
 | core | `packages/core/src/comment-target.ts` | 대상 이름 규칙(`note-<slug>`, `paper-<이름>` 등) |
-| server | `apps/server/src/comments.ts` | 기록 파일 읽기 · 쓰기, 고른 글 다시 찾기(`reanchor`) |
+| server | `apps/server/src/commentsRead.ts` | 기록 파일 읽기(`parseComments`), 고른 글 다시 찾기(`reanchor`), 목록 |
+| server | `apps/server/src/comments.ts` | 기록 쓰기 · 고치기 · 지우기 (읽기 함수도 다시 내보냄) |
 | server | `apps/server/src/commentFormat.ts` | 상태 · 답 머리줄의 공통 모양 |
 | server | `apps/server/src/routes/comments.ts` | HTTP 경로 `/api/researches/:rid/comments/*` |
 | web | `apps/web/src/api/comments.ts` | 위 경로의 클라이언트 |
@@ -57,7 +59,7 @@ PDF(와 노트)에서 글을 끌어 고르면 메뉴가 뜨고, 그 자리에 �
 
 ## 옮기는 순서
 
-1. **기록 파일.** 위 모양을 읽고 쓰는 함수(`comments.ts`)와 대상 이름 규칙. 사람이 읽을 수 있는 Markdown이라 에이전트도 그대로 읽는다.
+1. **기록 파일.** 위 모양을 읽고 쓰는 함수(`commentsRead.ts` · `comments.ts`)와 대상 이름 규칙. 사람이 읽을 수 있는 Markdown이라 에이전트도 그대로 읽는다.
 2. **PDF 고르기 → 자리.** `PdfView.tsx`처럼 pdf.js 글 층에서 고른 범위를 쪽 번호 · 사각형(PDF 포인트) · 인용 글로 바꾼다. 화면 배율과 상관없게 PDF 좌표로 둔다.
 3. **다시 그리기.** 다시 열 때 `rects`를 그 쪽의 배율로 그린다. 노트(글 파일)는 `prefix + quote + suffix`로 먼저, 안 되면 `quote`만으로 저장한 줄에 가까운 곳을 찾는다(`reanchor`). 못 찾으면 지우지 않고 잃음 표시만.
 4. **카드와 경로.** 더하기 · 고치기(상태 · 글 · 색) · 지우기, 충돌을 막는 파일 hash.
