@@ -40,6 +40,7 @@ code:
 | core | `packages/core/src/feedback-lessons.ts` | 다시 처리한 이력의 `miss` · `lesson`을 세어 에이전트에게 보이는 교훈 |
 | core | `packages/core/src/contract/feedback.ts` | API 몸통 · 답의 모양 (zod) |
 | server | `apps/server/src/feedback.ts` | 원문 · 처리 기록 · 사용자 답 파일 읽고 쓰기, 답 받기, 목록. 반려 · 진행 · 논의로 다시 처리하면 그 전 처리(전후 그림까지)를 `revised`로 옮기고 `rework`를 적는다(11/20: 논의에 답할 때 덮여 사라지지 않게) |
+| server | `apps/server/src/feedbackStatusCheck.ts` | 처리 기록 점검: 모르는 state · area 없는 항목 · 모르는 miss를 에이전트 명령(`pnpm agent:feedback`)이 경고로 알린다. 실제 기록은 테스트가 보지 않는다(11/27: 기록 내용 때문에 맥에서만 늘 실패해 진짜 실패를 가렸다) |
 | web | `apps/web/src/FeedbackMode.tsx` | 피드백 모드: 부위(`data-ui`) 강조, 누른 부위 · 화면 그림 · 고른 글 모으기 |
 | web | `apps/web/src/FeedbackSend.tsx` | 남기기 창: 유형 고르기(필수) · 글 · 그림 |
 | web | `apps/web/src/FeedbackPage.tsx` | 모아 보기 표: 확인 필요 · 대기 · 완료 · 전체, 줄 펼치기 |

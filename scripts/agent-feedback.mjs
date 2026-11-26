@@ -37,7 +37,8 @@ const cloudTz = (() => { try { return /^timezone:\s*([\w/+-]+)\s*$/m.exec(fs.rea
 if (!process.env.TZ && new Date().getTimezoneOffset() === 0 && cloudTz) process.env.TZ = cloudTz
 const { tsImport } = await tsxApi()
 const opts = { parentURL: import.meta.url, tsconfig: false }
-const { listAllFeedback, feedbackStatusError, feedbackStatusWarnings } = await tsImport('../apps/server/src/feedback.ts', opts)
+const { listAllFeedback, feedbackStatusError } = await tsImport('../apps/server/src/feedback.ts', opts)
+const { feedbackStatusWarnings } = await tsImport('../apps/server/src/feedbackStatusCheck.ts', opts)
 const { agentTurnReasons, feedbackBucket } = await tsImport('../packages/core/src/feedback-buckets.ts', opts)
 const { feedbackLessons, feedbackLessonsText } = await tsImport('../packages/core/src/feedback-lessons.ts', opts)
 const { readClaims, writeClaim, lastTouched, isLiveClaim, releaseClaims, CLAIM_TTL_MS, HANDOFF_FILE } = await tsImport('../apps/server/src/feedbackClaims.ts', opts)
@@ -98,7 +99,7 @@ const { all, mine, elsewhere, takenBy } = r
 const broken = feedbackStatusError(dir)
 if (broken) console.log(`⚠ status.yaml을 읽지 못함: ${broken}\n`)
 const odd = broken ? [] : feedbackStatusWarnings(dir)
-if (odd.length) console.log(`⚠ status.yaml에서 state를 알아보지 못한 항목 ${odd.length}개 (처리 기록 없는 것으로 보임):\n${odd.map((w) => `  - ${w}`).join('\n')}\n`)
+if (odd.length) console.log(`⚠ status.yaml 점검 (state를 모르는 항목은 처리 기록 없는 것으로 보임):\n${odd.map((w) => `  - ${w}`).join('\n')}\n`)
 const userTurn = all.filter((e) => feedbackBucket(e, now) === '확인 필요').length
 const clip = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 console.log(`# 에이전트 차례 ${mine.length} · 사용자 차례 ${userTurn} · 전체 ${all.length}${elsewhere.length ? ` · 다른 곳이 맡음 ${elsewhere.length}` : ''}${peek ? ' (보기만)' : ''}\n`)
