@@ -170,6 +170,15 @@ function gitRule(table: Record<string, Rule>): Rule {
  */
 const GH_HOSTS = /^https?:\/\/(gist\.)?github\.com(\/|$)/
 const REPO_VALUE_OPTS = /^(-b|--branch|--json|-q|--jq|-t|--template|-L|--limit|-l|--language|--visibility|--topic)$/
+/** gh repo <하위 명령> 뒤의 이름들: 옵션을 차례로 읽어 값을 한 번씩만 뺀다 (`repo view -b -b 호스트/주인/저장소` 의 둘째 -b 는 첫 -b 의 값이다, 넷째 검토) */
+const repoNames = (a: string[]): string[] => {
+  const out: string[] = []
+  for (let i = 2; i < a.length; i++) {
+    if (REPO_VALUE_OPTS.test(a[i]!)) i++
+    else if (!a[i]!.startsWith('-')) out.push(a[i]!)
+  }
+  return out
+}
 const ghElsewhere = (a: string[]) => {
   const hosted = (repo: string | undefined) => repo !== undefined && (repo.split('/').length > 2 || repo.includes(':'))
   return a.some((x, i) => {
@@ -179,8 +188,8 @@ const ghElsewhere = (a: string[]) => {
     // 짧은 옵션은 붙여 쓸 수 있다: -cR 값 · -cR값 · -R=값 (c 는 값을 받지 않는 옵션)
     const short = /^-[a-zA-Z]*R(.*)$/.exec(x)
     if (short && !x.startsWith('--')) return hosted(short[1] ? short[1]!.replace(/^=/, '') : a[i + 1])
-    return a[0] === 'repo' && i >= 2 && !x.startsWith('-') && !REPO_VALUE_OPTS.test(a[i - 1] ?? '') && hosted(x.replace(/^https?:\/\/(gist\.)?github\.com\//, ''))
-  })
+    return false
+  }) || (a[0] === 'repo' && repoNames(a).some((x) => hosted(x.replace(/^https?:\/\/(gist\.)?github\.com\//, ''))))
 }
 function ghRule(table: Record<string, Rule>): Rule {
   return (a) => {

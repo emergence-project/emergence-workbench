@@ -317,6 +317,12 @@ describe('gh api · gh --web · uniq 의 둘째 이름 (11/26 검토: 옵션의 
     expect(stateOnlyCommand('gh pr create --title x --body y -dR other.example/o/r', { gitWrites: true })).toBe('no')
     for (const c of ['gh pr view 1 -cR o/r', 'gh pr list -R o/r']) expect(stateOnlyCommand(c), c).toBe('ok')
   })
+  it('값을 받는 옵션을 겹쳐 적어 저장소 이름을 가리는 꼴 (넷째 검토): 옵션의 값은 한 번씩만 뺀다', () => {
+    for (const c of ['gh repo view -b -b other.example/o/r', 'gh repo view --json name -q -b other.example/o/r', 'gh repo view -b --json other.example/o/r', 'gh repo view --branch --branch ghes/o/r',
+      'gh repo view -t -t other.example/o/r --json name', 'gh repo view --json name --jq -L other.example/o/r', 'gh repo view --json name -q -b other.example/o/r 2>&1 | head -5'])
+      expect(stateOnlyCommand(c), c).toBe('no')
+    for (const c of ['gh repo view -b a/b/c', 'gh repo view o/r -b a/b/c', 'gh repo view o/r --json name -q .name', 'gh repo list someone -L 5 --json name']) expect(stateOnlyCommand(c), c).toBe('ok')
+  })
   it('제목 · 본문 · 찾을 말 속의 주소와 가지 이름은 다른 곳이 아니다', () => {
     for (const c of ["gh pr view 1 --json url,body --jq '.body | test(\"https://\")'", "gh pr list --search 'in:body https://example.com'", "gh search issues 'git@github.com' --repo o/r", 'gh gist view https://gist.github.com/abc',
       'gh repo view -b release/1.0/x', 'gh repo view o/r -b a/b/c', 'gh repo view https://github.com/o/r'])
