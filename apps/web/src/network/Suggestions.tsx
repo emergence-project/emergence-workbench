@@ -25,8 +25,8 @@ function markSeen(names: string[]) {
 const useSuggestions = () => useQuery({ queryKey: qk.peopleSuggestions, queryFn: () => networkApi.suggestions().then((v) => v.suggestions), ...FRESH })
 
 /** 왼쪽 띠의 네트워킹 버튼에 붙는 파란 점: 아직 보지 않은 등록 추천이 있음 (뺀 추천은 세지 않는다, 10/4 18:16 피드백. 답할 것이 아니라 소식이라 주황 수 대신 파란 점, 11/23) */
-/** 아직 보지 않은 등록 추천 수 (레일의 수 · 알림 종의 소식이 같이 쓴다) */
-export function useNewSuggestionCount(): number {
+/** 아직 보지 않은 등록 추천의 이름 (레일의 점 · 알림 종의 소식이 같이 쓴다) */
+export function useNewSuggestions(): string[] {
   const { data } = useSuggestions()
   const [, rerender] = useState(0)
   useEffect(() => {
@@ -35,11 +35,13 @@ export function useNewSuggestionCount(): number {
     window.addEventListener(SEEN_EVENT, onSeen)
     return () => window.removeEventListener(SEEN_EVENT, onSeen)
   }, [])
-  if (!data) return 0
-  const hidden = readHidden()
-  const seen = readList(SEEN_KEY)
-  return data.filter((x) => !hidden.includes(x.name) && !seen.includes(x.name)).length
+  return newSuggestions(data ?? [], readHidden(), readList(SEEN_KEY))
 }
+/** 뺀 것도 본 것도 아닌 추천의 이름. 순수 함수: 테스트에서 부른다 */
+export const newSuggestions = (all: { name: string }[], hidden: readonly string[], seen: readonly string[]): string[] => all.filter((x) => !hidden.includes(x.name) && !seen.includes(x.name)).map((x) => x.name)
+export const useNewSuggestionCount = (): number => useNewSuggestions().length
+/** 알림 종에서 추천 소식을 읽은 것으로 하면 여기에도 적는다: 레일의 파란 점이 함께 꺼진다 (11/26 개선 "소식을 모두 읽어도 점이 남는다") */
+export const markSuggestionsSeen = (names: string[]) => markSeen(names)
 export function NetworkRailCount() {
   const n = useNewSuggestionCount()
   if (!n) return null
