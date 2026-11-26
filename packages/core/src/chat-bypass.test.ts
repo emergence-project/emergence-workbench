@@ -74,6 +74,35 @@ describe('중앙 대화의 우회: 허락해도 돌리지 않는 명령', () => 
     expect(neverBypass("sh -c 'rm -rf \"$1\"' _ /tmp/x")).toBe('rm-outside-temp')
     for (const c of ["rm -rf '/tmp/a b'/{c,d}", "sh -c 'ls \"$1\"' _ x"]) expect(neverBypass(c), c).toBeUndefined()
   })
+  // 11/26: 인계 문서의 「아직 놓치는 것」 가운데 뜻이 하나로 정해지는 꼴
+  it('묶음 안에서 정한 변수 · 빈 변수와 기본값이 한 줄에 · fd -x', () => {
+    for (const c of ['(f=--force; git push origin main $f)', '{ f=--force; git push origin main $f; }', 'if true; then f=--force; git push origin main $f; fi', '() { f=--force; git push origin main $f }']) expect(neverBypass(c), c).toBe('force-push')
+    for (const c of ['rm -rf$u ${HOME:-/tmp/a/b}', 'find ${HOME:-/tmp/a} $u-delete', '( for x in -delete; do find . $x; done )', '(x=-delete; find . $x)', 'fd -x rm -rf', 'fd . /Users -X rm -rf', 'fd . --exec=rm -rf', "sh -c 'rm -rf$u ${HOME:-/tmp/a/b}'"]) expect(neverBypass(c), c).toBe('rm-outside-temp')
+    for (const c of ['(x=1; echo $x)', '( for x in a b; do cat $x; done )', 'rm -rf$u /tmp/a/b', 'find /tmp/a $u-delete', 'fd -e md -x cat', 'fd -x rm', 'rm -rf "${TMPDIR}/x"', 'fd -tx']) expect(neverBypass(c), c).toBeUndefined()
+  })
+  // 별도 검토(11/26)가 찾은 것: 묶음 안에서 같은 이름을 다시 정해도 바깥 값으로 본 판정은 그대로여야 한다
+  it('묶음 안의 값은 따로 센다: 바깥 값으로 본 판정을 밀어내지 않는다', () => {
+    const seq = (n: number) => Array.from({ length: n }, (_, i) => i + 1).join(' ')
+    expect(neverBypass(`a=-del; b=ete; (for a in ${seq(17)}; do :; done); (for b in ${seq(16)}; do :; done); find . $a$b`)).toBe('rm-outside-temp')
+    expect(neverBypass(`a=-; b=f; (for a in ${seq(17)}; do :; done); (for b in ${seq(16)}; do :; done); git push origin main $a$b`)).toBe('force-push')
+    expect(neverBypass(`f=--force; (for x in ${seq(64)}; do :; done); ${'echo $x; '.repeat(10)}git push origin main $f`)).toBe('force-push')
+    expect(neverBypass(`p=workbench/notes/a.md; (for x in ${seq(64)}; do :; done); ${'echo $x; '.repeat(10)}touch $p`)).toBe('workbench-write')
+    expect(neverBypass(`for f in ${seq(64)} --force; do (f=0); git push origin main $f; done`)).toBe('force-push')
+    expect(neverBypass(`for f in ${seq(64)} --hard; do (f=0); git reset $f; done`)).toBe('reset-hard')
+  })
+  // 두 번째 검토(11/26): 묶음 밖에서 다시 정한 이름은 옛 값으로 보지 않는다 (허락해도 돌리지 않는 것으로 막히면 풀 길이 없다)
+  it('다시 정한 변수의 옛 값으로는 막지 않는다', () => {
+    for (const c of [
+      'for b in main master; do git rev-parse $b; done; for b in old-1 old-2; do git branch -D $b; done',
+      'for b in main; do git log -1 $b; done; for b in tmp-branch; do git push origin :$b; done',
+      'f=--force; f=; git push origin main $f', 'mode=--hard; mode=--soft; git reset $mode HEAD~1',
+      'f=workbench/STATUS.md; head -5 $f\nf=/tmp/status.txt; date > $f',
+      'for f in workbench/notes/a.md workbench/notes/b.md; do wc -l $f; done; for f in /tmp/a.txt /tmp/b.txt; do touch $f; done',
+    ]) expect(neverBypass(c), c).toBeUndefined()
+    // 묶음 안에서 정한 값은 그 뒤에도 그럴 수 있는 값으로 본다
+    expect(neverBypass('f=x; (f=--force; git push origin main $f)')).toBe('force-push')
+  })
+
   it('되돌리기 어려운 git', () => {
     for (const [c, why] of [
       ['git push --force origin main', 'force-push'], ['git push -f', 'force-push'], ['git push -uf origin x', 'force-push'], ['git push origin +main', 'force-push'],
