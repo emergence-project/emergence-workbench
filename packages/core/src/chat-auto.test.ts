@@ -146,6 +146,76 @@ describe('명령이 하는 일', () => {
     // 구분자를 따옴표로 싼 히어독의 본문은 글자다: 그 안의 따옴표가 뒤 명령을 숨기지 못한다
     expect(k("cat <<'E'\nit's $(fine)\nE\nrm -rf x")).toBe('delete')
   })
+  // 11/26 "heredoc 본문 오탐": 확실한 히어독(<< 앞에 따옴표 · 주석 · 치환이 없다)을 cat이나 python이 받으면 본문은 셸 명령이 아니다
+  describe('확실한 히어독의 본문', () => {
+    const src = "/** 설명 */\nconst u = '/api/app/status'\nreturn <div className=\"a\">{x}</div>\nrm -rf old ; curl x\nimport { a } from '../api'"
+    it('cat이 받는 본문은 자료다: 소스 글의 경로 모양 · 명령 모양 낱말로 무겁게 보지 않는다', () => {
+      expect(k(`cat > src/a.ts <<'EOF'\n${src}\nEOF`)).toBe('edit')
+      expect(k(`cat <<'EOF' > src/a.ts\n${src}\nEOF`)).toBe('edit')
+      expect(k(`cat >> notes.md <<EOF\ncurl is a tool; rm removes files; see /api/x\nEOF`)).toBe('edit')
+      expect(k(`cat > /tmp/edit.py <<'EOF'\n${src}\nEOF`)).toBe('edit')
+      expect(k(`mkdir -p src && cat > src/a.ts <<'EOF'\n${src}\nEOF\npnpm test 2>&1 | tail -5`)).toBe('run')
+      expect(k(`cat <<-'EOF' > src/a.ts\n\t${src.replace(/\n/g, '\n\t')}\n\tEOF`)).toBe('edit')
+    })
+    it('python이 받는 본문은 코드다: 고칠 글 속의 경로 모양으로 폴더 밖이라 보지 않는다', () => {
+      const py = `p='apps/web/src/a.tsx'\ns=open(p).read()\ns=s.replace("""${src}""", "x")\nopen(p,'w').write(s)`
+      expect(k(`python3 - <<'EOF'\n${py}\nEOF`)).toBe('run')
+      expect(k(`python3 <<'PY'\n${py}\nPY`)).toBe('run')
+      expect(k(`cd apps/web && python3 - <<'EOF'\n${py}\nEOF`)).toBe('run')
+      expect(k(`python3 - <<'EOF'\n${py}\nEOF\npnpm type-check 2>&1 | tail -3`)).toBe('run')
+      expect(k(`python3 - <<'EOF' | tail -5\n${py}\nEOF`)).toBe('run')
+    })
+    it('python 코드의 문자열이 폴더 밖 경로(홈 · 시스템 폴더)면 여전히 외부다', () => {
+      for (const line of ["open('/etc/hosts','w').write('x')", 'open(os.path.expanduser("~/.zshrc"),"a").write("x")', "shutil.rmtree('/Users/other/project')", "p = '~'", "open('/u/other/a.txt','w')"])
+        expect(k(`python3 - <<'EOF'\nimport os, shutil\n${line}\nEOF`), line).toBe('outside')
+      // 폴더 안 · 임시 폴더 · 경로가 아닌 글은 아니다
+      for (const line of ["open('/u/p/a.txt','w')", "open('/tmp/a.txt','w')", "url = '/api/app/status'", "re.sub('/x+/', '', s)"])
+        expect(k(`python3 - <<'EOF'\n${line}\nEOF`), line).toBe('run')
+    })
+    it('본문 뒤의 명령과 받는 줄의 나머지는 그대로 판정한다', () => {
+      expect(k(`cat > src/a.ts <<'EOF'\n${src}\nEOF\nrm -rf build`)).toBe('delete')
+      expect(k(`python3 - <<'EOF'\nprint(1)\nEOF\ngit push`)).toBe('outside')
+      expect(k("cat > ~/.zshrc <<'EOF'\nx\nEOF")).toBe('outside')
+      expect(k("cat <<'EOF' > /etc/x\nx\nEOF")).toBe('outside')
+      expect(k("cat <<'EOF' > a.txt && rm -rf build\nx\nEOF")).toBe('delete')
+      // 끝 줄은 구분자와 똑같은 줄뿐이다: 빈칸이 붙은 줄은 본문이고, <<- 는 탭만 뗀다
+      expect(k("cat <<'EOF'\nx\n EOF\nrm -rf x\nEOF")).toBe('read')
+      expect(k("cat <<-'EOF'\n\tx\n\tEOF\nrm -rf x")).toBe('delete')
+    })
+    // 11/26 검토: 첫 구현이 가볍게 본 꼴. 모두 셸에서 본문이 실제로 돈다
+    it('구분자 뒤의 다른 빈칸 · & | 가 붙은 돌려보내기 · cat 을 바꿔 놓는 앞 명령은 확실한 히어독이 아니다', () => {
+      for (const c of [
+        // \r · \f · 줄 바꿈 없는 빈칸은 셸에게 구분자의 글자다: 본문은 「EOF\r」 줄에서 끝나고 그 뒤는 명령이다
+        "cat <<'EOF'\r\nEOF\r\nrm -rf x\nEOF", "cat <<EOF\r\nEOF\r\nrm -rf x\nEOF", "cat <<'EOF' \nEOF \nrm -rf x\nEOF", "cat <<'EOF'\f\nEOF\f\nrm -rf x\nEOF", "cat\fx <<'EOF'\nrm -rf x\nEOF",
+        // >| · >& · &> 의 | & 는 이음이 아니다: 받는 것은 sh 이고 cat 은 파일 이름이다
+        "sh >| cat <<'EOF'\nrm -rf x\nEOF", "sh >& cat <<'EOF'\nrm -rf x\nEOF", "bash -s >| cat <<'EOF'\nrm -rf x\nEOF", "sh >| python3 <<'EOF'\nrm -rf x\nEOF", "sh &> cat <<'EOF'\nrm -rf x\nEOF", "node >| cat <<'EOF'\nrm -rf x\nEOF",
+        // 같은 명령 안에서 cat 을 셸로 바꿔 놓는다 (zsh의 functions · commands · NULLCMD, bash의 별칭)
+        "functions[cat]=sh\ncat <<'EOF'\nrm -rf x\nEOF", "commands[cat]=/bin/sh\ncat <<'EOF'\nrm -rf x\nEOF", "NULLCMD=sh\n>|cat <<'EOF'\nrm -rf x\nEOF", "shopt -s expand_aliases\nalias cat=sh\ncat <<'EOF'\nrm -rf x\nEOF",
+        "set -o posix\nalias cat=sh\ncat <<'EOF'\nrm -rf x\nEOF", "alias cat=sh; cat <<'EOF'\nrm -rf x\nEOF", "autoload cat; cat <<'EOF'\nrm -rf x\nEOF", "PATH=.:/bin cat <<'EOF'\nrm -rf x\nEOF", "export PATH=.\ncat <<'EOF'\nrm -rf x\nEOF",
+        "setopt aliases; cat <<'EOF'\nrm -rf x\nEOF", "source x.sh; cat <<'EOF'\nrm -rf x\nEOF", "exec 1>p; cat <<'EOF'\nrm -rf x\nEOF", "trap x EXIT; cat <<'EOF'\nrm -rf x\nEOF",
+        // python 이 본문을 코드로 받는 꼴이 아니다 (모듈 · 파일 인자 · 다른 이름)
+        "python3 <<'EOF' -m IPython\nrm -rf x\nEOF", "python3 x.py <<'EOF'\nrm -rf x\nEOF", "python3 - > out -m pdb <<'EOF'\nrm -rf x\nEOF", "python3 -i <<'EOF'\nrm -rf x\nEOF", "python3.12 - <<'EOF'\nrm -rf x\nEOF", "/usr/bin/python3 - <<'EOF'\nrm -rf x\nEOF",
+      ]) expect(k(c), JSON.stringify(c)).toBe('delete')
+      expect(k("hash cat=/bin/sh\ncat <<'EOF'\nrm -rf x\nEOF")).toBe('outside')
+    })
+    it('python 코드: 긴 문자열 안의 경로 · .. 으로 벗어나는 경로 · 홈을 얻는 코드도 외부다', () => {
+      for (const line of ['os.system("rm -rf /u/Documents")', 'os.system("rm -rf ~/Documents")', 'subprocess.run("cp .env /u/Dropbox/", shell=True)', 'open(" /etc/hosts".strip(), "a")', 'f = open("../../x", "w")', 'shutil.rmtree("../sibling")',
+        'os.chdir("..")', 'p = Path("..") / "x"', 'shutil.rmtree("/u/other")', 'open("/u/p/../other/x", "w")', 'open("/data/x", "w")', 'p = Path.home() / ".zshrc"', 'open(os.environ["HOME"] + "/.zshrc", "a")', "x = '~other'", "x = '~root/.ssh'",
+        `open("/u/it's.txt", "w")`, 'p = os.path.expanduser(v)'])
+        expect(k(`python3 - <<'EOF'\nimport os, shutil\n${line}\nEOF`), line).toBe('outside')
+    })
+    it('본문이 셸로 가거나 확실하지 않은 꼴은 전처럼 본문도 명령으로 읽는다', () => {
+      for (const c of [
+        // 본문을 셸 · 다른 프로그램이 받는다
+        "cat <<'EOF' | sh\nrm -rf x\nEOF", "cat <<'EOF' | bash -s\nrm -rf x\nEOF", "cat <<'EOF' |\nrm -rf x\nEOF\nsh", "cat <<'EOF' |& sh\nrm -rf x\nEOF", "bash <<'EOF'\nrm -rf x\nEOF", "sh -s <<EOF\nrm -rf x\nEOF", "zsh <<'EOF'\nrm -rf x\nEOF",
+        "while read l; do $l; done <<'EOF'\nrm -rf x\nEOF", "{ cat; } <<'EOF'\nrm -rf x\nEOF", "tee a.sh <<'EOF'\nrm -rf x\nEOF", "xargs rm <<'EOF'\nx\nEOF", "env cat <<'EOF'\nrm -rf x\nEOF", "X=1 cat <<'EOF'\nrm -rf x\nEOF",
+        // << 앞에 따옴표 · 주석 · 치환 · 괄호 · 역슬래시가 있다
+        "echo 'a' && cat <<'EOF'\nrm -rf x\nEOF", 'echo "a" ; cat <<EOF\nrm -rf x\nEOF', "ls # c\ncat <<'EOF'\nrm -rf x\nEOF", "echo $x; cat <<'EOF'\nrm -rf x\nEOF", "(cat <<'EOF'\nrm -rf x\nEOF\n)", "ls \\\n&& cat <<'EOF'\nrm -rf x\nEOF", "ls `pwd`; cat <<'EOF'\nrm -rf x\nEOF",
+        // 받는 줄의 나머지에 따옴표 · 둘째 히어독, 펼쳐지는 본문, 낯선 구분자, 끝 줄 없음
+        "cat <<'EOF' 'a\nb'\nrm -rf x\nEOF", "cat <<'A' <<'B'\nrm -rf x\nA\nx\nB", "cat <<EOF\n$(rm -rf x)\nEOF", "cat <<EOF\n`rm -rf x`\nEOF", "cat <<\\EOF\nrm -rf x\nEOF", "cat <<'E O F'\nrm -rf x\nE O F", "cat <<'EOF'\nrm -rf x",
+      ]) expect(k(c), c).toBe('delete')
+    })
+  })
   // 11/25 셋째 검토: 새로 읽는 규칙(히어독 · 묶음 · 펼침)이 한쪽 뜻으로만 읽어 오히려 가볍게 판정했다. 원래 글과 둘 다 보고 무거운 쪽으로
   it('여러 뜻으로 읽힐 수 있으면 무거운 쪽으로', () => {
     for (const c of [

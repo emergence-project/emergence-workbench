@@ -3,8 +3,9 @@
  * 명령 한 줄이 무엇을 하는지 판정하고(commandKind), 권한 이름마다의 「자동 허용」 기본값(presetAuto)을 둔다.
  * 서버의 허락 판정(agentChats.ts judge)과 화면의 토글(AgentChats.tsx)이 함께 쓴다.
  */
-import { alternatives, evalFlags, expandBraces, expandWords, hasBraces, heredocVariants, longOpt, qualifierRuns, qualifiers, redirects, segments, splitGroups, substitutions, unmask, words } from './chat-shell.js'
+import { alternatives, certainHeredoc, evalFlags, expandBraces, expandWords, hasBraces, heredocVariants, longOpt, qualifierRuns, qualifiers, redirects, segments, splitGroups, substitutions, unmask, words } from './chat-shell.js'
 import { sedWrites } from './chat-sed.js'
+import { codeSpawns, codeTouchesOutside } from './chat-pycode.js'
 
 // 셸 글 읽기는 chat-shell.ts로 옮겼다: 여기서 가져다 쓰던 곳을 위해 그대로 내보낸다
 export { bare, joinLines, prepare, redirects, segments, substitutions, unmask, words } from './chat-shell.js'
@@ -133,8 +134,22 @@ const DEPTH_MAX = 40
 /** 한 줄에서 변수에 값을 넣어 다시 판정하는 횟수의 한도 */
 export const VARIANTS_MAX = 600
 
-export function commandKind(cmd: string, o: Where, depth = 0): ChatKind {
+export function commandKind(cmd0: string, o: Where, depth = 0): ChatKind {
+  // 확실한 히어독(certainHeredoc)을 cat 이나 python 이 받으면 본문은 셸 명령이 아니다 (11/26 "heredoc 본문 오탐"): 본문을 빼고 판정한다.
+  // cat 은 본문을 자료로 받는다(받는 줄에 | 가 있으면 본문이 다른 프로그램으로 가므로 빼지 않는다). python 은 코드로 받는다: 셸 글로 읽지 않고
+  // 폴더 밖을 가리키는 글만 본다(codeTouchesOutside). 그 밖의 프로그램(sh · bash · tee · 묶음 …)과 확실하지 않은 꼴은 전처럼 본문도 읽는다.
+  // 쓴 파일을 뒤에서 돌리는 것(cat > x.sh <<E … ; sh x.sh)은 쓰기 도구로 쓰고 돌리는 것과 같다: 파일의 내용은 여기서 보지 않는다
+  let cmd = cmd0
+  let code: ChatKind = 'read'
+  for (let n = 0; depth === 0 && n < 20; n++) {
+    const hd = certainHeredoc(cmd)
+    // 다른 프로그램을 돌리는 python 코드(os.system · subprocess · exec …)는 문자열 속 셸 글이 실제로 돈다: 빼지 않고 전처럼 읽는다
+    if (!hd || (hd.prog === 'cat' && hd.piped) || (hd.prog === 'python' && codeSpawns(hd.body))) break
+    if (hd.prog === 'python' && codeTouchesOutside(hd.body, o, (p) => touchesOutside(p, o))) code = 'outside'
+    cmd = hd.rest ? `${hd.head}\n${hd.rest}` : hd.head
+  }
   let kind = kindCore(cmd, o, depth)
+  if (WEIGHT[code] > WEIGHT[kind]) kind = code
   // 히어독으로도 읽어 보고 무거운 쪽을 쓴다 (본문의 따옴표가 뒤 명령을 가리는 꼴, 본문에서 펼쳐지는 $( … ))
   // (겹친 깊이마다 여러 번 읽으면 일이 곱절로 불어나므로 바깥 몇 겹에서만. 안쪽의 히어독은 바깥에서 읽을 때 함께 읽힌다)
   for (const alt of depth < 3 ? heredocVariants(cmd).slice(0, depth === 0 ? 4 : 1) : []) {
