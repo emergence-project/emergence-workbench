@@ -6,13 +6,13 @@
 ## 시작할 때
 
 1. `CLAUDE.md`를 끝까지 읽는다 (반영 흐름, 용어, 화면 기준, 코드 지도). 관리자 맥이면 개인 규칙도 읽는다.
-2. `git fetch origin && git log --oneline -15 origin/main`과 열린 PR을 본다. 열린 PR이 있으면 새 작업을 시작하지 않고 사용자에게 알린다 (열린 PR은 한 번에 하나).
+2. `git fetch origin && git log --oneline -15 origin/main`과 열린 PR을 본다. 열린 PR이 있으면 새 작업을 시작하지 않고 사용자에게 알린다 (열린 PR은 한 번에 하나. 앱 안 「앱 고치기」 대화(`claude/app-…`)는 대화마다 자기 PR을 열어도 된다).
 3. 화면을 바꾸면 `docs/design-system.md`를 먼저 읽는다.
 4. 연구 저장소의 상태가 필요하면 `pnpm agent:status <연구 저장소 폴더>`를 먼저 돌린다(맥의 `workbench/STATUS.md`의 짧은 요약, 클라우드에서도 됨. 절 하나는 `--section <절 이름>`, 전부는 `--full`). 여러 프로젝트를 한눈에 보려면 폴더를 여럿 주거나 저장소들을 담은 폴더, 또는 `--all`. 직접 고친 뒤에는 `pnpm agent:check <연구 저장소 폴더>`로 형식과 바뀐 것을 검사한다(읽기 전용). 피드백을 처리할 때는 `pnpm agent:feedback <피드백 폴더> --me <이름>`으로 에이전트 차례인 항목과 이유를 먼저 보고 맡는다(다른 곳이 맡은 것은 건너뜀). 연구 저장소의 기록은 `pnpm agent:records <폴더> --unanswered`로 보고 `pnpm agent:answer`로 답한다.
 
 ## 꼭 지킬 것 (요약, 상세는 CLAUDE.md)
 
-- 대화는 한국어, 코드·커밋 메시지는 영어, 문서·계획은 한국어.
+- 대화는 한국어. PR 제목(= 합친 커밋 제목, 업데이트 이력에 보인다)은 한국어 한 줄, 커밋 본문과 코드는 영어, 문서·계획은 한국어.
 - 원고 무손실과 에이전트 공존이 먼저다. 블록·원고 본문 바이트를 바꾸지 않고, 바깥에서 고친 내용을 덮어쓰지 않는다 (고칠 때는 읽을 때 받은 hash를 `baseHash`로).
 - 사용자의 실제 연구 저장소와 공유 라이브러리 서식, `~/.config/research-workspace`는 사용자 확인 없이 고치지 않는다. 시험은 `pnpm dev`(예제 모드, `.sandbox/`)에서 한다.
 - 색·크기는 `tokens.css` 변수만, `data-ui` 값은 바꾸지 않는다, 한 행동에 이름 하나·기호 하나.
@@ -20,7 +20,7 @@
 
 ## PR 하나를 올리는 순서
 
-`CLAUDE.md` "반영 흐름"을 따른다: `origin/main`에서 새 브랜치(`codex/…` 또는 `claude/…`) → `pnpm type-check`·`pnpm test`(화면을 바꿨으면 `pnpm shots`와 전후 그림) → PR → CI 초록 → 합치기.
+`CLAUDE.md` "반영 흐름"을 따른다: `origin/main`에서 새 브랜치(`codex/…` 또는 `claude/…`) → `pnpm type-check`·`pnpm test`(화면을 바꿨으면 `pnpm shots`와 전후 그림) → PR → CI 초록 → 합치기. 고위험 영역(`CLAUDE.md` "반영 흐름")을 고친 PR은 사용자가 합친다.
 
 ## 알려진 환경 문제
 
