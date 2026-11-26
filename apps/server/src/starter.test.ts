@@ -8,7 +8,8 @@ import { prepareStarter, starterFolder } from './starter.js'
 import { onPath } from './routes/setup.js'
 
 const tmps: string[] = []
-const tmp = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-starter-')); tmps.push(d); return d }
+// 맥의 임시 폴더는 /var → /private/var 링크라, 실제 경로로 풀어 두지 않으면 앱이 돌려주는 경로와 글자가 다르다
+const tmp = () => { const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'rw-starter-'))); tmps.push(d); return d }
 afterEach(() => { for (const d of tmps.splice(0)) fs.rmSync(d, { recursive: true, force: true }) })
 const template = path.resolve(import.meta.dirname, '../../../templates/shared-library')
 

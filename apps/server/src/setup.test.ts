@@ -39,7 +39,8 @@ describe('시작 준비', () => {
     expect(v).toMatchObject({ git: { name: '', email: '' }, projects: 0, personal: { remote: null, active: false } })
     expect(v.agents.map((a: { key: string; registered: boolean; at: string | null }) => [a.key, a.registered, a.at])).toEqual([['claude-desktop', false, null], ['claude-code', false, null], ['codex', false, null]])
     expect(v.agents[1].command).toMatch(/^claude mcp add --scope user emergence-workbench -- node .*scripts\/mcp\.mjs$/)
-    expect(v.agents[2].command).toMatch(/^codex mcp add emergence-workbench -- node .*scripts\/mcp\.mjs$/)
+    // Codex가 깔린 컴퓨터에서는 찾은 경로를 따옴표로 감싸 적는다 (깔려 있지 않으면 codex)
+    expect(v.agents[2].command).toMatch(/^(codex|"[^"]*codex[^"]*") mcp add emergence-workbench -- node .*scripts\/mcp\.mjs$/)
   })
   it('커밋 이름이 비어 있으면 이 컴퓨터의 GitHub 로그인으로 채울 값을 보인다', async () => {
     const io = { run: async (cmd: string) => { if (cmd !== 'gh') throw new Error('none'); return JSON.stringify({ login: 'kim', id: 42, name: 'Kim Researcher' }) }, getJson: async () => { throw new Error('none') }, exists: () => false }
@@ -135,9 +136,10 @@ describe('시작 준비', () => {
   it('Codex는 PATH에 없어도 ChatGPT 앱 안의 것을 찾는다 (10/22 맥미니)', () => {
     const app = path.join(tmp, 'ChatGPT-codex')
     fs.writeFileSync(app, '#!/bin/sh\n', { mode: 0o755 })
-    expect(agentInstalled('codex', tmp, '/nowhere', app)).toBe(app)
-    expect(agentInstalled('codex', tmp, '/nowhere', path.join(tmp, 'none'))).toBe(null)
-    expect(agentInstalled('claude', tmp, '/nowhere', app)).toBe(null)
+    // 이 컴퓨터에 깔린 것(/opt/homebrew/bin 등)에 기대지 않게 함께 보는 폴더를 비운다
+    expect(agentInstalled('codex', tmp, '/nowhere', app, [])).toBe(app)
+    expect(agentInstalled('codex', tmp, '/nowhere', path.join(tmp, 'none'), [])).toBe(null)
+    expect(agentInstalled('claude', tmp, '/nowhere', app, [])).toBe(null)
   })
   it('설치 상태: 앱 아이콘 · Dock · 서비스를 본다 (scripts/install.sh가 하는 일)', async () => {
     const home = path.join(tmp, 'home-install')

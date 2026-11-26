@@ -57,8 +57,8 @@ export const BUNDLED_CODEX = '/Applications/ChatGPT.app/Contents/Resources/codex
  * 명령이 PATH(와 서비스가 보지 못하는 Homebrew · ~/.local)에 있는지. 없으면 등록 명령도 쓸 수 없다 (10/21 맥미니: Codex 없음).
  * 'path'면 PATH에 있음, 경로면 PATH 밖의 그 파일(ChatGPT 앱의 Codex), null이면 없음
  */
-export function agentInstalled(cmd: string, home = os.homedir(), envPath = process.env.PATH ?? '', bundled = BUNDLED_CODEX): 'path' | string | null {
-  if (onPath(cmd, [envPath, '/opt/homebrew/bin', '/usr/local/bin', path.join(home, '.local/bin'), path.join(home, '.npm-global/bin')].join(path.delimiter))) return 'path'
+export function agentInstalled(cmd: string, home = os.homedir(), envPath = process.env.PATH ?? '', bundled = BUNDLED_CODEX, shared = ['/opt/homebrew/bin', '/usr/local/bin']): 'path' | string | null {
+  if (onPath(cmd, [envPath, ...shared, path.join(home, '.local/bin'), path.join(home, '.npm-global/bin')].join(path.delimiter))) return 'path'
   if (cmd === 'codex') { try { fs.accessSync(bundled, fs.constants.X_OK); return bundled } catch { /* 없음 */ } }
   return null
 }
