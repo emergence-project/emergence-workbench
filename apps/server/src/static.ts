@@ -65,7 +65,8 @@ export function serveStatic(app: FastifyInstance, root: string): void {
       if (TEXT.has(path.extname(file)) && stat.size >= GZIP_MIN) {
         reply.header('vary', 'accept-encoding')
         if (/\bgzip\b/.test(String(req.headers['accept-encoding'] ?? ''))) {
-          return gzipped(file, stat).then((body) => reply.header('content-encoding', 'gzip').send(body))
+          // 읽지 못하면 그 실패 응답(500)은 저장하지 않게 한다 (11/26: 위의 「1년 저장」 머리가 실패 응답에도 붙어 나갔다)
+          return gzipped(file, stat).then((body) => reply.header('content-encoding', 'gzip').send(body), (e: unknown) => { void reply.header('cache-control', 'no-store'); throw e })
         }
       }
       return reply.send(fs.createReadStream(file))
