@@ -64,7 +64,7 @@ describe('읽지 못한 줄 (설계 5.2 가 · 나 · 다)', () => {
       'function f { ls; }', 'time eval x', 'set -o noglob', 'set +e -f', 'emulate sh', 'r', 'fc -e - ', 'hash -d x=/tmp']) expect(why(c), c).toBe('syntax')
   })
   it('다. 옵션을 가리는 프로그램의 인자 맨 앞에 값을 모르는 변수', () => {
-    for (const c of ['find . $x', 'git $sub', 'sed $s f', 'sort $o f', 'rg $flag x', 'rsync $o a b', 'xargs $o echo', 'read x; awk $x f']) expect(why(c), c).toBe('var')
+    for (const c of ['find . $x', 'git $sub', 'sort $o f', 'rg $flag x', 'rsync $o a b', 'xargs $o echo', 'read x; awk $x f']) expect(why(c), c).toBe('var')
   })
   it('다. 쓰기 대상에 값을 모르는 변수 · 치환', () => {
     for (const c of ['cp a "$dest"', 'ls > "$out"', 'mv a $(pwd)/b', 'tee "$f" < x', 'for f in *; do cp a "$f"; done']) expect(why(c), c).toBe('var')
@@ -91,7 +91,10 @@ describe('검토에서 나온 꼴', () => {
     for (const c of ['read -r line < f; echo "$line"', 'printf -v out %s a; echo "$out"']) expect(unreadWhy(c), c).toBeUndefined()
   })
   it('셈 안의 배열 첨자에 든 명령 (bash)', () => {
-    for (const c of ["(( 'a[$(rm -rf x)]' ))", "x='a[$(rm x)]'; (( x ))", "[[ 1 -eq 'a[$(x)]' ]]", "read 'a[$(x)]' <<< x", "[ -v 'a[`x`]' ]"]) expect(why(c), c).toBe('syntax')
+    for (const c of ["(( 'a[$(rm -rf x)]' ))", "x='a[$(rm x)]'; (( x ))", "[[ 1 -eq 'a[$(x)]' ]]", "read 'a[$(x)]' <<< x", "[ -v 'a[`x`]' ]", "(( 'a[b[0]+$(x)]' ))"]) expect(why(c), c).toBeDefined()
+    // 값을 밖에서 받은 이름이 셈에 쓰이면 (파일에 a[$(…)] 를 써 둘 수 있다)
+    for (const c of ['read x < f; (( x ))', 'read x < f; echo ${a[x]}', 'x=$(cat f); [[ $x -eq 0 ]]', 'mapfile -t l < f; (( l + 1 ))', 'printf -v n %s 1; let n++']) expect(why(c), c).toBe('var')
+    for (const c of ['n=3; (( n++ ))', 'x=$(wc -l < f); echo "$x"', '[[ -f x ]]', 'for i in 1 2; do (( i % 2 )); done']) expect(unreadWhy(c), c).toBeUndefined()
   })
   it('옵션 · 하위 명령으로 받은 글을 돌리거나 쓰는 것', () => {
     for (const c of ["git -c alias.l='!rm x' l", "git grep -O'cmd' x", "git -c core.fsmonitor='cmd' status", "git config core.pager 'rm x'", "git config alias.st '!x'", 'git rebase -x "make" main', 'git bisect run x', 'git submodule foreach ls', 'git difftool',
@@ -114,6 +117,29 @@ describe('검토에서 나온 꼴', () => {
   it('아주 긴 글도 금방 끝난다', () => {
     const big = 'cat <<E x\n' + 'a\n'.repeat(60_000)
     const t = Date.now(); unreadWhy(big); expect(Date.now() - t).toBeLessThan(3000)
+  })
+})
+
+describe('검토 2차에서 나온 꼴', () => {
+  it('sed: 아는 옵션만, 주석 · 괄호 식 안의 / 는 구분자가 아니다', () => {
+    for (const c of ["sed -ne '1e x' -e p f", "sed -l 5 '1e x' f", "sed --e='1e x' f", "sed -n '#/\n1e x\n#/' f", "sed -n '/[/]/e x' f", "sed -n 's/[/]//e' f", 'sed $s f']) expect(why(c), c).toBe('syntax')
+  })
+  it('히어독: 앞 줄의 따옴표 · 셈 · 펼침 · here-string 안의 << 는 빼지 않는다', () => {
+    for (const c of [`echo "\ncat <<'E'\n"; zzevil\nE`, 'echo $((cat<<E))\nzzevil\nE', '(( cat<<E ))\nzzevil\nE', 'cat <<<E\nzzevil\nE', 'cat ${x#<<E}\nzzevil\nE', 'cat ${x/<<E/}\nzzevil\nE']) expect(why(c), c).toBeDefined()
+  })
+  it('셸: 작업 폴더 안 스크립트 파일 · -c 글만', () => {
+    for (const c of ['echo x | bash /dev/stdin', 'echo x | bash -o errexit', 'echo x | bash +e', 'bash <(echo x)', 'bash -O extglob']) expect(why(c), c).toBe('syntax')
+    for (const c of ['bash scripts/x.sh a', 'bash -e scripts/x.sh', 'bash -o pipefail -c "ls"', 'zsh -lc "pnpm test"']) expect(unreadWhy(c), c).toBeUndefined()
+  })
+  it('git: 줄인 긴 옵션 · 묶은 짧은 옵션 · config 쓰기', () => {
+    for (const c of ["git grep --open-files='x' y", "git config core.fsmonitor 'x' --get", "git grep -iO'x' y", 'git log -p --ext-dif', 'git --exec-path=/x status', 'git --paginate log']) expect(why(c), c).toBe('syntax')
+    for (const c of ['git config --get user.name', 'git config --list', 'git config user.email', 'git --no-pager log -5', 'git -C sub diff --stat', 'git grep -n x', 'git log --oneline -5']) expect(unreadWhy(c), c).toBeUndefined()
+  })
+  it('env · awk · 이름 바꾸기 · sort · 경로', () => {
+    for (const c of ['env -i -C /x tee y < f', 'env -u X -C /x tee y', 'env --ch=/x tee y', `awk 'BEGIN{print "}" > "/x/y"}'`, `awk 'BEGIN{print ";" | "sh"}'`, "awk -f p.awk f", "awk -i inplace '{print}' f", `awk '@f("x")'`, 'sort --compress=sh -S 1 f', 'sort --compress-prog=sh f']) expect(why(c), c).toBe('syntax')
+    for (const c of ['printf -vPATH %s /x; ls', 'export IFS+=_; ls', 'local IFS+=_', 'RIPGREP_CONFIG_PATH=./cfg rg x .']) expect(why(c), c).toBe('env')
+    expect(unreadWhy('/opt/pw-browsers/../../w/evil/git status')).toEqual({ why: 'prog', name: '/opt/pw-browsers/../../w/evil/git' })
+    for (const c of ['env -i PATH_X=1 ls', "awk '{print $1}' f", "awk -F, -v n=2 '$n > 3 {print $1}' f", 'sort -u -k2 f']) expect(unreadWhy(c), c).toBeUndefined()
   })
 })
 
