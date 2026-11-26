@@ -850,7 +850,7 @@ export function useAgentNotify(): void {
 
 export function AgentRailCount() {
   const list = useChatList().data?.chats
-  const n = list?.filter(myTurn).length ?? 0
+  const n = list?.filter((c) => myTurn(c) && (c.rid !== CENTRAL_RID || (!c.archived && !c.local))).length ?? 0 // 중앙은 목록에 보이는 하나만 (보이지 않는 옛 중앙 · 이 맥의 중앙은 세지 않는다)
   return n ? <span className="rail-count" title={t(`내 차례인 대화 ${n}개 (답을 기다리거나 끝났는데 확인하지 않은 대화)`, `${n} conversation(s) for you (waiting for you, or finished and not checked)`)}>{n}</span> : null
 }
 

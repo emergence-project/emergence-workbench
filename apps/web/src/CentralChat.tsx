@@ -6,7 +6,7 @@ import { agentChatsApi, CENTRAL_RID, type ChatEffort, type ChatMessageBody, type
 import { Composer } from './ChatComposer'
 import { Icon } from './icons'
 import { ChatStateMark, stateName } from './AgentChats'
-import { shownState } from './agentSeen'
+import { asksMe, isUnseen, shownState } from './agentSeen'
 import { boardCounts, boardRows, STALL_MIN, type BoardGroup, type BoardRow } from './centralBoard'
 import { t } from './i18n'
 import { screenLine } from './screenView'
@@ -34,7 +34,10 @@ export function CentralLine({ row, on, onOpen }: { row?: ChatRow; on: boolean; o
   return (
     <button className={`nav ac-line ac-central${on ? ' on' : ''}`} data-ui="중앙 대화 줄" onClick={() => (onOpen ? row && onOpen(row.id) : go({ page: 'agent', id: row?.id ?? CENTRAL_PAGE }))}>
       <span className="ac-line-top">
-        <span className="ac-line-dot">{row && <ChatStateMark state={shownState(row)} name={stateName(row)} />}</span><span className="label">{t('중앙', 'Central')}</span>
+        <span className="ac-line-dot">{row && (asksMe(row) || isUnseen(row)
+          // 내 차례(묻고 기다림 · 끝났는데 열어 보지 않음)는 다른 대화 줄과 같은 점으로 (11/26: 레일 수에는 들어가는데 목록 어디에도 표시가 없었다)
+          ? <span className="turn-dot" role="img" aria-label={asksMe(row) ? t('답 기다림', 'Waits for your answer') : t('확인하지 않음', 'Not checked')} title={asksMe(row) ? t('에이전트가 묻고 답을 기다리는 대화', 'The agent asked and waits for your answer') : t('끝났는데 아직 열어 보지 않은 대화', 'Finished and not opened yet')} />
+          : <ChatStateMark state={shownState(row)} name={stateName(row)} />)}</span><span className="label">{t('중앙', 'Central')}</span>
         {need && <span className="ac-central-need" title={t('결정: 내 답을 기다림 · 멈춤: 오류 · 멈춤 · 차례 끝남 · 정체', 'To decide: waits for your answer · Stopped: error, stopped, turn ended or stalled')}>{need}</span>}
       </span>
       <span className="ac-line-meta">
