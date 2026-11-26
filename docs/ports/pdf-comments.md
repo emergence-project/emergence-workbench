@@ -11,6 +11,7 @@ code:
   - apps/web/src/api/comments.ts
   - apps/web/src/PdfView.tsx
   - apps/web/src/pdfNav.ts
+  - apps/web/src/commentStore.ts
   - apps/web/src/Comments.tsx
 ---
 
@@ -33,7 +34,8 @@ PDF(와 노트)에서 글을 끌어 고르면 메뉴가 뜨고, 그 자리에 �
 | web | `apps/web/src/api/comments.ts` | 위 경로의 클라이언트 |
 | web | `apps/web/src/PdfView.tsx` | PDF 그리기(pdf.js), 글 층, 고르기 → 자리(쪽 · 사각형 · 인용), 하이라이트 그리기 |
 | web | `apps/web/src/pdfNav.ts` | 쪽의 글 조각과 좌표, 목차 · 링크, 쪽 안 찾기 |
-| web | `apps/web/src/Comments.tsx` | 기록 카드: 메모 · 질문 · 답 · 상태 |
+| web | `apps/web/src/commentStore.ts` | 기록 대상 이름, 대상마다 읽어 둔 기록과 그 알림, 질문 넘기기 |
+| web | `apps/web/src/Comments.tsx` | 기록 카드: 메모 · 질문 · 답 · 상태 (`commentStore.ts`를 다시 내보냄) |
 
 ## 저장 모양
 
