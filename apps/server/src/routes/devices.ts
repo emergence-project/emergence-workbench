@@ -5,7 +5,7 @@ import * as C from '@rw/core/contract/devices'
 import { knownOnly, parseBody, replies } from '../contract.js'
 import { machineName } from '../backup.js'
 import { logoutDevice, otherDevices, setDeviceAccounts, setDeviceLogout, thisDevice } from '../devices.js'
-import { BEAT_MS, DEVICE_KEY_HEADER, beatFromOther, deviceKeyOk, hubOf, mergeDevices, readServerConfig, replyFromServer, writeServerConfig, type ServerConfig } from '../deviceServer.js'
+import { BEAT_MS, DEVICE_KEY_HEADER, beatFromOther, deviceKeyOk, hubOf, markLogout, mergeDevices, readServerConfig, replyFromServer, writeServerConfig, type ServerConfig } from '../deviceServer.js'
 import { deviceBuild } from '../deviceBuild.js'
 import { t } from '../i18n.js'
 import type { PhoneStatus } from '@rw/core/contract/phone'
@@ -105,7 +105,17 @@ export function registerDevices(app: FastifyInstance, ctx: RouteContext, deps: D
     const cfg = config()
     if (!cfg) throw new WorkbenchError(409, t('서버로 정한 컴퓨터가 없습니다. 먼저 한 컴퓨터를 서버로 정해 주세요', 'No computer is set as the server yet'))
     if (cfg.machine === me) hub.requestLogout(name)
-    else await callServer(cfg, '/api/devices/remote-logout', { name })
+    else { await callServer(cfg, '/api/devices/remote-logout', { name }); if (reach) reach = { ...reach, devices: markLogout(reach.devices, name, true) } }
+    return view()
+  })
+  /** 걸어 둔 로그아웃 취소 (11/26): 그 컴퓨터가 아직 받지 않았으면 없던 일이 된다. 걸려 있지 않아도 오류가 아니다 (두 창에서 함께 누름) */
+  app.delete<{ Params: { name: string } }>('/api/devices/:name/logout', replies(C.Devices), async (req): Promise<C.Devices> => {
+    const name = req.params.name
+    if (opts.sandbox) { samplePending.delete(name); return view() }
+    const cfg = config()
+    if (!cfg) throw new WorkbenchError(409, t('서버로 정한 컴퓨터가 없습니다. 먼저 한 컴퓨터를 서버로 정해 주세요', 'No computer is set as the server yet'))
+    if (cfg.machine === machineName()) hub.cancelLogout(name)
+    else { await callServer(cfg, '/api/devices/remote-logout-cancel', { name }, t('서버 컴퓨터의 앱이 옛 버전이라 취소하지 못했습니다. 서버 컴퓨터의 앱을 업데이트한 뒤 다시 눌러 주세요', 'The app on the server computer is too old to cancel this. Update the app there, then try again')); if (reach) reach = { ...reach, devices: markLogout(reach.devices, name, false) } }
     return view()
   })
 
@@ -131,12 +141,21 @@ export function registerDevices(app: FastifyInstance, ctx: RouteContext, deps: D
     else hub.requestLogout(name)
     return { ok: true }
   })
+  // 취소는 따로 둔다: 같은 주소에 칸을 더하면 옛 버전의 서버가 그 칸을 버리고 로그아웃을 건다
+  app.post('/api/devices/remote-logout-cancel', replies(C.DeviceOk), async (req): Promise<C.DeviceOk> => {
+    checkKey(req)
+    const { name } = parseBody(C.DeviceLogoutBody, knownOnly(C.DeviceLogoutBody, req.body))
+    hub.cancelLogout(name)
+    return { ok: true }
+  })
 
   // ── 다른 컴퓨터 쪽: 1분마다 서버에 알린다 ──
-  async function callServer(cfg: ServerConfig, p: string, body: unknown): Promise<unknown> {
+  /** old = 서버의 앱이 옛 버전이라 그 주소가 없을 때(404) 보일 말 */
+  async function callServer(cfg: ServerConfig, p: string, body: unknown, old?: string): Promise<unknown> {
     const r = await fetch(`${cfg.url}${p}`, { method: 'POST', headers: { 'content-type': 'application/json', [DEVICE_KEY_HEADER]: cfg.secret }, body: JSON.stringify(body), signal: AbortSignal.timeout(15_000) })
     const j: unknown = await r.json().catch(() => null)
     if (!r.ok) {
+      if (r.status === 404 && old) throw new WorkbenchError(502, old)
       const msg = j && typeof j === 'object' && 'error' in j && typeof j.error === 'string' ? j.error : `HTTP ${r.status}`
       throw new WorkbenchError(502, t(`서버에 닿지 못했습니다: ${msg}`, `Could not reach the server: ${msg}`))
     }

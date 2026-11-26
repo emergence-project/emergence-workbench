@@ -2,11 +2,12 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { Device } from '@rw/core/contract/devices'
 import { buildApp } from './app.js'
 import { machineName } from './backup.js'
 import { devicePath, otherDevices, writeDevice, type DeviceRecord } from './devices.js'
-import { DeviceHub, LIVE_MS, SERVER_FILE, mergeDevices, readServerConfig, replyFromServer, writeServerConfig } from './deviceServer.js'
+import { DeviceHub, LIVE_MS, SERVER_FILE, markLogout, mergeDevices, readServerConfig, replyFromServer, writeServerConfig } from './deviceServer.js'
 import { samplePhone } from './phone.js'
 
 let tmp = ''
@@ -116,6 +117,32 @@ describe('서버 (2단계)', () => {
     expect(new DeviceHub(file).pending('laptop')).toBe(false)
   })
 
+  // 걸어 둔 로그아웃이 서버를 다시 켜도 남게 된 뒤로(#696), 잘못 건 것을 거둘 길이 있어야 한다
+  it('허브: 걸어 둔 로그아웃을 취소하면 전하지 않고 파일에서도 지운다', () => {
+    const file = path.join(mk(), 'device-logouts.json')
+    const hub = new DeviceHub(file)
+    const t0 = Date.parse('2026-11-20T10:00:00Z')
+    hub.requestLogout('laptop', t0)
+    expect(hub.cancelLogout('laptop')).toBe(true)
+    expect(hub.pending('laptop')).toBe(false)
+    expect(new DeviceHub(file).pending('laptop')).toBe(false)
+    expect(hub.beat(rec('laptop', ''), t0 + 60_000)).toMatchObject({ logout: false })
+    expect(hub.live(t0 + 61_000)[0]!.logout).toBeUndefined()
+    // 한 번 보낸 뒤에 취소해도 더 보내지 않는다. 걸려 있지 않은 것을 취소하면 false
+    hub.requestLogout('laptop', t0)
+    expect(hub.beat(rec('laptop', ''), t0 + 120_000)).toMatchObject({ logout: true })
+    expect(hub.cancelLogout('laptop')).toBe(true)
+    expect(hub.beat(rec('laptop', ''), t0 + 180_000)).toMatchObject({ logout: false })
+    expect(hub.cancelLogout('laptop')).toBe(false)
+  })
+
+  it('이 컴퓨터가 서버가 아닐 때: 서버에 걸거나 취소한 것을 다음 알림 전에도 목록에 보인다', () => {
+    const seen: Device[] = [{ ...rec('studio', '2026-11-20T09:59:00Z'), this: false, online: true, live: true }, { ...rec('mini', '2026-11-20T09:58:00Z'), this: false, online: true, live: true, logout: true }]
+    expect(markLogout(seen, 'studio', true).map((d) => [d.name, d.logout])).toEqual([['studio', true], ['mini', true]])
+    expect(markLogout(seen, 'mini', false).map((d) => [d.name, 'logout' in d])).toEqual([['studio', false], ['mini', false]])
+    expect(seen[1]!.logout).toBe(true)
+  })
+
   it('허브: 깨진 로그아웃 파일은 빈 것으로 읽고, 다음에 걸 때 새로 쓴다', () => {
     const file = path.join(mk(), 'device-logouts.json')
     fs.writeFileSync(file, '{ "laptop": ')
@@ -185,6 +212,56 @@ describe('서버 (2단계)', () => {
     expect(asked.devices.find((d: { name: string }) => d.name === 'laptop').logout).toBe(true)
     expect((await beat(secret)).json().logout).toBe(true)
     await app.close()
+  })
+
+  it('API: 걸어 둔 로그아웃을 취소하면 대기가 사라지고 그 컴퓨터에 전하지 않는다 (다른 컴퓨터는 열쇠로)', async () => {
+    const dir = mk()
+    const backup = path.join(dir, 'backup')
+    fs.mkdirSync(backup)
+    const app = buildApp({ configDir: path.join(dir, 'config'), backup: { dir: backup, remote: null }, phone: samplePhone() })
+    await app.inject({ method: 'POST', url: '/api/devices/server' })
+    const secret = readServerConfig([backup])!.secret
+    const beat = () => app.inject({ method: 'POST', url: '/api/devices/beat', headers: { 'x-rw-device-key': secret }, payload: rec('laptop', '2026-11-20T10:00:00Z') })
+    const laptop = (v: { devices: { name: string; logout?: boolean }[] }) => v.devices.find((d) => d.name === 'laptop')!
+    await beat()
+    expect(laptop((await app.inject({ method: 'POST', url: '/api/devices/laptop/logout' })).json()).logout).toBe(true)
+    const cancelled = await app.inject({ method: 'DELETE', url: '/api/devices/laptop/logout' })
+    expect(cancelled.statusCode).toBe(200)
+    expect(laptop(cancelled.json()).logout).toBeUndefined()
+    expect((await beat()).json().logout).toBe(false)
+    // 걸려 있지 않은 것을 취소해도 오류가 아니다 (두 창에서 함께 누름)
+    expect((await app.inject({ method: 'DELETE', url: '/api/devices/laptop/logout' })).statusCode).toBe(200)
+
+    // 다른 컴퓨터의 화면에서 취소하면 그 컴퓨터가 열쇠를 붙여 서버에 알린다
+    await app.inject({ method: 'POST', url: '/api/devices/laptop/logout' })
+    const remote = (key: string) => app.inject({ method: 'POST', url: '/api/devices/remote-logout-cancel', headers: { 'x-rw-device-key': key }, payload: { name: 'laptop' } })
+    expect((await remote('틀린 열쇠')).statusCode).toBe(401)
+    expect((await beat()).json().logout).toBe(true)
+    expect((await remote(secret)).json()).toEqual({ ok: true })
+    expect((await beat()).json().logout).toBe(false)
+    await app.close()
+  })
+
+  it('API: 서버가 다른 컴퓨터면 취소를 열쇠와 함께 서버에 보내고, 서버의 앱이 옛 버전이면 그렇게 알린다', async () => {
+    const dir = mk()
+    const backup = path.join(dir, 'backup')
+    fs.mkdirSync(path.join(backup, '_settings'), { recursive: true })
+    fs.writeFileSync(path.join(backup, SERVER_FILE), 'machine: far-server\nurl: https://far-server.example\nsecret: s3cret\nat: "2026-11-20T00:00:00Z"\n')
+    const calls: { url: string; key: string | null; body: unknown }[] = []
+    let status = 200
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+      calls.push({ url, key: new Headers(init.headers).get('x-rw-device-key'), body: JSON.parse(String(init.body)) })
+      return new Response(JSON.stringify(status === 200 ? { ok: true } : { message: 'Route not found', error: 'Not Found', statusCode: 404 }), { status })
+    })
+    const app = buildApp({ configDir: path.join(dir, 'config'), backup: { dir: backup, remote: null }, phone: samplePhone() })
+    try {
+      expect((await app.inject({ method: 'DELETE', url: '/api/devices/laptop/logout' })).statusCode).toBe(200)
+      expect(calls).toEqual([{ url: 'https://far-server.example/api/devices/remote-logout-cancel', key: 's3cret', body: { name: 'laptop' } }])
+      status = 404
+      const old = await app.inject({ method: 'DELETE', url: '/api/devices/laptop/logout' })
+      expect(old.statusCode).toBe(502)
+      expect(old.json().error).toContain('옛 버전')
+    } finally { vi.unstubAllGlobals(); await app.close() }
   })
 
   it('API: 걸어 둔 로그아웃은 서버를 다시 켜도 남아, 그 컴퓨터가 알릴 때 전한다', async () => {
@@ -270,12 +347,14 @@ describe('서버 (2단계)', () => {
     await app.close()
   })
 
-  it('예제 모드: 맥 스튜디오가 서버이고, 로그아웃을 눌러 볼 수 있다', async () => {
+  it('예제 모드: 맥 스튜디오가 서버이고, 로그아웃과 취소를 눌러 볼 수 있다', async () => {
     const sb = buildApp({ configDir: path.join(mk(), 'config'), sandbox: true })
     const s = (await sb.inject({ method: 'GET', url: '/api/devices' })).json()
     expect(s.server).toMatchObject({ machine: 'studio', label: 'Mac Studio', this: true })
     const l = (await sb.inject({ method: 'POST', url: '/api/devices/mini/logout' })).json()
     expect(l.devices.find((d: { name: string }) => d.name === 'mini').logout).toBe(true)
+    const c = (await sb.inject({ method: 'DELETE', url: '/api/devices/mini/logout' })).json()
+    expect(c.devices.find((d: { name: string }) => d.name === 'mini').logout).toBeUndefined()
     await sb.close()
   })
 })

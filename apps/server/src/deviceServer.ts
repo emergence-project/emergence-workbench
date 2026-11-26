@@ -105,6 +105,12 @@ export class DeviceHub {
   }
   requestLogout(name: string, now = Date.now()): void { this.logouts.set(name, { at: new Date(now).toISOString() }); this.saveLogouts() }
   pending(name: string): boolean { return this.logouts.has(name) }
+  /** 걸어 둔 로그아웃을 거둔다 (11/26: 서버를 다시 켜도 남게 된 뒤로 잘못 건 것을 거둘 길). 걸려 있었으면 true. 이미 답으로 보냈으면 그 컴퓨터는 로그아웃했을 수 있다 */
+  cancelLogout(name: string): boolean {
+    const had = this.logouts.delete(name)
+    if (had) this.saveLogouts()
+    return had
+  }
   /** 서버가 본 기기들 (켜짐: 3분 안에 알림) */
   live(now = Date.now()): Device[] {
     return [...this.beats.values()].map(({ rec, at }) => ({ ...rec, this: false, online: now - at < LIVE_MS, live: true, ...(this.logouts.has(rec.name) && { logout: true }) }))
@@ -164,6 +170,15 @@ export function mergeDevices(me: Device, seen: Device[], repo: Device[], server:
     .map((d) => ({ ...d, ...(d.name === server && { server: true }), ...(pending(d.name) && { logout: true }) }))
     .sort((a, b) => Number(b.online) - Number(a.online) || Date.parse(b.seen) - Date.parse(a.seen))
   return [{ ...me, ...(me.name === server && { server: true }) }, ...rest]
+}
+
+/** 서버가 아닌 컴퓨터에서 로그아웃을 걸거나 취소한 뒤: 서버에서 받아 둔 목록에 바로 적는다 (다음 알림까지 1분 동안 화면이 그대로면 눌리지 않은 것으로 보인다) */
+export function markLogout(devices: Device[], name: string, on: boolean): Device[] {
+  return devices.map((d) => {
+    if (d.name !== name) return d
+    const { logout: _was, ...rest } = d
+    return on ? { ...rest, logout: true } : rest
+  })
 }
 
 export const DEVICE_KEY_HEADER = 'x-rw-device-key'
