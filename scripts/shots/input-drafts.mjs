@@ -485,6 +485,24 @@ try {
     assert.equal(await basket.locator('b').first().innerText(), '담은 곳 1', 'The collected spot was lost when the tab changed')
     assert.equal(await basket.locator('li').count(), 1)
   })
+
+  // 소개 › 수정 탭: 담기 전에 적던 고친 글도 절을 넘기고 돌아와도 남는다 (11/27: 다른 절을 보면 말없이 사라졌다)
+  await caseOf('about-fix-typed-edit-survives-section-change', async (page) => {
+    await catchWrites(page)
+    await page.goto(new URL('#/about', base).href)
+    const tabs = page.locator('[data-ui="소개 사이드바 갈래"]')
+    if (!await tabs.isVisible().catch(() => false)) await page.locator('[data-ui="머리줄"] button').last().click()
+    await tabs.getByRole('tab', { name: /^수정/ }).click()
+    await page.locator('[data-ui="화면 구조"] .about-lead').click()
+    await page.locator('[data-ui="고친 글"]').fill('담기 전에 적던 글')
+    await page.locator('[data-ui="소개 앞뒤"] .about-step.next').click()
+    await eventually(async () => !(await page.locator('[data-ui="화면 구조"]').count()), 'The next page did not open')
+    assert.equal(await page.locator('[data-ui="고친 글"]').inputValue(), '담기 전에 적던 글', 'The typed edit was lost when the page changed')
+    // 담으면 처음 고른 쪽의 이름으로 담긴다
+    await page.locator('[data-ui="담기"]').click()
+    await eventually(async () => (await page.locator('[data-ui="담은 곳"] li').count()) === 1, 'The typed edit was not added')
+    assert.match(await page.locator('[data-ui="담은 곳"] li').first().innerText(), /›/, 'The spot from another page should carry its page name')
+  })
 } finally { await browser.close(); await api.dispose() }
 await fs.writeFile(`${out}/results.json`, JSON.stringify({ base: base.href, checks }, null, 2))
 assert(checks.length, 'No selected test case')
