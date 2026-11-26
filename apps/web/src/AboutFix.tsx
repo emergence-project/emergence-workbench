@@ -3,7 +3,7 @@ import { api, setAboutCheck } from './api'
 import { putAboutChecks } from './aboutChecks'
 import { t } from './i18n'
 import { Icon } from './icons'
-import { useUnsent } from './unsent'
+import { draftSource } from './unsent'
 
 /**
  * 소개 고치기 탭 (11/20 시안 3절 안 C, 「시안대로 구현하자」).
@@ -101,6 +101,21 @@ function usePicking(root: RefObject<HTMLElement | null>, on: boolean, onPick: (e
   return hover
 }
 
+type Kept = FixChange & { name?: string; part: string }
+/**
+ * 담은 곳과 바라는 점은 탭 · 쪽 · 절을 바꿔도 남는다 (11/26): 전에는 부품의 상태라, 여러 절의 고칠 곳을 모으려고 절을 넘기면 사라졌다
+ * (소개는 절을 하나씩 보이고, 절이 바뀌면 고르던 곳을 비우려고 이 탭을 새로 만든다). 보내면 비운다
+ */
+let kept: { basket: Kept[]; wish: string } = { basket: [], wish: '' }
+draftSource(() => kept.basket.length > 0 || kept.wish.trim() !== '')
+/** 보낼 대상 이름: 한 쪽이면 그 쪽(절이 하나면 절까지), 여러 쪽이면 쪽 이름 없이 */
+export function fixTarget(basket: { name?: string; part: string }[], here: string): string {
+  const parts = [...new Set(basket.map((c) => c.part))]
+  if (parts.length > 1) return '소개 › 고치기'
+  const names = [...new Set(basket.map((c) => c.name).filter(Boolean))]
+  return `소개 › ${parts[0] ?? here}${names.length === 1 ? ` › ${names[0]}` : ''} › 고치기`
+}
+
 /** 고치기 탭: 고른 곳 · 지금 글 · 고친 글 · 담기, 담은 곳 목록 · 바라는 점 · 피드백으로 보내기 */
 export function AboutFixTab({ root, partName, sectionKey }: {
   root: RefObject<HTMLElement | null>; partName: string
@@ -109,9 +124,10 @@ export function AboutFixTab({ root, partName, sectionKey }: {
 }) {
   const [cur, setCur] = useState<{ where: string; before: string; key?: string; pr?: number; name?: string } | null>(null)
   const [draft, setDraft] = useState('')
-  const [basket, setBasket] = useState<(FixChange & { name?: string })[]>([])
-  const [wish, setWish] = useState('')
-  useUnsent(basket.length > 0)
+  const [basket, showBasket] = useState(kept.basket)
+  const [wish, showWish] = useState(kept.wish)
+  const setBasket = (f: (b: Kept[]) => Kept[]) => { kept = { ...kept, basket: f(kept.basket) }; showBasket(kept.basket) }
+  const setWish = (v: string) => { kept = { ...kept, wish: v }; showWish(v) }
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
   const [pick] = useState(() => (el: Element) => {
@@ -123,21 +139,22 @@ export function AboutFixTab({ root, partName, sectionKey }: {
   const hover = usePicking(root, true, pick)
   const add = () => {
     if (!cur || draft.trim() === cur.before) return
-    setBasket((b) => [...b.filter((x) => x.where !== cur.where), { where: cur.where, before: cur.before, after: norm(draft), ...(cur.key && { key: cur.key, pr: cur.pr, name: cur.name }) }])
+    setBasket((b) => [...b.filter((x) => x.where !== cur.where || x.part !== partName), { where: cur.where, before: cur.before, after: norm(draft), part: partName, ...(cur.key && { key: cur.key, pr: cur.pr, name: cur.name }) }])
     setCur(null); setDraft('')
   }
   const send = async () => {
     setBusy(true); setNote('')
     try {
-      const names = [...new Set(basket.map((c) => c.name).filter(Boolean))]
+      // 여러 쪽에서 담았으면 자리 이름 앞에 쪽 이름을 붙인다 (절 이름만으로는 어느 쪽인지 모른다)
+      const many = new Set(basket.map((c) => c.part)).size > 1
       await api.addFeedback({
-        kind: '미분류', target: `소개 › ${partName}${names.length === 1 ? ` › ${names[0]}` : ''} › 고치기`, route: location.hash.slice(1) || undefined,
+        kind: '미분류', target: fixTarget(basket, partName), route: location.hash.slice(1) || undefined,
         snippet: (basket[0] ? `${basket[0].where}: ${basket[0].after}` : wish).slice(0, 120),
-        text: fixText(basket, wish),
+        text: fixText(many ? basket.map((c) => ({ ...c, where: `${c.part} › ${c.where}` })) : basket, wish),
       })
       // 고쳐 보낸 절은 반영될 때까지 「반영 대기」
       for (const k of new Map(basket.filter((c) => c.key).map((c) => [c.key!, c.pr ?? 0]))) await setAboutCheck({ key: k[0], action: 'sent', pr: k[1] }).then(putAboutChecks).catch(() => undefined)
-      setBasket([]); setWish('')
+      setBasket(() => []); setWish('')
       setNote(t('피드백으로 보냈습니다. 다음 피드백 처리 때 소개에 반영하고, 고친 업데이트가 이력 표에 한 줄로 생깁니다.', 'Sent as feedback. It will be applied at the next round of feedback handling, and the update that applies it appears as a row in History.'))
     } catch (e) { setNote(e instanceof Error ? e.message : String(e)) }
     setBusy(false)
@@ -161,7 +178,7 @@ export function AboutFixTab({ root, partName, sectionKey }: {
       <div className="about-fix-basket" data-ui="담은 곳">
         <b>{t(`담은 곳 ${basket.length}`, `${basket.length} added`)}</b>
         {basket.length > 0 && <ul>{basket.map((c) => (
-          <li key={c.where}><span title={`${c.before} → ${c.after}`}>{c.where}</span>
+          <li key={`${c.part} ${c.where}`}><span title={`${c.before} → ${c.after}`}>{c.part === partName ? c.where : `${c.part} › ${c.where}`}</span>
             <button className="icon-btn" aria-label={t('제거', 'Remove')} data-tip={t('제거', 'Remove')} onClick={() => setBasket((b) => b.filter((x) => x !== c))}>{Icon.x}</button></li>
         ))}</ul>}
         <input className="about-fix-line" data-ui="바라는 점" value={wish} onChange={(e) => setWish(e.target.value)} disabled={busy}
