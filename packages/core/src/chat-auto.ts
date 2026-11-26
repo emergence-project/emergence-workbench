@@ -3,7 +3,7 @@
  * 명령 한 줄이 무엇을 하는지 판정하고(commandKind), 권한 이름마다의 「자동 허용」 기본값(presetAuto)을 둔다.
  * 서버의 허락 판정(agentChats.ts judge)과 화면의 토글(AgentChats.tsx)이 함께 쓴다.
  */
-import { alternatives, evalFlags, expandBraces, expandWords, hasBraces, heredocVariants, longOpt, qualifierRuns, qualifiers, redirects, segments, splitGroups, substitutions, unmask, words } from './chat-shell.js'
+import { alternatives, certainHeredoc, evalFlags, expandBraces, expandWords, hasBraces, heredocVariants, longOpt, qualifierRuns, qualifiers, redirects, segments, splitGroups, substitutions, unmask, words } from './chat-shell.js'
 import { sedWrites } from './chat-sed.js'
 
 // 셸 글 읽기는 chat-shell.ts로 옮겼다: 여기서 가져다 쓰던 곳을 위해 그대로 내보낸다
@@ -133,8 +133,94 @@ const DEPTH_MAX = 40
 /** 한 줄에서 변수에 값을 넣어 다시 판정하는 횟수의 한도 */
 export const VARIANTS_MAX = 600
 
-export function commandKind(cmd: string, o: Where, depth = 0): ChatKind {
+/** 시스템 폴더의 첫 마디(소문자로 견준다): 코드 글 속의 /api/x · </div> 같은 것은 경로로 보지 않으려고 이 마디(와 홈 · 작업 폴더의 첫 마디)로 시작하는 것만 본다 */
+const REAL_ROOT = new Set(['users', 'home', 'root', 'etc', 'usr', 'var', 'tmp', 'private', 'opt', 'bin', 'sbin', 'dev', 'lib', 'lib64', 'library', 'applications', 'system', 'volumes', 'network', 'cores', 'mnt', 'media', 'srv', 'proc', 'sys', 'boot', 'run', 'snap', 'nix',
+  'data', 'workspace', 'workspaces', 'scratch', 'work', 'gpfs', 'lustre', 'project', 'projects', 'shared', 'export', 'net', 'afs', 'nfs', 'storage', 'vol'])
+/** 코드 글 어디든(문자열 안의 명령 글 · 주석 포함) 낱말 처음에 선 ~/… 와 /마디/… (옵션에 붙은 -C/etc 도) */
+const CODE_PATH = /(?:^|[^\w.~\/-]|(?<=[\s'"]-[A-Za-z]))(~\/[^\s'"`),;|&<>\]}]*|\/[A-Za-z][\w.-]*(?:\/[^\s'"`),;|&<>\]}]*)?)/g
+/** 홈을 값으로 얻는 코드 */
+const CODE_HOME = /\bPath\.home\s*\(|\bexpanduser\s*\(|\b(?:environ|getenv)\b[^\n]{0,40}\bHOME\b/
+/**
+ * 뿌리(/ · /* · /**)를 인자로 넘기는 코드: 파일을 다루는 부름의 인자 자리, os.path.join('/', …), 변수에 담기.
+ * split('/') · '/'.join(…) · JS의 .join('/') 처럼 글자로 쓰는 / 는 아니다
+ */
+const CODE_ROOT = new RegExp([
+  String.raw`\b(?:Path|PurePath|walk|listdir|scandir|chdir|rmtree|open|glob|iglob|remove|unlink|rmdir|makedirs|mkdir|extractall|copytree|move|copy\w*|chmod|chown|stat|disk_usage)\s*\((?:[^()\n]*[,=])?\s*[rbuf]{0,2}(['"])\/[*\/]*\1`,
+  String.raw`\bjoin\s*\(\s*(['"])\/\2\s*,`,
+  String.raw`^[ \t]*\w+[ \t]*=[ \t]*(['"])\/\3[ \t]*$`,
+].join('|'), 'm')
+/**
+ * 다른 프로그램을 돌리거나 글을 코드로 돌리는 코드: 문자열에 든 셸 글이 실제로 돈다. 이런 본문은 빼지 않고 전처럼 읽는다.
+ * os 를 다른 이름으로 들이는 꼴(from os import · import os as · getattr(os, …))과 홀로 선 system( · popen( 도 본다.
+ * 고칠 소스 글에 흔한 .exec( · .compile( (정규식 · JS)는 아니다
+ */
+const CODE_SPAWNS = /\bos\s*\.\s*(?:system|popen|exec\w*|spawn\w*|posix_spawn\w*|startfile)\b|subprocess|\bfrom\s+os\s+import\b|\bimport\s+os\s+as\b|\bgetattr\s*\(\s*\(?\s*os\b|\bposix\s*\.|\bctypes\b|\bimport\s+pty\b|\bpty\s*\.|\bpexpect\b|\bgetoutput\b|\bshell\s*=\s*True\b|\b__import__\b|\bimportlib\b|\bsys\s*\.\s*modules\b|\bbuiltins\b|(?<![\w.])(?:exec|eval|compile|system|popen|execv\w*|execl\w*|spawn[lv]\w*)\s*\(/
+
+/** 파이썬 코드의 한 줄 문자열('…' · "…")들. 세 겹 따옴표 글(고칠 소스를 통째로 담는 곳)과 주석은 건너뛴다 */
+function pyLineStrings(code: string): string[] {
+  const out: string[] = []
+  for (let i = 0; i < code.length; i++) {
+    const ch = code[i]!
+    if (ch === '#') { const e = code.indexOf('\n', i); i = e < 0 ? code.length : e; continue }
+    if (ch !== "'" && ch !== '"') continue
+    const triple = code.startsWith(ch.repeat(3), i)
+    const q = triple ? ch.repeat(3) : ch
+    let j = i + q.length
+    for (; j < code.length; j++) {
+      if (code[j] === '\\') { j++; continue }
+      if (triple ? code.startsWith(q, j) : code[j] === ch || code[j] === '\n') break
+    }
+    if (!triple) out.push(code.slice(i + 1, j))
+    i = j + q.length - 1
+  }
+  return out
+}
+
+/**
+ * python 이 받는 히어독의 코드가 폴더 밖을 가리키는가. 코드를 돌려 보는 것이 아니라 글만 본다: 걸러 내는 것이지 막는 것이 아니다
+ * (문자열을 이어 붙여 만든 경로 · 목록에 없는 낯선 뿌리는 보지 못한다. python -c 의 코드는 전부터 보지 않았다).
+ * - 코드 글 어디든 ~/… 나 시스템 폴더 · 홈 · 작업 폴더의 첫 마디로 시작하는 절대 경로가 폴더 밖이면
+ * - 한 줄 문자열 안의 낱말이 ~ · ~다른사람 · .. 으로 폴더를 벗어나는 경로면, 문자열이 통째로 낯선 꼴의 절대 경로(/.x · //x)면
+ *   (세 겹 따옴표 안의 '../api' 같은 소스 글과, 따옴표로 시작하는 낱말은 아니다)
+ * - 홈을 값으로 얻거나(Path.home() · expanduser( · environ['HOME']) 뿌리를 인자로 넘기면(open('/') · extractall(path='/') · join('/', …) · d = '/').
+ *   문자열 속에 홀로 선 / 는 보지 않는다: CSS · 글의 「a / b」와 주석 표시가 훨씬 흔하다
+ */
+function codeTouchesOutside(code: string, o: Where): boolean {
+  if (CODE_HOME.test(code) || CODE_ROOT.test(code)) return true
+  const roots = new Set([...REAL_ROOT, (o.cwd.split('/')[1] ?? '').toLowerCase(), ((o.home ?? '').split('/')[1] ?? '').toLowerCase()])
+  let n = 0
+  for (const m of code.matchAll(CODE_PATH)) {
+    const s = m[1]!
+    if (!s.startsWith('~') && !roots.has(s.split('/')[1]!.toLowerCase())) continue
+    // 터무니없이 많으면 하나씩 보지 않는다
+    if (++n > 400 || touchesOutside(s, o)) return true
+  }
+  for (const s of pyLineStrings(code)) {
+    if (/^\/[._0-9\/]\S*$/.test(s) && (++n > 400 || touchesOutside(s, o))) return true
+    for (const t of s.split(/\s+/)) {
+      if (!(/^~[\w.-]*(\/|$)/.test(t) || t === '..' || t.startsWith('../') || t.includes('/../') || t.endsWith('/..'))) continue
+      if (++n > 400 || touchesOutside(t, o)) return true
+    }
+  }
+  return false
+}
+
+export function commandKind(cmd0: string, o: Where, depth = 0): ChatKind {
+  // 확실한 히어독(certainHeredoc)을 cat 이나 python 이 받으면 본문은 셸 명령이 아니다 (11/26 "heredoc 본문 오탐"): 본문을 빼고 판정한다.
+  // cat 은 본문을 자료로 받는다(받는 줄에 | 가 있으면 본문이 다른 프로그램으로 가므로 빼지 않는다). python 은 코드로 받는다: 셸 글로 읽지 않고
+  // 폴더 밖을 가리키는 글만 본다(codeTouchesOutside). 그 밖의 프로그램(sh · bash · tee · 묶음 …)과 확실하지 않은 꼴은 전처럼 본문도 읽는다.
+  // 쓴 파일을 뒤에서 돌리는 것(cat > x.sh <<E … ; sh x.sh)은 쓰기 도구로 쓰고 돌리는 것과 같다: 파일의 내용은 여기서 보지 않는다
+  let cmd = cmd0
+  let code: ChatKind = 'read'
+  for (let n = 0; depth === 0 && n < 20; n++) {
+    const hd = certainHeredoc(cmd)
+    // 다른 프로그램을 돌리는 python 코드(os.system · subprocess · exec …)는 문자열 속 셸 글이 실제로 돈다: 빼지 않고 전처럼 읽는다
+    if (!hd || (hd.prog === 'cat' && hd.piped) || (hd.prog === 'python' && CODE_SPAWNS.test(hd.body))) break
+    if (hd.prog === 'python' && codeTouchesOutside(hd.body, o)) code = 'outside'
+    cmd = hd.rest ? `${hd.head}\n${hd.rest}` : hd.head
+  }
   let kind = kindCore(cmd, o, depth)
+  if (WEIGHT[code] > WEIGHT[kind]) kind = code
   // 히어독으로도 읽어 보고 무거운 쪽을 쓴다 (본문의 따옴표가 뒤 명령을 가리는 꼴, 본문에서 펼쳐지는 $( … ))
   // (겹친 깊이마다 여러 번 읽으면 일이 곱절로 불어나므로 바깥 몇 겹에서만. 안쪽의 히어독은 바깥에서 읽을 때 함께 읽힌다)
   for (const alt of depth < 3 ? heredocVariants(cmd).slice(0, depth === 0 ? 4 : 1) : []) {

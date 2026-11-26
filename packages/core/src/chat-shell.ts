@@ -166,6 +166,57 @@ function heredocQuotes(cmd: string, skip: number): string | null {
   return skip > 0 && seen <= skip ? null : out + cmd.slice(pos)
 }
 
+/** << 앞과 받는 줄에 쓸 수 있는 글자: 따옴표 · 역슬래시 · 주석 · 치환 · 괄호 · 묶음 · 대괄호 · = 와 아스키가 아닌 글자(다른 빈칸 포함)는 없다 */
+const PLAIN = /^[A-Za-z0-9 \t\n_.\/:,@%+~<>&|;-]*$/
+/** << 앞에 올 수 있는 명령: 뒤의 cat · python 이 무엇을 돌리는지(별칭 · 함수 · 찾는 길)를 바꾸지 못하는 것만 */
+const BEFORE_OK = /^(cd|mkdir|ls|pwd|wc|head|tail|cat|cp|mv|touch|true|echo|sleep|git|pnpm|node|python3?|perl)$/
+const SET_OK = /^set(?: -[eux]+)*(?: -o pipefail)?$/
+/** python 이 본문을 코드로 받는 꼴: 인자가 없거나 - · 짧은 옵션뿐 (-m 모듈 · 파일 인자는 본문을 다르게 쓸 수 있다) */
+const PYTHON_HEAD = /^python3?(?:[ \t]+-[IuBsSE]+)*(?:[ \t]+-)?$/
+/** python 을 받는 줄에서 << 구분자 뒤: 돌려보내기 몇 개 뒤에 줄 끝이나 이음 (뒤에 붙은 낱말은 python 의 인자가 된다) */
+const PYTHON_TAIL = /^(?:[ \t]*(?:[12]?>>?[ \t]*[\w.\/~@%+:,-]+|2>&1))*[ \t]*(?:$|[|&;])/
+
+/**
+ * 확실한 히어독 (11/26 "heredoc 본문 오탐"): 글의 첫 << 가 틀림없이 히어독이고 본문을 받는 것이 틀림없이 cat 이나 python 일 때만 본문을
+ * 갈라 준다. heredocVariants는 << 가 히어독인지 다 알 수 없어 본문도 명령으로 읽게 하는데, 그러면 본문에 든 소스 글이 무겁게 읽힌다.
+ * 틀림없다 = 아래가 모두 맞을 때이고, 하나라도 어긋나면 null (받는 쪽은 전처럼 읽는다):
+ * - << 앞의 글 전체와 받는 줄의 나머지가 PLAIN 글자뿐이다: << 는 따옴표 · 주석 · 치환 · 묶음 안일 수 없다. 구분자 뒤의 다른 빈칸(\\r · \\f …)은
+ *   셸에게 구분자의 글자라 본문 끝이 달라진다 (11/26 검토)
+ * - << 앞에도 받는 줄의 나머지에도 & · | 가 붙은 돌려보내기(>| · >& · &>)가 없다(2>&1 만 둔다): 그 글자를 이음으로 읽으면 받는 명령과
+ *   그 인자를 잘못 짚는다 (`sh >| cat <<E` · `python3 <<E &>f -m 모듈`)
+ * - << 앞의 명령은 모두 BEFORE_OK(또는 set -e 류)로 시작한다: 별칭 · 함수 · 묶음으로 cat 을 바꾸거나 출력을 뒤로 잇지 못한다
+ * - 받는 명령은 cat 으로 시작하거나 PYTHON_HEAD 꼴이고(python 은 뒤도 PYTHON_TAIL), 받는 줄에 << 가 하나뿐이다
+ * - 구분자는 낱말 하나('E' · "E" · E)이고 본문 끝 줄(구분자와 똑같은 줄, <<- 는 앞의 탭만 뗀다)이 있다.
+ *   구분자에 따옴표가 없으면 본문이 펼쳐지므로 본문에 $ · ` · \\ 가 없을 때만
+ * head = 본문 앞까지(받는 줄의 << 구분자는 </dev/null 로 바꿨다: 다시 히어독으로 읽히지 않게), body = 본문, rest = 끝 줄 뒤의 글,
+ * prog = 'cat' | 'python', piped = 받는 줄에서 << 뒤로 | 가 있는지 (cat 의 출력, 곧 본문이 다른 프로그램으로 간다)
+ */
+export function certainHeredoc(cmd: string): { head: string; body: string; rest: string; prog: 'cat' | 'python'; piped: boolean } | null {
+  const at = cmd.indexOf('<<')
+  if (at < 0 || cmd[at + 2] === '<') return null
+  const before = cmd.slice(0, at)
+  if (!PLAIN.test(before) || /[<>][|&]|[|&][<>]/.test(before)) return null
+  const nl = cmd.indexOf('\n', at)
+  if (nl < 0) return null
+  const m = /^<<(-?)[ \t]*(?:'([A-Za-z_]\w*)'|"([A-Za-z_]\w*)"|([A-Za-z_]\w*))(?=[ \t;&|<>]|$)/.exec(cmd.slice(at, nl))
+  if (!m) return null
+  const tail = cmd.slice(at + m[0].length, nl)
+  // 받는 줄의 나머지에도 & · | 가 붙은 돌려보내기는 없어야 한다(2>&1 만 둔다): `python3 <<E &>f -m 모듈` 의 & 는 이음이 아니라 뒤가 python 의 인자다
+  if (!PLAIN.test(tail) || tail.includes('<<') || /[<>][|&]|[|&][<>]/.test(tail.replace(/2>&1/g, ''))) return null
+  const commands = before.split(/&&|\|\||[;&|\n]/).map((x) => x.trim())
+  const receiver = commands.pop() ?? ''
+  if (!commands.every((c) => !c || BEFORE_OK.test(c.split(/[ \t]/)[0]!) || SET_OK.test(c))) return null
+  const prog = /^cat(?=[ \t]|$)/.test(receiver) ? 'cat' : PYTHON_HEAD.test(receiver) && PYTHON_TAIL.test(tail) ? 'python' : null
+  if (!prog) return null
+  const delim = m[2] ?? m[3] ?? m[4]!
+  const lines = cmd.slice(nl + 1).split('\n')
+  const end = lines.findIndex((l) => (m[1] ? l.replace(/^\t+/, '') : l) === delim)
+  if (end < 0) return null
+  const body = lines.slice(0, end).join('\n')
+  if (m[4] !== undefined && /[$`\\]/.test(body)) return null
+  return { head: `${before}</dev/null${tail}`, body, rest: lines.slice(end + 1).join('\n'), prog, piped: /(^|[^|])\|(?!\|)/.test(tail) }
+}
+
 /**
  * 판정하기 전에 글을 셸이 읽는 대로 고쳐 쓴다 (11/25 검토). 다른 판정은 「'」가 따옴표를 열고 다음 「'」에서 닫힌다고만 읽으므로,
  * 셸이 다르게 읽는 자리에서는 따옴표의 짝이 어긋나 그 사이의 명령이 따옴표 안으로 숨는다:
