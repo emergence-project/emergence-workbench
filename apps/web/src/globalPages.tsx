@@ -20,6 +20,7 @@ import { PaperRead } from './PaperRead'
 import { ReposPage, ReposRailCount } from './ReposPage'
 import { FiguresPage, FiguresSide, figureListFilter } from './FiguresPage'
 import { NetworkPage, NetworkRailCount, NetworkSide } from './NetworkPage'
+import { FiguresRailCount, LibraryRailCount } from './LibraryRailCounts'
 import { SettingsPage, SettingsSide } from './SettingsPage'
 import { AgentScreen } from './phone/PhoneChats'
 import { PhoneProjects } from './phone/PhoneProjects'
@@ -78,6 +79,7 @@ export const GLOBAL_PAGES: {
     render: (p) => p.route.page === 'library' && isListRoute(p.route)
       ? <KnowledgeList info={p.library} filters={{ subjectPrefix: p.route.subjectPrefix, issue: p.route.issue, check: p.route.check, showEmpty: p.route.showEmpty }} rightOpen={p.rightOpen} onChanged={p.onLibraryChanged} onSaved={p.onSaved} />
       : <LibraryPage info={p.library} topic={p.route.page === 'library' ? p.route.topic : undefined} rightOpen={p.rightOpen} onChanged={p.onLibraryChanged} onSaved={p.onSaved} />,
+    badge: () => <LibraryRailCount />,
   },
   // 지식 지도 (10/6: 지식 화면의 보기 단추에서 띠의 페이지로 자리만 옮김, requirements §8.1 "라이브러리 목록 화면 · 지도")
   {
@@ -107,7 +109,8 @@ export const GLOBAL_PAGES: {
     right: (r) => r.page === 'figures' && !r.open && !isListRoute(r),
     render: (p) => (p.route.page === 'figures' && !p.route.open && !isListRoute(p.route)
       ? <FiguresHome info={p.library} rightOpen={p.rightOpen} onSaved={p.onSaved} />
-      : <FiguresPage filter={p.route.page === 'figures' ? p.route.filter : undefined} open={p.route.page === 'figures' ? p.route.open : undefined} onSaved={p.onSaved} />) },
+      : <FiguresPage filter={p.route.page === 'figures' ? p.route.filter : undefined} open={p.route.page === 'figures' ? p.route.open : undefined} onSaved={p.onSaved} />),
+    badge: () => <FiguresRailCount /> },
   // 저자와 소속을 설정에서 옮겨 왔다 (10/4 피드백). 사이드바에 사람, 사람마다 노트 참고 문헌의 논문
   { page: 'network', label: '네트워킹', name: t('네트워킹', 'Networking'), aria: t('네트워킹', 'Networking'), tip: t('네트워킹 — 저자와 소속, 공동 연구자들', 'Networking: authors, affiliations and collaborators'), icon: Icon.network, rail: 'top',
     side: (p) => <NetworkSide person={p.route.page === 'network' ? p.route.person : undefined} onSaved={p.onSaved} />,

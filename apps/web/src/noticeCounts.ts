@@ -20,17 +20,26 @@ export const NETWORK = '_network'
 /** 첫 화면의 숫자와 같은 요청. 라이브러리 폴더가 없으면 실패하고 그 줄은 없다 */
 const SLOW = { staleTime: 60_000, refetchInterval: 5 * 60_000, retry: false } as const
 
-export function useNoticeCounts(): Omit<Notice, 'key'>[] {
+/** 지식 라이브러리의 점검: 점검 전 · 점검 뒤 바뀜 · 검토할 초안 개념노트와 에이전트의 고침 (레일 수와 종이 같은 값을 쓴다) */
+export function useKnowledgeCheckCount() {
   const concepts = useQuery({ queryKey: ['notice-counts', 'concepts'], queryFn: () => conceptsApi.brief(1), ...SLOW }).data
-  const figures = useQuery({ queryKey: ['notice-counts', 'figures'], queryFn: () => figuresApi.brief(1), ...SLOW }).data
-  const papers = useQuery({ queryKey: ['notice-counts', 'papers'], queryFn: () => papersApi.brief(1), ...SLOW }).data
   const edits = useAgentEdits('library').data
+  return (concepts ? concepts.check.unchecked.count + concepts.check.changedAfterCheck.count + concepts.check.draftsToReview.count : 0) + (edits ? edits.reviews.length + edits.attempts.length : 0)
+}
+
+/** 그림으로 못 바꾼 tikz 수 */
+export function useBrokenFigureCount() {
+  return useQuery({ queryKey: ['notice-counts', 'figures'], queryFn: () => figuresApi.brief(1), ...SLOW }).data?.check.broken ?? 0
+}
+
+export function useNoticeCounts(): Omit<Notice, 'key'>[] {
+  const papers = useQuery({ queryKey: ['notice-counts', 'papers'], queryFn: () => papersApi.brief(1), ...SLOW }).data
   const suggestedNames = useNewSuggestions()
   const suggested = suggestedNames.length
   const repos = useReposDiffCount()
   const about = useAboutUncheckedCount()
-  const knowledge = (concepts ? concepts.check.unchecked.count + concepts.check.changedAfterCheck.count + concepts.check.draftsToReview.count : 0) + (edits ? edits.reviews.length + edits.attempts.length : 0)
-  const broken = figures?.check.broken ?? 0
+  const knowledge = useKnowledgeCheckCount()
+  const broken = useBrokenFigureCount()
   const answered = papers?.check.answered ?? 0
   return useMemo(() => [
     { kind: 'check', need: true, place: LIBRARY_RID, n: knowledge, text: t(`점검할 개념노트 ${knowledge}개`, `${knowledge} concept note(s) to check`), open: () => go({ page: 'library' }) },
