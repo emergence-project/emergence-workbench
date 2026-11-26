@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { SendArea } from './SendArea'
 import { useQuery } from '@tanstack/react-query'
 import type { AboutPart } from './aboutContent'
 import { sectionAnchor } from './aboutContent'
@@ -147,11 +148,8 @@ function FixBox({ quote, label, onSend, onClose }: { quote?: string; label: stri
   return (
     <div className="about-hist-box" data-ui="고칠 점 칸" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
       {quote && <div className="about-hist-quote">{quote}</div>}
-      <textarea rows={2} autoFocus aria-label={label} placeholder={quote ? t('이 문장에서 고칠 점', 'What to fix in this sentence') : label} value={v} onChange={(e) => setV(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void go() }
-          else if (e.key === 'Escape') { e.preventDefault(); onClose() }
-        }} />
+      <SendArea rows={2} autoFocus aria-label={label} placeholder={quote ? t('이 문장에서 고칠 점', 'What to fix in this sentence') : label} value={v} onChange={(e) => setV(e.target.value)} onSend={() => void go()}
+        onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); onClose() } }} />
       <div className="about-hist-box-bar">
         <span className="muted">{t('⌘↵ 보내기 · Esc 닫기', '⌘↵ send · Esc close')}</span>
         <span className="sp" />

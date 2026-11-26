@@ -6,7 +6,7 @@ import { CodeBlock } from './CodeBlock'
 import { journalWhen } from './format'
 import { go } from './router'
 import { onListKey } from './listInput'
-import { isSendKey } from './cmdEnter'
+import { SendBox } from './SendArea'
 import { Icon } from './icons'
 import { askConfirm } from './askText'
 import { journalDeletePrompt, journalEntryActions } from './journalActions'
@@ -99,10 +99,9 @@ export function MemoComposer({ target, targetLabel, autoFocus, compact, keepDraf
   }
   const has = text.trim() !== ''
   return (
-    <div className={`memo${compact ? ' compact' : ''}${has ? ' has-text' : ''}`} data-ui="메모 입력" onKeyDown={(e) => {
+    <SendBox className={`memo${compact ? ' compact' : ''}${has ? ' has-text' : ''}`} data-ui="메모 입력" onSend={() => void save()} onKeyDown={(e) => {
       // ⌘↵ · Esc는 칸 전체에서: 할 일로 단추로 옮겨 간 뒤에도 (11/19 피드백 09:04)
-      if (isSendKey(e)) { e.preventDefault(); void save() }
-      else if (e.key === 'Escape' && !e.nativeEvent.isComposing) onEscape?.()
+      if (e.key === 'Escape' && !e.nativeEvent.isComposing) onEscape?.()
     }}>
       <textarea ref={ta} rows={compact ? 1 : 3} value={text} aria-label={t('메모', 'Memo')}
         placeholder={compact ? t(`${targetLabel}에 메모 — 생각, 의문, 다음 할 일 (- 목록, $수식$)`, `Memo on ${targetLabel}: thoughts, doubts, next steps (- list, $math$)`) : t('떠오른 생각을 적고 ⌘↵ — Esc로 닫기. - 로 목록, $…$로 수식', 'Write a thought and press ⌘↵. Esc closes. - for a list, $…$ for math')}
@@ -118,7 +117,7 @@ export function MemoComposer({ target, targetLabel, autoFocus, compact, keepDraf
           <svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6" /></svg>
         </button>
       </div>
-    </div>
+    </SendBox>
   )
 }
 
@@ -187,7 +186,7 @@ function MemoItem({ e, rid, noteOf, onToggle, onEdit, onDelete, hideTodoKind }: 
       {e.kind === 'todo'
         ? <button className={`mi-icon todo${e.done ? ' done' : ''}`} aria-label={`${e.done ? t('할 일 되돌리기', 'Mark to-do undone') : t('할 일 완료', 'Complete to-do')}: ${short(e.text)}`} onClick={() => onToggle(e)}>{e.done && Icon.check}</button>
         : <span className={`mi-icon ${e.kind === 'status' ? 'status' : 'note'}`} />}
-      <div onKeyDown={draft === null ? undefined : (ev) => { if (ev.key === 'Escape') setDraft(null); if (isSendKey(ev)) save() }}>
+      <SendBox onSend={() => { if (draft !== null) save() }} onKeyDown={(ev) => { if (draft !== null && ev.key === 'Escape') setDraft(null) }}>
         {draft !== null
           ? <textarea className="mi-edit" autoFocus value={draft} rows={Math.min(8, draft.split('\n').length + 1)} onChange={(ev) => setDraft(ev.target.value)} />
           : <div className="mi-text"><MemoText text={e.text} /></div>}
@@ -203,7 +202,7 @@ function MemoItem({ e, rid, noteOf, onToggle, onEdit, onDelete, hideTodoKind }: 
                 {deletable && onDelete && <button className="icon-btn" data-tip={t('삭제', 'Delete')} aria-label={`${t('삭제', 'Delete')}: ${short(e.text)}`} onClick={() => void askConfirm(journalDeletePrompt(e)).then((y) => { if (y) onDelete(e) })}>{Icon.trash}</button>}
               </span>}
         </div>
-      </div>
+      </SendBox>
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { syncEveryLabel } from '@rw/core'
+import { SendArea } from './SendArea'
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { api, FEEDBACK_EVENT, records, type FeedbackItem, type FeedbackPickableKind, type FeedbackState } from './api'
 import { uiShown } from './uiNames'
@@ -412,8 +413,8 @@ function Say({ e, s, n, latestHandling, locked, undo }: { e: FeedbackItem; s: Th
       {editing
         ? (
           <div className="fbp-text">
-            <textarea className="fbp-input" autoFocus value={draft} onChange={(ev) => setDraft(ev.target.value)}
-              onKeyDown={(ev) => { if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); save() } else if (ev.key === 'Escape') setEditing(false); else onListKey(ev, setDraft) }} />
+            <SendArea className="fbp-input" autoFocus value={draft} onChange={(ev) => setDraft(ev.target.value)} onSend={save}
+              onKeyDown={(ev) => { if (ev.key === 'Escape') setEditing(false); else onListKey(ev, setDraft) }} />
             <span className="fbp-edit on">
               <button className="btn" onClick={() => setEditing(false)}>{t('취소', 'Cancel')}</button>
               <button className="btn primary tip-end" disabled={!draft.trim()} data-tip={t('저장 (⌘↵)', 'Save (⌘↵)')} onClick={save}>{t('저장', 'Save')}</button>
@@ -499,8 +500,8 @@ export function FeedbackText({ e, locked, onChanged }: { e: Pick<FeedbackItem, '
   }
   return (
     <div className="fbp-text">
-      <textarea className="fbp-input" autoFocus value={draft} onChange={(ev) => setDraft(ev.target.value)}
-        onKeyDown={(ev) => { if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); if (draft.trim()) save(draft) } else if (ev.key === 'Escape') cancel(); else onListKey(ev, setDraft) }} />
+      <SendArea className="fbp-input" autoFocus value={draft} onChange={(ev) => setDraft(ev.target.value)} onSend={() => { if (draft.trim()) save(draft) }}
+        onKeyDown={(ev) => { if (ev.key === 'Escape') cancel(); else onListKey(ev, setDraft) }} />
       <span className="fbp-edit on">
         <span className="segmented small fbp-kind" role="radiogroup" aria-label={t('유형', 'Type')} data-ui="피드백 유형 고르기">
           {PICKABLE.map((k) => <button key={k} type="button" role="radio" className={kind === k ? 'on' : ''} aria-checked={kind === k} onClick={() => setKind(k)}>{kindName(k)}</button>)}
