@@ -343,6 +343,40 @@ try {
     await eventually(() => sent.length > 0, '⌘↵ right after Korean composition did not save the record')
     assert.equal(sent[0].body.text, '기록 글')
   })
+  // 조합 중 ⌘↵를 그 자리에서 바로 보내던 입력란 (11/26): 보내고 입력란을 비운 뒤에 조합이 끝나, 마지막 글자가 빈 입력란에 다시 들어가거나 한 번 더 보내질 수 있었다.
+  // 조합이 끝난 뒤 한 번만 보내고, 보낸 뒤 입력란이 비어 있어야 한다
+  await caseOf('memo-box-is-empty-after-korean-composition-send', async (page) => {
+    const posts = []
+    await page.route(`${base.origin}/api/**`, (route) => {
+      const r = route.request()
+      if (['GET', 'HEAD', 'OPTIONS'].includes(r.method())) return route.fallback()
+      posts.push({ path: new URL(r.url()).pathname, body: r.postDataJSON() })
+      return route.continue()
+    })
+    await page.goto(`${base.href}#/r/${encodeURIComponent(rid)}/log`)
+    await page.locator('[data-ui="기록 거르기"]').getByRole('button', { name: '메모', exact: true }).click()
+    const box = page.locator('[data-ui="기록 화면"] [data-ui="메모 입력"] textarea')
+    await box.click()
+    await page.keyboard.type('조합 뒤 ')
+    await sendKeyWhileComposing(page, '끝')
+    await eventually(() => posts.length > 0, '⌘↵ right after Korean composition did not save the memo')
+    await eventually(async () => (await box.inputValue()) === '', 'The last syllable came back into the emptied memo box')
+    await delay(300)
+    assert.equal(await box.inputValue(), '', 'The last syllable came back into the emptied memo box')
+    assert.deepEqual(posts.map((w) => w.body.text), ['조합 뒤 끝'], 'The memo was not sent exactly once with the whole text')
+  })
+  // 카드 고치기 창(주제 · 프로젝트)은 조합 중인 키를 모두 버려, 한글을 친 직후의 ⌘↵가 저장되지 않았다 (11/26)
+  await caseOf('card-dialog-saves-after-korean-composition', async (page) => {
+    const sent = await catchWrites(page)
+    await page.goto(`${base.href}#/r/${encodeURIComponent(rid)}/t/coloring`)
+    await page.locator('[data-ui="주제 고치기"]').click()
+    const title = page.locator('[data-ui="주제 고치기 창"] input[type="text"], [data-ui="주제 고치기 창"] input:not([type])').first()
+    await title.click()
+    await page.keyboard.press('End')
+    await sendKeyWhileComposing(page, '끝')
+    await eventually(() => sent.length > 0, '⌘↵ right after Korean composition did not save the card dialog')
+    assert.match(JSON.stringify(sent[0].body), /끝/, 'The saved card did not include the last syllable')
+  })
   // 저절로 하는 새로 고침은 적던 글이 있으면 기다린다 (새 화면 · 다시 켜진 서버 둘 다). 글이 없어지면 새로 고친다
   await caseOf('screen-update-waits-for-typed-draft', async (page) => {
     const app = await appStatus(page)

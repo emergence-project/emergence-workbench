@@ -1,4 +1,5 @@
 import { useQueries, useQueryClient } from '@tanstack/react-query'
+import { SendArea } from './SendArea'
 import { useState } from 'react'
 import { agentChatsApi, mockupUrl } from './api'
 import { PictureGallery, type GalleryPicture } from './PictureGallery'
@@ -84,8 +85,8 @@ function MockupSay({ chat, name }: { chat: string; name: string }) {
   if (sent) return <div className="fbp-mockup-decide muted" role="status">{t(`시안 ${name}에 지시를 보냈습니다`, `Sent the instruction on mockup ${name}`)}</div>
   return (
     <div className="fbp-mockup-decide" data-ui="시안 지시">
-      <textarea className="fbp-input" rows={2} value={text} placeholder={t('이 시안에서 고칠 것을 에이전트에게 말하세요', 'Tell the agent what to change in this mockup')} onChange={(ev) => setText(ev.target.value)}
-        onKeyDown={(ev) => { if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); send() } }} />
+      <SendArea className="fbp-input" rows={2} value={text} placeholder={t('이 시안에서 고칠 것을 에이전트에게 말하세요', 'Tell the agent what to change in this mockup')} onChange={(ev) => setText(ev.target.value)}
+        onSend={send} />
       <div className="fbp-mockup-decide-row">
         {error && <span className="error-text">{error}</span>}
         <button type="button" className="btn primary" data-ui="시안 지시 보내기" disabled={busy || !text.trim()} onClick={send}>{t('보내기 (⌘↵)', 'Send (⌘↵)')}</button>

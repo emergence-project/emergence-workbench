@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { SendArea } from './SendArea'
 import { api, type FeedbackItem } from './api'
 import { REPLY } from './feedbackTags'
 import { feedbackConversation } from './feedbackThread'
@@ -96,8 +97,8 @@ export function Decide({ e, name }: { e: FeedbackItem; name: string }) {
   return (
     <div className="fbp-mockup-decide" data-ui="시안 결정">
       {talk && (
-        <textarea className="fbp-input" autoFocus rows={2} value={text} placeholder={t('이 시안에서 이야기할 것', 'What to talk over in this mockup')} onChange={(ev) => setText(ev.target.value)}
-          onKeyDown={(ev) => { if (ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); send('논의') } }} />
+        <SendArea className="fbp-input" autoFocus rows={2} value={text} placeholder={t('이 시안에서 이야기할 것', 'What to talk over in this mockup')} onChange={(ev) => setText(ev.target.value)}
+          onSend={() => send('논의')} />
       )}
       <div className="fbp-mockup-decide-row">
         {error && <span className="error-text">{error}</span>}

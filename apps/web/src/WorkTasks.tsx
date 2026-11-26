@@ -1,4 +1,5 @@
 import type { JournalEntry } from '@rw/core'
+import { SendBox } from './SendArea'
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { ConflictError, taskRules, tasksApi, type NewTask, type OpenTodo, type Task, type TaskDiagnostic, type Topic, type Verdict } from './api'
@@ -373,7 +374,7 @@ export function TaskDialog({ rid, topics, draft: given, onClose, onSaved, reload
       <button className="btn" onClick={onClose}>{t('취소', 'Cancel')}</button>
       <button className="btn primary" disabled={!ready || busy} onClick={() => void submit()} title="⌘↵">{proposal ? t('승인', 'Approve') : t('맡기기', 'Delegate')}</button>
     </>}>
-      <div className="tk-form" onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void submit() } }}>
+      <SendBox className="tk-form" onSend={() => void submit()}>
         {error && <div className="banner danger" role="alert">{error}</div>}
         {proposal ? <>
           <p className="muted tk-form-note">{draft.from?.title} · {t('에이전트가 제안한 종결 조건을 고칩니다. 승인하면 이 조건으로 시작합니다.', 'Edit the completion criteria the agent proposed. Approving starts the task with these criteria.')}</p>
@@ -399,7 +400,7 @@ export function TaskDialog({ rid, topics, draft: given, onClose, onSaved, reload
           <label className="field"><span>{t('참고 자료', 'References')} <em>{t('선택 · 에이전트가 먼저 읽을 노트 · 논문 · 폴더, 한 줄에 하나', 'Optional · notes, papers, or folders the agent reads first, one per line')}</em></span><textarea rows={2} value={refs} onChange={(e) => setRefs(e.target.value)} /></label>
           <label className="field"><span>{t('하지 말 것', "Don't")} <em>{t('선택', 'Optional')}</em></span><input value={avoid} placeholder={t('예: 공개 함수 이름은 바꾸지 않는다', 'Example: do not rename public functions')} onChange={(e) => setAvoid(e.target.value)} /></label>
         </>}
-      </div>
+      </SendBox>
     </Dialog>
   )
 }

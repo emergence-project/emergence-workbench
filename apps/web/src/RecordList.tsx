@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { isSendKey, useCmdEnter } from './cmdEnter'
+import { useCmdEnter } from './cmdEnter'
+import { SendBox } from './SendArea'
 import { Author } from './Author'
 import { LIBRARY_RID, splitNoteFixes } from '@rw/core'
 import { agentChatsApi, commentsApi, type ChatRow, type CommentEntry, type CommentKind, type RecordFile } from './api'
@@ -187,7 +188,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
       {todoText && <div className="record-part" title={todoText}>{Icon.todo}<span>{t('할 일', 'To-do')} “{todoText.split('\n')[0]}”</span></div>}
       {c.part && <div className="record-part" title={c.part}>{Icon.point}<span>{uiShown(c.part)}{c.partText && ` “${c.partText}”`}</span></div>}
       {c.quote && <blockquote className="record-quote" style={c.color ? { borderColor: `var(--paint-${c.color})` } : undefined}>{c.quote}</blockquote>}
-      {edit ? <div className="record-edit" onKeyDown={(e) => { if (isSendKey(e)) { e.preventDefault(); void save() } else if (e.key === 'Escape') setEdit(null) }}>
+      {edit ? <SendBox className="record-edit" onSend={() => void save()} onKeyDown={(e) => { if (e.key === 'Escape') setEdit(null) }}>
         {conflict && <div className="record-conflict" role="alert"><p>{t('다른 곳에서 글을 고쳤습니다. 새 글을 확인한 뒤 적던 글로 저장할 수 있습니다.', 'The text was edited elsewhere. Review the new text, then you can save yours.')}</p><MemoText text={c.body} /><button className="btn sm" disabled={busy} onClick={() => setEdit({ ...edit, original: c.body, hash })}>{t('새 글 확인함', 'Reviewed new text')}</button></div>}
         <textarea autoFocus aria-label={t('기록 수정', 'Edit record')} rows={3} value={edit.text} disabled={busy} onChange={(e) => setEdit({ ...edit, text: e.target.value })}
           onKeyDown={(e) => onListKey(e, (text) => setEdit({ ...edit, text }))} />
@@ -195,7 +196,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
           {kindEditable && <div className="segmented small" role="group" aria-label={t('기록 종류', 'Record kind')} data-ui="기록 종류 바꾸기">{editKinds(kind).map((k) => <button key={k} type="button" className={editKind === k ? 'on' : ''} aria-pressed={editKind === k} disabled={busy} onClick={() => setEditKind(k)}>{kindLabel(k)}</button>)}</div>}
           <span className="sp" />
           <button className="btn sm" disabled={busy} onClick={() => setEdit(null)}>{t('취소', 'Cancel')}</button><button className="btn primary sm" disabled={busy || conflict || !edit.text.trim()} onClick={() => void save()}>{t('저장', 'Save')}</button></div>
-      </div> : <div className="record-body"><MemoText text={c.body} /></div>}
+      </SendBox> : <div className="record-body"><MemoText text={c.body} /></div>}
       <div className="record-meta">
         <span className="record-meta-left">
           {/* 붙은 곳 링크 (10/18): 누르면 그 노트 · 화면을 열고 본문의 그 자리로 간다. 프로젝트에 붙은 기록은 갈 곳이 없어 기록 탭에서만 이름을 적는다(사이드바는 묶음 이름이 위에 있다) */}
