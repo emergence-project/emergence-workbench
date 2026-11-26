@@ -201,6 +201,8 @@ function ghRule(table: Record<string, Rule>): Rule {
     return a[0] === 'api' ? ghApi(a.slice(1)) : ghSub(table)(a)
   }
 }
+/** gh 로 읽기만 하는 명령인가 (낱말로): 보기 · 목록 · GET. 중앙의 판정과 「웹 보기」로 가볍게 보는 판정(chat-gh.ts)이 같은 표를 쓴다 */
+export const ghReads: Rule = ghRule(GH)
 const PKG: Record<string, Rule> = { ls: any, list: any, view: any, info: any, why: any, outdated: any, root: any }
 
 /**
@@ -366,7 +368,7 @@ const PROGRAMS: Record<string, Rule> = {
   defaults: (a) => /^(read|domains)$/.test(a[0] ?? ''),
   command: (a) => /^-[vV]$/.test(a[0] ?? ''),
   git: gitRule(GIT),
-  gh: ghRule(GH),
+  gh: (a) => ghReads(a),
   npm: (a) => versionOnly(a) || sub(PKG)(a),
   pnpm: (a) => versionOnly(a) || sub(PKG)(a),
   yarn: (a) => versionOnly(a) || sub({ list: any, info: any, why: any })(a),

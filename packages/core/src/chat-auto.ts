@@ -4,6 +4,7 @@
  * 서버의 허락 판정(agentChats.ts judge)과 화면의 토글(AgentChats.tsx)이 함께 쓴다.
  */
 import { alternatives, certainHeredoc, evalFlags, expandBraces, expandWords, hasBraces, heredocVariants, longOpt, qualifierRuns, qualifiers, redirects, segments, splitGroups, substitutions, unmask, words } from './chat-shell.js'
+import { ghReadRemoved } from './chat-gh.js'
 import { uniqNames } from './chat-readonly.js'
 import { sedWrites } from './chat-sed.js'
 import { codeSpawns, codeTouchesOutside } from './chat-pycode.js'
@@ -170,6 +171,14 @@ export function commandKind(cmd0: string, o: Where, depth = 0): ChatKind {
     if (hd.prog === 'python' && codeTouchesOutside(hd.body, o, (p) => touchesOutside(p, o))) code = 'outside'
     cmd = hd.rest ? `${hd.head}\n${hd.rest}` : hd.head
   }
+  // 확실한 gh 읽기 명령(ghReadRemoved)은 「외부」가 아니라 「웹 보기」다 (11/26): 그 명령만 빼고 나머지를 전처럼 판정한다
+  let ghRead = false
+  for (let n = 0; depth === 0 && n < 8; n++) {
+    const without = ghReadRemoved(cmd)
+    if (without === null) break
+    cmd = without
+    ghRead = true
+  }
   let kind = kindCore(cmd, o, depth)
   if (WEIGHT[code] > WEIGHT[kind]) kind = code
   // 히어독으로도 읽어 보고 무거운 쪽을 쓴다 (본문의 따옴표가 뒤 명령을 가리는 꼴, 본문에서 펼쳐지는 $( … ))
@@ -178,6 +187,9 @@ export function commandKind(cmd0: string, o: Where, depth = 0): ChatKind {
     const other = kindCore(alt, o, depth)
     if (WEIGHT[other] > WEIGHT[kind]) kind = other
   }
+  // 나머지가 읽기뿐일 때만 「웹 보기」다. 다른 일(실행 · 편집 · 삭제)이 이어진 줄은 전처럼 「외부」로 둔다:
+  // 한 줄의 판정은 하나라, 「웹 보기」로 올리면 웹 보기만 켠 대화에서 그 실행 · 편집까지 묻지 않고 지나간다 (gh pr view 1; sh f)
+  if (ghRead) return kind === 'read' ? 'web' : 'outside'
   return kind
 }
 

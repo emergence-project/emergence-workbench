@@ -407,6 +407,11 @@ function judgeCommand(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
     const prog = missing[0] ?? runProgram(cmd)
     return { kind: 'ask', summary, key: `run:${prog}`, label: t(`실행 · ${prog}`, `Run · ${prog}`), does }
   }
+  // gh 로 읽기만 하는 명령 (11/26): 웹 검색 · 페이지 읽기와 같이 「웹 보기」 토글을 따른다. 그 줄의 나머지는 읽기뿐이라(commandKind) 읽기도 켜져 있어야 묻지 않는다
+  if (does === 'web') {
+    if (!auto.web) return { kind: 'ask', summary, key: 'web', label: t('웹 보기', 'Web'), does, turnOn: 'web' }
+    return auto.read ? { kind: 'allow' } : { kind: 'ask', summary, key: 'read', label: t('읽기', 'Read'), does: 'read', turnOn: 'read' }
+  }
   return { kind: 'ask', summary, key: `${does}:${cmd}`, label: t(`외부 · ${what}`, `Outside · ${what}`), does: 'outside', once: true }
 }
 
@@ -431,6 +436,11 @@ function judgeAuto(ctx: PolicyCtx, cmd: string, summary: string, on: Pick<ChatAu
   if (crit) return once('outside', t(crit.ko, crit.en))
   if (ctx.scope.kind === 'app' && FROZEN_INSTALL.test(cmd) && cmd.includes('--frozen-lockfile')) return { kind: 'allow' }
   if (anywhere === 'outside') return once('outside', t('외부', 'Outside'))
+  // gh 로 읽기만 하는 명령 (11/26): 「웹 보기」 토글을 따른다 (자동 모드는 켜져 있다)
+  if (anywhere === 'web') {
+    if (!autoNow(ctx).web) return { kind: 'ask', summary, key: 'web', label: t('웹 보기', 'Web'), does: 'web', turnOn: 'web' }
+    return on.read ? { kind: 'allow' } : { kind: 'ask', summary, key: 'read', label: t('읽기', 'Read'), does: 'read', turnOn: 'read' }
+  }
   if (anywhere === 'read') return on.read ? { kind: 'allow' } : { kind: 'ask', summary, key: 'read', label: t('읽기', 'Read'), does: 'read', turnOn: 'read' }
   // 편집 · 실행이 작업 폴더 밖 경로를 건드리면 묻는다 (고치기는 이 대화의 작업 폴더 안에서만, 함께 읽는 폴더도 고치지 않는다)
   if (commandKind(cmd, { cwd: ctx.repo, home: os.homedir(), inside: (abs) => abs === ctx.repo || isInside(ctx.repo, abs) }) === 'outside') return once('outside', t('폴더 밖', 'Outside the folder'))

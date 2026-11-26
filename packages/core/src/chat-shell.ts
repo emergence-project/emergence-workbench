@@ -167,10 +167,10 @@ function heredocQuotes(cmd: string, skip: number): string | null {
 }
 
 /** << 앞과 받는 줄에 쓸 수 있는 글자: 따옴표 · 역슬래시 · 주석 · 치환 · 괄호 · 묶음 · 대괄호 · = 와 아스키가 아닌 글자(다른 빈칸 포함)는 없다 */
-const PLAIN = /^[A-Za-z0-9 \t\n_.\/:,@%+~<>&|;-]*$/
+export const PLAIN = /^[A-Za-z0-9 \t\n_.\/:,@%+~<>&|;-]*$/
 /** << 앞에 올 수 있는 명령: 뒤의 cat · python 이 무엇을 돌리는지(별칭 · 함수 · 찾는 길)를 바꾸지 못하는 것만 */
-const BEFORE_OK = /^(cd|mkdir|ls|pwd|wc|head|tail|cat|cp|mv|touch|true|echo|sleep|git|pnpm|node|python3?|perl)$/
-const SET_OK = /^set(?: -[eux]+)*(?: -o pipefail)?$/
+export const BEFORE_OK = /^(cd|mkdir|ls|pwd|wc|head|tail|cat|cp|mv|touch|true|echo|sleep|git|pnpm|node|python3?|perl)$/
+export const SET_OK = /^set(?: -[eux]+)*(?: -o pipefail)?$/
 /** python 이 본문을 코드로 받는 꼴: 인자가 없거나 - · 짧은 옵션뿐 (-m 모듈 · 파일 인자는 본문을 다르게 쓸 수 있다) */
 const PYTHON_HEAD = /^python3?(?:[ \t]+-[IuBsSE]+)*(?:[ \t]+-)?$/
 /** python 을 받는 줄에서 << 구분자 뒤: 돌려보내기 몇 개 뒤에 줄 끝이나 이음 (뒤에 붙은 낱말은 python 의 인자가 된다) */
