@@ -39,8 +39,11 @@ export function writeServerConfig(dir: string, c: Omit<ServerConfig, 'secret' | 
   return cfg
 }
 
-/** 피드백 돕기를 켠 맥 하나 (서버가 본 값). queued = 맡겼고 아직 답으로 보내지 않음, sent = 지난 답으로 보냄 (다음 알림의 busy에 아직 없을 수 있다) */
-interface Helper { slots: number; busy: number; keys: string[]; queued: string[]; sent: string[]; at: number }
+/**
+ * 피드백 돕기를 켠 맥 하나 (서버가 본 값). queued = 맡겼고 아직 답으로 보내지 않은 묶음들 (묶음 하나 = 그 맥의 대화 하나),
+ * sent = 지난 답으로 보낸 묶음 (다음 알림의 busy에 아직 없을 수 있다)
+ */
+interface Helper { slots: number; busy: number; keys: string[]; queued: string[][]; sent: string[]; at: number }
 
 /** 걸어 둔 로그아웃 하나. sent = 그 컴퓨터의 알림에 답으로 한 번은 보냈다 */
 interface HeldLogout { at: string; sent?: boolean }
@@ -73,6 +76,8 @@ export class DeviceHub {
   private drops = new Map<string, Set<string>>()
   /** 돕기를 끈 맥에 맡겼지만 보내지 못한 항목 (다음 lapsed가 돌려준다) */
   private orphans = new Map<string, string[]>()
+  /** 답으로 보냈지만 다음 알림에 돌고 있지 않던 항목 (unstarted가 한 번 돌려준다) */
+  private idle: string[] = []
   constructor(private readonly file?: string) { this.logouts = readLogouts(file) }
   private saveLogouts(): void {
     if (!this.file) return
@@ -83,11 +88,14 @@ export class DeviceHub {
     const was = this.helpers.get(rec.name)
     let feedback: string[] = []
     if (helper) {
-      feedback = was?.queued ?? []
-      this.helpers.set(rec.name, { slots: helper.slots, busy: helper.busy, keys: [...helper.keys], queued: [], sent: feedback, at: now })
+      // 한 알림에 묶음 하나만 보낸다 (11/26): 받는 쪽은 받은 항목을 한 대화로 시작하므로, 이어 붙여 보내면 따로 묶은 묶음들이 한 대화가 된다
+      feedback = was?.queued[0] ?? []
+      // 지난 답으로 보낸 항목이 이번 알림에 돌고 있지 않다: 그 맥이 시작하지 못했거나(맡음을 풀어 올린다) 1분 안에 끝냈다
+      if (was) this.idle.push(...was.sent.filter((k) => !helper.keys.includes(k)))
+      this.helpers.set(rec.name, { slots: helper.slots, busy: helper.busy, keys: [...helper.keys], queued: was?.queued.slice(1) ?? [], sent: feedback, at: now })
     } else if (was) {
       this.helpers.delete(rec.name)
-      if (was.queued.length) this.orphans.set(rec.name, [...(this.orphans.get(rec.name) ?? []), ...was.queued])
+      if (was.queued.length) this.orphans.set(rec.name, [...(this.orphans.get(rec.name) ?? []), ...was.queued.flat()])
     }
     this.beats.set(rec.name, { rec: { ...rec, seen: new Date(now).toISOString(), this: false, online: true, ...(helper && { helper: { slots: helper.slots, busy: helper.busy } }) }, at: now })
     const held = this.logouts.get(rec.name)
@@ -117,18 +125,25 @@ export class DeviceHub {
   }
   /** 자리가 남은 돕는 맥 (켜져 있고 가장 많이 남은 것). 없으면 undefined */
   free(now = Date.now()): string | undefined {
-    const room = (h: Helper) => h.slots - Math.max(h.busy, h.keys.length) - h.sent.length - h.queued.length
+    // 자리는 대화 수로 센다 (설정의 「한 번에 n개」): 도는 대화 + 방금 보낸 묶음 + 보낼 묶음. 전에는 항목 수로 세어 항목 셋짜리 묶음 하나가 자리 셋을 썼다
+    const room = (h: Helper) => h.slots - h.busy - (h.sent.length ? 1 : 0) - h.queued.length
     return [...this.helpers.entries()].filter(([, h]) => now - h.at < LIVE_MS && room(h) > 0).sort(([, a], [, b]) => room(b) - room(a))[0]?.[0]
   }
   /** 돕는 맥에 피드백을 맡긴다 (한 대화에 묶을 항목들). 그 맥의 다음 알림 답으로 간다 */
-  assign(name: string, keys: string[]): void { this.helpers.get(name)?.queued.push(...keys) }
+  assign(name: string, keys: string[]): void { if (keys.length) this.helpers.get(name)?.queued.push([...keys]) }
+  /**
+   * 돕는 맥에 보냈지만 그 다음 알림에 돌고 있지 않던 항목. 한 번만 돌려준다.
+   * 서버는 맡긴 것으로 기억한 표시를 지워 다시 맡길 수 있게 한다 (agentFeedbackTick.ts의 pickOne): 그 맥이 맡음을 풀었으면 다시 맡기고,
+   * 풀지 않았으면(1분 안에 끝냈거나 늦게 시작) 맡음이 살아 있는 동안은 다시 맡기지 않는다
+   */
+  unstarted(): string[] { return this.idle.splice(0) }
   /** 늦은(LIVE_MS 동안 알리지 않은) 돕는 맥과 돕기를 끈 맥의 항목: 서버가 그 맥 이름의 맡음을 풀고 다시 맡긴다. 한 번만 돌려준다 */
   lapsed(now = Date.now()): { name: string; keys: string[] }[] {
     const out: { name: string; keys: string[] }[] = []
     for (const [name, h] of this.helpers) {
       if (now - h.at < LIVE_MS) continue
       this.helpers.delete(name)
-      const keys = [...new Set([...h.keys, ...h.sent, ...h.queued])]
+      const keys = [...new Set([...h.keys, ...h.sent, ...h.queued.flat()])]
       if (!keys.length) continue
       out.push({ name, keys })
       this.drops.set(name, new Set([...(this.drops.get(name) ?? []), ...h.keys, ...h.sent]))

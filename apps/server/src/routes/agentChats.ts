@@ -104,7 +104,7 @@ export function registerAgentChats(app: FastifyInstance, ctx: RouteContext, runn
     draft: (c, text) => broadcast({ type: 'agent-draft', research: c.rid, id: c.id, text }),
     ...(appWork && { app: appWork }),
     ...(appWork && others && Object.keys(others).length && { apps: others }),
-    ...(ctx.opts.feedbackDir && { feedback: { dir: ctx.opts.feedbackDir, written: () => ctx.feedbackWritten?.(), ...(claims && { claims }), elsewhere: () => !!remoteServer(ctx.opts), helpers: { free: () => hubOf(ctx).free(), assign: (name, keys) => hubOf(ctx).assign(name, keys) } } }),
+    ...(ctx.opts.feedbackDir && { feedback: { dir: ctx.opts.feedbackDir, written: () => ctx.feedbackWritten?.(), ...(claims && { claims }), elsewhere: () => !!remoteServer(ctx.opts), helpers: { free: () => hubOf(ctx).free(), assign: (name, keys) => hubOf(ctx).assign(name, keys), unstarted: () => hubOf(ctx).unstarted() } } }),
     settings: () => registry.agents,
     accounts: { claude: accounts, codex: codexAccounts },
     // Codex 검토 (11/9): 묻기와 같은 codex exec, 읽기 전용. 예제 · 시험은 실행기의 것

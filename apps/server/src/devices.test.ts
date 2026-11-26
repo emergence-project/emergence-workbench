@@ -164,16 +164,58 @@ describe('서버 (2단계)', () => {
     hub.assign('laptop', ['b'])
     // 자리 둘이 맡긴 것으로 찼다
     expect(hub.free(t0)).toBeUndefined()
-    expect(hub.beat(help(0), t0 + 60_000)).toMatchObject({ feedback: ['a', 'b'], drop: [] })
+    // 따로 맡긴 것은 따로 간다: 한 알림에 한 대화의 몫만 (받는 쪽은 받은 항목을 한 대화로 시작한다)
+    expect(hub.beat(help(0), t0 + 60_000)).toMatchObject({ feedback: ['a'], drop: [] })
     // 보낸 것이 아직 busy에 없어도 자리는 찬 것으로 본다
     expect(hub.free(t0 + 60_000)).toBeUndefined()
-    expect(hub.beat(help(1, ['a', 'b']), t0 + 120_000)).toMatchObject({ feedback: [] })
-    expect(hub.lapsed(t0 + 120_000)).toEqual([])
+    expect(hub.beat(help(1, ['a']), t0 + 120_000)).toMatchObject({ feedback: ['b'] })
+    expect(hub.beat(help(2, ['a', 'b']), t0 + 180_000)).toMatchObject({ feedback: [] })
+    expect(hub.lapsed(t0 + 180_000)).toEqual([])
     // 3분 동안 알리지 않으면 맡은 항목을 한 번 돌려주고, 다시 알리면 멈추라고 한다
-    expect(hub.lapsed(t0 + 120_000 + LIVE_MS)).toEqual([{ name: 'laptop', keys: ['a', 'b'] }])
-    expect(hub.lapsed(t0 + 120_000 + LIVE_MS)).toEqual([])
-    expect(hub.free(t0 + 120_000 + LIVE_MS)).toBeUndefined()
-    expect(hub.beat(help(1, ['a', 'b']), t0 + 130_000 + LIVE_MS)).toMatchObject({ drop: ['a', 'b'] })
+    expect(hub.lapsed(t0 + 180_000 + LIVE_MS)).toEqual([{ name: 'laptop', keys: ['a', 'b'] }])
+    expect(hub.lapsed(t0 + 180_000 + LIVE_MS)).toEqual([])
+    expect(hub.free(t0 + 180_000 + LIVE_MS)).toBeUndefined()
+    expect(hub.beat(help(2, ['a', 'b']), t0 + 190_000 + LIVE_MS)).toMatchObject({ drop: ['a', 'b'] })
+  })
+
+  // 전에는 맡긴 항목을 한 줄로 이어 붙여 보내, 따로 묶은 묶음 둘이 돕는 맥에서 한 대화가 됐고, 자리를 대화 수가 아니라 항목 수로 세었다
+  it('피드백 돕기: 묶음은 묶음대로 한 대화씩 가고, 자리는 대화 수로 센다', () => {
+    const hub = new DeviceHub()
+    const t0 = Date.parse('2026-11-23T10:00:00Z')
+    const help = (busy: number, keys: string[] = []) => ({ ...rec('laptop', ''), helper: { slots: 2, busy, keys } })
+    hub.beat(help(0), t0)
+    hub.assign('laptop', ['a', 'b', 'c'])
+    // 항목 셋짜리 묶음 하나는 대화 하나: 자리 둘 가운데 하나가 남는다
+    expect(hub.free(t0)).toBe('laptop')
+    hub.assign('laptop', ['d'])
+    expect(hub.free(t0)).toBeUndefined()
+    expect(hub.beat(help(0), t0 + 60_000).feedback).toEqual(['a', 'b', 'c'])
+    expect(hub.beat(help(1, ['a', 'b', 'c']), t0 + 120_000).feedback).toEqual(['d'])
+    // 한 대화가 항목 셋을 맡아 도는 중이어도 자리는 하나만 쓴다
+    hub.beat(help(1, ['a', 'b', 'c']), t0 + 180_000)
+    expect(hub.free(t0 + 180_000)).toBe('laptop')
+    // 보내기 전에 늦어지면 묶음에 남아 있던 것도 함께 돌려준다
+    hub.assign('laptop', ['e', 'f'])
+    expect(hub.lapsed(t0 + 180_000 + LIVE_MS)).toEqual([{ name: 'laptop', keys: ['a', 'b', 'c', 'e', 'f'] }])
+  })
+
+  // 전에는 돕는 맥이 받은 항목을 시작하지 못해도(그 맥은 맡음을 풀어 올린다) 서버는 맡긴 것으로만 기억해 다시 맡기지 않았다
+  it('피드백 돕기: 보낸 항목이 다음 알림에 돌고 있지 않으면 한 번 알려 준다 (서버가 다시 맡길 수 있게)', () => {
+    const hub = new DeviceHub()
+    const t0 = Date.parse('2026-11-23T10:00:00Z')
+    const help = (busy: number, keys: string[] = []) => ({ ...rec('laptop', ''), helper: { slots: 2, busy, keys } })
+    hub.beat(help(0), t0)
+    hub.assign('laptop', ['a', 'b'])
+    hub.assign('laptop', ['c'])
+    expect(hub.beat(help(0), t0 + 60_000).feedback).toEqual(['a', 'b'])
+    expect(hub.unstarted()).toEqual([])
+    // 시작하지 못했다: 다음 알림에 그 항목을 맡아 도는 대화가 없다
+    expect(hub.beat(help(0), t0 + 120_000).feedback).toEqual(['c'])
+    expect(hub.unstarted()).toEqual(['a', 'b'])
+    expect(hub.unstarted()).toEqual([])
+    // 돌고 있으면 알리지 않는다
+    hub.beat(help(1, ['c']), t0 + 180_000)
+    expect(hub.unstarted()).toEqual([])
   })
 
   it('피드백 돕기: 맡긴 뒤 보내기 전에 돕기를 끄면 그 항목을 돌려준다', () => {
