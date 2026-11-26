@@ -340,6 +340,46 @@ describe('피드백 대화 돌보기 (설정 › 에이전트 "앱 피드백")',
     expect(stored.merged).toBeUndefined()
     settings = { ...settings, feedback: 'manual' }
   })
+
+  // 전에는 피드백 대화의 PR은 앱이 합친 것만 알았다: 설정이 「합치지 않음」 · 「승인 뒤」여서 사용자가 손으로 합치면
+  // 그 대화는 끝내 합쳐지지 않은 것으로 남아, 고친 파일을 다른 앱 고치기 대화가 못 고치고 반영됨 · 보관 · 작업 폴더 치우기도 오지 않았다
+  it('피드백 대화의 PR을 사용자가 손으로 합쳐도 알아챈다: 합친 것으로 적고, 앱에 들어오면 반영됨', async () => {
+    settings = { ...settings, merge: 'never' }
+    const id = chats.list().find((c) => c.feedback && c.feedback !== REWORK)!.id
+    await idle(id)
+    await chats.appSubmit(id, { title: '본문', body: '' })
+    ci = { done: true, ok: true, link: 'r3' }
+    inApp = false
+    const byApp = merged.length
+    await chats.tickFeedback()
+    expect(chats.get(id).merged).toBeFalsy()
+    userMerged = 'fff0002'
+    await chats.tickFeedback()
+    expect(chats.get(id).merged).toBe('fff0002')
+    expect(merged).toHaveLength(byApp)
+    expect(chats.get(id).shipped).toBeFalsy()
+    inApp = true
+    await chats.tickFeedback()
+    expect(chats.get(id).shipped).toBe(true)
+    userMerged = undefined
+
+    // 다시 맡아 새 PR을 올린 뒤 보관한 대화: 손으로 합친 것은 알아채되 바뀐 때는 그대로 둔다 (같은 항목의 새 대화보다 앞서지 않게)
+    addFeedbackComment(fb, chats.get(id).feedback!, '한 번 더')
+    chats.handOff(chats.get(id).feedback!)
+    await idle(id)
+    await chats.appSubmit(id, { title: '본문 2', body: '' })
+    inApp = false
+    await chats.tickFeedback()
+    expect(chats.get(id).merged).toBeFalsy()
+    chats.archive(id, true)
+    const at = chats.get(id).updated
+    userMerged = 'fff0003'
+    await chats.tickFeedback()
+    inApp = true
+    await chats.tickFeedback()
+    expect(chats.get(id)).toMatchObject({ merged: 'fff0003', shipped: true, archived: true, updated: at })
+    userMerged = undefined
+  })
 })
 
 describe('자동 처리: 쌓인 대기를 한 번에 맡기기 (11/20 22:37 제안)', () => {
