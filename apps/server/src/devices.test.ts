@@ -13,6 +13,8 @@ let tmp = ''
 afterEach(() => { if (tmp) fs.rmSync(tmp, { recursive: true, force: true }) })
 const mk = () => (tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-dev-')))
 const rec = (name: string, seen: string, extra: Partial<DeviceRecord> = {}): DeviceRecord => ({ name, seen, version: 'abc1234', os: 'macOS 26.1', accounts: [{ kind: 'github', name: 'researcher' }, { kind: 'claude', plan: 'Max' }], ...extra })
+/** 로그아웃한 뒤에 남는 계정: 그 컴퓨터의 기본 Claude Code 로그인 */
+const out: DeviceRecord['accounts'] = [{ kind: 'claude', plan: 'Max' }]
 
 describe('기기 정보', () => {
   it('시각만 바뀌었으면 50분이 지나야 다시 쓰고, 계정이 바뀌면 바로 쓴다', () => {
@@ -68,15 +70,59 @@ describe('서버 (2단계)', () => {
     } finally { fs.rmSync(b, { recursive: true, force: true }) }
   })
 
-  it('허브: 3분 안에 알린 기기만 켜짐, 걸어 둔 로그아웃은 다음 알림에 한 번 전한다', () => {
+  it('허브: 3분 안에 알린 기기만 켜짐, 걸어 둔 로그아웃은 다음 알림에 전하고 계정이 빠진 것을 보면 푼다', () => {
     const hub = new DeviceHub()
     const t0 = Date.parse('2026-11-20T10:00:00Z')
     expect(hub.beat(rec('laptop', ''), t0)).toMatchObject({ logout: false })
     hub.requestLogout('laptop')
     expect(hub.live(t0 + 1000)[0]).toMatchObject({ name: 'laptop', online: true, live: true, logout: true })
     expect(hub.beat(rec('laptop', ''), t0 + 60_000)).toMatchObject({ logout: true })
-    expect(hub.beat(rec('laptop', ''), t0 + 120_000)).toMatchObject({ logout: false })
+    expect(hub.beat(rec('laptop', '', { accounts: out }), t0 + 120_000)).toMatchObject({ logout: false })
+    expect(hub.pending('laptop')).toBe(false)
     expect(hub.live(t0 + 120_000 + LIVE_MS)[0]!.online).toBe(false)
+  })
+
+  // 전에는 답을 보내는 순간 지워, 답이 가는 길에 사라지면(연결 끊김 · 시간 초과 · 그 컴퓨터가 답을 읽지 못함) 로그아웃이 없던 일이 됐다
+  it('허브: 답이 전해지지 않아 계정이 그대로면 다음 알림에 다시 전한다', () => {
+    const hub = new DeviceHub()
+    const t0 = Date.parse('2026-11-20T10:00:00Z')
+    hub.requestLogout('laptop')
+    expect(hub.beat(rec('laptop', ''), t0)).toMatchObject({ logout: true })
+    expect(hub.beat(rec('laptop', ''), t0 + 60_000)).toMatchObject({ logout: true })
+    expect(hub.live(t0 + 61_000)[0]).toMatchObject({ logout: true })
+    expect(hub.beat(rec('laptop', '', { accounts: out }), t0 + 120_000)).toMatchObject({ logout: false })
+    // 그 뒤에 다시 로그인한 것은 건드리지 않는다
+    expect(hub.beat(rec('laptop', ''), t0 + 180_000)).toMatchObject({ logout: false })
+  })
+
+  it('허브: 이미 계정이 없는 컴퓨터에도 한 번은 전한다 (계정을 읽지 못해 빈 것일 수 있다)', () => {
+    const hub = new DeviceHub()
+    const t0 = Date.parse('2026-11-20T10:00:00Z')
+    hub.requestLogout('laptop')
+    expect(hub.beat(rec('laptop', '', { accounts: out }), t0)).toMatchObject({ logout: true })
+    expect(hub.beat(rec('laptop', '', { accounts: out }), t0 + 60_000)).toMatchObject({ logout: false })
+  })
+
+  it('허브: 걸어 둔 로그아웃은 파일에 남아 서버를 다시 켜도 전한다', () => {
+    const file = path.join(mk(), 'config', 'device-logouts.json')
+    const t0 = Date.parse('2026-11-20T10:00:00Z')
+    new DeviceHub(file).requestLogout('laptop', t0)
+    const again = new DeviceHub(file)
+    expect(again.pending('laptop')).toBe(true)
+    expect(again.beat(rec('laptop', ''), t0 + 60_000)).toMatchObject({ logout: true })
+    // 보낸 뒤에 다시 켜도 그대로 걸려 있고, 계정이 빠진 것을 보면 파일에서도 지운다
+    expect(new DeviceHub(file).pending('laptop')).toBe(true)
+    expect(new DeviceHub(file).beat(rec('laptop', '', { accounts: out }), t0 + 120_000)).toMatchObject({ logout: false })
+    expect(new DeviceHub(file).pending('laptop')).toBe(false)
+  })
+
+  it('허브: 깨진 로그아웃 파일은 빈 것으로 읽고, 다음에 걸 때 새로 쓴다', () => {
+    const file = path.join(mk(), 'device-logouts.json')
+    fs.writeFileSync(file, '{ "laptop": ')
+    const hub = new DeviceHub(file)
+    expect(hub.pending('laptop')).toBe(false)
+    hub.requestLogout('mini')
+    expect(new DeviceHub(file).pending('mini')).toBe(true)
   })
 
   it('피드백 돕기: 자리가 남은 맥에 맡기면 다음 알림 답으로 가고, 늦으면 돌려받아 그 맥에 멈추라고 보낸다', () => {
@@ -138,6 +184,29 @@ describe('서버 (2단계)', () => {
     const asked = (await app.inject({ method: 'POST', url: '/api/devices/laptop/logout' })).json()
     expect(asked.devices.find((d: { name: string }) => d.name === 'laptop').logout).toBe(true)
     expect((await beat(secret)).json().logout).toBe(true)
+    await app.close()
+  })
+
+  it('API: 걸어 둔 로그아웃은 서버를 다시 켜도 남아, 그 컴퓨터가 알릴 때 전한다', async () => {
+    const dir = mk()
+    const backup = path.join(dir, 'backup')
+    fs.mkdirSync(backup)
+    const start = () => buildApp({ configDir: path.join(dir, 'config'), backup: { dir: backup, remote: null }, phone: samplePhone() })
+    const first = start()
+    await first.inject({ method: 'POST', url: '/api/devices/server' })
+    writeDevice(backup, rec('laptop', new Date().toISOString()))
+    await first.inject({ method: 'POST', url: '/api/devices/laptop/logout' })
+    await first.close()
+
+    const app = start()
+    const secret = readServerConfig([backup])!.secret
+    const list = (await app.inject({ method: 'GET', url: '/api/devices' })).json()
+    expect(list.devices.find((d: { name: string }) => d.name === 'laptop')).toMatchObject({ logout: true })
+    const beat = (accounts: DeviceRecord['accounts']) => app.inject({ method: 'POST', url: '/api/devices/beat', headers: { 'x-rw-device-key': secret }, payload: rec('laptop', '2026-11-20T10:00:00Z', { accounts }) })
+    expect((await beat(rec('laptop', '').accounts)).json().logout).toBe(true)
+    expect((await beat(out)).json().logout).toBe(false)
+    const after = (await app.inject({ method: 'GET', url: '/api/devices' })).json()
+    expect(after.devices.find((d: { name: string }) => d.name === 'laptop').logout).toBeUndefined()
     await app.close()
   })
 
