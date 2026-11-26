@@ -106,6 +106,21 @@ describe('깊은 검토와 보류', () => {
     chats.stopAll()
   })
 
+  // 「이미 검토 중」을 본 뒤 바뀐 코드를 읽는 동안(await) 적어 두지 않아, 동시에 부른 둘이 모두 시작했다: 검토가 두 번 돌고,
+  // 먼저 끝난 쪽이 검토 표시를 지워 다른 쪽이 도는 동안 보류가 풀렸다
+  it('동시에 두 번 불러도 깊은 검토는 하나만 돈다', async () => {
+    const { chats, kid } = await make()
+    let open!: () => void
+    gate = new Promise<void>((r) => { open = r })
+    const both = await Promise.allSettled([chats.startReview({ id: kid.id, hold: true }), chats.startReview({ id: kid.id, hold: true })])
+    expect(both.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected'])
+    await vi.waitFor(() => expect(asked).toHaveLength(1))
+    open()
+    await new Promise((r) => setTimeout(r, 50))
+    expect(asked).toHaveLength(1)
+    chats.stopAll()
+  })
+
   it('확인된 것만 중앙을 깨운다 (확인에서 떨어진 것은 빠진다)', async () => {
     const { chats, c, kid } = await make()
     answers = ['버그 · a.ts:1 · 진짜 문제\n규칙 · a.ts:1 · 추측', '버그 · a.ts:1 · 진짜 문제']

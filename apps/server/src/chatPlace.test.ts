@@ -73,6 +73,16 @@ describe('대화를 서버에서', () => {
     expect(calls).toHaveLength(2)
     await app.inject({ method: 'GET', url: '/api/agent-chats/s1' })
     expect(calls.at(-1)!.url).toBe('https://studio.example.ts.net/api/agent-chats/s1')
+    // 이 컴퓨터에서 도는 대화가 중앙에게 청하는 중재(central_help): 중앙은 서버에서 돌고 서버는 이 대화를 모른다.
+    // 전에는 서버로 넘겨 「대화를 찾을 수 없음」(404)이 돌아왔다. 넘기지 않고, 에이전트가 사용자에게 말하게 까닭을 돌려준다
+    const n = calls.length
+    const help = await app.inject({ method: 'POST', url: '/api/agent-central/help', payload: { chat: 'here1', text: '다른 프로젝트의 노트를 고쳐야 합니다' } })
+    expect(calls).toHaveLength(n)
+    expect(help.statusCode).toBe(409)
+    expect(help.json().error).toContain('Mac Studio')
+    // 서버에서 도는 대화의 것은 전처럼 넘긴다
+    await app.inject({ method: 'POST', url: '/api/agent-central/help', payload: { chat: 's1', text: '도와 주세요' } })
+    expect(calls.at(-1)!.url).toBe('https://studio.example.ts.net/api/agent-central/help')
     await app.close()
   })
 

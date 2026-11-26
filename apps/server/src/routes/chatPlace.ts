@@ -89,6 +89,12 @@ export function registerChatPlace(app: FastifyInstance, ctx: Pick<RouteContext, 
     // 이 컴퓨터의 대화는 이 컴퓨터에서
     const id = chatIdOf(pathOnly)
     if (id && local?.has(id)) return
+    // 이 컴퓨터에서 도는 대화가 중앙에게 청하는 중재(central_help, 11/26): 중앙은 서버에서 돌고 서버는 이 대화를 모른다.
+    // 전에는 넘겨서 「대화를 찾을 수 없음」(404)이 돌아왔다. 넘기지 않고, 에이전트가 사용자에게 직접 말하게 까닭을 돌려준다
+    if (req.method === 'POST' && pathOnly === '/api/agent-central/help' && req.body && typeof req.body === 'object' && 'chat' in req.body && typeof req.body.chat === 'string' && local?.has(req.body.chat)) {
+      const name = cfg.label ?? cfg.machine
+      return reply.status(409).send({ error: t(`이 대화는 이 컴퓨터에서 돌고 중앙은 서버(${name})에서 돌아, 중앙에 청할 수 없습니다. 사용자에게 직접 말하세요`, `This conversation runs on this computer and Central runs on the server (${name}), so Central cannot be asked. Tell the user instead`) })
+    }
     // 새 대화에서 「이 맥」을 고른 것
     if (req.method === 'POST' && pathOnly === '/api/agent-chats' && req.body && typeof req.body === 'object' && 'here' in req.body && req.body.here === true) return
     const headers: Record<string, string> = { [DEVICE_KEY_HEADER]: cfg.secret }
