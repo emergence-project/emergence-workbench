@@ -5,8 +5,11 @@ import { defineConfig } from 'vitest/config'
 // 서버 테스트는 임시 저장소를 만들고 git을 돌린다. 느린 맥(8GB)에서 기본 5초에 걸려 실패하지 않게 넉넉히 둔다.
 // push.negotiate를 켠 사용자 git 설정에서는 테스트가 만든 bare 저장소로 올릴 때마다 "push negotiation failed" 경고가
 // stderr에 쌓여 진짜 실패를 가린다. 테스트에서만 끈다(GIT_CONFIG_COUNT는 사용자 설정보다 앞선다).
+// 테스트가 만드는 임시 폴더는 실행마다 전용 폴더 하나에 모아, 끝나면 통째로 지운다 (scripts/ci/test-tmp.mjs, 11/26):
+// 실행이 중간에 죽어 파일마다의 afterAll 이 돌지 않아도 다음 실행이 치운다.
 export default defineConfig({
   test: {
+    globalSetup: ['../../scripts/ci/test-tmp.mjs'],
     env: { RW_LANG: 'ko', GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'push.negotiate', GIT_CONFIG_VALUE_0: 'false' },
     testTimeout: 20_000,
     hookTimeout: 20_000,
