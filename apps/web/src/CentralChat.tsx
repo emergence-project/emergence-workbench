@@ -6,7 +6,7 @@ import { agentChatsApi, CENTRAL_RID, type ChatEffort, type ChatMessageBody, type
 import { Composer } from './ChatComposer'
 import { Icon } from './icons'
 import { ChatStateMark, stateName } from './AgentChats'
-import { shownState } from './agentSeen'
+import { asksMe, isUnseen, shownState } from './agentSeen'
 import { boardCounts, boardRows, STALL_MIN, type BoardGroup, type BoardRow } from './centralBoard'
 import { t } from './i18n'
 import { screenLine } from './screenView'
@@ -34,7 +34,10 @@ export function CentralLine({ row, on, onOpen }: { row?: ChatRow; on: boolean; o
   return (
     <button className={`nav ac-line ac-central${on ? ' on' : ''}`} data-ui="중앙 대화 줄" onClick={() => (onOpen ? row && onOpen(row.id) : go({ page: 'agent', id: row?.id ?? CENTRAL_PAGE }))}>
       <span className="ac-line-top">
-        <span className="ac-line-dot">{row && <ChatStateMark state={shownState(row)} name={stateName(row)} />}</span><span className="label">{t('중앙', 'Central')}</span>
+        <span className="ac-line-dot">{row && (asksMe(row) || isUnseen(row)
+          // 내 차례(묻고 기다림 · 끝났는데 열어 보지 않음)는 다른 대화 줄과 같은 점으로 (11/26: 레일 수에는 들어가는데 목록 어디에도 표시가 없었다)
+          ? <span className="turn-dot" role="img" aria-label={asksMe(row) ? t('답 기다림', 'Waits for your answer') : t('확인하지 않음', 'Not checked')} title={asksMe(row) ? t('에이전트가 묻고 답을 기다리는 대화', 'The agent asked and waits for your answer') : t('끝났는데 아직 열어 보지 않은 대화', 'Finished and not opened yet')} />
+          : <ChatStateMark state={shownState(row)} name={stateName(row)} />)}</span><span className="label">{t('중앙', 'Central')}</span>
         {need && <span className="ac-central-need" title={t('결정: 내 답을 기다림 · 멈춤: 오류 · 멈춤 · 차례 끝남 · 정체', 'To decide: waits for your answer · Stopped: error, stopped, turn ended or stalled')}>{need}</span>}
       </span>
       <span className="ac-line-meta">
@@ -81,13 +84,22 @@ function useMinute() {
 }
 
 function useBoard() {
-  const s = useCentral().data
+  const q = useCentral(), s = q.data
   const now = useMinute()
   const b = s ? boardRows(s, now) : { rows: [], moreFeedback: 0 }
-  return { ...b, counts: boardCounts(b.rows, b.moreFeedback) }
+  // 받지 못했으면 그 까닭 (11/26): 전에는 「맡긴 일이 없습니다」로 보여 일이 없는 것과 구별되지 않았다
+  return { ...b, counts: boardCounts(b.rows, b.moreFeedback), error: s ? undefined : q.error?.message }
+}
+
+/** 대화 목록을 받지 못했으면 그 까닭 한 줄 (11/26, 에이전트 패널 둘): 전에는 빈 목록으로 보여 대화가 없는 것과 구별되지 않았다 */
+export function ChatListError({ rid }: { rid?: string }) {
+  const q = useQuery({ queryKey: qk.agentChatList(rid), queryFn: () => agentChatsApi.list(rid) })
+  return q.error && !q.data ? <p className="ac-place error-text" data-ui="대화 목록 오류">{t(`대화 목록을 불러오지 못했습니다: ${q.error.message}`, `Could not load conversations: ${q.error.message}`)}</p> : null
 }
 
 const GROUP_NAME: Record<BoardGroup, string> = { turn: t('내 차례', 'Your turn'), doing: t('진행 중', 'In progress'), ready: t('합칠 준비', 'Ready to merge'), done: t('종료 · 오늘', 'Done today') }
+/** 부위 이름(data-ui)은 화면 언어와 상관없이 한국어 그대로 (11/26: 번역된 이름으로 만들어 영어 화면에서는 「작업 현황 Your turn」이 됐다). 영어로는 uiNames.en.json이 보인다 */
+const GROUP_UI: Record<BoardGroup, string> = { turn: '작업 현황 내 차례', doing: '작업 현황 진행 중', ready: '작업 현황 합칠 준비', done: '작업 현황 종료 · 오늘' }
 
 /** 머리 한 줄: 남음 n · 내 차례 n · 정체 n */
 function CountLine({ counts: n }: { counts: ReturnType<typeof boardCounts> }) {
@@ -105,7 +117,7 @@ function CountLine({ counts: n }: { counts: ReturnType<typeof boardCounts> }) {
  * 줄은 서버가 대화를 바꿀 때마다(차례 끝 · 허락 · CI · 합침 · 사용자 고름) 바로 바뀐다
  */
 export function CentralBoard({ onPick }: { onPick?(): void }) {
-  const { rows, moreFeedback, counts } = useBoard()
+  const { rows, moreFeedback, counts, error } = useBoard()
   const [doneOpen, setDoneOpen] = useState(false)
   const pick = (to: () => void) => () => { to(); onPick?.() }
   const row = (r: BoardRow) => {
@@ -131,7 +143,7 @@ export function CentralBoard({ onPick }: { onPick?(): void }) {
     if (!n) return null
     const folded = g === 'done' && !doneOpen
     return (
-      <div key={g} className="cb-group" data-ui={`작업 현황 ${GROUP_NAME[g]}`}>
+      <div key={g} className="cb-group" data-ui={GROUP_UI[g]}>
         <div className="cb-group-head">
           <b>{GROUP_NAME[g]}</b>{g === 'turn' ? <span className="rail-count">{n}</span> : <span className="muted">{n}</span>}
           {g === 'done' && <button className="a cb-fold" aria-expanded={doneOpen} onClick={() => setDoneOpen(!doneOpen)}>{doneOpen ? t('접기 ‹', 'Hide ‹') : t('펼치기 ›', 'Show ›')}</button>}
@@ -144,6 +156,7 @@ export function CentralBoard({ onPick }: { onPick?(): void }) {
   return (
     <SideSection title={t('작업 현황', 'Work status')} ui="작업 현황" aside={<CountLine counts={counts} />}>
       {rows.length || moreFeedback ? (['turn', 'doing', 'ready', 'done'] as const).map(group)
+        : error ? <span className="ac-hint error-text" data-ui="작업 현황 오류">{t(`작업 현황을 불러오지 못했습니다: ${error}`, `Could not load the work status: ${error}`)}</span>
         : <span className="muted ac-hint">{t('맡긴 일이 없습니다. 중앙에게 말하면 하위 대화를 열어 여기에 한 줄씩 보입니다', 'Nothing handed off. Ask Central and each sub-conversation shows here as a row')}</span>}
       <span className="muted ac-hint cb-rule">{t(`정체: 진행 중 ${STALL_MIN.run}분 · CI ${STALL_MIN.ci}분 · 합칠 준비 ${STALL_MIN.ready}분 동안 움직임 없음`, `Stalled: no move for ${STALL_MIN.run} min working, ${STALL_MIN.ci} min on checks, ${STALL_MIN.ready} min ready to merge`)}</span>
     </SideSection>

@@ -30,7 +30,7 @@ import { AppFixHint, ProjectPick, RecentChats, scopeName } from './AgentProjectP
 import { ChatHerePick, useChatHere } from './ChatHere'
 import { AgentChip, agentOf, effortsOf, familyName, familyOf, fitEffort, isClaude, useChatSettings, useModels, useNewChatAccount } from './AgentPick'
 import { isReviewCommand, ReviewButton, ReviewCard, ReviewPane } from './AgentReview'
-import { CENTRAL_PAGE, CentralBoard, CentralBoardButton, CentralLine, CentralStart } from './CentralChat'
+import { CENTRAL_PAGE, CentralBoard, CentralBoardButton, CentralLine, CentralStart, ChatListError } from './CentralChat'
 import { HostWho, hostWhoAt, MemberItem, RoomItem, RoomManage, RoomStrip, useComposerRoom, VerdictLog } from './CentralRoom'; import { DebateEnd, DebateLine, DebateMember, DebatePanel, DebateStrip, debateComposer } from './Debate'
 import { APP_HINT, ATTACH_NAME, ChatQuoteMenu, Composer, CUSTOM_NAME, EFFORT_NAME, effortLabel, PopButton, settingsOf, sideQuestion, TRUST_NAME, trustOf, type Fill, type Settings } from './ChatComposer'
 import { contextName, tokensName } from './agentTokens'
@@ -850,7 +850,7 @@ export function useAgentNotify(): void {
 
 export function AgentRailCount() {
   const list = useChatList().data?.chats
-  const n = list?.filter(myTurn).length ?? 0
+  const n = list?.filter((c) => myTurn(c) && (c.rid !== CENTRAL_RID || (!c.archived && !c.local))).length ?? 0 // 중앙은 목록에 보이는 하나만 (보이지 않는 옛 중앙 · 이 맥의 중앙은 세지 않는다)
   return n ? <span className="rail-count" title={t(`내 차례인 대화 ${n}개 (답을 기다리거나 끝났는데 확인하지 않은 대화)`, `${n} conversation(s) for you (waiting for you, or finished and not checked)`)}>{n}</span> : null
 }
 
@@ -910,7 +910,7 @@ export function AgentPanel({ rid, note, onSaved, place = 'right', onPlace, onBes
   )
   const newChat = <NewChat rid={rid} note={note} onCreated={(c) => setOpen(c.id)} />
   const chats = <div className="ac-panel-chats">
-    <div className="set-side"><CentralLine row={centralRow} on={false} onOpen={centralRow ? setOpen : undefined} /><ChatGroups chats={sorted} line={(c) => <ChatLine key={c.id} c={c} on={false} onOpen={() => setOpen(c.id)} />} /></div>
+    <div className="set-side"><ChatListError rid={rid} /><CentralLine row={centralRow} on={false} onOpen={centralRow ? setOpen : undefined} /><ChatGroups chats={sorted} line={(c) => <ChatLine key={c.id} c={c} on={false} onOpen={() => setOpen(c.id)} />} /></div>
   </div>
   return (
     <div className={`rs ac-panel${place === 'bottom' ? ' bottom' : ''}`} data-ui="에이전트 패널">

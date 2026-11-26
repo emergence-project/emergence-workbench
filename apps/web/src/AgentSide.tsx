@@ -7,7 +7,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { agentChatsApi, CENTRAL_RID, devicesApi } from './api'
 import { serverSkew } from './DeviceList'
 import { ChatLine, PanelChat, rank, useChatList } from './AgentChats'
-import { CENTRAL_PAGE, CentralLine } from './CentralChat'
+import { CENTRAL_PAGE, CentralLine, ChatListError } from './CentralChat'
 import { t } from './i18n'
 import { screenLine } from './screenView'
 import { Icon } from './icons'
@@ -50,6 +50,7 @@ export function GlobalAgentPanel({ onSaved }: { onSaved(m: string): void }) {
       <div className="rs-scroll ac-panel-list">
         <div className="set-side">
           <ChatPlaceNote />
+          <ChatListError />
           <CentralLine row={central} on={false} onOpen={setOpen} />
           {!!recent.length && <div className="ac-sub-h">{t('최근 대화', 'Recent conversations')}</div>}
           {recent.map((c) => <ChatLine key={c.id} c={c} on={false} onOpen={() => setOpen(c.id)} />)}
