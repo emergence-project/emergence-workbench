@@ -4,16 +4,19 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import YAML from 'yaml'
-import { adoptLocalFeedback, FEEDBACK_MISSES, FEEDBACK_STATES, feedbackStatusWarnings, listAllFeedback } from './feedback.js'
+import { adoptLocalFeedback, FEEDBACK_MISSES, FEEDBACK_STATES, listAllFeedback } from './feedback.js'
+import { feedbackStatusWarnings } from './feedbackStatusCheck.js'
 
 // 처리 기록이 깨지면(합치다가 같은 키가 두 번 들어가는 등) 피드백 화면이 경고를 띄운다. 합치기 전에 잡는다.
-// 실제 기록은 개인 저장소에 있으므로(CLAUDE.md "위치") 예제 기록은 늘 보고, 개인 저장소 사본이 있으면 그것도 본다
+// 예제 기록을 본다. 맥의 실제 기록(개인 저장소)은 11/27부터 pnpm test에서 보지 않는다: 코드와 관계없이 기록 내용 때문에 맥에서만
+// 늘 실패해 진짜 실패를 가렸다. 실제 기록의 같은 문제는 pnpm agent:feedback이 경고로 알리고(feedbackStatusWarnings),
+// 그래도 이 검사로 보려면 RW_FEEDBACK_STATUS=<status.yaml 경로>로 준다
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
-const personal = process.env.RW_FEEDBACK_STATUS ?? path.join(os.homedir(), '.config/research-workspace/personal/feedback/status.yaml')
+const personal = process.env.RW_FEEDBACK_STATUS
 const files = [
   path.join(root, 'fixtures/sandbox-feedback/status.yaml'),
   path.join(root, 'fixtures/en/sandbox-feedback/status.yaml'),
-  ...(fs.existsSync(personal) ? [personal] : []),
+  ...(personal ? [personal] : []),
 ]
 
 describe.each(files)('feedback status %s', (file) => {
@@ -54,11 +57,21 @@ it('reads revised miss and lesson so pnpm agent:feedback can count them', () => 
 describe('feedbackStatusWarnings', () => {
   it('앱이 모르는 state(오타)를 적은 항목을 알린다: 그 항목은 처리 기록 없는 것으로 읽혀 새 항목처럼 보이므로', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fb-warn-'))
-    fs.writeFileSync(path.join(dir, 'status.yaml'), '"2026-10-01 09:00 홈":\n  state: 확인필요\n"2026-10-01 10:00 홈":\n  state: 반영\n"2026-10-01 11:00 홈":\n  note: state 없음\n')
+    fs.writeFileSync(path.join(dir, 'status.yaml'), '"2026-10-01 09:00 홈":\n  state: 확인필요\n  area: 홈\n"2026-10-01 10:00 홈":\n  state: 반영\n  area: 홈\n"2026-10-01 11:00 홈":\n  note: state 없음\n  area: 홈\n')
     const w = feedbackStatusWarnings(dir)
     expect(w).toHaveLength(2)
     expect(w[0]).toContain('2026-10-01 09:00 홈: state "확인필요"')
     expect(w[1]).toContain('2026-10-01 11:00 홈: state 없음')
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
+
+  it('area가 없는 항목과 모르는 miss를 적은 항목을 수로 알린다 (11/27까지 pnpm test가 맥의 실제 기록에서 잡던 것)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fb-warn-'))
+    fs.writeFileSync(path.join(dir, 'status.yaml'), '"a":\n  state: 반영\n"b":\n  state: 반영\n  area: 홈\n  revised:\n    - { miss: 덜고침 }\n')
+    expect(feedbackStatusWarnings(dir)).toEqual([
+      'area(화면 부위)가 없는 항목 1개: a',
+      expect.stringMatching(/^revised의 miss를 알아보지 못한 항목 1개 .*: b$/),
+    ])
     fs.rmSync(dir, { recursive: true, force: true })
   })
 })
