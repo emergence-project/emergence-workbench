@@ -221,7 +221,7 @@ export abstract class AgentChatsRun extends AgentChatsBase {
       if (abort.signal.aborted) ended = 'stopped'
       else {
         ended = 'error'
-        c.items.push({ kind: 'error', at: now(), text: (e as Error).message.slice(0, MAX_TEXT), crash: true }) // 프로세스가 비정상으로 끝남: 중앙이 알린다 (agentCrash.ts)
+        c.items.push({ kind: 'error', at: now(), text: (e instanceof Error ? e.message : String(e)).slice(0, MAX_TEXT), crash: true }) // 프로세스가 비정상으로 끝남: 중앙이 알린다 (agentCrash.ts)
       }
     } finally {
       if (limit) clearTimeout(limit)

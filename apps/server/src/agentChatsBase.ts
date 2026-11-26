@@ -159,7 +159,7 @@ export abstract class AgentChatsBase {
     for (const f of fs.readdirSync(deps.dir)) {
       if (!f.endsWith('.json')) continue
       try {
-        const c = JSON.parse(fs.readFileSync(path.join(deps.dir, f), 'utf8')) as Stored
+        const c: Stored = JSON.parse(fs.readFileSync(path.join(deps.dir, f), 'utf8'))
         c.mode ??= 'edit'; c.model ??= 'default'; c.model = startModel(c.agent ?? 'claude-code', c.model); c.effort ??= 'medium'; c.changed ??= []; c.todos ??= []
         delete c.live
         delete c.tasks
