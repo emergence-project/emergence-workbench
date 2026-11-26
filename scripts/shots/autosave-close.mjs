@@ -146,25 +146,35 @@ async function beforeUnloadBlocked(page) {
     return event.defaultPrevented
   })
 }
+const CASE_LIMIT_MS = 90_000
+/**
+ * Rejects with message when the promise does not settle within ms (the promise is left to finish on its own)
+ * @param {number} ms @param {Promise<unknown>} promise @param {string} message
+ */
+function within(ms, promise, message) {
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let timer
+  return Promise.race([promise, new Promise((_, no) => { timer = setTimeout(() => no(new Error(message)), ms) })]).finally(() => clearTimeout(timer))
+}
 async function caseOf(name, run, opener = openNote) {
   if (process.env.RW_TEST_CASE && process.env.RW_TEST_CASE !== name) return
   const context = await browser.newContext({ viewport: { width: 1200, height: 760 }, reducedMotion: 'reduce' })
   // Fix the screen language up front (as shots.mjs does): a fresh profile starts in the browser's language and reloads once the settings arrive
   await context.addInitScript(() => { try { if (!localStorage.getItem('rw-ui')) localStorage.setItem('rw-ui', JSON.stringify({ language: 'ko' })) } catch { /* ignore */ } })
+  /** @type {import('playwright-core').Page | undefined} */
   let page
   try {
-    const ui = await opener(context)
-    page = ui.page
-    await run(ui)
+    // 사례마다 시간 한도 (11/26): 한 사례가 멈추면 작업 전체가 10분을 다 쓰고 취소됐다
+    await within(CASE_LIMIT_MS, (async () => { const ui = await opener(context); page = ui.page; await run(ui) })(), `The case did not finish in ${CASE_LIMIT_MS / 1000} s`)
     checks.push({ name, ok: true })
     console.log(`PASS ${name}`)
   } catch (e) {
     const screenshot = `${out}/${name}.png`
-    if (page) await page.screenshot({ path: screenshot }).catch(() => {})
+    if (page) await within(15000, page.screenshot({ path: screenshot }), 'screenshot').catch(() => {})
     checks.push({ name, ok: false, error: e.message, screenshot: page ? screenshot : null })
     console.error(`FAIL ${name}: ${e.message}`)
   } finally {
-    await context.close()
+    await within(15000, context.close(), 'close').catch(() => {})
     // Closing the entire context stops page JavaScript before restoring the fixture.
     const current = await read()
     if (current.content !== original.content) await write(original.content, current.hash)
