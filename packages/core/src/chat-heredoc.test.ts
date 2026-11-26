@@ -25,10 +25,11 @@ describe('확실한 히어독: 둘째 검토', () => {
     // os 를 다른 이름으로 들이거나 다른 길로 셸을 부르는 꼴 (셋째 검토): zsh에서 본문의 글이 실제로 돌았다
     for (const head of ['from os import system\nsystem(', 'import os as o\no.system(', 'import asyncio\nasyncio.run(asyncio.create_subprocess_shell(', 'import os\ngetattr(os, "system")(', 'import posix\nposix.system(', 'import ctypes\nctypes.CDLL(None).system(', 'import os\n(os).system(', 'import os\nvars(os)["system"](', 'import sh\nsh.bash("-c", ',
       // 다섯째 검토 (11/26): os 를 다른 이름에 담거나 다른 모듈을 거쳐 얻는 꼴, 전각 글자로 쓴 이름(python 은 이름을 NFKC 로 고쳐 읽는다)
-      'import os\no = os\no.system(', 'from posix import system as s\ns(', 'import pydoc\npydoc.pipepager("", ', 'import os\nos.__dict__["system"](', 'import os\nglobals()["os"].system(', 'import os\n[os][0].system(', 'import os\nfor m in (os,): m.system(', 'import shutil\nq = shutil.os\nq.system(', 'import os\nos.__getattribute__("system")(', 'import os\n\uff4fs.system(', 'import s\uff55bprocess as sp\nsp.run('])
+      'import os\no = os\no.system(', 'from posix import system as s\ns(', 'import pydoc\npydoc.pipepager("", ', 'import os\nos.__dict__["system"](', 'import os\nglobals()["os"].system(', 'import os\n[os][0].system(', 'import os\nfor m in (os,): m.system(', 'import shutil\nq = shutil.os\nq.system(', 'import os\nos.__getattribute__("system")(', 'import os\n\uff4fs.system(', 'import s\uff55bprocess as sp\nsp.run(',
+      'import sys as s, os as o\no.system(', 'import os\nvars()["os"].system(', 'import os\nlocals()["os"].system(', 'import pkgutil\npkgutil.resolve_name("os:system")(', 'import shutil\n__builtins__.getattr(shutil, "o" "s").system('])
       expect(k(`python3 - <<'EOF'\n${head}"""\nrm -rf build\n""")\nEOF`), head).toBe('delete')
     // 고칠 소스 글에 든 .exec( · .compile( 은 프로그램을 돌리는 코드가 아니다. import os 와 os.path · os.environ 을 쓰는 것, 글 속의 os 도 아니다
-    expect(py('import os, sys\np = os.path.join("a", "b")\ns = "macos and node:os"  # os specific')).toBe('run')
+    expect(py('import os, sys\np = os.path.join("a", "b")\ns = "macos and node:os"  # os specific\nt = "os: z.string(), matrix.os"')).toBe('run')
     expect(py('s = s.replace("m = re.exec(x); p = rx.compile(y); q = path.posix.join(a, b)", "x")')).toBe('run')
     // exec( 가 있으면 본문을 전처럼 줄마다 읽는다: 줄 처음의 rm 이 지우기로 보인다
     expect(py('exec(open("x.py").read())\nrm = 1')).toBe('delete')
@@ -82,7 +83,7 @@ describe('certainHeredoc', () => {
   it('하나라도 어긋나면 null', () => {
     for (const c of [
       "bash <<'EOF'\nx\nEOF", "cat <<'EOF'\nx", "cat <<< x\ncat <<'EOF'\nx\nEOF", 'cat <<EOF\n$x\nEOF', "echo 'a'; cat <<'EOF'\nx\nEOF", "set -o posix; cat <<'EOF'\nx\nEOF", "X=1; cat <<'EOF'\nx\nEOF",
-      "cat <<'EOF' <<'B'\nx\nEOF\ny\nB", "python3 -m x <<'EOF'\nx\nEOF", "python3 <<'EOF' x.py\nx\nEOF", "cat <<'EOF'\r\nx\nEOF", "while true; do cat <<'EOF'\nx\nEOF",
+      "cat <<'EOF' <<'B'\nx\nEOF\ny\nB", "python3 -m x <<'EOF'\nx\nEOF", "touch f\ntail -f f | perl -e exec -e sh &\ncat <<'EOF' >> f\nx\nEOF", "sleep 1 & cat <<'EOF' > f\nx\nEOF", "python3 <<'EOF' x.py\nx\nEOF", "cat <<'EOF'\r\nx\nEOF", "while true; do cat <<'EOF'\nx\nEOF",
     ]) expect(certainHeredoc(c), JSON.stringify(c)).toBeNull()
   })
 })

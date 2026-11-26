@@ -201,6 +201,8 @@ export function certainHeredoc(cmd: string): { head: string; body: string; rest:
   if (at < 0 || cmd[at + 2] === '<') return null
   const before = cmd.slice(0, at)
   if (!PLAIN.test(before) || /[<>][|&]|[|&][<>]/.test(before)) return null
+  // 앞에서 뒤로 돌려 둔 명령(&)이 있으면 그것이 쓰는 파일을 읽고 있을 수 있다 (tail -f f | sh & 다음에 cat <<E >> f, 11/26 검토): 확실하지 않다
+  if (/(^|[^&])&(?!&)/.test(before)) return null
   const nl = cmd.indexOf('\n', at)
   if (nl < 0) return null
   const m = /^<<(-?)[ \t]*(?:'([A-Za-z_]\w*)'|"([A-Za-z_]\w*)"|([A-Za-z_]\w*))(?=[ \t;&|<>]|$)/.exec(cmd.slice(at, nl))
