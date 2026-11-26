@@ -32,7 +32,7 @@ export const portsIn = (source) => new Set([...source.matchAll(/\bport: '([\w-]+
 /**
  * 검사 결과: 문제 문장 목록 (비면 통과)
  * guides: { 이름: 안내서 글 }, sections: { 절 파일: 글 }(소개의 모든 절 파일), exists(경로), index: README 글, indexSection: 소개 목록 절 글,
- * @param {{ guides: Record<string, string>, sections: Record<string, string>, exists: (p: string) => boolean, index: string, indexSection: string, files?: string[] }} input
+ * @param {{ guides: Record<string, string>, sections: Record<string, string>, exists: (p: string) => boolean, index: string, indexSection: string }} input
  */
 export function checkPorts({ guides, sections, exists, index, indexSection }) {
   const problems = []

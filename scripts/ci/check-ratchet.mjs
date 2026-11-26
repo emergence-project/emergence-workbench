@@ -3,7 +3,7 @@
 //   줄 수는 LINE_WIDTH자마다 한 줄로 센다(11/27: 기준에 닿은 파일이 한 줄을 900자 넘게 늘려 버텼다. 긴 줄로는 줄 수를 피하지 못하게).
 // - 타입 단언: `as T`(as const 빼고)와 @ts-ignore · @ts-expect-error의 저장소 전체 수가 기준의 합을 넘지 못한다.
 //   파일마다 세면 파일을 나눌 때 옮긴 단언이 새 파일의 '기준 0'에 걸려 실패했다(11/26 실패 3건, 11/27 규칙 점검 ratchet-casts).
-//   전체가 늘지 않았으면 파일별 초과는 알리기만 하고, --update가 새 파일의 수를 기준에 옮겨 적는다.
+//   전체가 늘지 않았으면 파일별 초과는 알리기만 하고, --update가 파일마다 지금 수를 기준에 적는다(합은 늘지 않는다).
 // 줄었으면 통과하고 `node scripts/ci/check-ratchet.mjs --update`로 기준을 낮추라고 알린다(--update는 낮추기만 한다).
 // 기준을 올려야 하면 scripts/ci/ratchet.json을 손으로 고치고 커밋 메시지에 이유를 쓴다.
 import { execFileSync } from 'node:child_process'
@@ -66,14 +66,19 @@ export function compare(now, base) {
   return { problems, lower }
 }
 
-/** 기준을 낮춘 새 기준 (지운 파일은 빼고, 늘어난 것은 그대로 둔다) */
+/**
+ * 기준을 낮춘 새 기준 (지운 파일은 빼고, 늘어난 것은 그대로 둔다). 단언 기준의 합은 늘지 않는다:
+ * 전체가 기준의 합 이하면 파일마다 지금 수를 적고(옮긴 단언도 그대로 통과하게), 전체가 늘었으면 파일마다 기준과 지금 중 작은 수만 남긴다
+ */
 export function lowered(now, base) {
   const lines = {}
   const casts = {}
+  const total = Object.values(now).reduce((n, m) => n + m.casts, 0)
+  const baseTotal = Object.values(base.casts).reduce((n, c) => n + c, 0)
   for (const [f, m] of Object.entries(now)) {
     if (base.lines[f] && m.lines > LINE_LIMIT) lines[f] = Math.min(base.lines[f], m.lines)
-    // 기준에 없던 파일의 단언(파일을 나눠 옮긴 것)도 적는다. 전체 합은 compare가 지키므로 기준의 합은 늘지 않는다
-    if (m.casts > 0) casts[f] = base.casts[f] ? Math.min(base.casts[f], m.casts) : m.casts
+    if (m.casts > 0 && total <= baseTotal) casts[f] = m.casts
+    else if (m.casts > 0 && base.casts[f]) casts[f] = Math.min(base.casts[f], m.casts)
   }
   return { lines: sortKeys(lines), casts: sortKeys(casts) }
 }
@@ -96,6 +101,8 @@ function main() {
   if (process.argv.includes('--update')) {
     fs.writeFileSync(basePath, `${JSON.stringify(lowered(now, base), null, 2)}\n`)
     console.log(`${BASELINE}의 기준을 낮췄습니다 (올리지는 않습니다)`)
+    const { problems } = compare(now, lowered(now, base))
+    if (problems.length) { console.error(`아직 넘은 것이 있습니다:\n${problems.map((p) => `  - ${p}`).join('\n')}`); process.exit(1) }
     return
   }
   const { problems, lower } = compare(now, base)
