@@ -35,7 +35,7 @@ export function DeviceList() {
     {run.error && <p className="set-desc error-text">{withLink(run.error.message)}</p>}
     <div className="setup set-rows dev-list" data-ui="기기 목록">
       {!d ? <p className="muted setup-row">{q.error?.message ?? t('읽는 중…', 'Reading…')}</p>
-        : d.devices.map((x) => <DeviceRow key={x.name} d={x} differs={versionDiffers(x, me)} onLogout={d.server && !x.this && !x.logout ? () => logout(x) : undefined} />)}
+        : d.devices.map((x) => <DeviceRow key={x.name} d={x} differs={versionDiffers(x, me)} onLogout={d.server && !x.this && !x.logout ? () => logout(x) : undefined} onCancel={d.server && !x.this && x.logout ? () => run.mutate(() => devicesApi.cancelLogout(x.name)) : undefined} busy={run.isPending} />)}
     </div>
     {d && !d.shared && <p className="muted set-desc">{t('개인 저장소와 맞추지 않아 이 컴퓨터만 보입니다. 계정에서 GitHub에 로그인하고 개인 저장소를 정하면 다른 컴퓨터도 보입니다.', 'Only this computer is shown because it does not sync with a personal repository. Sign in to GitHub and choose a personal repository under Account to see your other computers.')}</p>}
   </>)
@@ -100,7 +100,7 @@ export function serverSkew(devices: Device[] | undefined): { name: string; serve
   return me?.version && sv?.version && versionDiffers(sv, me) ? { name: sv.label ?? sv.name, server: versionName(sv), here: versionName(me), gap: versionGap(sv) } : null
 }
 
-function DeviceRow({ d, differs, onLogout }: { d: Device; differs?: boolean; onLogout?: () => void }) {
+function DeviceRow({ d, differs, onLogout, onCancel, busy }: { d: Device; differs?: boolean; onLogout?: () => void; onCancel?: () => void; busy?: boolean }) {
   const state = d.this ? t('켜짐 · 지금', 'On · now') : d.online ? t(`켜짐 · ${relativeTime(Date.parse(d.seen))}`, `On · ${relativeTime(Date.parse(d.seen))}`) : t(`꺼짐 · ${relativeTime(Date.parse(d.seen))}`, `Off · ${relativeTime(Date.parse(d.seen))}`)
   const name = d.online ? t('켜짐', 'On') : t('꺼짐', 'Off')
   return (
@@ -120,6 +120,8 @@ function DeviceRow({ d, differs, onLogout }: { d: Device; differs?: boolean; onL
         {d.accounts.length > 0 && <div className="dev-accts" data-ui="기기 계정">{d.accounts.map((a, i) => <span key={i} className="tag">{accountName(a)}</span>)}</div>}
       </div>
       {onLogout && <button className="btn" data-ui="기기 로그아웃" onClick={onLogout}>{t('로그아웃', 'Sign out')}</button>}
+      {/* 걸어 둔 로그아웃은 서버를 다시 켜도 남으므로 잘못 건 것을 거둘 수 있게 (11/26). 로그아웃 버튼과 같은 자리 */}
+      {onCancel && <button className="btn" data-ui="기기 로그아웃 취소" disabled={busy} onClick={onCancel} data-tip={t('그 컴퓨터가 아직 받지 않았으면 로그아웃하지 않습니다', 'If that computer has not received it yet, it will not sign out')}>{t('로그아웃 취소', 'Cancel sign-out')}</button>}
     </div>
   )
 }
