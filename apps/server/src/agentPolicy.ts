@@ -247,7 +247,9 @@ function judgeApp(ctx: PolicyCtx, tool: string, input: Record<string, unknown>):
     if (gated) return notYet
     if (ctx.mode === 'auto') return judgeAuto(ctx, cmd, clip(cmd))
     if (ctx.mode === 'ask') return { kind: 'ask', summary: clip(cmd), key: `Bash:${cmd}`, label: t(`명령 · ${clip(cmd, 80)}`, `Command · ${clip(cmd, 80)}`) }
-    return { kind: 'allow' }
+    // 편집 자동 수락 · 승인한 계획 (11/26 "편집 자동 수락도 명령 판정을 거치게"): 전에는 APP_OWNED만 막고 나머지는 읽지 않고 허락했다. 자동과 같은 판정을 거친다.
+    // 읽기 명령과 작업 폴더 안의 실행은 이 권한이 맡은 일이라 토글과 상관없이 묻지 않는다 (앱 고치기 대화에는 토글 표가 없다)
+    return judgeAuto(ctx, cmd, clip(cmd), { read: true, run: true })
   }
   if (tool.startsWith(MCP)) {
     const name = tool.slice(MCP.length)
@@ -414,9 +416,9 @@ const FROZEN_INSTALL = /^\s*pnpm\s+(install|i)(\s+--[\w-]+)*\s*$/
 /**
  * 자동 모드의 명령 (11/23 사용자 "클로드 자동 모드처럼"): 읽기는 어디든, 작업 폴더 안의 편집 · 실행은 묻지 않는다.
  * 크리티컬한 일(지우기 · 외부로 내보내기 · 합치기 · 앱 다시 시작 · 돈 · 계정)과 비밀이 든 곳, 폴더 밖을 바꾸거나 돌리는 것만 한 번 묻는다.
- * 읽기 전용 · 계획 승인 전은 부르기 전에 걸렀다
+ * 읽기 전용 · 계획 승인 전은 부르기 전에 걸렀다. on = 읽기 · 실행을 묻지 않을지 (기본은 이 대화의 토글, 앱 고치기의 편집 자동 수락은 늘 켬)
  */
-function judgeAuto(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
+function judgeAuto(ctx: PolicyCtx, cmd: string, summary: string, on: Pick<ChatAutoValues, 'read' | 'run'> = autoNow(ctx)): Verdict {
   const what = clip(cmd, 80)
   const once = (does: ChatKind, label: string): Verdict => ({ kind: 'ask', summary, key: `${does}:${cmd}`, label: `${label} · ${what}`, does, once: true })
   if (touchesSecret(cmd)) return { kind: 'ask', summary, key: `secret:${cmd}`, label: t(`비밀 · ${what}`, `Secret · ${what}`), once: true }
@@ -426,12 +428,12 @@ function judgeAuto(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
   if (crit) return once('outside', t(crit.ko, crit.en))
   if (ctx.scope.kind === 'app' && FROZEN_INSTALL.test(cmd) && cmd.includes('--frozen-lockfile')) return { kind: 'allow' }
   if (anywhere === 'outside') return once('outside', t('외부', 'Outside'))
-  if (anywhere === 'read') return autoNow(ctx).read ? { kind: 'allow' } : { kind: 'ask', summary, key: 'read', label: t('읽기', 'Read'), does: 'read', turnOn: 'read' }
+  if (anywhere === 'read') return on.read ? { kind: 'allow' } : { kind: 'ask', summary, key: 'read', label: t('읽기', 'Read'), does: 'read', turnOn: 'read' }
   // 편집 · 실행이 작업 폴더 밖 경로를 건드리면 묻는다 (고치기는 이 대화의 작업 폴더 안에서만, 함께 읽는 폴더도 고치지 않는다)
   if (commandKind(cmd, { cwd: ctx.repo, home: os.homedir(), inside: (abs) => abs === ctx.repo || isInside(ctx.repo, abs) }) === 'outside') return once('outside', t('폴더 밖', 'Outside the folder'))
   if (anywhere === 'edit') return { kind: 'allow' }
   const progs = runPrograms(cmd)
-  if (autoNow(ctx).run || (progs.length > 0 && progs.every((p) => ctx.always?.(`run:${p}`)))) return { kind: 'allow' }
+  if (on.run || (progs.length > 0 && progs.every((p) => ctx.always?.(`run:${p}`)))) return { kind: 'allow' }
   const prog = progs.find((p) => !ctx.always?.(`run:${p}`)) ?? runProgram(cmd)
   return { kind: 'ask', summary, key: `run:${prog}`, label: t(`실행 · ${prog}`, `Run · ${prog}`), does: 'run' }
 }

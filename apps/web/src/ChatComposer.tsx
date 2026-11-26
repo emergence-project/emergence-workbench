@@ -41,7 +41,7 @@ export const APP_HINT: Record<Trust, string> = {
   read: t('읽기만 합니다', 'Reads only'),
   ask: t('파일을 고치거나 명령을 돌리거나 PR을 올릴 때마다 묻습니다', 'Asks before each file edit, command and before opening the PR'),
   plan: t('계획을 승인한 뒤 파일을 고치고 시험한 뒤 PR을 올립니다', 'Edits, tests and opens the PR after you approve the plan'),
-  edit: t('작업 폴더에서 바로 고치고 시험한 뒤 PR을 올립니다', 'Edits and tests in its work folder, then opens the PR'),
+  edit: t('작업 폴더에서 바로 고치고 시험한 뒤 PR을 올립니다. 지우기 · 밖으로 보내기 · 설치 · 폴더 밖을 바꾸는 명령 · 비밀이 든 곳을 읽는 명령은 묻습니다', 'Edits and tests in its work folder, then opens the PR. Asks for commands that delete, send outside, install, change things outside the folder or read places that hold secrets'),
   auto: t('읽기 · 작업 폴더의 명령 · 웹을 묻지 않고 고친 뒤 PR까지 올립니다. 지우기 · 밖으로 보내기 · 합치기 · 앱 다시 시작 · 돈 · 계정 · 비밀이 든 곳만 묻습니다', 'Reads, runs commands in its work folder and uses the web without asking, then opens the PR. Asks only for deleting, sending outside, merging, restarting the app, money, accounts and places that hold secrets'),
 }
 

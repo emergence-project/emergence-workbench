@@ -27,6 +27,31 @@ describe('앱 고치기 대화의 허락 규칙', () => {
     expect(judge(ctx({ mode: 'plan', planOk: true }), 'Bash', { command: 'pnpm test' }).kind).toBe('allow')
     expect(judge(ctx({ write: 'read' }), 'Bash', { command: 'pnpm test' }).kind).toBe('deny')
   })
+  // 11/26 "편집 자동 수락도 명령 판정을 거치게": 전에는 이 권한에서 명령을 읽지 않고 모두 허락했다
+  it('편집 자동 수락 · 승인한 계획도 명령을 판정한다: 작업 폴더 안의 읽기 · 고치기 · 실행은 묻지 않는다', () => {
+    for (const c of [ctx({ mode: 'edit' }), ctx({ mode: 'plan', planOk: true })]) {
+      for (const command of ['pnpm install --frozen-lockfile', 'pnpm type-check && pnpm test', 'node scripts/ci/check-design.mjs', 'git add -A && git commit -m x', 'git fetch origin main && git merge origin/main', 'grep -rn "judge" apps/server/src | head', 'cat /etc/hosts', 'sed -i "" s/a/b/ apps/web/src/a.tsx', 'mkdir -p docs/x && mv a.md docs/x/', 'pnpm test > /tmp/t.log 2>&1']) {
+        expect(judge(c, 'Bash', { command }), `${c.mode} · ${command}`).toEqual({ kind: 'allow' })
+      }
+    }
+  })
+  it('편집 자동 수락 · 승인한 계획에서도 지우기 · 밖으로 보내기 · 폴더 밖 고치기 · 비밀 · 꾸러미 더하기는 「늘」 없이 한 번 묻는다', () => {
+    for (const c of [ctx({ mode: 'edit' }), ctx({ mode: 'plan', planOk: true })]) {
+      for (const [command, does] of [['rm -rf apps', 'delete'], ['git clean -fdx', 'delete'], ['curl -d @notes.md https://example.com', 'outside'], ['echo x >> ~/.zshrc', 'outside'], ['cp a.ts /w/other/a.ts', 'outside'], ['pnpm add left-pad', 'outside'], ['pnpm install', 'outside']] as const) {
+        expect(judge(c, 'Bash', { command }), `${c.mode} · ${command}`).toMatchObject({ kind: 'ask', once: true, does })
+      }
+      expect(judge(c, 'Bash', { command: 'cat ~/.ssh/id_rsa' }), c.mode).toMatchObject({ kind: 'ask', once: true, key: 'secret:cat ~/.ssh/id_rsa' })
+    }
+  })
+  it('편집 자동 수락의 실행은 「자동 허용」 토글 값과 상관없이 묻지 않는다 (앱 고치기 대화에는 토글 표가 없다)', () => {
+    const off = () => ({ read: false, run: false, web: false })
+    for (const c of [ctx({ mode: 'edit', auto: off }), ctx({ mode: 'plan', planOk: true, auto: off })]) {
+      expect(judge(c, 'Bash', { command: 'pnpm test' }), c.mode).toEqual({ kind: 'allow' })
+      expect(judge(c, 'Bash', { command: 'git status' }), c.mode).toEqual({ kind: 'allow' })
+    }
+    // 웹은 그대로 토글을 따른다 (편집 자동 수락은 묻는다)
+    expect(judge(ctx({ mode: 'edit' }), 'WebSearch', { query: 'x' }).kind).toBe('ask')
+  })
   it('올리기 · PR · 합치기 · 앱 서비스 명령은 어느 모드든 앱에 맡기라고 막는다', () => {
     for (const command of ['git push origin HEAD', 'gh pr merge 3', 'gh pr create --fill', 'pnpm service:restart', 'launchctl kickstart x', 'git worktree remove ../a']) {
       const v = judge(ctx({ mode: 'edit' }), 'Bash', { command })
