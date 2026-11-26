@@ -4,6 +4,8 @@ about:
 code:
   - packages/core/src/contract/agentChats.ts
   - apps/server/src/agentChats.ts
+  - apps/server/src/agentChatsBase.ts
+  - apps/server/src/agentChatsRun.ts
   - apps/server/src/agentRunner.ts
   - apps/server/src/agentPolicy.ts
   - apps/server/src/agentInbox.ts
@@ -31,7 +33,9 @@ code:
 | 층 | 파일 | 맡은 일 |
 | --- | --- | --- |
 | core | `packages/core/src/contract/agentChats.ts` | 대화 기록 · 항목 · API 몸통의 모양 (zod) |
-| server | `apps/server/src/agentChats.ts` | 대화의 상태 기계: 차례 돌리기 · 항목 쌓기 · 저장 · 멈춤 · 다시 켰을 때 이어 가기 · 화면에 알리기 |
+| server | `apps/server/src/agentChats.ts` | 대화의 상태 기계: 차례 돌리기 · 항목 쌓기 · 저장 · 멈춤 · 다시 켰을 때 이어 가기 · 화면에 알리기 (바깥에 보이는 동작) |
+| server | `apps/server/src/agentChatsBase.ts` | 위의 바탕: 저장 모양 · 상수 · 줄 서기와 차례 시작 · 끝 |
+| server | `apps/server/src/agentChatsRun.ts` | 차례 하나를 돌리고(에이전트 이벤트 → 항목) 끝난 뒤 검토 · 기록 답을 붙인다 |
 | server | `apps/server/src/agentRunner.ts` | Claude Agent SDK의 `query()`를 띄우고 사건(글 조각 · 도구 · 결과)으로 바꾼다. 곁 질문 · 맥락 줄이기 |
 | server | `apps/server/src/agentPolicy.ts` | 허락 규칙(순수 함수): 도구 하나를 허락 · 묻기 · 막기로 판정, 파일 잡기. 단계 한 줄 요약(`describeStep`): `feedback_answer`는 「key · 상태」로 적어 피드백 화면이 묶음 대화를 항목별로 나눈다(11/23) |
 | server | `apps/server/src/agentRun.ts` | 실행기의 입출력 타입(`RunInput` · `RunEvent` · `AgentRunner`). 실제 실행기와 시험용 가짜가 함께 따른다 |
