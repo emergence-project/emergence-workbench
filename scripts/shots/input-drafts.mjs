@@ -26,6 +26,16 @@ const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePa
 const checks = []
 const delay = (ms) => new Promise((r) => setTimeout(r, ms))
 function deferred() { let resolve = /** @type {(value?: unknown) => void} */ (() => {}); const promise = new Promise((r) => { resolve = r }); return { promise, resolve } }
+const CASE_LIMIT_MS = 90_000
+/**
+ * 약속이 ms 안에 끝나지 않으면 message로 던진다 (약속은 뒤에서 끝나게 둔다)
+ * @param {number} ms @param {Promise<unknown>} promise @param {string} message
+ */
+function within(ms, promise, message) {
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let timer
+  return Promise.race([promise, new Promise((_, no) => { timer = setTimeout(() => no(new Error(message)), ms) })]).finally(() => clearTimeout(timer))
+}
 async function eventually(fn, message) {
   for (let i = 0; i < 100; i++) { if (await fn()) return; await delay(50) }
   throw new Error(message)
@@ -41,9 +51,10 @@ async function caseOf(name, run) {
   page.on('pageerror', (error) => errors.push(error.message))
   await page.route(`${base.origin}/api/**`, (route) => ['GET', 'HEAD', 'OPTIONS'].includes(route.request().method())
     ? route.fallback() : route.fulfill({ status: 405, json: { error: 'Unexpected mutation blocked by read-only browser test' } }))
-  try { await run(page); assert.deepEqual(errors, [], 'Application threw during the browser regression'); checks.push({ name, ok: true }); console.log(`PASS ${name}`) }
-  catch (e) { await page.screenshot({ path: `${out}/${name}.png` }).catch(() => {}); checks.push({ name, ok: false, error: e.message }); console.error(`FAIL ${name}: ${e.message}`) }
-  finally { await context.close() }
+  // 사례마다 시간 한도 (11/26): page.evaluate 등은 한도가 없어, 한 사례가 멈추면 작업 전체가 10분을 다 쓰고 취소됐다 (어느 사례인지도 남지 않았다)
+  try { await within(CASE_LIMIT_MS, run(page), `The case did not finish in ${CASE_LIMIT_MS / 1000} s`); assert.deepEqual(errors, [], 'Application threw during the browser regression'); checks.push({ name, ok: true }); console.log(`PASS ${name}`) }
+  catch (e) { await within(15000, page.screenshot({ path: `${out}/${name}.png` }), 'screenshot').catch(() => {}); checks.push({ name, ok: false, error: e.message }); console.error(`FAIL ${name}: ${e.message}`) }
+  finally { await within(15000, context.close(), 'close').catch(() => {}) }
 }
 async function taskPage(page, answers = [], responseGate, asks = original.asks) {
   let task = { ...original, asks, answers, hash: 'browser-original' }
