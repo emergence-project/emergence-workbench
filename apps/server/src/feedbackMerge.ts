@@ -78,9 +78,9 @@ function keepBothVerdicts(o: unknown, th: unknown): unknown {
   const union = (...xs: unknown[]) => xs.filter((x, i) => xs.findIndex((y) => same(x, y)) === i)
   const history = union(...list(h1), ...list(h2), ...(isMap(older) && older.verdict !== undefined ? [older] : []))
     .filter((x) => !same(x, latest))
-    .map((x, i) => [x, i] as const)
-    .sort(([x, i], [y, j]) => String((x as { at?: unknown })?.at ?? '').localeCompare(String((y as { at?: unknown })?.at ?? '')) || i - j)
-    .map(([x]) => x)
+    .map((x, i) => ({ x, i, at: isMap(x) ? String(x.at ?? '') : '' }))
+    .sort((p, q) => p.at.localeCompare(q.at) || p.i - q.i)
+    .map((p) => p.x)
   const comments = union(...list(c1), ...list(c2))
   return { ...latest, ...(history.length && { history }), ...(comments.length && { comments }) }
 }
