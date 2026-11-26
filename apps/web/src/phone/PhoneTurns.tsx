@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { api, type FeedbackItem } from '../api'
 import { ApproveButton, Compose } from '../FeedbackAnswer'
 import { projectColor } from '../format'
-import { t } from '../i18n'
+import { eulReul, t } from '../i18n'
 import { kindLabel } from '../recordLabels'
 import { RecordList } from '../RecordList'
 import { recordKind, recordRoute } from '../recordsPanelHelpers'
@@ -23,7 +23,7 @@ import { isConfirm, TURN_GROUPS, useTurns, type TurnItem } from './turns'
  * 글이 필요한 답(질문 · 반려)과 기록 · 맡긴 일은 카드를 눌러 아래에서 올라오는 시트에서 한다. 시트 안은 맥 화면과 같은 부품이다.
  */
 export function PhoneTurns({ onSaved }: { onSaved(m: string): void }) {
-  const { items, loading } = useTurns()
+  const { items, loading, failed } = useTurns()
   const [open, setOpen] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   // 카드에서 바로 보낸 답: 끝날 때까지 그 카드의 단추를 꺼서 두 번 보내지 않게 (맥 피드백 화면의 busy와 같다)
@@ -43,6 +43,7 @@ export function PhoneTurns({ onSaved }: { onSaved(m: string): void }) {
     <main className="stage full ph-turns" data-ui="내 차례">
       <div className="ph-head"><h1>{t('내 차례', 'Your turn')}</h1>{items.length > 0 && <span className="muted">{confirm.length ? t(`결정 ${decide.length} · 확인 ${confirm.length}`, `Decide ${decide.length} · Confirm ${confirm.length}`) : t(`${items.length}개`, `${items.length}`)}</span>}</div>
       {error && <div className="banner danger" role="alert">{error}</div>}
+      {failed.length > 0 && <div className="banner danger" role="alert">{t(`${failed.join(' · ')}${eulReul(failed[failed.length - 1]!)} 읽지 못해 그 차례가 빠져 있습니다. 잠시 뒤 다시 열어 보세요.`, `Could not read ${failed.join(', ')}, so those turns are missing. Open this again in a moment.`)}</div>}
       {TURN_GROUPS.map((g) => {
         const list = decide.filter((x) => x.kind === g)
         return list.length > 0 && (

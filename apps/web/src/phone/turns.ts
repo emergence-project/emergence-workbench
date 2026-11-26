@@ -1,6 +1,7 @@
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { taskTurn, userTurn } from '@rw/core'
 import { api, commentsApi, tasksApi, type FeedbackItem, type ResearchListItem, type Task } from '../api'
+import { t } from '../i18n'
 import { qk } from '../queries'
 import { judgeOrder } from '../taskView'
 import { userTurnRecords, type FlatRecord } from '../workRecords'
@@ -23,7 +24,7 @@ export const isConfirm = (x: TurnItem) => (x.kind === 'feedback' && x.turn === '
 
 export const TURN_GROUPS = ['feedback', 'record', 'task', 'flow', 'edits'] as const satisfies TurnItem['kind'][]
 
-export function useTurns(): { items: TurnItem[]; loading: boolean; projects: ResearchListItem[] } {
+export function useTurns(): { items: TurnItem[]; loading: boolean; projects: ResearchListItem[]; failed: string[] } {
   const list = useQuery({ queryKey: qk.researches, queryFn: () => api.researches() })
   const projects = (list.data?.researches ?? []).filter((r) => r.available && r.state === 'active')
   const feedback = useQuery({ queryKey: qk.feedbackAll, queryFn: () => api.feedbackAll() })
@@ -46,5 +47,13 @@ export function useTurns(): { items: TurnItem[]; loading: boolean; projects: Res
     if (n) items.push({ kind: 'edits', key: `edits:${r.id}`, at: '', rid: r.id, project: r.title, n })
   })
   const loading = list.isPending || feedback.isPending || records.some((q) => q.isPending) || tasks.some((q) => q.isPending)
-  return { items, loading, projects }
+  // 받지 못한 것: 그 묶음이 없는 것으로 보이지 않게 이름을 돌려준다 (11/27: 피드백을 못 읽으면 피드백 답 묶음이 말없이 빠졌다)
+  const failed = [
+    list.isError && t('프로젝트 목록', 'the project list'),
+    feedback.isError && t('피드백', 'feedback'),
+    records.some((q) => q.isError) && t('기록', 'records'),
+    tasks.some((q) => q.isError) && t('맡긴 일', 'delegated tasks'),
+    issues.isError && t('수정 검토 · 흐름', 'edit reviews and flows'),
+  ].filter((x): x is string => !!x)
+  return { items, loading, projects, failed }
 }
