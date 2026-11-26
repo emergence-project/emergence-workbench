@@ -7,6 +7,7 @@ import { alternatives, certainHeredoc, evalFlags, expandBraces, expandWords, has
 import { ghReadRemoved } from './chat-gh.js'
 import { uniqNames } from './chat-readonly.js'
 import { sedWrites } from './chat-sed.js'
+import { knownValue, noteLoopVars, unknownVarArg } from './chat-vars.js'
 import { codeSpawns, codeTouchesOutside } from './chat-pycode.js'
 
 // 셸 글 읽기는 chat-shell.ts로 옮겼다: 여기서 가져다 쓰던 곳을 위해 그대로 내보낸다
@@ -205,6 +206,9 @@ function kindCore(cmd: string, o: Where, depth: number): ChatKind {
   // 묶음 안에서 정한 값 (noteGroupVars): 따로 적고 따로 센다
   const groupVars = new Map<string, string[]>()
   let groupBudget = GROUP_BUDGET
+  // 옵션이 될 수 없는 반복 변수 (for f in src/*.ts)
+  const loopVars = new Set<string>()
+  let unknownVar = false
   // 변수에 값을 넣어 보는 횟수의 한도 (줄 전체에서): 값이 수백 개인 변수를 수백 번 쓰면 그 곱만큼 다시 판정하게 된다
   let budget = VARIANTS_MAX
   for (const seg of segments(sub.flat)) {
@@ -225,6 +229,11 @@ function kindCore(cmd: string, o: Where, depth: number): ChatKind {
     if (tried.partial) bump('run')
     for (const v of tried.texts) bump(commandKind(v, o, depth + 1))
     budget = Math.max(0, budget - tried.texts.length)
+    // 값을 모르는 변수가 find · git · sed · fd 의 인자 맨 앞에 오면 무엇이 될지 모른다: 한 번 묻는다 (11/26)
+    const lead = leading(all).rest
+    // 맨 바깥 글에서만: 값을 넣어 다시 읽는 글(variants)에서는 아직 넣지 않은 변수가 모르는 변수로 보인다
+    if (depth === 0 && unknownVarArg(lead, unmask(lead[0] ?? '').split('/').pop()!, (n) => loopVars.has(n) || knownValue(vars.get(n) ?? groupVars.get(n)))) unknownVar = true
+    noteLoopVars(all, loopVars)
     noteVars(all, vars)
     // 묶음 안에서 정한 값으로도 넣어 본다. 위에서 이미 본 글은 다시 보지 않는다
     if (groupBudget > 0) {
@@ -241,6 +250,8 @@ function kindCore(cmd: string, o: Where, depth: number): ChatKind {
     bump(wordsKind(all, o, 0, depth))
     for (const group of splitGroups(all)) bump(wordsKind(group, o, 0, depth))
   }
+  // 값을 모르는 변수: 읽기 · 실행으로 보이던 줄을 「외부」로 올려 한 번 묻는다. 이미 편집 · 삭제인 줄은 그대로 둔다(읽기 전용 대화는 편집 · 삭제를 막고 외부는 묻는다: 올리면 오히려 풀린다)
+  if (unknownVar && (worst === 'read' || worst === 'run' || worst === 'web')) return 'outside'
   return worst
 }
 
