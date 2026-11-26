@@ -22,7 +22,7 @@ import { AgentLine } from './FeedbackAgentLine'
 import { FeedbackChat } from './FeedbackChat'
 import { flash } from './flash'
 import { FeedbackTurnSplit, type FeedbackRowAct } from './FeedbackTurnSplit'
-import { verdictName, Account, InApp, Summary, Conversation } from './FeedbackThread'
+import { verdictName, Account, InApp, Summary, Conversation } from './FeedbackConversation'
 const FEEDBACK_STATE = [...qk.feedback, 'state'] as const, FEEDBACK_UNPUBLISHED = [...qk.feedback, 'unpublished'] as const
 
 export { needsAnswer, needsConfirm, stateOf } from './feedbackBuckets'
