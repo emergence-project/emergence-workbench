@@ -120,7 +120,7 @@ function progOptionWhy(prog: string, args: string[]): string | undefined {
     // 스크립트는 -e 의 값들, -e 가 없으면 옵션이 아닌 첫 낱말 (-i 의 값 "" · .bak 은 건너뛴다)
     const ev = args.flatMap((a, i) => (args[i - 1] === '-e' || args[i - 1] === '--expression' ? [a] : /^-e./.test(a) ? [a.slice(2)] : /^--expression=/.test(a) ? [a.slice(13)] : []))
     const scripts = ev.length ? ev : args.filter((a, i) => !a.startsWith('-') && !(args[i - 1] === '-i' && /^(\.\w*)?$/.test(a))).slice(0, 1)
-    if (scripts.some((t) => /(^|[;{}\n\d$/!])\s*[ewW](\s|$)|s(.).*?\2.*?\2[gpiImM0-9]*[ewW]/.test(t)) || has(/^(-f|--file)/)) return 'sed e · w'
+    if (scripts.some(sedRunsOrWrites) || has(/^(-f|--file)/)) return 'sed e · w'
   }
   if (/^g?awk$/.test(prog) && (has(/system\s*\(|\|\s*getline|\bprintf?\b[^;}]*[>|]|\bclose\s*\(/) || has(/^(-f|--file)/))) return 'awk system · >'
   if (prog === 'rg' && has(/^--pre(=|$)/)) return 'rg --pre'
@@ -129,6 +129,49 @@ function progOptionWhy(prog: string, args: string[]): string | undefined {
   if (prog === 'rsync' && has(/^(-e|--rsh|--rsync-path)/)) return 'rsync -e'
   if (prog === 'env' && has(/^(-C|--chdir|-S|--split-string|-[a-zA-Z]*[CS])/)) return 'env -C · -S'
   return undefined
+}
+
+/** sed 스크립트에 e(실행) · w · W(쓰기) 명령이나 s///e · s///w 플래그가 있는가. 주소와 s · y 의 글을 건너뛰며 명령 글자만 본다 */
+function sedRunsOrWrites(t: string): boolean {
+  let i = 0
+  const n = t.length
+  const skipDelim = (d: string): void => { for (i++; i < n && t[i] !== d; i++) if (t[i] === '\\') i++; i++ }
+  while (i < n) {
+    const ch = t[i]!
+    if (/[\s;{}!,]/.test(ch)) { i++; continue }
+    if (/[\d$~+]/.test(ch)) { i++; continue }
+    if (ch === '/') { skipDelim('/'); while (/[IM]/.test(t[i] ?? '')) i++; continue }
+    if (ch === '\\') { i++; skipDelim(t[i]!); continue }
+    if (ch === 's' || ch === 'y') {
+      const d = t[i + 1]
+      if (!d) return false
+      i++; skipDelim(d); i--; skipDelim(d)
+      if (ch === 's') { const f = /^[gpiImM0-9]*[ewW]?/.exec(t.slice(i))![0]; if (/[ewW]/.test(f)) return true; i += f.length }
+      continue
+    }
+    if (/[ewW]/.test(ch)) return true
+    // a i c r R 와 이름표(b t T :)는 줄 끝까지가 그 글이다
+    if (/[aicrRbtT:]/.test(ch)) { while (i < n && t[i] !== '\n' && !(/[btT:]/.test(ch) && t[i] === ';')) i++; continue }
+    i++
+  }
+  return false
+}
+
+/** << 앞의 글이 셸 글로 끝나는가: 따옴표 · 주석 안이 아니고 역슬래시로 끝나지 않는다. 따옴표 안의 치환("$( …) 안은 셸 글이다 */
+function plainBefore(head: string): boolean {
+  const st: ('n' | 'dq' | 'sub')[] = ['n']
+  for (let i = 0; i < head.length; i++) {
+    const c = head[i]!, top = st[st.length - 1]!
+    if (c === '\\') { if (i === head.length - 1) return false; i++; continue }
+    if (top === 'dq') { if (c === '"') st.pop(); else if (c === '$' && head[i + 1] === '(') { st.push('sub'); i++ } else if (c === '`') return false; continue }
+    if (c === "'") { const e = head.indexOf("'", i + 1); if (e < 0) return false; i = e; continue }
+    if (c === '"') { st.push('dq'); continue }
+    if (c === '`') return false
+    if (c === '$' && head[i + 1] === '(') { st.push('sub'); i++; continue }
+    if (c === ')' && top === 'sub') { st.pop(); continue }
+    if (c === '#' && (i === 0 || /[\s;&|(]/.test(head[i - 1]!))) return false
+  }
+  return st[st.length - 1] !== 'dq'
 }
 
 /** 낱말로 나눈 명령 하나 (감싸 돌리는 안의 명령도) */
@@ -229,7 +272,7 @@ export function dataHeredocsRemoved(cmd: string): string {
   return cmd.replace(/(^|\n)([^\n]*?)(<<-?)[ \t]*(['"]?)([A-Za-z_]\w*)\4([^\n]*)\n([\s\S]*?)\n([ \t]*)\5[ \t]*(?=\n|$|\))/g, (whole, nl: string, head: string, op: string, quote: string, delim: string, tail: string, body: string, indent: string) => {
     if (head.includes('<<') || tail.includes('<<')) return whole
     // << 가 진짜인지 틀림없을 때만: 앞에 따옴표 · 역슬래시 · 주석이 없다 (따옴표 안 치환을 여는 "$( 는 둔다). cat # <<E 나 cat "<<E" 다음 줄은 명령이다 (11/26 검토)
-    if (/['"\\#]/.test(head.replace(/"\$\(/g, ''))) return whole
+    if (!plainBefore(head)) return whole
     if (indent && (op !== '<<-' || /[^\t]/.test(indent))) return whole
     if (!quote && /[$`\\]/.test(body)) return whole
     const receiver = head.split(/&&|\|\||[;&|(`]|\$\(/).pop()!.trim()

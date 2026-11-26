@@ -105,6 +105,11 @@ describe('검토에서 나온 꼴', () => {
     expect(unreadWhy('/w/x/foo', { known: (p) => p === '/w/x/foo' })).toBeUndefined()
     expect(unreadWhy('/w/x/foo', { known: (p) => p === 'foo' })).toBeDefined()
   })
+  it('실제 기록의 sed · 히어독은 읽은 것', () => {
+    for (const c of [`sed -i '' "19s/appEnv, notStarted,/appEnv, notStarted, x,/" a.ts`, `sed -n '/<\\/style>/,$p' a.html`, `sed 's/<style>.*<\\/style>//' a`, "sed 's#from .x.#from \"y\"#' a > b", `sed -i '' 's/padding-inline: 4px; }/padding-inline: var(--sp-1); }/' a.css`,
+      "sed -i '' '150{/eslint-disable/d;}' a", `sed -i '' -e "180s/a/b/" -e 's/\\.slice(-400)/.slice(-1000)/' a`, "sed -i '' 's/stays 134 screens/stays 135 screens/; s/x, 134)/x, 135)/g' a",
+      "grep -o -- '--(a|b):' x | sort -u; python3 - <<'EOF'\nopen(p,'w').write(s)\nEOF", `perl -0pi -e "s|a \\{ b \\}|c|" x && cat >> y <<'EOF'\ndescribe('a (b), c', () => {\nEOF`]) expect(unreadWhy(c), c).toBeUndefined()
+  })
   it('tar는 모르는 프로그램이라 어차피 묻는다', () => expect(unreadWhy('tar --to-command=sh -xf a.tar')).toBeDefined())
   it('아주 긴 글도 금방 끝난다', () => {
     const big = 'cat <<E x\n' + 'a\n'.repeat(60_000)
