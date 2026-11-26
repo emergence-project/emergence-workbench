@@ -29,6 +29,7 @@ export class FeedbackChats extends SharedChats {
    * 피드백 대화 돌보기 (1분마다, 설정 › 에이전트 "앱 피드백"):
    * 1. 맡은 대화의 PR이 CI 빨강이면 실패 기록을 그 대화에 다시 보내 고치게 한다 (두 번까지).
    * 2. CI 초록이면 설정대로 합친다: green = 바로, approved = 사용자가 그 답을 승인한 뒤, never = 합치지 않음.
+   *    사용자가 손으로 합친 PR도 합친 것으로 본다 (prMerged).
    * 3. 합친 커밋이 지금 도는 앱에 들어오면 shipped (상단바 "#n 반영됨").
    *    main과 부딪혀 합치지 못하면 그 대화에 main을 받아 풀라고 한 번 보낸다.
    * 4. 저절로 맡기기(instant)면 pickFeedback.
@@ -47,16 +48,20 @@ export class FeedbackChats extends SharedChats {
         // 묶어 맡긴 대화(11/19)는 모든 항목을 승인해야 승인으로 본다
         const es = keysOf(c).map((k) => items.get(k))
         const approved = es.length > 0 && es.every((e) => !!e?.review && e.review.verdict === '승인' && (!e.status?.handled_at || e.review.at > e.status.handled_at))
-        // 앱 고치기 대화는 저절로 합치지 않으므로, 사용자가 합쳤는지 본다
+        // 앱 고치기 대화는 저절로 합치지 않으므로, 사용자가 합쳤는지 본다.
+        // 피드백 대화의 PR도 사용자가 손으로 합칠 수 있다(설정이 「합치지 않음」 · 「승인 뒤」일 때, 11/26): 전에는 보지 않아 그 대화가 끝내 합쳐지지 않은 것으로 남았다
+        // (고친 파일을 계속 잡고, 반영됨 · 보관 · 작업 폴더 치우기가 오지 않음). PR을 올린 뒤에만 그 번호로 묻는다: 다시 맡은 대화가 앞 PR로 합친 것이 되지 않게
         const w = this.workOf(c) ?? app
-        if (!c.feedback && !c.merged && c.worktree && c.branch && w.prMerged) {
+        // 보관한 대화는 바뀐 때를 그대로 둔다: 같은 항목의 새 대화보다 앞서면 다음 맡기기가 옛 대화로 이어진다 (handOff는 가장 최근에 바뀐 대화를 고른다)
+        const save = () => (c.archived ? this.write(c) : this.touch(c))
+        if ((!c.feedback || c.pr) && !c.merged && c.worktree && c.branch && w.prMerged) {
           const m = await w.prMerged(c.worktree, c.branch, c.pr?.number)
-          if (m) { c.merged = m.sha || 'merged'; this.touch(c) }
+          if (m) { c.merged = m.sha || 'merged'; save() }
         }
         if (c.merged) {
           // 다른 앱(11/20)은 이 앱이 다시 켜지는 것과 상관없다: 합치면 끝
-          if (!c.shipped && c.scope.app) { c.shipped = true; this.touch(c) }
-          if (!c.shipped && this.deps.inApp && (await this.deps.inApp(c.merged))) { c.shipped = true; this.touch(c) }
+          if (!c.shipped && c.scope.app) { c.shipped = true; save() }
+          if (!c.shipped && this.deps.inApp && (await this.deps.inApp(c.merged))) { c.shipped = true; save() }
           if (c.shipped && (!c.feedback || approved || s.merge === 'approved')) this.closeDone(c)
           continue
         }
