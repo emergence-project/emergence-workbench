@@ -1,6 +1,9 @@
 // 소개와 업데이트 1대1 (10/15 사용자 결정): 화면을 바꾼 PR은 소개도 같은 PR에서 고친다.
 // 소개 글은 절마다 파일 하나다: apps/web/src/about/<쪽>/<절>.tsx (한국어 ko와 영어 en이 한 파일에, prs는 ko에). 쪽 머리는 about/<쪽>.tsx.
-// - 화면 파일이 바뀌었는데 소개가 그대로면, 커밋 메시지에 "소개: 그대로 — 이유" 한 줄이 있어야 한다 (설정 › 업데이트 이력에 이유가 보인다)
+// - 화면 파일이 바뀌었는데 소개가 그대로면 알린다(막지 않는다, 11/27 사용자 결정 "알림으로 + 앱이 절을 짚어 줌"): 그 화면 파일과 지난 커밋에서
+//   함께 고쳐진 소개 절을 짚어 준다. 줄은 "※ "로 시작하고(앱의 app_submit이 에이전트에게 돌려준다), CI에서는 ::warning으로도 낸다.
+//   "소개: 그대로 — 이유" 줄은 이제 의무가 아니다: 쓰면 알림이 없고 설정 › 업데이트 이력에 이유가 보인다.
+//   근거: 커밋의 41%가 '그대로' 줄을 썼고 검사는 줄이 있는지만 봐서, 소개가 틀린 일(#749)을 막지 못했다 (docs/rules/registry.json about-sync)
 // - 소개를 고쳤고 PR 번호를 알면(CI), 고친 절에 그 번호가 있어야 한다 (소개 이력 보기의 업데이트 번호와 이력의 "소개" 칸이 서로 가리킨다):
 //   조각 파일 about/prs/<번호>.json(고친 절 "<쪽>/<절>" 목록, 11/20 · PR끼리 prs 줄에서 부딪히지 않게)이나 절 ko의 prs
 // 비교 기준: ABOUT_BASE(CI의 PR 기준 커밋), 없으면 origin/main과 갈라진 곳. 둘 다 없으면 건너뛴다.
@@ -28,15 +31,45 @@ export const sameNote = (messages) => /^(?:소개: 그대로|About: unchanged)/m
 /** prs: [..] 배열에 적힌 PR 번호들 */
 export const prsIn = (source) => new Set([...source.matchAll(/prs: \[([\d, ]*)\]/g)].flatMap((m) => m[1].split(',').map((x) => Number(x.trim())).filter(Boolean)))
 
-/** 검사 결과: 문제 문장 목록 (비면 통과) */
-export function checkAbout({ files, messages, aboutSource, pr }) {
-  const problems = []
+/** 소개 절 파일의 이름 "<쪽>/<절>" (절 파일이 아니면 undefined) */
+export const sectionOf = (f) => f.match(/^apps\/web\/src\/about\/([^/]+)\/([^/]+)\.tsx$/)?.slice(1, 3).join('/')
+
+/**
+ * 바뀐 화면 파일과 지난 커밋에서 함께 고쳐진 소개 절 (많이 함께 고친 차례로 n개). 함께 고친 적이 없으면 빈 목록
+ * @param {string[]} screens
+ * @param {{ files: string[] }[]} history 지난 커밋들
+ * @returns {string[]}
+ */
+export function sectionsFor(screens, history, n = 3) {
+  const count = new Map()
+  const want = new Set(screens)
+  for (const c of history) {
+    if (!c.files.some((f) => want.has(f))) continue
+    for (const f of c.files) { const s = sectionOf(f); if (s) count.set(s, (count.get(s) ?? 0) + 1) }
+  }
+  return [...count].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, n).map(([s]) => s)
+}
+
+/**
+ * 알림 (막지 않는다): 화면을 바꿨는데 소개를 고치지 않았고 '그대로' 이유도 없으면, 살펴볼 소개 절을 짚는다
+ * @param {{ files: string[], messages: string, history?: { files: string[] }[] }} o
+ */
+export function aboutReminders({ files, messages, history = [] }) {
   const screens = files.filter(isScreenFile)
   const aboutChanged = files.some((f) => ABOUT_FILES.includes(f) || isAboutText(f))
+  if (!screens.length || aboutChanged || sameNote(messages)) return []
+  const shown = `${screens.slice(0, 5).join(', ')}${screens.length > 5 ? ' …' : ''}`
+  const sections = sectionsFor(screens, history)
+  const where = sections.length
+    ? `이 화면 파일과 함께 고쳐 온 소개 절: ${sections.map((s) => `${ABOUT_DIR}/${s}.tsx`).join(', ')}`
+    : `함께 고쳐 온 소개 절이 없습니다. ${ABOUT_DIR}/<쪽>/ 아래에서 이 화면을 설명하는 절을 찾으세요`
+  return [`소개 확인: 화면 파일이 바뀌었습니다 (${shown}). ${where}. 설명이 달라졌으면 그 절(ko · en)을 고치고, 그대로면 두어도 됩니다(이유를 남기려면 커밋 메시지에 "소개: 그대로 — 이유").`]
+}
+
+/** 검사 결과: 문제 문장 목록 (비면 통과). 화면만 바꾼 것은 막지 않는다(aboutReminders) */
+export function checkAbout({ files, messages, aboutSource, pr }) {
+  const problems = []
   const numbered = files.some((f) => fragmentPr(f) === pr) || prsIn(aboutSource).has(pr)
-  if (screens.length && !aboutChanged && !sameNote(messages)) {
-    problems.push(`화면 파일이 바뀌었는데 소개를 고치지 않았습니다 (${screens.slice(0, 5).join(', ')}${screens.length > 5 ? ' …' : ''}).\n  바뀐 화면을 설명하는 소개 절을 ${ABOUT_DIR}/<쪽>/<절>.tsx(한국어 ko · 영어 en)에서 고치거나, 소개가 그대로 맞으면 커밋 메시지에 "소개: 그대로 — 이유" 한 줄을 쓰세요.`)
-  }
   // "소개: 그대로"를 쓴 PR(글을 옮기기만 한 정리 등)은 PR 번호를 적지 않는다
   if (files.some(isAboutText) && pr && !sameNote(messages) && !numbered) {
     problems.push(`소개를 고쳤는데 어느 절에도 이 PR 번호가 없습니다. ${ABOUT_DIR}/prs/${pr}.json에 고친 절을 적으세요 (예: ["project/flow"]; 앱 고치기 대화는 app_submit이 적는다).`)
@@ -48,7 +81,7 @@ export function checkAbout({ files, messages, aboutSource, pr }) {
 const aboutSources = (dir) => fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))
   .map((e) => e.isDirectory() ? aboutSources(path.join(dir, e.name)) : /\.tsx?$/.test(e.name) ? fs.readFileSync(path.join(dir, e.name), 'utf8') : '').join('\n')
 
-const git = (...args) => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+const git = (...args) => execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 }).trim()
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -66,5 +99,15 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const pr = Number(process.env.PR_NUMBER) || undefined
   const problems = checkAbout({ files, messages, aboutSource: aboutSources(ABOUT_DIR), pr })
   if (problems.length) { console.error(problems.map((p) => `✗ ${p}`).join('\n')); process.exit(1) }
+  // 지난 커밋 2000개에서 화면 파일과 소개 절이 함께 바뀐 것 (얕게 받은 저장소면 있는 만큼)
+  /** @type {{ files: string[] }[]} */
+  let history = []
+  try {
+    history = git('log', '-n', '2000', '--format=%x01', '--name-only', base).split('\u0001').map((b) => ({ files: b.split('\n').filter(Boolean) }))
+  } catch { /* 이력 없음 */ }
+  for (const r of aboutReminders({ files, messages, history })) {
+    console.log(`※ ${r}`)
+    if (process.env.GITHUB_ACTIONS) console.log(`::warning title=소개 확인::${r}`)
+  }
   console.log(`소개 검사 통과 (바뀐 파일 ${files.length}개${pr ? `, PR #${pr}` : ''})`)
 }

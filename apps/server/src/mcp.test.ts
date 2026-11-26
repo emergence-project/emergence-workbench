@@ -103,6 +103,17 @@ describe('MCP 입구 (읽기)', () => {
     expect(urls).toEqual(['POST /api/agent-chats/c-1/app/submit', 'GET /api/agent-chats/c-1/app/checks', 'POST /api/agent-chats/c-1/app/merge', 'POST /api/agent-chats/c-1/feedback/answer'])
   })
 
+  it('app_submit은 검사가 막지 않고 알린 것(살펴볼 소개 절)을 에이전트에게 돌려준다 (11/27)', async () => {
+    const f = (async () => new Response(JSON.stringify({ number: 5, url: 'u', created: true, notes: ['소개 확인: about/project/flow.tsx'] }), { status: 200, headers: { 'content-type': 'application/json' } })) as typeof fetch
+    const [a, b] = InMemoryTransport.createLinkedPair()
+    await createMcpServer({ baseUrl: 'http://127.0.0.1:1', fetch: f, appChat: 'c-1' }).connect(a)
+    const c = new Client({ name: 'test', version: '0' })
+    await c.connect(b)
+    const out = textOf(await c.callTool({ name: 'app_submit', arguments: { title: '고침', body: 'b' } }))
+    expect(out).toContain('Opened PR #5')
+    expect(out).toContain('- 소개 확인: about/project/flow.tsx')
+  })
+
   it('연결 안내의 순서에 적은 도구 이름은 모두 실제 도구다', async () => {
     const c = await connect()
     const names = new Set((await c.listTools()).tools.map((t) => t.name))

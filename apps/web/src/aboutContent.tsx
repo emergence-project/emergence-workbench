@@ -30,7 +30,8 @@ export { COLOR_ROWS_EN, COLOR_ROWS_KO, SYMBOL_GROUPS_EN, SYMBOL_GROUPS_KO }
  * 화면이 바뀌면 그 절 파일도 같이 고친다. 고친 절에는 그 PR 번호가 붙는다(절 제목 옆과 설정 › 업데이트 이력이 서로 가리킨다):
  * PR마다 조각 파일 about/prs/<번호>.json(고친 절 "<쪽>/<절>" 목록)을 두고 여기서 절의 prs(ko 쪽)에 합친다. 여러 PR이 같은 prs 줄을 고쳐
  * 부딪히지 않게 (11/20). 앱 고치기 대화는 app_submit이 조각을 적고, 앱 밖 에이전트는 손으로 적는다. 옛 번호는 절 파일의 prs에 그대로 있다.
- * 화면을 바꾸고도 소개를 고치지 않는 PR은 커밋 메시지에 "소개: 그대로 — 이유" 한 줄을 쓴다 (scripts/ci/check-about.mjs, 10/15 사용자 결정).
+ * 화면을 바꾸고도 소개를 고치지 않은 PR은 scripts/ci/check-about.mjs가 막지 않고, 그 화면 파일과 함께 고쳐 온 소개 절을 짚어 알린다(11/27).
+ * 이유를 남기려면 커밋 메시지에 "소개: 그대로 — 이유" 한 줄을 쓴다(이력에 보인다).
  */
 const PARTS = [intro, principles, home, project, notes, knowledge, reading, network, settings, agents, feedback, design, symbols, reference, next]
 
