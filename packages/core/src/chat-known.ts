@@ -248,7 +248,10 @@ function sedRunsOrWrites(t: string): boolean {
     }
     if (/[ewW]/.test(ch)) return true
     // a i c r R 와 이름표(b t T :)는 줄 끝까지가 그 글이다
-    if (/[aicrRbtT:]/.test(ch)) { while (i < n && t[i] !== '\n' && !(/[btT]/.test(ch) && t[i] === ';')) i++; continue }
+    if (/[aicrRbtT:]/.test(ch)) {
+      for (;;) { while (i < n && t[i] !== '\n' && !(/[btT]/.test(ch) && t[i] === ';')) i++; if (/[aic]/.test(ch) && t[i] === '\n' && t[i - 1] === '\\') { i++; continue } break }
+      continue
+    }
     if (/[pPdDnNgGhHxlq=QzFv]/.test(ch)) { i++; continue }
     return true
   }
@@ -382,20 +385,34 @@ const PIPE_READERS = /^(tail|head|grep|wc|uniq|cut|cat|tee)$/
 export function dataHeredocsRemoved(cmd: string): string {
   // 아주 긴 글은 빼지 않는다 (본문 찾기가 길이의 제곱만큼 걸린다): 덜 빼면 더 묻을 뿐이다
   if (!cmd.includes('<<') || cmd.length > 100_000) return cmd
-  return cmd.replace(/(^|\n)([^\n]*?)(<<-?)[ \t]*(['"]?)([A-Za-z_]\w*)\4([^\n]*)\n([\s\S]*?)\n([ \t]*)\5[ \t]*(?=\n|$|\))/g, (whole, nl: string, head: string, op: string, quote: string, delim: string, tail: string, body: string, indent: string, at: number) => {
-    if (head.includes('<<') || tail.includes('<<')) return whole
-    // << 가 진짜인지 틀림없을 때만: 앞에 따옴표 · 역슬래시 · 주석이 없다 (따옴표 안 치환을 여는 "$( 는 둔다). cat # <<E 나 cat "<<E" 다음 줄은 명령이다 (11/26 검토)
-    // 줄 머리만이 아니라 글 처음부터 차례로 읽는다 (앞 줄에서 연 따옴표 안의 << , 11/26 검토 2차). 셈 (( · $(( 의 << (비트 밀기) · ${…} 안 · <<< 도 아니다
-    const before = cmd.slice(0, at + nl.length + head.length)
-    if (!plainBefore(before) || /\(\(|\$\{/.test(before) || head.endsWith('<')) return whole
-    if (indent && (op !== '<<-' || /[^\t]/.test(indent))) return whole
-    if (!quote && /[$`\\]/.test(body)) return whole
-    const receiver = head.split(/&&|\|\||[;&|(`]|\$\(/).pop()!.trim()
-    const prog = (words(receiver.replace(/^[({!\s]+/, ''))[0] ?? '').split('/').pop()!
-    if (!DATA_RECEIVERS.test(prog)) return whole
-    const pipes = [...tail.matchAll(/(?<!\|)\|(?!\|)&?[ \t]*([^ \t|&;)]*)/g)]
-    if (!pipes.every((m) => PIPE_READERS.test(m[1]!))) return whole
-    // 받는 줄의 << 구분자는 </dev/null 로: 끝 줄(구분자)이 명령으로 읽히지 않게 본문과 함께 뺀다
-    return `${nl}${head}</dev/null${tail}`
-  })
+  // 앞에서부터 하나씩: 앞의 본문을 뺀 글로 다음 << 앞을 읽는다 (한 명령에 히어독이 여럿일 때)
+  const re = /(^|\n)([^\n]*?)(<<-?)[ \t]*(['"]?)([A-Za-z_]\w*)\4([^\n]*)\n([\s\S]*?)\n([ \t]*)\5[ \t]*(?=\n|$|\))/g
+  let out = cmd
+  for (let from = 0; ;) {
+    re.lastIndex = from
+    const m = re.exec(out)
+    if (!m) return out
+    const [whole, nl, head, op, quote, , tail, body, indent] = m
+    const rep = dataHeredoc(out.slice(0, m.index + nl!.length + head!.length), nl!, head!, op!, quote!, tail!, body!, indent!)
+    if (rep === undefined) { from = m.index + whole!.length; continue }
+    out = out.slice(0, m.index) + rep + out.slice(m.index + whole!.length)
+    from = m.index + rep.length
+  }
+}
+
+/** 히어독 하나: 자료로만 쓰이면 본문을 뺀 받는 줄, 아니면 undefined */
+function dataHeredoc(before: string, nl: string, head: string, op: string, quote: string, tail: string, body: string, indent: string): string | undefined {
+  if (head.includes('<<') || tail.includes('<<')) return undefined
+  // << 가 진짜인지 틀림없을 때만: 글 처음부터 차례로 읽어 따옴표 · 주석 안이 아니고 역슬래시 뒤가 아니다 (cat # <<E · cat "<<E" · 앞 줄에서 연 따옴표 안, 11/26 검토).
+  // 셈 (( · $(( 의 << (비트 밀기) · ${…} 안 · <<< 도 아니다
+  if (!plainBefore(before) || /\(\(|\$\{/.test(before) || head.endsWith('<')) return undefined
+  if (indent && (op !== '<<-' || /[^\t]/.test(indent))) return undefined
+  if (!quote && /[$`\\]/.test(body)) return undefined
+  const receiver = head.split(/&&|\|\||[;&|(`]|\$\(/).pop()!.trim()
+  const prog = (words(receiver.replace(/^[({!\s]+/, ''))[0] ?? '').split('/').pop()!
+  if (!DATA_RECEIVERS.test(prog)) return undefined
+  const pipes = [...tail.matchAll(/(?<!\|)\|(?!\|)&?[ \t]*([^ \t|&;)]*)/g)]
+  if (!pipes.every((p) => PIPE_READERS.test(p[1]!))) return undefined
+  // 받는 줄의 << 구분자는 </dev/null 로: 끝 줄(구분자)이 명령으로 읽히지 않게 본문과 함께 뺀다
+  return `${nl}${head}</dev/null${tail}`
 }

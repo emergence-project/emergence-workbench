@@ -113,6 +113,11 @@ describe('검토에서 나온 꼴', () => {
       "sed -i '' '150{/eslint-disable/d;}' a", `sed -i '' -e "180s/a/b/" -e 's/\\.slice(-400)/.slice(-1000)/' a`, "sed -i '' 's/stays 134 screens/stays 135 screens/; s/x, 134)/x, 135)/g' a",
       "grep -o -- '--(a|b):' x | sort -u; python3 - <<'EOF'\nopen(p,'w').write(s)\nEOF", `perl -0pi -e "s|a \\{ b \\}|c|" x && cat >> y <<'EOF'\ndescribe('a (b), c', () => {\nEOF`]) expect(unreadWhy(c), c).toBeUndefined()
   })
+  it('히어독이 여럿인 줄 · sed a\\ 이어 쓰기', () => {
+    expect(unreadWhy("cat > a.ts <<'EOF'\nconst x = `${a}` ((b))\nEOF\npython3 - <<'EOF'\nimport os\nprint(1)\nEOF\ncat > b.ts <<'EOF'\nls *(e:x:)\nEOF")).toBeUndefined()
+    expect(unreadWhy("sed -i '' '1239a\\\n  \"a\": \"b\",' x.json")).toBeUndefined()
+    expect(why("sed -i '' '1a\\\nx\n1e rm' f")).toBe('syntax')
+  })
   it('tar는 모르는 프로그램이라 어차피 묻는다', () => expect(unreadWhy('tar --to-command=sh -xf a.tar')).toBeDefined())
   it('아주 긴 글도 금방 끝난다', () => {
     const big = 'cat <<E x\n' + 'a\n'.repeat(60_000)
