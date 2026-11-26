@@ -28,6 +28,15 @@ export interface FileDiff { file: string; added: number; removed: number; patch:
 /** 작업 폴더 한 때의 모습 (되돌리기): 그때 파일 전부의 git tree와 HEAD */
 export interface Snap { tree: string; head: string }
 
+/**
+ * 대화가 PR을 올렸다: 앞 PR을 합친 대화가 이어서 올렸으면 새 PR이므로 합침 · 반영됨 · 지난 CI 기억 · 보관 표시를 지운다 (11/26).
+ * 전에는 「합침」이 남아 열린 PR이 있는 대화를 끝난 것으로 보았다 (app_merge가 "이미 합쳤습니다", 고친 파일을 잡지 않음, 저절로 보관)
+ */
+export function newPrRound(c: { merged?: string; shipped?: boolean; ciSeen?: string; ciRetries?: number; closed?: boolean }): void {
+  if (!c.merged) return
+  delete c.merged; delete c.shipped; delete c.ciSeen; delete c.ciRetries; delete c.closed
+}
+
 export interface AppWork {
   /** 고치는 앱 (안내 · 화면의 이름). 없으면 이 앱 */
   profile?: AppProfile
