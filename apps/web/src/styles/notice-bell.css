@@ -2,7 +2,8 @@
 .tb-bell { position: relative; display: inline-flex; }
 .tb-bell > .icon-btn { position: relative; }
 .tb-bell-n { position: absolute; top: 0; right: -2px; min-width: 14px; height: 14px; line-height: 14px; padding: 0 3px; pointer-events: none; }
-.tb-bell-menu { right: 0; top: calc(100% + 4px); width: 340px; max-width: calc(100vw - 2 * var(--sp-3)); max-height: 70vh; overflow-y: auto; }
+/* 높이: 창 아래까지 (예전 70vh는 1200×735에서 「새 소식」 머리만 보이고 소식 줄은 메뉴 안을 내려야 보였다, 11/27) */
+.tb-bell-menu { right: 0; top: calc(100% + 4px); width: 340px; max-width: calc(100vw - 2 * var(--sp-3)); max-height: calc(100vh - 3 * var(--sp-6)); overflow-y: auto; }
 .tb-bell-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: 6px 10px; font-size: var(--fs-sm); }
 .tb-bell-head { border-bottom: 1px solid var(--line); margin-bottom: var(--sp-1); }
 .tb-bell-title { font-weight: var(--fw-strong); }

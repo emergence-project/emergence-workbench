@@ -38,6 +38,10 @@
 
   /* 표: 한 줄에서 잘리던 글을 접어 끝까지 읽게 (피드백 표) */
   .fbp-table td, .fbp-table td * { white-space: normal; text-overflow: clip; overflow-wrap: anywhere; }
+  /* 확인만 줄의 반려 · 승인: 좁은 칸에 세로로 쌓고 글자는 끊지 않는다 (위 규칙에 「반 려」 「승 인」이 한 글자씩 끊기고 승인이 잘렸다, 11/27) */
+  .fbp-table td:has(> .fbp-turn-act) { overflow: visible; }
+  .fbp-table .fbp-turn-act { flex-direction: column; align-items: flex-end; gap: var(--sp-2); }
+  .fbp-table .fbp-turn-act, .fbp-table .fbp-turn-act * { white-space: nowrap; overflow-wrap: normal; }
 
   /* 설정 줄: 버튼 묶음이 넓으면 이름 · 설명이 한 글자씩 세로로 끊겼다(설정 › 편집기의 글꼴). 이름 칸이 좁아지면 버튼 묶음을 아래 줄로 (11/27) */
   .set-row { flex-wrap: wrap; }
