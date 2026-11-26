@@ -98,7 +98,7 @@ const runCheck: CheckRun = (cmd, args, cwd, env) => exec(cmd, args, { cwd, timeo
 
 /** 통과한 검사가 남긴 알림 줄 ("※ "로 시작, 예: 소개 검사가 짚는 소개 절, 11/27) */
 export const checkNotes = (out: unknown): string[] => {
-  const stdout = (out as { stdout?: unknown } | undefined)?.stdout
+  const stdout = out && typeof out === 'object' && 'stdout' in out ? out.stdout : undefined
   return typeof stdout === 'string' ? stdout.split('\n').filter((l) => l.startsWith('※ ')).map((l) => l.slice(2).trim()) : []
 }
 
