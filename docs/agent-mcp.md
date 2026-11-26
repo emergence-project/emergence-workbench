@@ -93,7 +93,7 @@ When it connects, the server tells the agent which tools to use in which order f
 - Instructions (지시): Settings › Agents chooses whether Claude on the Mac carries them out itself, right away or once a day at a chosen time (default: no, an agent session picks them up). It runs one at a time with read-only tools and answers as `claude`, with note changes as fix blocks the user applies. Records it already answered are no longer in `unanswered`.
 - Check pending edits with `list_edit_reviews` or the project summary. Do not reintroduce paragraphs the user reverted. Reverting an agent edit to a project note appends a status record to that project’s journal; concept notes have no project journal, so their reverts are not recorded there.
 - Each research repository's own `AGENTS.md` and `CLAUDE.md` come before this entry point.
-- Code: `apps/server/src/mcp.ts` (tools), `scripts/mcp.mjs` (stdio start), tests `apps/server/src/mcp.test.ts`.
+- Code: `apps/server/src/mcp.ts` (tools; the conversation-only tools are in `mcpChats.ts`), `scripts/mcp.mjs` (stdio start), tests `apps/server/src/mcp.test.ts`.
 
 ## Conversations the app starts (agent chats, 10/21)
 
