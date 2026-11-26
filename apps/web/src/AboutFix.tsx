@@ -102,12 +102,14 @@ function usePicking(root: RefObject<HTMLElement | null>, on: boolean, onPick: (e
 }
 
 type Kept = FixChange & { name?: string; part: string }
+type Picked = { where: string; before: string; part: string; key?: string; pr?: number; name?: string }
 /**
  * 담은 곳과 바라는 점은 탭 · 쪽 · 절을 바꿔도 남는다 (11/26): 전에는 부품의 상태라, 여러 절의 고칠 곳을 모으려고 절을 넘기면 사라졌다
- * (소개는 절을 하나씩 보이고, 절이 바뀌면 고르던 곳을 비우려고 이 탭을 새로 만든다). 보내면 비운다
+ * (소개는 절을 하나씩 보이고, 절이 바뀌면 고르던 곳을 비우려고 이 탭을 새로 만든다). 보내면 비운다.
+ * 담기 전에 고치던 곳과 글도 남는다 (11/27): 고친 글을 적다가 다른 절을 보면 적던 글이 말없이 사라졌다
  */
-let kept: { basket: Kept[]; wish: string } = { basket: [], wish: '' }
-draftSource(() => kept.basket.length > 0 || kept.wish.trim() !== '')
+let kept: { basket: Kept[]; wish: string; cur: Picked | null; draft: string } = { basket: [], wish: '', cur: null, draft: '' }
+draftSource(() => kept.basket.length > 0 || kept.wish.trim() !== '' || (!!kept.cur && kept.draft.trim() !== kept.cur.before))
 /** 보낼 대상 이름: 한 쪽이면 그 쪽(절이 하나면 절까지), 여러 쪽이면 쪽 이름 없이 */
 export function fixTarget(basket: { name?: string; part: string }[], here: string): string {
   const parts = [...new Set(basket.map((c) => c.part))]
@@ -122,8 +124,10 @@ export function AboutFixTab({ root, partName, sectionKey }: {
   /** 고른 요소가 속한 절의 확인 키와 그 절의 마지막 PR (보낸 뒤 「반영 대기」) */
   sectionKey(el: Element): { key: string; pr: number; name: string } | undefined
 }) {
-  const [cur, setCur] = useState<{ where: string; before: string; key?: string; pr?: number; name?: string } | null>(null)
-  const [draft, setDraft] = useState('')
+  const [cur, showCur] = useState(kept.cur)
+  const [draft, showDraft] = useState(kept.draft)
+  const setCur = (v: Picked | null) => { kept = { ...kept, cur: v }; showCur(v) }
+  const setDraft = (v: string) => { kept = { ...kept, draft: v }; showDraft(v) }
   const [basket, showBasket] = useState(kept.basket)
   const [wish, showWish] = useState(kept.wish)
   const setBasket = (f: (b: Kept[]) => Kept[]) => { kept = { ...kept, basket: f(kept.basket) }; showBasket(kept.basket) }
@@ -133,13 +137,13 @@ export function AboutFixTab({ root, partName, sectionKey }: {
   const [pick] = useState(() => (el: Element) => {
     const before = textOf(el)
     const s = sectionKey(el)
-    setCur({ where: whereOf(el), before, ...(s && { key: s.key, pr: s.pr, name: s.name }) })
+    setCur({ where: whereOf(el), before, part: partName, ...(s && { key: s.key, pr: s.pr, name: s.name }) })
     setDraft(before); setNote('')
   })
   const hover = usePicking(root, true, pick)
   const add = () => {
     if (!cur || draft.trim() === cur.before) return
-    setBasket((b) => [...b.filter((x) => x.where !== cur.where || x.part !== partName), { where: cur.where, before: cur.before, after: norm(draft), part: partName, ...(cur.key && { key: cur.key, pr: cur.pr, name: cur.name }) }])
+    setBasket((b) => [...b.filter((x) => x.where !== cur.where || x.part !== cur.part), { where: cur.where, before: cur.before, after: norm(draft), part: cur.part, ...(cur.key && { key: cur.key, pr: cur.pr, name: cur.name }) }])
     setCur(null); setDraft('')
   }
   const send = async () => {
@@ -167,11 +171,11 @@ export function AboutFixTab({ root, partName, sectionKey }: {
       </>}
       {!cur && <p className="muted">{t('본문에서 고칠 곳을 누르세요. 그림 속 상자 · 표 칸 · 문단 어디든 됩니다.', 'Click the place to edit in the text: a box in a figure, a table cell or a paragraph.')}</p>}
       {cur && <>
-        <b className="about-fix-where">{cur.where}</b>
+        <b className="about-fix-where">{cur.part === partName ? cur.where : `${cur.part} › ${cur.where}`}</b>
         <p className="about-fix-old" data-ui="지금 글">{cur.before}</p>
         <textarea className="about-fix-new" data-ui="고친 글" value={draft} rows={4} onChange={(e) => setDraft(e.target.value)} aria-label={t('고친 글', 'Edited text')} autoFocus />
         <div className="about-fix-tools"><span className="sp" />
-          <button className="btn" onClick={() => setCur(null)}>{t('취소', 'Cancel')}</button>
+          <button className="btn" onClick={() => { setCur(null); setDraft('') }}>{t('취소', 'Cancel')}</button>
           <button className="btn" data-ui="담기" disabled={draft.trim() === cur.before} onClick={add}>{t('담기', 'Add')}</button>
         </div>
       </>}
