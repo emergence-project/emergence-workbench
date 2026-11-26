@@ -39,15 +39,15 @@ export function autoCustom(c: { write: 'read' | 'notes'; mode: Mode; auto?: Part
 /** 셈: 위가 더 무겁다. 여러 명령을 이으면 가장 무거운 것 */
 const WEIGHT: Record<ChatKind, number> = { read: 0, edit: 1, run: 2, web: 3, delete: 4, outside: 5 }
 
-const READS = new Set([
+export const READS = new Set([
   'ls', 'cat', 'head', 'tail', 'less', 'more', 'grep', 'egrep', 'fgrep', 'rg', 'ag', 'find', 'fd', 'wc', 'sort', 'uniq', 'cut', 'tr', 'nl', 'echo', 'printf',
   'pwd', 'which', 'type', 'file', 'stat', 'du', 'df', 'diff', 'cmp', 'tree', 'jq', 'yq', 'basename', 'dirname', 'realpath', 'readlink', 'date', 'true', 'false',
   'cd', 'column', 'comm', 'md5', 'md5sum', 'shasum', 'sha256sum', 'xxd', 'hexdump', 'od', 'strings', 'env', 'printenv', 'whoami', 'uname', 'test', '[',
   'pdftotext', 'pdfinfo', 'sed', 'awk', 'read',
 ])
-const EDITS = new Set(['mv', 'cp', 'mkdir', 'touch', 'tee', 'ln', 'patch', 'chmod'])
-const DELETES = new Set(['rm', 'rmdir', 'unlink', 'shred', 'trash'])
-const OUTSIDE = new Set(['curl', 'wget', 'ssh', 'scp', 'rsync', 'sftp', 'ftp', 'nc', 'telnet', 'sudo', 'su', 'brew', 'apt', 'apt-get', 'port', 'gh', 'open', 'osascript', 'launchctl', 'kill', 'killall', 'pkill', 'crontab', 'docker'])
+export const EDITS = new Set(['mv', 'cp', 'mkdir', 'touch', 'tee', 'ln', 'patch', 'chmod'])
+export const DELETES = new Set(['rm', 'rmdir', 'unlink', 'shred', 'trash'])
+export const OUTSIDE = new Set(['curl', 'wget', 'ssh', 'scp', 'rsync', 'sftp', 'ftp', 'nc', 'telnet', 'sudo', 'su', 'brew', 'apt', 'apt-get', 'port', 'gh', 'open', 'osascript', 'launchctl', 'kill', 'killall', 'pkill', 'crontab', 'docker'])
 const GIT_READ = new Set(['log', 'diff', 'show', 'status', 'blame', 'branch', 'ls-files', 'rev-parse', 'grep', 'describe', 'shortlog', 'tag', 'remote', 'config', 'cat-file', 'ls-tree', 'reflog', 'merge-base', 'name-rev', 'whatchanged'])
 const GIT_EDIT = new Set(['add', 'commit', 'mv', 'switch', 'merge', 'cherry-pick', 'revert', 'fetch', 'pull', 'rebase', 'apply', 'am', 'init'])
 const GIT_DELETE = new Set(['rm', 'clean', 'reset', 'restore', 'checkout', 'stash'])

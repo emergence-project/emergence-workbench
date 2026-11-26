@@ -6,7 +6,7 @@ import crypto from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import { CENTRAL_RID, type ChatMode, type ChatScope, type ChatWrite } from '@rw/core/contract/agentChats'
-import { autoOf, commandKind, heredocBodiesRemoved, LIBRARY_RID, neverBypass, writesFiles, runProgram, runPrograms, stateOnlyCommand, touchesSecret, type ChatAutoValues, type ChatKind, type NeverBypass } from '@rw/core'
+import { autoOf, commandKind, heredocBodiesRemoved, LIBRARY_RID, neverBypass, writesFiles, runProgram, runPrograms, stateOnlyCommand, touchesSecret, unreadWhy, type ChatAutoValues, type Unread, type ChatKind, type NeverBypass } from '@rw/core'
 import { commandCritical } from './critical.js'
 import { isInside } from './fsutil.js'
 import { t } from './i18n.js'
@@ -382,12 +382,15 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
  * 읽기 · 실행은 토글이 켜져 있으면 묻지 않고, 편집은 맡기는 정도(편집 자동 수락)가, 삭제 · 외부는 늘 한 번씩 묻는다
  */
 function judgeCommand(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
+  return readFully(ctx, cmd, summary, commandCore(ctx, cmd, summary))
+}
+function commandCore(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
   const roots = [ctx.repo, ...ctx.readable]
   const does = commandKind(cmd, { cwd: ctx.repo, home: os.homedir(), inside: (abs) => roots.some((d) => abs === d || isInside(d, abs)) })
   const auto = ctx.auto?.() ?? autoOf({ write: ctx.write, mode: ctx.mode })
   const what = clip(cmd, 80)
   const gated = ctx.mode === 'plan' && !ctx.planOk
-  if (ctx.mode === 'auto' && ctx.write !== 'read') return judgeAuto(ctx, cmd, summary)
+  if (ctx.mode === 'auto' && ctx.write !== 'read') return autoCore(ctx, cmd, summary)
   if (does === 'read') {
     if (auto.read) return { kind: 'allow' }
     return { kind: 'ask', summary, key: 'read', label: t('읽기', 'Read'), does, turnOn: 'read' }
@@ -425,6 +428,9 @@ const FROZEN_INSTALL = /^\s*pnpm\s+(install|i)(\s+--[\w-]+)*\s*$/
  * 읽기 전용 · 계획 승인 전은 부르기 전에 걸렀다. on = 읽기 · 실행을 묻지 않을지 (기본은 이 대화의 토글, 앱 고치기의 편집 자동 수락은 늘 켬)
  */
 function judgeAuto(ctx: PolicyCtx, cmd: string, summary: string, on: Pick<ChatAutoValues, 'read' | 'run'> = autoNow(ctx)): Verdict {
+  return readFully(ctx, cmd, summary, autoCore(ctx, cmd, summary, on))
+}
+function autoCore(ctx: PolicyCtx, cmd: string, summary: string, on: Pick<ChatAutoValues, 'read' | 'run'> = autoNow(ctx)): Verdict {
   const what = clip(cmd, 80)
   const once = (does: ChatKind, label: string): Verdict => ({ kind: 'ask', summary, key: `${does}:${cmd}`, label: `${label} · ${what}`, does, once: true })
   // cat 이 받는 확실한 히어독의 본문에 든 글 (11/26)로는 묻지 않는다: 비밀 · 크리티컬 모두 그 본문만 빼고 본다 (python 코드는 파일을 읽고 프로그램을 돌린다)
@@ -449,4 +455,28 @@ function judgeAuto(ctx: PolicyCtx, cmd: string, summary: string, on: Pick<ChatAu
   if (on.run || (progs.length > 0 && progs.every((p) => ctx.always?.(`run:${p}`)))) return { kind: 'allow' }
   const prog = progs.find((p) => !ctx.always?.(`run:${p}`)) ?? runProgram(cmd)
   return { kind: 'ask', summary, key: `run:${prog}`, label: t(`실행 · ${prog}`, `Run · ${prog}`), does: 'run' }
+}
+
+/**
+ * 끝까지 읽은 명령만 묻지 않고 지나가기 (11/26 사용자 결정, 설계 docs/specs/2026-11-26-command-verdict-read-fully.md):
+ * 판정이 허락한 Bash 명령도 줄을 끝까지 읽지 못했으면(unreadWhy) 한 번 묻는다. 묻거나 막는 판정은 그대로 둔다 (이 검사로 가벼워지는 줄은 없다).
+ * 모르는 프로그램은 지금의 실행 묻기와 같다(「늘」 있음, 열쇠 run:<프로그램>). 그 밖은 「읽지 못한 명령 · 까닭」으로 「늘」 없이 묻는다
+ */
+function readFully(ctx: PolicyCtx, cmd: string, summary: string, v: Verdict): Verdict {
+  if (v.kind !== 'allow') return v
+  const why = unreadWhy(cmd, { known: (p) => !!ctx.always?.(`run:${p}`) })
+  if (!why) return v
+  if (why.why === 'prog') return { kind: 'ask', summary, key: `run:${why.name}`, label: t(`실행 · ${why.name}`, `Run · ${why.name}`), does: 'run' }
+  const [ko, en] = unreadLabel(why)
+  return { kind: 'ask', summary, key: `unread:${cmd}`, label: t(`읽지 못한 명령 · ${ko}`, `Unread command · ${en}`), does: 'run', once: true }
+}
+function unreadLabel(why: Exclude<Unread, { why: 'prog' }>): [string, string] {
+  switch (why.why) {
+    case 'var-prog': return ['변수로 정한 프로그램', 'program from a variable']
+    case 'subst': return ['풀지 못한 치환', 'unresolved substitution']
+    case 'var': return ['값을 모르는 변수', 'variable with an unknown value']
+    case 'deep': return ['너무 깊이 겹친 명령', 'nested too deep']
+    case 'env': return [`환경 변수 ${why.name}`, `environment variable ${why.name}`]
+    case 'syntax': return [`모르는 문법 ${why.name}`, `unread syntax ${why.name}`]
+  }
 }

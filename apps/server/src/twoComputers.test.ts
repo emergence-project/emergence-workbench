@@ -70,16 +70,27 @@ describe('피드백: 같은 날 두 컴퓨터에서 남기기', () => {
     expect(git(b, 'status', '--porcelain')).toBe('')
   })
 
-  it('같은 항목의 같은 칸을 서로 다르게 고쳤으면 받지 않고 사본을 그대로 둔다', async () => {
-    const { a, b } = await twoClones('fb3', { 'feedback/reviews.yaml': 'x:\n  verdict: 승인\n' })
-    fs.writeFileSync(path.join(a, 'feedback/reviews.yaml'), 'x:\n  verdict: 반려\n')
+  it('같은 항목의 같은 칸을 서로 다르게 고쳤으면(status.yaml) 받지 않고 사본을 그대로 둔다', async () => {
+    const { a, b } = await twoClones('fb3', { 'feedback/status.yaml': 'x:\n  state: 반영\n' })
+    fs.writeFileSync(path.join(a, 'feedback/status.yaml'), 'x:\n  state: 답변\n')
     expect((await publishFeedback(path.join(a, 'feedback'))).pushed).toBe(true)
-    fs.writeFileSync(path.join(b, 'feedback/reviews.yaml'), 'x:\n  verdict: 진행\n')
+    fs.writeFileSync(path.join(b, 'feedback/status.yaml'), 'x:\n  state: 대기\n')
     git(b, 'commit', '-qam', 'local')
     const r = await pullPersonal(b)
     expect(r.ok).toBe(false)
-    expect(fs.readFileSync(path.join(b, 'feedback/reviews.yaml'), 'utf8')).toBe('x:\n  verdict: 진행\n')
+    expect(fs.readFileSync(path.join(b, 'feedback/status.yaml'), 'utf8')).toBe('x:\n  state: 대기\n')
     expect(git(b, 'status', '--porcelain')).toBe('')
+  })
+
+  it('같은 피드백의 승인·반려를 두 컴퓨터가 다르게 적어도 올리기가 멈추지 않고 둘 다 남긴다 (11/23)', async () => {
+    const { remote, a, b } = await twoClones('fb4', { 'feedback/reviews.yaml': 'x:\n  verdict: 승인\n  at: 2026-11-23T20:00\n' })
+    fs.writeFileSync(path.join(a, 'feedback/reviews.yaml'), 'x:\n  verdict: 진행\n  at: 2026-11-23T23:56\n  note: 일관되게하자.\n')
+    expect((await publishFeedback(path.join(a, 'feedback'))).pushed).toBe(true)
+    fs.writeFileSync(path.join(b, 'feedback/reviews.yaml'), 'x:\n  verdict: 진행\n  at: 2026-11-23T23:56\n  note: 일관되게 적용하자.\n  edited: 2026-11-23T23:58\n')
+    expect((await publishFeedback(path.join(b, 'feedback'))).pushed).toBe(true)
+    const up = YAML.parse(remoteFile(remote, 'reviews.yaml'))
+    expect(up.x.note).toBe('일관되게 적용하자.')
+    expect(up.x.history).toEqual([{ verdict: '진행', at: '2026-11-23T23:56', note: '일관되게하자.' }])
   })
 })
 
@@ -94,6 +105,17 @@ describe('피드백 YAML 합치기', () => {
   it('한쪽이 지운 키는 지우고, 같은 칸을 다르게 고쳤으면 null', () => {
     expect(YAML.parse(mergeYamlMap('a: 1\nb: 2\n', 'a: 1\n', 'a: 1\nb: 2\nc: 3\n')!)).toEqual({ a: 1, c: 3 })
     expect(mergeYamlMap('a: 1\n', 'a: 2\n', 'a: 3\n')).toBeNull()
+  })
+  it('reviews.yaml은 같은 항목을 다르게 적었으면 나중 것이 최신, 다른 것은 history, 코멘트는 모두', () => {
+    const m = feedbackMergeFor('feedback/reviews.yaml')!
+    const base = 'k:\n  verdict: 승인\n  at: "1"\n'
+    const ours = 'k:\n  verdict: 반려\n  at: "3"\n  history:\n    - { verdict: 승인, at: "1" }\n  comments:\n    - { at: "2", note: 맥북 }\n'
+    const theirs = 'k:\n  verdict: 진행\n  at: "4"\n  note: 맥미니\n  history:\n    - { verdict: 승인, at: "1" }\n'
+    expect(YAML.parse(m(base, ours, theirs)!).k).toEqual({
+      verdict: '진행', at: '4', note: '맥미니',
+      history: [{ verdict: '승인', at: '1' }, { verdict: '반려', at: '3' }],
+      comments: [{ at: '2', note: '맥북' }],
+    })
   })
   it('handoff.yaml은 같은 항목을 둘이 맡으면 먼저 맡은 쪽', () => {
     const m = feedbackMergeFor('feedback/handoff.yaml')!
