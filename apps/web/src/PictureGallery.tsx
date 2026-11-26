@@ -27,7 +27,7 @@ const foldedAtStart = () => { try { return localStorage.getItem(FOLD_KEY) === '1
  * 11/23 피드백 "논의는 오른쪽에 그림은 왼쪽": 아래에 두면 큰 그림이 글칸을 덮었다.
  * fold가 있으면 위 줄 단추로 그 칸을 접어 그림을 넓게 본다 (11/23 피드백 "대화영역을 접을 수도"): 접으면 오른쪽 끝에 말풍선과 글 수만 남고, 접은 상태는 기억한다 */
 export function PictureGallery({ pictures, start, onClose, onOpenFigure, foot, fold }: { pictures: GalleryPicture[]; start: number; onClose(): void; onOpenFigure?(id: string): void; foot?(p: GalleryPicture): ReactNode; fold?: GalleryFold }) {
-  const [at, setAt] = useState(start)
+  const [kept, setAt] = useState(start)
   const [folded, setFoldedState] = useState(() => !!fold && foldedAtStart())
   // 접을 때의 글 수: 그 뒤 새 글이 오면 띠에 점
   const seen = useRef(fold?.count ?? 0)
@@ -37,7 +37,10 @@ export function PictureGallery({ pictures, start, onClose, onOpenFigure, foot, f
     try { localStorage.setItem(FOLD_KEY, v ? '1' : '0') } catch { /* 저장 못 해도 이번에는 접힌다 */ }
   }
   const n = pictures.length
-  const step = (d: number) => { setAt((k) => (k + d + n) % n) }
+  // 그림 수가 줄면(시안을 뺌 · 처리가 바뀜) 마지막 그림으로, 하나도 없으면 닫는다 (11/26: 전에는 없는 그림에 머물러 창이 보이지 않는 채 열려 있었다)
+  const at = Math.min(kept, n - 1)
+  useEffect(() => { if (!n) onClose() }, [n, onClose])
+  const step = (d: number) => { setAt((k) => (Math.min(k, n - 1) + d + n) % n) }
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
       // 아래 글칸(foot의 논의)에 적는 중이면 ← →는 글 안에서 움직인다
