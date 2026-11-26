@@ -95,6 +95,8 @@ export function ChatListError({ rid }: { rid?: string }) {
 }
 
 const GROUP_NAME: Record<BoardGroup, string> = { turn: t('내 차례', 'Your turn'), doing: t('진행 중', 'In progress'), ready: t('합칠 준비', 'Ready to merge'), done: t('종료 · 오늘', 'Done today') }
+/** 부위 이름(data-ui)은 화면 언어와 상관없이 한국어 그대로 (11/26: 번역된 이름으로 만들어 영어 화면에서는 「작업 현황 Your turn」이 됐다). 영어로는 uiNames.en.json이 보인다 */
+const GROUP_UI: Record<BoardGroup, string> = { turn: '작업 현황 내 차례', doing: '작업 현황 진행 중', ready: '작업 현황 합칠 준비', done: '작업 현황 종료 · 오늘' }
 
 /** 머리 한 줄: 남음 n · 내 차례 n · 정체 n */
 function CountLine({ counts: n }: { counts: ReturnType<typeof boardCounts> }) {
@@ -138,7 +140,7 @@ export function CentralBoard({ onPick }: { onPick?(): void }) {
     if (!n) return null
     const folded = g === 'done' && !doneOpen
     return (
-      <div key={g} className="cb-group" data-ui={`작업 현황 ${GROUP_NAME[g]}`}>
+      <div key={g} className="cb-group" data-ui={GROUP_UI[g]}>
         <div className="cb-group-head">
           <b>{GROUP_NAME[g]}</b>{g === 'turn' ? <span className="rail-count">{n}</span> : <span className="muted">{n}</span>}
           {g === 'done' && <button className="a cb-fold" aria-expanded={doneOpen} onClick={() => setDoneOpen(!doneOpen)}>{doneOpen ? t('접기 ‹', 'Hide ‹') : t('펼치기 ›', 'Show ›')}</button>}
