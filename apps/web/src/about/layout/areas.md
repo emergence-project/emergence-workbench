@@ -1,7 +1,7 @@
 ---
 id: areas
 kind: reference
-title: { ko: 화면 구조, en: Screen layout }
+title: { ko: 화면 구성, en: Screen layout }
 summary:
   ko: 한 창은 상단바 · 레일 · 왼쪽 사이드바 · 작업 패널 · 오른쪽 사이드바 다섯 영역입니다. 그림의 영역을 누르면 그 화면의 설명으로 갑니다.
   en: One window has five areas, the top bar, rail, left sidebar, work panes and right sidebar. Click an area in the picture to go to that screen's description.

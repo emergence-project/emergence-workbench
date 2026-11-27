@@ -6,7 +6,7 @@ ui: 정의
 summary:
   ko: 앱의 구성요소를 위계대로(프로젝트 › 주제 › 노트, 라이브러리 › 지식 · 논문 · 그림, 에이전트, 네트워킹, 피드백, 계정, 설정) 풀고, 어디서나 쓰는 상태와 차례를 덧붙입니다.
   en: The app's components in their hierarchy (project › topic › note, library › knowledge · papers · figures, agents, networking, feedback, account, settings), plus status and turns, which appear everywhere.
-figure: [DocMapFigure, DocKindsTable, StatesTable, TurnFigure]
+figure: [DocKindsTable, StatesTable, TurnFigure]
 was: [principles/definitions, principles/status-and-turns]
 prs: [277, 300, 427, 473]
 ---
