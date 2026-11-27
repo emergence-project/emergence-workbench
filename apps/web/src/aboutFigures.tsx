@@ -66,16 +66,16 @@ export function ScreenLayoutFigure() {
         </div>
         <div className="sl-body">
           <div className="sl-rail" title={t('레일', 'Rail')}>
-            <i>{Icon.home}</i><span className="sl-pj">AB</span><span className="sl-pj">CD</span><span className="sl-more">+n</span>
-            <span className="sl-gap" /><i>{Icon.library}</i><i>{Icon.feedback}</i>
+            <i>{Icon.home}</i><i>{Icon.spark}</i><i>{Icon.repo}</i><span className="sl-pj">AB</span><span className="sl-pj">CD</span><span className="sl-more">+n</span>
+            <span className="sl-gap" /><i>{Icon.library}</i><i>{Icon.network}</i><i>{Icon.feedback}</i>
           </div>
-          {area(t('왼쪽 사이드바', 'Left sidebar'), t('프로젝트 정보 · 작업 · 기록 · 수정 검토 · 흐름 · 주제 › 노트 · 자료', 'Project info · Work · Records · Edit review · Flows · Topic › Note · Materials'), t('프로젝트 | 파일 | 목차', 'Project | Files | Outline'))}
+          {area(t('왼쪽 사이드바', 'Left sidebar'), t('프로젝트 정보 · 기록 · 수정 검토 · 흐름 · 주제 › 노트 · 자료', 'Project info · Records · Edit review · Flows · Topic › Note · Materials'), t('프로젝트 | 파일 | 목차', 'Project | Files | Outline'))}
           {area(t('주 패널', 'Main pane'), t('고른 화면. 위에 탭 바', 'The chosen screen, with a tab bar on top'), t('탭', 'Tabs'))}
           {area(t('옆 패널', 'Side pane'), t('함께 볼 PDF · 논문 (두 패널)', 'PDF or paper to read alongside (Two panes)'), t('탭', 'Tabs'))}
           {area(t('오른쪽 사이드바', 'Right sidebar'), t('지금 연 노트의 정보 · 기록, 이 프로젝트의 에이전트 대화', 'Info and records of the open note, this project\'s agent conversations'), t('정보 | 기록 | 에이전트', 'Info | Records | Agents'))}
         </div>
       </div>
-      <figcaption className="muted">{t('맨 왼쪽 레일은 홈 · 프로젝트 머리글자 · 라이브러리 · 피드백으로 가는 버튼. 두 사이드바는 상단바 양 끝 버튼(⌘\\ · ⌥⌘\\)으로 여닫고, 옆 패널은 두 패널을 켰을 때만 보입니다', 'The rail at the far left has buttons for Home, project initials, the libraries and Feedback. The two sidebars open and close with the buttons at both ends of the top bar (⌘\\ · ⌥⌘\\); the side pane shows only with Two panes on')}</figcaption>
+      <figcaption className="muted">{t('맨 왼쪽 레일은 홈 · 에이전트 · 저장소 · 프로젝트 머리글자 · 라이브러리 · 네트워킹 · 피드백으로 가는 버튼. 두 사이드바는 상단바 양 끝 버튼(⌘\\ · ⌥⌘\\)으로 여닫고, 옆 패널은 두 패널을 켰을 때만 보입니다', 'The rail at the far left has buttons for Home, Agents, Repositories, project initials, the libraries, Networking and Feedback. The two sidebars open and close with the buttons at both ends of the top bar (⌘\\ · ⌥⌘\\); the side pane shows only with Two panes on')}</figcaption>
     </figure>
   )
 }
