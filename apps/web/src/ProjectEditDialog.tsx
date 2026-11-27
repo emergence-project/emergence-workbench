@@ -34,6 +34,8 @@ export function ProjectEditDialog({ rapi, summary, listed, all, pc, last, onProf
   const [question, setQuestion] = useKept(scope, 'question', opened.question)
   const [started, setStarted] = useKept(scope, 'started', opened.started)
   const [image, setImage] = useKept(scope, 'image', opened.image ?? '')
+  // 파일을 읽은 뒤 견줄 열 때의 값과 칸 설정 함수 (처음 그린 때의 것으로 충분하다)
+  const atOpen = useRef({ opened, setTitle, setQuestion, setStarted, setImage })
   const [pickingImage, setPickingImage] = useState(false)
   const [profile, setProfile] = useKept<{ kind: ResearchListItem['kind']; fields: string[]; state: ResearchListItem['state']; rail: boolean; color: ProjectColor | null }>(scope, 'profile', { kind: listed.kind, fields: listed.fields, state: listed.state, rail: listed.rail, color: listed.color ?? null })
   const [busy, setBusy] = useState(false)
@@ -53,8 +55,9 @@ export function ProjectEditDialog({ rapi, summary, listed, all, pc, last, onProf
       base.current = { ...research, image: research.image ?? '' }
       // 고치던 칸은 그대로 두고, 파일에서 바뀐 칸만 새 값으로 (되살린 고침이 바깥 수정을 덮지 않게)
       const fresh = (now: string, was: string, set: Dispatch<SetStateAction<string>>) => set((cur) => (cur === was || now !== was ? now : cur))
-      fresh(research.title, opened.title, setTitle); fresh(research.question, opened.question, setQuestion)
-      fresh(research.started, opened.started, setStarted); fresh(research.image ?? '', opened.image ?? '', setImage)
+      const { opened: was0, setTitle: sT, setQuestion: sQ, setStarted: sS, setImage: sI } = atOpen.current
+      fresh(research.title, was0.title, sT); fresh(research.question, was0.question, sQ)
+      fresh(research.started, was0.started, sS); fresh(research.image ?? '', was0.image ?? '', sI)
       setBaseHash(hash)
     }).catch((e: Error) => { if (active) setError(e.message) })
     return () => { active = false }
