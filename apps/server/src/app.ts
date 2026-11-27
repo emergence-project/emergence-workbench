@@ -26,6 +26,8 @@ import { noteAgentCall } from './agentSeen.js'
 import { registerFeedback } from './routes/feedback.js'
 import { registerAbout } from './routes/about.js'
 import { registerRules } from './routes/rules.js'
+import { registerPlugins } from './routes/plugins.js'
+import type { ServerPlugin } from './plugins/index.js'
 import { registerRecordsPublish } from './routes/recordsPublish.js'
 import { registerSync } from './routes/sync.js'
 import { registerLibrary } from './routes/library.js'
@@ -82,6 +84,8 @@ import { registerAccount } from './routes/account.js'
 export interface AppOptions {
   /** 앱 설정 폴더 (기본 ~/.config/research-workspace) */
   configDir: string
+  /** 내장 플러그인 목록 (기본 plugins/index.ts의 SERVER_PLUGINS. 테스트가 바꿔 끼운다) */
+  plugins?: readonly ServerPlugin[]
   /** 에이전트 설정을 찾는 집 폴더 (상태 알리기 훅, 기본 os.homedir(). 테스트는 임시 폴더) */
   agentHome?: string
   /** 파일 감시를 켤지 (테스트에서는 끔) */
@@ -375,6 +379,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerFeedback(app, ctx)
   registerAbout(app, ctx)
   registerRules(app, ctx)
+  registerPlugins(app, ctx)
   registerRecordsPublish(app, ctx)
   registerSync(app, ctx)
   registerLibrary(app, ctx)

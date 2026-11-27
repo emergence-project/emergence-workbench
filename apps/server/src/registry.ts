@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { identityOf } from './meSync.js'
-import { BUILTIN_TEMPLATES, DEFAULT_TEMPLATE_ID, newTemplateId, normalizeAuthors, normalizePeople, normalizeTemplate, normalizeTemplates, normalizeUi, normalizeAgentSettings, normalizeSyncSettings, type AgentSettings, type SyncSettings, type Author, type LatexTemplate, type Person, type UiSettings } from '@rw/core'
+import { BUILTIN_TEMPLATES, DEFAULT_TEMPLATE_ID, newTemplateId, normalizeAuthors, normalizePeople, normalizeTemplate, normalizeTemplates, normalizeUi, normalizeAgentSettings, normalizeSyncSettings, normalizePluginStates, type PluginStates, type AgentSettings, type SyncSettings, type Author, type LatexTemplate, type Person, type UiSettings } from '@rw/core'
 import { isLatexSafePath } from './fsutil.js'
 import { readYaml, writeYaml } from './yamlFile.js'
 import { describeTex, findRepoPreambles, listLibraryPreambles } from './library.js'
@@ -156,6 +156,15 @@ export class Registry {
     return this.config.sync
   }
 
+  /** 설정 › 기능: 이 컴퓨터의 내장 플러그인 설치 상태 (routes/plugins.ts가 계산하고 여기서는 저장만) */
+  get plugins(): PluginStates { return this.config.plugins ?? {} }
+  setPlugins(states: PluginStates): PluginStates {
+    this.config.plugins = normalizePluginStates(states)
+    if (!Object.keys(this.config.plugins).length) delete this.config.plugins
+    this.save()
+    return this.plugins
+  }
+
   get personalRepo(): string | undefined { return this.config.personalRepo }
   /** 개인 저장소 주소 (계정 › 시작 준비). 빈 글이면 지운다. 앱을 다시 시작할 때 받는다(server.ts) */
   setPersonalRepo(remote: string): void {
@@ -268,7 +277,7 @@ export class Registry {
     // 예전 설정의 latex:(서식 하나)는 PRL 서식으로 옮긴다
     const latexTemplates = normalizeTemplates(raw.latexTemplates, raw.latex, raw.latexBuiltins)
     const latexBuiltins = BUILTIN_TEMPLATES.map((t) => t.id)
-    return { engine, library, ...(study && { study }), ...(reviews && { reviews }), ...(pdfFolders.length && { pdfFolders }), ...(personalRepo && { personalRepo }), ...(gitIdentity && { gitIdentity }), ...(meAt && { meAt }), ...(peopleAt && { peopleAt }), researches, ui: normalizeUi(withLanguage(raw.ui, researches.length > 0)), agents: normalizeAgentSettings(raw.agents), sync: normalizeSyncSettings(raw.sync), latexTemplates, latexDefault: defaultOf(latexTemplates, raw.latexDefault), latexBuiltins, authors: normalizeAuthors(raw.authors, []), people: normalizePeople(raw.people) }
+    return { engine, library, ...(study && { study }), ...(reviews && { reviews }), ...(pdfFolders.length && { pdfFolders }), ...(personalRepo && { personalRepo }), ...(gitIdentity && { gitIdentity }), ...(meAt && { meAt }), ...(peopleAt && { peopleAt }), researches, ui: normalizeUi(withLanguage(raw.ui, researches.length > 0)), agents: normalizeAgentSettings(raw.agents), sync: normalizeSyncSettings(raw.sync), ...pluginsOf(raw.plugins), latexTemplates, latexDefault: defaultOf(latexTemplates, raw.latexDefault), latexBuiltins, authors: normalizeAuthors(raw.authors, []), people: normalizePeople(raw.people) }
   }
 
   private save(): void {
@@ -478,4 +487,9 @@ export class Registry {
     this.save()
     return this.list().find((r) => r.id === id)!
   }
+}
+
+function pluginsOf(raw: unknown): { plugins?: PluginStates } {
+  const plugins = normalizePluginStates(raw)
+  return Object.keys(plugins).length ? { plugins } : {}
 }
