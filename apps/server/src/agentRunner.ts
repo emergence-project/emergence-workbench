@@ -16,6 +16,8 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { EXPLORE_AGENT, FILE_WRITE_TOOLS, MCP_NAME, type AgentRunner, type OneShot, type RunEvent, type RunInput, type Turn } from './agentChats.js'
 import { CHAT_EFFORTS, CLAUDE_START_MODEL, type ChatEffort, type ModelChoice } from '@rw/core/contract/agentChats'
+import { defaultConfigDir } from './appKey.js'
+import { sandboxForRun } from './agentSandbox.js'
 import { claudeEnv, claudeExecutable } from './ask.js'
 import { skillsPluginDir, userConnectors } from './agentExtras.js'
 import type { HookCallback, McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
@@ -180,11 +182,14 @@ export function claudeAgentRunner(mcpFor: (appChat?: string, central?: boolean, 
     }
     const abortController = new AbortController()
     input.signal.addEventListener('abort', () => { abortController.abort(); done() }, { once: true })
+    const sandbox = await sandboxForRun(input, defaultConfigDir())
     const q = query({
       prompt: prompt(),
       options: {
         cwd: input.cwd,
         additionalDirectories: input.extraDirs,
+        // 연구 대화의 명령은 OS 격리 안에서 돈다 (11/27, agentSandbox.ts): 판정이 놓친 명령도 작업 폴더 밖을 쓰거나 비밀을 읽지 못한다
+        ...(sandbox && { sandbox }),
         ...(input.sessionId && { resume: input.sessionId }),
         // 되돌린 뒤: 그 메시지까지만 이어 새 세션으로 가른다 (원래 세션은 그대로)
         ...(input.sessionId && input.resumeAt && { resumeSessionAt: input.resumeAt, forkSession: true }),
