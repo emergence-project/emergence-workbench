@@ -3,7 +3,7 @@
 // 여기서는 계정마다 어디에 쓰이는지만 읽기로 보인다 (11/20 사용자 "그러면 그렇게하자": 로그인은 계정 페이지에서만, 다른 곳은 등록된 계정을 고르기만)
 // 「이 컴퓨터」 줄은 이 컴퓨터의 Claude Code · Codex 로그인 상태(깔렸는지 · 로그인했는지 · 다른 계정으로)도 보인다 (옛 설정 › 에이전트 › 계정).
 // Codex 「이 컴퓨터」 줄이 곧 「ChatGPT로 연결」이다: 질문에 답하는 Codex와 같은 ~/.codex 로그인 (11/20 사용자 "옮기자")
-// Codex도 같은 모양 (11/20 시안 4절), 계정 줄마다 5시간 · 이번 주 한도 막대 (80%를 넘으면 주황, 못 읽으면 「아직 모름」)
+// Codex도 같은 모양 (11/20 시안 4절), 계정 줄마다 5시간 · 이번 주 한도 막대 (80%를 넘으면 주의 색, 못 읽으면 「아직 모름」)
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api as settingsApi, claudeAccountsApi, codexAccountsApi, type AccountKind, type AccountRole, type ClaudeAccountRow, type ClaudeAccounts, type LimitWindow } from './api'
@@ -67,7 +67,7 @@ const usesOf = (s: ClaudeAccounts, id: string) => [
   ...ACCOUNT_ROLES.filter((r) => (s.roles[r] ?? s.base) === id).map((r) => ROLE[r]()[0]),
 ]
 
-/** 한도 막대 하나: 쓴 % · 80%를 넘으면 주황 */
+/** 한도 막대 하나: 쓴 % · 80%를 넘으면 주의 색 */
 function LimitBar({ name, w }: { name: string; w: LimitWindow }) {
   return (
     <span className="acct-limit" data-ui="한도 막대">
