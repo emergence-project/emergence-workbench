@@ -381,6 +381,24 @@
       "note": "검사는 코드지만 돌리는 것은 글로 맡긴다. 연구 저장소 CI(research-check)가 같은 검사를 돌리면 글을 뺄 수 있다"
     },
     {
+      "id": "experiment-fence",
+      "rule": "실험 기능의 파일은 registry.json에 적은 이음매에서만 부르고, 다시 볼 날이 지나면 판단을 적는다",
+      "where": "scripts/ci/check-experiments.mjs (pnpm test)",
+      "kind": "process",
+      "audience": "fixes",
+      "enforce": "code",
+      "since": "2026-11-27",
+      "why": "실험 기능(흐름 등)을 끄거나 지울 때 고칠 곳을 한 목록으로 알고, 꺼 둔 기능이 판단 없이 쌓이지 않게 (11/27 사용자 결정)",
+      "measure": {
+        "touch": [
+          "docs/rules/registry.json"
+        ]
+      },
+      "review": "2026-12-27",
+      "verdict": "watch",
+      "note": "새로 둠. 이음매를 늘리라는 실패가 진짜 새 연결을 잡았는지, 목록 숫자만 고친 커밋이 몇인지 본다"
+    },
+    {
       "id": "group-room",
       "rule": "에이전트 단체방: 값비싼 판정을 여러 에이전트에게 묻고 방장이 모은다 (독립 · 토론)",
       "where": "중앙 대화 (#514, #527)",
@@ -415,6 +433,36 @@
       "why": "지난 일과 앞으로 할 일을 한 그림에서 보고, 판단과 검증을 통과한 것만 쌓으려고",
       "measure": null,
       "gauge": "실제 연구에서 연 흐름 수와 쓰다 막힌 곳",
+      "code": {
+        "owns": [
+          "apps/server/src/problem*.ts",
+          "apps/server/src/mcpProblems.ts",
+          "apps/server/src/routes/problems.ts",
+          "apps/web/src/Problem*.tsx",
+          "apps/web/src/problem*.ts",
+          "apps/web/src/problem*.tsx",
+          "apps/web/src/api/problems.ts",
+          "apps/web/src/styles/problems.css",
+          "packages/core/src/problems.ts",
+          "packages/core/src/contract/problems.ts",
+          "scripts/agent-problem.mjs"
+        ],
+        "seams": [
+          "apps/server/src/agentChanges.ts",
+          "apps/server/src/agentCheck.ts",
+          "apps/server/src/agentOverview.ts",
+          "apps/server/src/agentStatus.ts",
+          "apps/server/src/app.ts",
+          "apps/server/src/mcp.ts",
+          "apps/web/src/App.tsx",
+          "apps/web/src/LogPage.tsx",
+          "apps/web/src/ProjectInfoPage.tsx",
+          "apps/web/src/Sidebar.tsx",
+          "apps/web/src/api.ts",
+          "apps/web/src/main.tsx",
+          "packages/core/src/index.ts"
+        ]
+      },
       "review": "2027-01-27",
       "verdict": "hold",
       "note": "11/13–11/27 실제 연구에서 연 흐름 0개. 11/27 사용자 결정: 흐름은 연구가 더 필요해 보류. 버그만 고친다"

@@ -30,6 +30,8 @@ export const RuleEntry = z.object({
   gauge: z.string().optional(),
   review: Day,
   verdict: RuleVerdict,
+  /** 실험 기능의 울타리: 그 기능이 가진 파일(무늬, *는 / 밖의 아무 글자)과 그 파일을 불러도 되는 바깥 파일(이음매). scripts/ci/check-experiments.mjs가 검사 */
+  code: z.object({ owns: z.array(z.string().min(1)).min(1), seams: z.array(z.string().min(1)) }).strict().optional(),
   /** 글로만 지키는 규칙을 코드로 옮길 길 */
   toCode: z.string().optional(),
   note: z.string().min(1),
@@ -37,6 +39,7 @@ export const RuleEntry = z.object({
   // 규칙은 누구에게 · 어떻게를 적고, 실험은 판단 기준(gauge)을 적는다
   if (r.kind !== 'experiment' && (!r.audience || !r.enforce)) ctx.addIssue({ code: 'custom', message: `${r.id}: 규칙은 audience · enforce를 적는다` })
   if (r.kind === 'experiment' && !r.gauge) ctx.addIssue({ code: 'custom', message: `${r.id}: 실험은 gauge(판단 기준)를 적는다` })
+  if (r.code && r.kind !== 'experiment') ctx.addIssue({ code: 'custom', message: `${r.id}: code(울타리)는 실험에만 적는다` })
 })
 export type RuleEntry = z.infer<typeof RuleEntry>
 
