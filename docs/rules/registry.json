@@ -381,6 +381,19 @@
       "note": "검사는 코드지만 돌리는 것은 글로 맡긴다. 연구 저장소 CI(research-check)가 같은 검사를 돌리면 글을 뺄 수 있다"
     },
     {
+      "id": "about-hook",
+      "rule": "소개 건네기: 앱 고치기 대화가 읽거나 고친 파일의 소개 절 요약 · 지킬 것을 앱이 덧붙여 건넨다 (MCP about · pnpm agent:about도)",
+      "where": "apps/server/src/aboutGuide.ts, agentRunner.ts aboutHook",
+      "kind": "experiment",
+      "since": "2026-11-27",
+      "why": "소개가 앱의 정본이므로 에이전트가 기능을 고치기 전에 그 설명을 읽고, 소개와 구현이 어긋나지 않게",
+      "measure": null,
+      "gauge": "앱 고치기 PR 가운데 소개와 어긋나 다시 고친 수, 소개 절을 같은 PR에서 고친 비율",
+      "review": "2026-12-27",
+      "verdict": "watch",
+      "note": "11/27 시작: .md로 옮긴 절만 건넨다. 건넨 글이 대화를 길게만 하고 고침이 나아지지 않으면 훅을 되돌린다"
+    },
+    {
       "id": "group-room",
       "rule": "에이전트 단체방: 값비싼 판정을 여러 에이전트에게 묻고 방장이 모은다 (독립 · 토론)",
       "where": "중앙 대화 (#514, #527)",
