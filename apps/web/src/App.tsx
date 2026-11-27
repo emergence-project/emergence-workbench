@@ -46,7 +46,7 @@ import { useProjectIssues } from './projectIssues'
 import { RailProjects } from './RailProjects'
 import { SearchOverlay } from './Search'
 import { TopicPage } from './Topics'
-import { ProblemsPage } from './Problems'
+import { PluginPage } from './plugins'
 import { moveId, railProjects } from './projectProfile'
 import { railDragImage, useRailSlide } from './railDrag'
 import { setFeedbackNote } from './feedbackNote'
@@ -354,7 +354,8 @@ export function App() {
       case 'todo': case 'records': return <WorkPage key="records" rid={rid} rapi={rapi} summary={summary} notes={notes} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} version={version} />
       case 'log': return <WorkPage key="log" rid={rid} rapi={rapi} summary={summary} notes={notes} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} focus="log" />
       case 'map': return <Lazy><MapPage key={rid} rid={rid} summary={summary} notes={notes} /></Lazy>
-      case 'problems': return <ProblemsPage key={rid} rid={rid} id={route.page === 'problems' ? route.id : undefined} view={route.page === 'problems' ? route.view : undefined} at={route.page === 'problems' ? route.at : undefined} attempt={route.page === 'problems' ? route.attempt : undefined} kind={current?.kind} onSaved={flash} />
+      // 플러그인의 페이지 (흐름, 설정 › 기능에서 제거하면 안내만)
+      case 'problems': return <PluginPage name={t.k} rid={rid} route={route} kind={current?.kind} onSaved={flash} />
       case 'edits': return <Lazy><AgentEditsPage key={rid} rid={rid} selected={route.page === 'edits' ? route.key : undefined} version={version} onSaved={flash} /></Lazy>
       case 'chat': {
         // 대화 탭에는 다른 패널에서 보는 노트가 붙는다
