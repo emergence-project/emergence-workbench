@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aboutEntries, aboutFind, aboutListLine, aboutText } from './about-guide.js'
+import { aboutEntries, aboutFind, aboutList, aboutListLine, aboutNorms, aboutText } from './about-guide.js'
 
 const md = (id: string, code: string, mcp = '') => [
   '---', `id: ${id}`, `title: { ko: 제목 ${id}, en: Title ${id} }`, 'summary:', `  ko: 요약 ${id}`, `  en: Summary ${id}`,
@@ -45,5 +45,23 @@ describe('에이전트에게 건네는 소개 (about-guide)', () => {
     expect(full).toContain('- apps/server/src/agentEdits*.ts')
     expect(full).toContain('### MCP\n- edit_note')
     expect(aboutText(e, { lang: 'en', full: true })).toContain('### Keep\n- Keep this')
+  })
+
+  it('절 종류: 옛 키(was)로도 찾고, 목록은 규범 · 참조 · 기능 순, 규범은 짧은 글에도 원칙을 넣는다 (11/27 Fable 안)', () => {
+    const norm = ['---', 'kind: norm', 'title: { ko: 작업 원칙, en: Working }', 'summary:', '  ko: 늘 지킨다', '  en: Always', '---', '- 원칙 하나', '<!-- en -->', '- One principle'].join('\n')
+    const ref = ['---', 'kind: reference', 'title: { ko: 용어, en: Terms }', 'was: [principles/status-and-turns]', 'summary:', '  ko: 말뜻', '  en: Words', '---', '- 낱말', '<!-- en -->', '- Word'].join('\n')
+    const { entries: all, errors: bad } = aboutEntries([
+      { key: 'project/edits', text: md('edits', 'apps/server/src/agentEdits*.ts') },
+      { key: 'principles/working-principles', text: norm },
+      { key: 'principles/definitions', text: ref },
+    ])
+    expect(bad).toEqual([])
+    expect(aboutFind(all, { section: 'principles/status-and-turns' }).map((e) => e.key)).toEqual(['principles/definitions'])
+    expect(aboutNorms(all).map((e) => e.key)).toEqual(['principles/working-principles'])
+    const list = aboutList(all)
+    expect(list.indexOf('working-principles')).toBeLessThan(list.indexOf('definitions'))
+    expect(list.indexOf('definitions')).toBeLessThan(list.indexOf('project/edits'))
+    expect(aboutText(all.find((e) => e.md.kind === 'norm')!)).toContain('- 원칙 하나')
+    expect(aboutEntries([{ key: 'x/y', text: norm.replace('kind: norm', 'kind: rule') }]).errors[0]).toMatch(/kind/)
   })
 })

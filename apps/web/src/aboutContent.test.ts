@@ -44,16 +44,22 @@ describe('PR 번호 조각 about/prs/<번호>.json (11/20)', () => {
     expect(out[0]!.sections![0]!.prs).toEqual([12, 90, 95])
     expect(out[0]!.sections![1]!.prs).toBeUndefined()
   })
+  it('옛 절 키(was)를 가리키는 조각도 그 절에 붙는다', () => {
+    const merged = { title: '용어', file: 'project/terms', was: ['project/old'], items: [] }
+    const out = withPrFragments([{ id: 'project', title: '과제', sub: '', sections: [merged] }], {}, { './about/prs/7.json': ['project/old'], './about/prs/8.json': ['project/terms'] })
+    expect(out[0]!.sections![0]!.prs).toEqual([7, 8])
+  })
   it('조각이 없으면 그대로', () => {
     expect(withPrFragments(parts, files, {})).toBe(parts)
   })
   it('있는 조각은 모두 있는 절을 가리키고 그 절에 번호가 붙는다', () => {
     const frags = import.meta.glob<string[]>('./about/prs/*.json', { eager: true, import: 'default' })
     const sections = Object.keys(import.meta.glob('./about/*/*.{tsx,md}')).map((f) => f.match(/([^/]+\/[^/]+)\.(?:tsx|md)$/)![1])
+    const was = ABOUT_PARTS_KO.flatMap((p) => (p.sections ?? []).flatMap((s) => s.was ?? []))
     for (const [f, keys] of Object.entries(frags)) {
       const n = Number(f.match(/(\d+)\.json$/)![1])
       for (const k of keys) {
-        expect(sections, `${f}: ${k}`).toContain(k)
+        expect([...sections, ...was], `${f}: ${k}`).toContain(k)
         const [part] = k.split('/')
         expect(ABOUT_PARTS_KO.find((p) => p.id === part)?.sections?.some((s) => s.prs?.includes(n)), `${f}: ${k}`).toBe(true)
       }
@@ -67,11 +73,12 @@ describe('소개 .md 절', () => {
   const files = (dir: string): string[] => fs.readdirSync(path.join(root, dir), { withFileTypes: true })
     .flatMap((e) => e.name === 'node_modules' || e.name.startsWith('.') ? [] : e.isDirectory() ? files(`${dir}/${e.name}`) : [`${dir}/${e.name}`])
   const all = ['apps/web/src', 'apps/server/src', 'packages/core/src'].flatMap(files)
-  it('요약과 구현 파일이 있고, glob마다 맞는 파일이 있다', () => {
+  it('요약이 있고, 기능 절은 구현 파일이 있고, glob마다 맞는 파일이 있다', () => {
     expect(ABOUT_MD.size).toBeGreaterThan(0)
     for (const [key, m] of ABOUT_MD) {
       expect(m.summary?.ko && m.summary.en, `${key}: summary`).toBeTruthy()
-      expect(m.code.length, `${key}: code`).toBeGreaterThan(0)
+      // 규범 · 참조 절(작업 원칙 · 용어)은 어느 파일의 구현도 아니다 (11/27 Fable 안)
+      if (m.kind === 'feature') expect(m.code.length, `${key}: code`).toBeGreaterThan(0)
       for (const g of m.code) expect(all.some((f) => aboutGlobMatch(g, f)), `${key}: ${g}`).toBe(true)
     }
   })

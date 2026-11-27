@@ -2,7 +2,7 @@
 // 계산은 core about-guide.ts. 여기는 파일 읽기만: API(routes/about.ts) · 앱 고치기 대화의 훅(agentRunner.ts)이 쓴다
 import fs from 'node:fs'
 import path from 'node:path'
-import { aboutEntries, aboutFind, aboutText, type AboutEntry } from '@rw/core'
+import { aboutEntries, aboutFind, aboutNorms, aboutText, type AboutEntry } from '@rw/core'
 import { appFile } from './agentPaths.js'
 
 export const ABOUT_DIR = 'apps/web/src/about'
@@ -23,6 +23,7 @@ export function readAboutEntries(root = appFile('')): { entries: AboutEntry[]; e
 
 /**
  * 앱 고치기 대화의 훅: 에이전트가 읽거나 고친 파일을 구현으로 적은 절의 요약 · 지킬 것을 한 번씩 건넨다.
+ * 규범 절(kind: norm, 작업 원칙 · 디자인 원칙)은 어느 파일에나 걸리므로 대화에서 처음 앱 파일을 다룰 때 한 번 건넨다.
  * 대화마다 하나 만들고(seen이 대화 동안 이어진다), 파일 경로(작업 폴더 기준 또는 절대)를 넘긴다
  */
 export function aboutNotifier(root: string): (file: string) => string | undefined {
@@ -32,12 +33,16 @@ export function aboutNotifier(root: string): (file: string) => string | undefine
     const rel = path.isAbsolute(file) ? path.relative(root, file) : file
     if (!rel || rel.startsWith('..') || path.isAbsolute(rel) || rel.startsWith(`${ABOUT_DIR}/`)) return undefined
     cache ??= readAboutEntries(root).entries
-    const fresh = aboutFind(cache, { file: rel.split(path.sep).join('/') }).filter((e) => !seen.has(e.key))
+    const norms = aboutNorms(cache)
+    const fresh = [...norms, ...aboutFind(cache, { file: rel.split(path.sep).join('/') })].filter((e) => !seen.has(e.key))
     if (!fresh.length) return undefined
     for (const e of fresh) seen.add(e.key)
+    const about = fresh.filter((e) => !norms.includes(e))
     return [
-      `About (the app's source of truth) describes ${rel} in the section(s) below. Keep the change consistent with it, and update the section in the same PR if the behavior changes. Full text: \`pnpm agent:about ${fresh[0]!.key}\`.`,
-      ...fresh.map((e) => aboutText(e)),
+      ...(about.length < fresh.length ? ['About (the app\'s source of truth) lists principles that apply to any change in this repository. Follow them throughout this conversation.'] : []),
+      ...fresh.filter((e) => norms.includes(e)).map((e) => aboutText(e)),
+      ...(about.length ? [`About describes ${rel} in the section(s) below. Keep the change consistent with it, and update the section in the same PR if the behavior changes. Full text: \`pnpm agent:about ${about[0]!.key}\`.`] : []),
+      ...about.map((e) => aboutText(e)),
     ].join('\n\n')
   }
 }

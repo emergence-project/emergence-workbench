@@ -19,7 +19,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const { tsImport } = await tsxApi()
 const opts = { parentURL: import.meta.url, tsconfig: false }
 const { readAboutEntries } = await tsImport('../apps/server/src/aboutGuide.ts', opts)
-const { aboutFind, aboutListLine, aboutText } = await tsImport('../packages/core/src/about-guide.ts', opts)
+const { aboutFind, aboutList, aboutText } = await tsImport('../packages/core/src/about-guide.ts', opts)
 
 const lang = args.includes('--en') ? 'en' : 'ko'
 const { entries, errors } = readAboutEntries(root)
@@ -27,7 +27,7 @@ for (const e of errors) console.error(`읽지 못한 절: ${e}`)
 const tool = val('--tool')
 const arg = given[0]
 if (!arg && !tool) {
-  for (const e of entries) console.log(aboutListLine(e, lang))
+  console.log(aboutList(entries, lang))
   console.log(`\n${entries.length}절. 전문: pnpm agent:about <절 키 · 파일 경로> (아직 .md로 옮기지 않은 쪽은 앱의 소개 화면에서 본다)`)
   process.exit(0)
 }

@@ -4,7 +4,7 @@ import * as C from '@rw/core/contract/about'
 import { parseBody, replies } from '../contract.js'
 import { prChanges, prInfo, readAboutChecks, writeAboutCheck } from '../aboutChecks.js'
 import { WorkbenchError } from '../workbench.js'
-import { aboutFind, aboutListLine, aboutText } from '@rw/core'
+import { aboutFind, aboutList, aboutText } from '@rw/core'
 import { readAboutEntries } from '../aboutGuide.js'
 import { t } from '../i18n.js'
 import type { RouteContext } from './context.js'
@@ -44,7 +44,7 @@ export function registerAbout(app: FastifyInstance, ctx: RouteContext): void {
     const { entries, errors, found } = readAboutEntries()
     const lang = q.lang ?? 'ko'
     if (!found) return { text: t('이 앱에는 소개 절 파일이 들어 있지 않습니다 (내려받은 앱). 앱 저장소에서 pnpm agent:about을 쓰세요.', 'This app does not include the About section files (downloaded app). Use pnpm agent:about in the app repository.'), keys: [], errors }
-    if (!q.section && !q.file && !q.tool) return { text: entries.map((e) => aboutListLine(e, lang)).join('\n'), keys: entries.map((e) => e.key), errors }
+    if (!q.section && !q.file && !q.tool) return { text: aboutList(entries, lang), keys: entries.map((e) => e.key), errors }
     const hit = aboutFind(entries, q)
     return {
       text: hit.length ? hit.map((e) => aboutText(e, { lang, full: true })).join('\n\n') : t('맞는 소개 절이 없습니다. 물음 없이 불러 목록을 보세요.', 'No About section matches. Call it without arguments to list the sections.'),

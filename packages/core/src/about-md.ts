@@ -8,15 +8,19 @@
  * summary:                         # 한 줄 요약 (필수): 에이전트가 먼저 받는 글
  *   ko: …
  *   en: …
- * code: [apps/web/src/AgentEditsPage.tsx, apps/server/src/agentEdits*.ts]   # 구현 파일 glob (필수)
+ * code: [apps/web/src/AgentEditsPage.tsx, apps/server/src/agentEdits*.ts]   # 구현 파일 glob (기능 절은 필수)
+ * kind: norm                       # 절 종류 (11/27 Fable 안): feature 기능(기본, 파일 · 도구로 찾음) · norm 규범(어느 파일에나 걸림,
+ *                                  #   앱 고치기 대화가 처음 파일을 다룰 때 한 번 건넴) · reference 참조(용어 · 기호, 키로 찾음)
  * mcp: [edit_note]                 # 이 기능을 쓰는 MCP 도구
- * figure: ScreenLayoutFigure       # aboutFigures.tsx의 그림 이름
+ * figure: ScreenLayoutFigure       # aboutFigures.tsx의 그림 이름 (여럿이면 [A, B])
  * prs: [103, 137]                  # 옛 PR 번호 (새 번호는 about/prs/<번호>.json 조각)
- * ui · port · was · ask            # 피드백 부위 이름 · 이식 안내서 · 옛 절 이름 · 확인 전 물음
+ * was: [principles/status-and-turns]  # 이 절로 합치거나 이름을 바꾼 옛 절 키: 옛 PR 조각 · 절 찾기가 이 절로 풀린다
+ * ui · port · ask                  # 피드백 부위 이름 · 이식 안내서 · 확인 전 물음
  * ---
  * <!-- ko -->
  * - 지금 동작 한 항목 (**굵게**, `코드`, [링크](#/about/agents))
  *   이어지는 줄은 빈 줄 없이 들여 쓴다 (`코드` 안에서는 \ 이스케이프가 듣지 않는다)
+ *   - 하위 항목은 두 칸 들여 "- " (지금 동작에만, 한 단계)
  * ### 지킬 것
  * - 고칠 때 깨면 안 되는 것
  * ### 결정
@@ -32,20 +36,28 @@ export type AboutLine = AboutInline[]
 export interface AboutMdBody {
   /** 지금 동작: 항목마다 한 줄 */
   items: AboutLine[]
+  /** items[i] 아래 들여 쓴 하위 항목 ("  - "로 시작, 11/27 용어의 위계). items와 길이가 같다 */
+  sub: AboutLine[][]
   /** 지킬 것: 고칠 때 깨면 안 되는 것 (있는 절만) */
   keep: AboutLine[]
   /** 결정: 날짜와 무엇을 한 줄씩 (있는 절만) */
   decisions: AboutLine[]
 }
 
+/** 절 종류: 기능(파일 · 도구로 찾음) · 규범(어느 파일에나 걸림) · 참조(용어 · 기호) */
+export type AboutKind = 'feature' | 'norm' | 'reference'
+export const ABOUT_KINDS: readonly AboutKind[] = ['feature', 'norm', 'reference']
+const isKind = (s: string): s is AboutKind => ABOUT_KINDS.some((k) => k === s)
+
 export interface AboutMd {
   id?: string
+  kind: AboutKind
   title: { ko: string; en: string }
   summary?: { ko: string; en: string }
   ask?: { ko: string; en: string }
   ui?: string
   port?: string
-  figure?: string
+  figure: string[]
   code: string[]
   mcp: string[]
   prs: number[]
@@ -118,13 +130,21 @@ export function aboutInline(s: string): AboutLine {
   return out
 }
 
-const GROUPS: Record<string, keyof AboutMdBody> = { '지킬 것': 'keep', Keep: 'keep', '결정': 'decisions', Decisions: 'decisions' }
+const GROUPS: Record<string, 'keep' | 'decisions'> = { '지킬 것': 'keep', Keep: 'keep', '결정': 'decisions', Decisions: 'decisions' }
 
 function body(text: string): AboutMdBody {
-  const b: AboutMdBody = { items: [], keep: [], decisions: [] }
-  let group: keyof AboutMdBody = 'items'
+  const b: AboutMdBody = { items: [], sub: [], keep: [], decisions: [] }
+  let group: 'items' | 'keep' | 'decisions' = 'items'
   let cur: string | undefined
-  const flush = () => { if (cur !== undefined) b[group].push(aboutInline(cur)); cur = undefined }
+  let child: string | undefined
+  const flushChild = () => { if (child !== undefined) b.sub[b.sub.length - 1]!.push(aboutInline(child)); child = undefined }
+  const flush = () => {
+    flushChild()
+    if (cur === undefined) return
+    b[group].push(aboutInline(cur))
+    if (group === 'items') b.sub.push([])
+    cur = undefined
+  }
   for (const line of text.split(/\r?\n/)) {
     if (!line.trim()) { flush(); continue }
     if (/^<!--\s*ko\s*-->\s*$/.test(line)) { flush(); continue }
@@ -137,7 +157,17 @@ function body(text: string): AboutMdBody {
       continue
     }
     if (line.startsWith('- ')) { flush(); cur = line.slice(2).trim(); continue }
+    // 하위 항목: 지금 동작의 항목 바로 밑에 두 칸 들여 "- "
+    const sub = /^ {2,3}- (.*)$/.exec(line)
+    if (sub) {
+      if (group !== 'items' || (cur === undefined && child === undefined)) throw new Error(`하위 항목은 지금 동작의 항목 바로 밑에만 씁니다: ${line}`)
+      if (cur !== undefined) { b.items.push(aboutInline(cur)); b.sub.push([]); cur = undefined }
+      flushChild()
+      child = sub[1]!.trim()
+      continue
+    }
     // 이어지는 줄은 항목 바로 밑에 들여 쓴다. 그 밖의 줄은 말없이 항목이 되지 않게 오류로
+    if (/^\s+\S/.test(line) && child !== undefined) { child += ` ${line.trim()}`; continue }
     if (/^\s+\S/.test(line) && cur !== undefined) { cur += ` ${line.trim()}`; continue }
     throw new Error(`소개 절 본문은 "- " 항목과 그 밑에 들여 쓴 줄, "### 칸"만 씁니다: ${line}`)
   }
@@ -159,14 +189,17 @@ export function parseAboutMd(text: string): AboutMd {
   if (halves.length !== 2) throw new Error('소개 절 본문에 <!-- en --> 줄이 꼭 하나 있어야 합니다')
   const [ko = '', en = ''] = halves
   const str = (v: Val | undefined) => (v === undefined ? undefined : String(v))
+  const kind = str(y.kind) ?? 'feature'
+  if (!isKind(kind)) throw new Error(`소개 절 머리말의 kind는 ${ABOUT_KINDS.join(' · ')} 중 하나입니다: ${kind}`)
   return {
     ...(str(y.id) && { id: str(y.id) }),
+    kind,
     title,
     ...(pair(y.summary) && { summary: pair(y.summary) }),
     ...(pair(y.ask) && { ask: pair(y.ask) }),
     ...(str(y.ui) && { ui: str(y.ui) }),
     ...(str(y.port) && { port: str(y.port) }),
-    ...(str(y.figure) && { figure: str(y.figure) }),
+    figure: list(y.figure).map(String),
     code: list(y.code).map(String),
     mcp: list(y.mcp).map(String),
     prs: list(y.prs).map(Number).filter(Boolean),

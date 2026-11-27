@@ -25,13 +25,17 @@ export function inline(line: AboutLine): ReactNode {
     : <a key={i} className="a" href={x.href} {...(/^https?:/.test(x.href) && { target: '_blank', rel: 'noreferrer' })}>{inline(x.a)}</a>)
 }
 
-const items = (lines: AboutLine[]): AboutItem[] => lines.map((l) => ({ text: <>{inline(l)}</> }))
+const items = (lines: AboutLine[], sub: AboutLine[][] = []): AboutItem[] => lines.map((l, i) => ({
+  text: <>{inline(l)}{sub[i]?.length ? <ul className="about-sublist">{sub[i]!.map((x, j) => <li key={j}>{inline(x)}</li>)}</ul> : null}</>,
+}))
 
-function figureOf(name: string | undefined): ReactNode {
-  if (!name) return undefined
-  const f = FIGS[name]
-  if (!isComponent(f)) throw new Error(`소개 그림이 없습니다: ${name} (aboutFigures.tsx)`)
-  return createElement(f)
+function figureOf(names: string[]): ReactNode {
+  if (!names.length) return undefined
+  return names.map((name) => {
+    const f = FIGS[name]
+    if (!isComponent(f)) throw new Error(`소개 그림이 없습니다: ${name} (aboutFigures.tsx)`)
+    return createElement(f, { key: name })
+  })
 }
 
 /** 절 파일 하나 → 한국어 · 영어 절 */
@@ -44,11 +48,12 @@ export function mdSection(key: string): { ko: AboutSection; en: AboutSection } {
     ...(m.id && { id: m.id }),
     ...(m.ui && { ui: m.ui }),
     ...(m.port && { port: m.port }),
-    ...(m.figure && { figure: figureOf(m.figure) }),
+    ...(m.figure.length && { figure: figureOf(m.figure) }),
+    ...(m.was.length && { was: m.was }),
     ...(m.summary && { summary: m.summary[lang] }),
     ...(m.ask && { ask: m.ask[lang] }),
     ...(lang === 'ko' && m.prs.length && { prs: m.prs }),
-    items: items(m[lang].items),
+    items: items(m[lang].items, m[lang].sub),
     ...(m[lang].keep.length && { keep: items(m[lang].keep) }),
     ...(m[lang].decisions.length && { decisions: items(m[lang].decisions) }),
     ...(m.code.length && { code: m.code }),

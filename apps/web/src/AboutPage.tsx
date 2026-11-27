@@ -12,7 +12,7 @@ import { queryClient, qk } from './queries'
 import { t } from './i18n'
 import { go, href, type Route } from './router'
 import { portUrl } from './about/code'
-import { Intro, Layout, SymbolTable, Reference, Next, PartTitle, type SectionCheckView, Section } from './AboutParts'
+import { Intro, SymbolTable, Reference, Next, PartTitle, type SectionCheckView, Section } from './AboutParts'
 
 /**
  * 이 앱 소개: 앱의 왼쪽 사이드바에서 한 쪽을 고른다 (#/about/<쪽>).
@@ -105,7 +105,7 @@ export function AboutPage({ part, anchor, rightOpen, onSaved }: { part?: string;
                 {at <= 0 && <p className="h-sub" data-ui="부제">{p.sub}</p>}
                 {at <= 0 && p.open && <p className="about-open">{p.open.map((o) => <button key={o.label} className="a" onClick={() => go(o.to)}>{o.label} ›</button>)}</p>}
               </header>
-              {p.id === 'intro' ? <Intro /> : p.id === 'layout' ? <Layout /> : p.id === 'reference' ? <Reference /> : p.id === 'next' ? <Next /> : <Sections part={p} at={at} history={side} />}
+              {p.id === 'intro' ? <Intro /> : p.id === 'reference' ? <Reference /> : p.id === 'next' ? <Next /> : <Sections part={p} at={at} history={side} />}
               <footer className="about-pager" data-ui="소개 앞뒤">
                 {/* 앞뒤 넘기기: 본문과 띄운 두 칸 (10/15 15:03 제안) */}
                 {prev ? <a className="about-step" href={pageHref(prev)}><span className="k">‹ {t('이전', 'Previous')}</span><b>{pageLabel(prev, p)}</b></a> : <span />}
@@ -140,10 +140,11 @@ const pageLabel = (x: AboutPageRef, here: AboutPart) => x.at < 0 ? x.part.title 
 /** 설정과 같은 앱 사이드바의 쪽 목록. 쪽 주소와 피드백 부위 이름은 그대로 둔다. */
 /** 왼쪽 목록의 묶음. 쪽 번호는 묶음을 넘어 이어진다. */
 const NAV_GROUPS: { title: string; parts: string[] }[] = [
-  { title: t('시작', 'Start'), parts: ['intro', 'principles'] },
-  { title: t('화면', 'Screens'), parts: ['layout', 'home', 'project', 'notes', 'knowledge', 'reading', 'network', 'settings'] },
-  { title: t('일하는 방식', 'How work flows'), parts: ['agents', 'feedback'] },
-  { title: t('앱 개발', 'App development'), parts: ['research', 'rules'] },
+  // 11/27 사용자 "용어와 개념을 화면과 함께 먼저, 원칙과 규칙은 그다음": 화면과 용어 › 화면들 › 원칙 › 에이전트 · 피드백
+  { title: t('시작', 'Start'), parts: ['intro', 'layout'] },
+  { title: t('화면', 'Screens'), parts: ['home', 'project', 'notes', 'knowledge', 'reading', 'network', 'settings'] },
+  { title: t('일하는 방식', 'How work flows'), parts: ['principles', 'agents', 'feedback'] },
+  { title: t('앱 개발', 'App development'), parts: ['building', 'research', 'rules'] },
   { title: t('기준과 참고', 'Standards and reference'), parts: ['design', 'symbols', 'reference', 'next'] },
 ]
 

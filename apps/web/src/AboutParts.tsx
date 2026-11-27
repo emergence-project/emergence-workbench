@@ -28,47 +28,6 @@ export function IntroPillars() {
   )
 }
 
-const toPart = (id: string) => href({ page: 'about', part: id })
-
-/** 화면 쪽 맨 앞: 창의 다섯 영역 그림 (11/27 한눈에서 옮김) */
-export function Layout() {
-  return (
-    <div data-ui="화면 구조">
-        <div className="about-map" role="img" aria-label={t('화면 구조: 위에 상단바, 왼쪽에 레일과 왼쪽 사이드바, 가운데 작업 패널, 오른쪽에 오른쪽 사이드바', 'Screen layout: top bar on top, rail and left sidebar on the left, work panel in the middle, right sidebar on the right')}>
-          <a className="m-title" data-ui="상단바" href={toPart('project')}><b>{t('상단바', 'Top bar')}</b><span>{t('왼쪽 사이드바 여닫기 · 뒤로 · 앞으로 · 위치', 'Toggle left sidebar · Back · Forward · Location')}</span><span className="m-title-actions">{t('(새 버전) · 검색 · 두 패널 · 피드백 · 오른쪽 사이드바 여닫기', '(New version) · Search · Two panes · Feedback · Toggle right sidebar')}</span></a>
-          <div className="m-rail" data-ui="레일">
-            <b>{t('레일', 'Rail')}</b>
-            <a href={toPart('home')}>{t('홈', 'Home')}</a>
-            <a href={toPart('agents')}>{t('에이전트', 'Agents')}</a>
-            <a href={toPart('home')}>{t('저장소', 'Repositories')}</a>
-            <a href={toPart('project')}>{t('프로젝트들', 'Projects')}</a>
-            <a href={toPart('knowledge')}>{t('지식', 'Knowledge')}</a>
-            <a href={toPart('reading')}>{t('논문', 'Papers')}</a>
-            <a href={toPart('reading')}>{t('그림', 'Figures')}</a>
-            <a href={toPart('network')}>{t('네트워킹', 'Networking')}</a>
-            <span className="sp" />
-            <a href={toPart('feedback')}>{t('피드백', 'Feedback')}</a>
-            <a href={toPart('intro')}>{t('소개', 'About')}</a>
-            <a href={toPart('settings')}>{t('설정', 'Settings')}</a>
-          </div>
-          <div className="m-side" data-ui="왼쪽 사이드바">
-            <b>{t('왼쪽 사이드바', 'Left sidebar')}</b>
-            <a href={toPart('project')}>{t('프로젝트 | 파일 | 목차', 'Project | Files | Outline')}<small>{t('위의 탭. 목차는 지금 연 노트 · 보고서의 절', 'Tabs on top. Outline is the sections of the open note or report')}</small></a>
-            <a href={toPart('project')}>{t('프로젝트 정보', 'Project info')}<small>{t('현황 · 변경사항 · 규칙', 'Status · Changes · Rules')}</small></a>
-            <a href={toPart('project')}>{t('기록', 'Records')}<small>{t('판단 · 맡긴 일 · 할 일 · 메모 · 질문', 'Decide · Delegated tasks · To-dos · Memos · Questions')}</small></a>
-            <a href={href({ page: 'about', part: 'project', anchor: 'flow' })}>{t('수정 검토 · 흐름', 'Edit review · Flow')}</a>
-            <a href={toPart('notes')}>{t('주제', 'Topics')}<small>{t('주제 › 노트 나무 · 노트들', 'Topic › note tree · Loose notes')}</small></a>
-            <a href={toPart('reading')}>{t('자료', 'Materials')}<small>{t('원고 · 참고 자료', 'Manuscripts · Reference materials')}</small></a>
-          </div>
-          <a className="m-main" data-ui="주 패널" href={toPart('project')}><b>{t('주 패널 (왼쪽)', 'Main pane (left)')}</b><span>{t('고른 노트·화면. 탭이 없으면 프로젝트 첫 화면. 노트는 늘 여기', 'The chosen note or screen. With no tabs, the project home screen. Notes always open here')}</span></a>
-          <a className="m-other" data-ui="옆 패널" href={toPart('reading')}><b>{t('옆 패널 (오른쪽)', 'Side pane (right)')}</b><span>{t('노트의 PDF, 함께 볼 논문·진술', 'The note\'s PDF, papers and statements to view alongside')}</span></a>
-          <a className="m-ctx" data-ui="오른쪽 사이드바" href={toPart('notes')}><b>{t('오른쪽 사이드바', 'Right sidebar')}</b><span>{t('맨 위 아이콘 줄: 정보 · 기록 (메모 · 할 일 · 질문) · 에이전트', 'Icon row on top: Info · Records (memos · to-dos · questions) · Agent')}</span></a>
-        </div>
-        <p className="about-note">{t('프로젝트 화면의 구조입니다. 상단바의 두 패널 버튼은 프로젝트 화면에만, 오른쪽 사이드바 버튼은 프로젝트와 지식·논문·그림 첫 화면에 있습니다. 홈·지식·논문·그림·네트워킹·피드백·소개·설정은 프로젝트 밖 화면이고, 지식·논문·그림·네트워킹·소개·설정은 자기 왼쪽 사이드바가 있습니다.', 'This is the layout of the project screen. The Two panes button in the top bar is only on project screens, and the right sidebar button is on projects and on the Knowledge, Papers and Figures home screens. Home, Knowledge, Papers, Figures, Networking, Feedback, About and Settings are screens outside projects, and Knowledge, Papers, Figures, Networking, About and Settings have their own left sidebar.')}</p>
-    </div>
-  )
-}
-
 /** 첫 쪽: 정의, 소개를 읽는 법, 핵심 이해 */
 export function Intro() {
   return (
@@ -79,31 +38,45 @@ export function Intro() {
       </Section>
 
       <Section name={t('이 소개를 읽는 법', 'How to read this page')} ui="읽는 법">
+        <h3 className="about-sub first">{t('이 소개는 무엇인가', 'What this page is')}</h3>
         {lang === 'ko' ? (
           <ul className="about-pillars">
             <li><b>정본</b> — 앱의 목표 · 개발 결정 · 지금 구현을 적는 single source of truth. 다른 문서는 이 소개의 자세한 설명</li>
-            <li><b>독자</b> — 사용자와 에이전트가 함께 읽음. 누구나 쉽게 읽히게 씀</li>
-            <li><b>에이전트</b> — 이 소개를 읽고 기능의 구현 방식과 파일을 정리함. 앱을 고치면 같은 PR에서 소개도 고쳐 둘을 맞춤</li>
             <li><b>짜임</b> — 시작 › 화면 › 일하는 방식 › 앱 개발 › 기준과 참고. 「화면」은 화면마다 한 쪽으로, 지금 앱이 어떤지를 그 화면의 짜임대로 적음</li>
             <li><b>피드백</b> — 승인한 피드백은 여기 설명으로 옮기고 피드백 목록에서 지움</li>
-            <li><b>확인과 고치기</b> — 툴바 오른쪽 시계가 본문 옆에 이력 · 수정 패널을 엶. 「이력」에서 바뀐 절을 보고 ✓로 확인하고, 틀린 곳은 「수정」에서 본문의 그곳(문단 · 표 칸 · 그림 속 상자)을 눌러 고친 글을 보냄</li>
           </ul>
         ) : (
           <ul className="about-pillars">
             <li><b>Source of truth</b> — records the app's goals, development decisions and current implementation. Other documents are detailed notes on it</li>
-            <li><b>Readers</b> — read by users and agents alike, so written to be easy for anyone</li>
-            <li><b>Agents</b> — read it to work out how each feature is implemented and which files it uses. When they change the app, they change this page in the same PR</li>
             <li><b>Layout</b> — Start › Screens › How we work › App development › Standards and reference. Under Screens, one part per screen, describing how the app works now in the order of that screen</li>
             <li><b>Feedback</b> — approved feedback moves into these descriptions and is deleted from the feedback list</li>
-            <li><b>Review and corrections</b> — the clock at the right of the toolbar opens a History · Edit panel beside the text. In "History", see changed sections and mark them reviewed with ✓; for anything wrong, click that place in the text in "Edit" (a paragraph, a table cell or a box in a figure) and send your edited text</li>
           </ul>
         )}
-        <div className="about-legend">
-          <span><span className="about-unsure">{t('확인 전', 'Not reviewed')}</span> {t('아직 확인하지 않은 업데이트가 있는 절(왼쪽 목록에는 "확인 N"). 누르면 오른쪽 「이력」이 열려 그 줄로 가고, 그 줄의 ✓(맞아요)를 누르면 확인함이 됩니다', 'A section with an update you have not reviewed (the list on the left shows "Review N"). Click it to open "History" on the right at that row; ✓ (That is right) on the row marks it reviewed')}</span>
-          <span><span className="about-pending">{t('반영 대기', 'Waiting to apply')}</span> {t('「수정」 탭으로 고쳐 보낸 절. 반영한 업데이트가 들어오면 사라지고 다시 확인할 차례가 됩니다', 'A section you edited and sent from the "Edit" tab. It goes away when the update that applies it arrives, and the section is yours to review again')}</span>
-        </div>
+        <h3 className="about-sub">{t('독자마다 읽는 법', 'How each reader reads it')}</h3>
+        <p className="about-note">{t('사용자 · 앱 안 에이전트 · 앱 밖 에이전트가 같은 글을 읽습니다. 그래서 누구나 쉽게 읽히게 씁니다.', 'Users, agents inside the app and agents outside it read the same text, so it is written to be easy for anyone.')}</p>
+        <ReadersTable />
       </Section>
     </>
+  )
+}
+
+/** 1.2 독자마다 읽는 법 (11/27 사용자 「독자를 구분해서, 표로」) */
+function ReadersTable() {
+  const ko = lang === 'ko'
+  const rows: [string, ReactNode, ReactNode, ReactNode][] = ko ? [
+    ['사용자', <>레일 맨 아래 「소개」 화면</>, <>화면 그대로. 툴바 오른쪽 시계가 본문 옆에 이력 · 수정 패널을 엶. 절 제목 옆 <b>확인 전</b>은 아직 ✓하지 않은 업데이트가 있다는 뜻(왼쪽 목록에는 「확인 N」), <b>반영 대기</b>는 고쳐 보낸 글이 아직 반영되지 않았다는 뜻</>, <>「이력」에서 바뀐 절을 보고 ✓로 확인. 틀린 곳은 「수정」에서 그 자리(문단 · 표 칸 · 그림 속 상자)를 눌러 고친 글을 보냄</>],
+    ['앱 안 에이전트', <>「앱 고치기」 대화: 안내문이 <code>pnpm agent:about &lt;고칠 파일&gt;</code>부터 읽게 함. 프로젝트 대화는 MCP <code>about</code></>, <>파일을 읽거나 고치면 앱이 그 파일을 구현으로 적은 절의 요약 · 지킬 것을 한 번씩 덧붙임</>, <>앱을 고친 PR에서 그 절도 고침</>],
+    ['앱 밖 에이전트', <>터미널의 Claude Code · Codex 등: 앱 MCP의 <code>about</code> 도구, 또는 앱 저장소에서 <code>pnpm agent:about</code>. CLAUDE.md · AGENTS.md 첫 절이 가리킴</>, <>파일 · 도구 · 절 이름으로 찾은 절의 전문(요약 · 지금 동작 · 지킬 것 · 결정 · 구현 파일)</>, <>앱을 고친 PR에서 그 절도 고침</>],
+  ] : [
+    ['Users', <>The About screen at the bottom of the rail</>, <>The screen as it is. The clock at the right of the toolbar opens a History · Edit panel beside the text. <b>Not reviewed</b> beside a section title means an update you have not marked with ✓ (the list on the left shows "Review N"); <b>Waiting to apply</b> means the text you sent has not been applied yet</>, <>In "History", see changed sections and mark them reviewed with ✓. For anything wrong, click that place in "Edit" (a paragraph, a table cell or a box in a figure) and send your edited text</>],
+    ['Agents inside the app', <>"Fix the app" conversations: the brief has the agent start with <code>pnpm agent:about &lt;file to change&gt;</code>. Project conversations: the MCP <code>about</code> tool</>, <>When the agent reads or edits a file, the app adds the summary and keep list of the section that lists that file as its implementation, once each</>, <>Change that section in the PR that changes the app</>],
+    ['Agents outside the app', <>Claude Code, Codex and others in a terminal: the app MCP's <code>about</code> tool, or <code>pnpm agent:about</code> in the app repository. The first section of CLAUDE.md and AGENTS.md points here</>, <>The full text of the sections found by file, tool or section name (summary · how it works · keep · decisions · files)</>, <>Change that section in the PR that changes the app</>],
+  ]
+  return (
+    <table className="about-sym-table about-read-table">
+      <thead><tr><th>{t('독자', 'Reader')}</th><th>{t('어디서 읽나', 'Where')}</th><th>{t('무엇을 받나', 'What they get')}</th><th>{t('고칠 때', 'When changing')}</th></tr></thead>
+      <tbody>{rows.map(([who, where, what, fix]) => <tr key={who}><td><b>{who}</b></td><td>{where}</td><td>{what}</td><td>{fix}</td></tr>)}</tbody>
+    </table>
   )
 }
 
