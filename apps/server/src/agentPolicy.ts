@@ -411,7 +411,8 @@ function commandCore(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
     // 「늘」은 줄 안의 실행 프로그램이 모두 허락됐을 때만 (pnpm test 늘이 `pnpm test && ./deploy.sh`를 묻지 않고 돌리지 않게)
     const progs = runPrograms(cmd)
     const missing = progs.filter((p) => !ctx.always?.(`run:${p}`))
-    if (auto.run || (progs.length > 0 && !missing.length)) return { kind: 'allow' }
+    // 묻지 않고 돌리는 실행도 git 내부(훅 · 설정)를 건드리면 한 번 묻는다 (11/27 검토. 함께 읽는 폴더의 자료를 읽어 돌리는 것은 그대로)
+    if (auto.run || (progs.length > 0 && !missing.length)) return outsideWork(ctx, cmd, [ctx.repo, ...ctx.readable]) ? { kind: 'ask', summary, key: `outside:${cmd}`, label: t(`작업 폴더 밖 · ${what}`, `Outside the work folder · ${what}`), does: 'outside', once: true } : { kind: 'allow' }
     const prog = missing[0] ?? runProgram(cmd)
     return { kind: 'ask', summary, key: `run:${prog}`, label: t(`실행 · ${prog}`, `Run · ${prog}`), does }
   }
@@ -424,7 +425,7 @@ function commandCore(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
 }
 
 /** 명령이 이 대화의 작업 폴더 밖이나 git 내부(.git)를 건드리는지: 실제 자리로(링크 · 무늬 · 줄 안의 cd), 경로 모양이 아닌 낱말도 본다 (agentPlaces.ts) */
-const outsideWork = (ctx: PolicyCtx, cmd: string) => commandKind(cmd, { cwd: ctx.repo, home: os.homedir(), inside: placer([ctx.repo], { noGit: true }), every: true, bases: cdBases(cmd, ctx.repo, os.homedir()) }) === 'outside'
+const outsideWork = (ctx: PolicyCtx, cmd: string, roots = [ctx.repo]) => commandKind(cmd, { cwd: ctx.repo, home: os.homedir(), inside: placer(roots, { noGit: true }), every: true, bases: cdBases(cmd, ctx.repo, os.homedir()) }) === 'outside'
 
 /** pnpm install --frozen-lockfile: 잠금 파일 그대로 까는 것이라 새 꾸러미를 받지 않는다 (작업 폴더를 처음 열 때) */
 // (--옵션\s*)* 꼴은 맞지 않는 긴 줄에서 되짚기가 폭발한다(옵션 28개에 6초): 옵션 사이 빈칸을 꼭 하나 이상으로

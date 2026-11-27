@@ -376,10 +376,11 @@ describe('읽기로 보이던 쓰기 · 실행 (11/20 보안 검토)', () => {
     expect(k('cat <(rm -rf x)')).toBe('delete')
     expect(k('diff <(curl https://example.com) a')).toBe('outside')
     for (const c of ['git branch -D old', 'git tag -d v1', 'git branch --delete old']) expect(k(c), c).toBe('delete')
-    for (const c of ['git branch -m a b', 'git branch new', 'git tag v1', 'git tag -a v1 -m x', 'git config alias.x "!rm -rf ."', 'git config --unset a.b', 'git remote rename o p', 'git log --output=x', 'git diff --output x'])
+    for (const c of ['git branch -m a b', 'git branch new', 'git tag v1', 'git tag -a v1 -m x', 'git remote rename o p', 'git log --output=x', 'git diff --output x'])
       expect(k(c), c).toBe('edit')
     // 원격 주소를 정하는 것은 밖으로 나갈 자리를 정한다 (11/27 보안 검토)
-    for (const c of ['git remote add o u', 'git remote set-url origin u']) expect(k(c), c).toBe('outside')
+    // 이 저장소의 설정 쓰기도 밖 (11/27): 원격 주소 · 훅 폴더 · 돌릴 프로그램(alias !…)을 바꾼다
+    for (const c of ['git remote add o u', 'git remote set-url origin u', 'git config alias.x "!rm -rf ."', 'git config --unset a.b']) expect(k(c), c).toBe('outside')
     for (const c of ['git branch', 'git branch -a', 'git branch -vv', 'git branch -r', 'git branch --show-current', 'git branch --contains abc', 'git tag', 'git tag -l "v*"', 'git tag --sort=-creatordate', 'git config user.name', 'git config --get a.b', 'git config -l', 'git remote -v', 'git remote show origin', 'git log --oneline -5', 'git diff a b'])
       expect(k(c), c).toBe('read')
     expect(k('rg --pre cat x')).toBe('run')

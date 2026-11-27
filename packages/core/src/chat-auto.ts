@@ -9,7 +9,7 @@ import { uniqNames } from './chat-readonly.js'
 import { sedWrites } from './chat-sed.js'
 import { VarWatch } from './chat-vars.js'
 import { codeSpawns, codeTouchesOutside } from './chat-pycode.js'
-import { gitNewPlace, looksLikePath, pathPart, pathWord } from './chat-place.js'
+import { gitOutside, looksLikePath, pathPart, pathWord } from './chat-place.js'
 
 // 셸 글 읽기는 chat-shell.ts로 옮겼다: 여기서 가져다 쓰던 곳을 위해 그대로 내보낸다
 export { bare, joinLines, prepare, redirects, segments, substitutions, unmask, words } from './chat-shell.js'
@@ -448,7 +448,7 @@ function kindOf(prog: string, args: string[]): ChatKind {
       return 'delete'
     }
     if (sub === 'switch' && args.some((a) => /^(-f|--force|--discard-changes)$/.test(a))) return 'delete'
-    if (gitNewPlace(sub, args.slice(args.indexOf(sub) + 1))) return 'outside'
+    if (gitOutside(sub, args.slice(args.indexOf(sub) + 1))) return 'outside'
     if (GIT_EDIT.has(sub)) return 'edit'
     // 읽는 하위 명령의 쓰는 쓰임: 가지 · 태그 지우기와 만들기, 설정 쓰기, 원격 바꾸기, --output 파일
     const rest = args.slice(args.indexOf(sub) + 1)

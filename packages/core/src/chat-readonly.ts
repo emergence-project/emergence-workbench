@@ -5,6 +5,7 @@
  * ok = 묻지 않고, sensitive = 비밀이 든 곳(~/.ssh · .env …)을 보니 한 번 묻고, no = 막는다
  */
 import { bare, joinLines, longOpt, segments, substitutions, unmask, words } from './chat-shell.js'
+import { gitOutside } from './chat-place.js'
 
 export type StateOnly = 'ok' | 'sensitive' | 'no'
 
@@ -39,13 +40,14 @@ const GIT: Record<string, Rule> = {
   'show-branch': any, 'count-objects': any, cherry: any, 'range-diff': any, 'check-ignore': any, 'check-attr': any, 'verify-commit': any,
   'verify-tag': any, version: any,
   // --upload-pack · -u 와 숨은 같은 옵션 --exec 는 지정한 프로그램을 돌린다
-  'ls-remote': (a) => !a.some((x) => /^-u/.test(x) || longOpt('--upload-pack', '--exec')(x)),
+  // 이름이 아닌 새 주소와 주고받는 것은 주소에 글을 실어 보낼 수 있다 (gitOutside, 11/27)
+  'ls-remote': (a) => !a.some((x) => /^-u/.test(x) || longOpt('--upload-pack', '--exec')(x)) && !gitOutside('ls-remote', a),
   worktree: (a) => a[0] === 'list',
   submodule: (a) => a.length === 0 || a[0] === 'status',
   // -O · --open-files-in-pager는 지정한 프로그램을 돌린다
   grep: (a) => !a.some((x) => /^-[a-zA-Z]*O/.test(x) || longOpt('--open-files-in-pager')(x)),
   branch: (a) => a.every((x) => /^(-a|-r|-v|-vv|--all|--remotes|--list|-l|--show-current|--verbose)$/.test(x)),
-  remote: (a) => a.length === 0 || a.every((x) => x === '-v') || /^(show|get-url)$/.test(a[0] ?? ''),
+  remote: (a) => (a.length === 0 || a.every((x) => x === '-v') || /^(show|get-url)$/.test(a[0] ?? '')) && !gitOutside('remote', a),
   reflog: (a) => a.length === 0 || a[0] === 'show' || a[0]!.startsWith('-'),
   stash: (a) => /^(list|show)$/.test(a[0] ?? ''),
   tag: (a) => a.length === 0 || a.some((x) => x === '-l' || x === '--list'),
