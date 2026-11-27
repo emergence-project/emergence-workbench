@@ -9,7 +9,24 @@ import { ProofMark, StatusDot } from './StatusDot'
 import { go, href } from './router'
 import * as portingGuides from './about/reference/porting-guides'
 
-export const INTRO_SUB = t('여러 연구를 함께 진행하는 사람을 위한 작업대입니다. 맥 · 윈도우에 설치해 그 컴퓨터에서 돌고, 폰에서는 같은 앱을 웹 화면으로 엽니다. 노트 쓰기, 유도·계산, 논문 읽기, 할 일과 기록을 한 창에서 다룹니다. 각 연구 저장소가 이미 가진 파일을 그대로 읽고 고치며, 남기는 것은 그 저장소에 파일로 두어 코딩 에이전트가 이어받습니다.', 'A workbench for people running several research projects at once. It is installed on a Mac or Windows computer and runs there; on a phone you open the same app as a web page. Writing notes, derivations and calculations, reading papers, to-dos and records all happen in one window. It reads and edits the files each research repository already has, and what it leaves behind is saved as files in that repository so coding agents can pick up the work.')
+export const INTRO_SUB = t('여러 연구를 여러 사람과 여러 에이전트가 함께 진행하는 작업대입니다.', 'A workbench where several people and several agents carry out several research projects together.')
+
+/** 한눈에 머리의 정의 세 가지 (2026-11-27 사용자 정의) */
+export function IntroPillars() {
+  return (
+    <ul className="about-pillars" data-ui="정의">
+      {lang === 'ko' ? (<>
+        <li><b>함께</b> — 사람과 에이전트가 같은 정보를 보고 서로의 일을 이어받습니다. 남기는 것은 각 연구 저장소에 파일로 두어, 누가 이어 가도 같은 자료에서 시작합니다.</li>
+        <li><b>어디서나</b> — 기기가 여러 대여도 어느 기기에서든 접속해 같은 작업을 이어 합니다. 맥 · 윈도우에 설치하고, 폰에서는 같은 앱을 웹 화면으로 엽니다.</li>
+        <li><b>한곳에서</b> — 연구 프로젝트, 노트, 공부, 지시, 기록, 네트워크까지 연구에 필요한 전체를 하나의 시스템에서 관리합니다.</li>
+      </>) : (<>
+        <li><b>Together</b> — people and agents see the same information and pick up each other's work. What is left behind is saved as files in each research repository, so whoever continues starts from the same material.</li>
+        <li><b>Anywhere</b> — with several devices, you connect from any of them and continue the same work. It is installed on Mac or Windows, and on a phone you open the same app as a web page.</li>
+        <li><b>In one place</b> — research projects, notes, study, instructions, records and networking: everything research needs is managed in one system.</li>
+      </>)}
+    </ul>
+  )
+}
 
 const toPart = (id: string) => href({ page: 'about', part: id })
 

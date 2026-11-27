@@ -12,7 +12,7 @@ import { queryClient, qk } from './queries'
 import { t } from './i18n'
 import { go, href, type Route } from './router'
 import { portUrl } from './about/code'
-import { INTRO_SUB, Intro, SymbolTable, Reference, Next, PartTitle, type SectionCheckView, Section } from './AboutParts'
+import { INTRO_SUB, IntroPillars, Intro, SymbolTable, Reference, Next, PartTitle, type SectionCheckView, Section } from './AboutParts'
 
 /**
  * 이 앱 소개: 앱의 왼쪽 사이드바에서 한 쪽을 고른다 (#/about/<쪽>).
@@ -103,6 +103,7 @@ export function AboutPage({ part, anchor, rightOpen, onSaved }: { part?: string;
               <header>
                 {p.id === 'intro' ? <h1 className="h-title" data-ui="제목">Emergence Workbench</h1> : <h1 className="h-title">{p.title}</h1>}
                 {at <= 0 && <p className="h-sub" data-ui="부제">{p.id === 'intro' ? INTRO_SUB : p.sub}</p>}
+                {at <= 0 && p.id === 'intro' && <IntroPillars />}
                 {at <= 0 && p.open && <p className="about-open">{p.open.map((o) => <button key={o.label} className="a" onClick={() => go(o.to)}>{o.label} ›</button>)}</p>}
               </header>
               {p.id === 'intro' ? <Intro /> : p.id === 'reference' ? <Reference /> : p.id === 'next' ? <Next /> : <Sections part={p} at={at} history={side} />}
