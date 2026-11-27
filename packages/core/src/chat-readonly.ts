@@ -381,7 +381,7 @@ const PROGRAMS: Record<string, Rule> = {
 /** 비밀이 든 곳 (열쇠 · 토큰 · 환경 파일): 읽기라도 한 번 묻는다 */
 const SECRET = /(^|\/)\.(ssh|aws|gnupg|netrc|docker|kube)(\/|$)|\.config\/gh(\/|$)|Keychains|credentials|(^|\/)\.env(\.|$)|id_(rsa|ed25519|ecdsa|dsa)/
 /** 앱의 개인 설정 · 대화 기록 폴더와 키체인 꺼내기: 자동 모드에서도 읽기 전에 한 번 묻는다 (11/23) */
-const APP_SECRET = /research-workspace\/personal\/_(settings|chats)(\/|$)|\bsecurity\s+(find|dump|export)-/
+const APP_SECRET = /research-workspace\/(personal\/_(settings|chats)(\/|$)|server\.json|ai-key\.json|google[\w.-]*\.(json|yaml)|agent-hooks\/endpoint\.env)|\bsecurity\s+(find|dump|export)-/
 /** 열쇠가 든 환경 변수를 펼치는 글: echo $GITHUB_TOKEN 은 열쇠를 대화에 적는다 (11/25 검토) */
 // 이름이 그 말로 끝나거나 _ 로 이어질 때만 ($MAX_TOKENS · $TOKENIZER 는 아니다)
 const SECRET_VAR = /\$\{?\w*(TOKEN|SECRET|PASSWORD|PASSWD|API_?KEY|PRIVATE_KEY|CREDENTIALS?)(?![A-Za-z])/
