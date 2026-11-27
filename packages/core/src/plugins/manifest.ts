@@ -40,16 +40,18 @@ export const PLUGIN_ID = /^[a-z0-9][a-z0-9-]*$/
 
 /** config.yaml의 `plugins:`를 믿지 않고 읽는다. 모양이 틀린 줄은 버린다(그 플러그인은 기본값을 쓴다) */
 export function normalizePluginStates(raw: unknown): PluginStates {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  if (!isRecord(raw)) return {}
   const out: PluginStates = {}
-  for (const [id, v] of Object.entries(raw as Record<string, unknown>)) {
-    if (!PLUGIN_ID.test(id) || !v || typeof v !== 'object') continue
-    const { installed, at } = v as Record<string, unknown>
+  for (const [id, v] of Object.entries(raw)) {
+    if (!PLUGIN_ID.test(id) || !isRecord(v)) continue
+    const { installed, at } = v
     if (typeof installed !== 'boolean' || typeof at !== 'string' || !Number.isFinite(Date.parse(at))) continue
     out[id] = { installed, at }
   }
   return out
 }
+
+const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
 
 export function pluginInstalled(m: PluginManifest, states: PluginStates): boolean {
   return states[m.id]?.installed ?? m.installedByDefault
