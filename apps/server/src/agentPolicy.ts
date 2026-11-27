@@ -8,6 +8,7 @@ import path from 'node:path'
 import { CENTRAL_RID, type ChatMode, type ChatScope, type ChatWrite } from '@rw/core/contract/agentChats'
 import { autoOf, commandKind, heredocBodiesRemoved, LIBRARY_RID, neverBypass, writesFiles, runProgram, runPrograms, stateOnlyCommand, touchesSecret, unreadWhy, type ChatAutoValues, type Unread, type ChatKind, type NeverBypass } from '@rw/core'
 import { commandCritical } from './critical.js'
+import { SANDBOX_NET_TOOL } from './agentSandbox.js'
 import { isInside } from './fsutil.js'
 import { t } from './i18n.js'
 
@@ -283,9 +284,20 @@ function judgeWeb(ctx: PolicyCtx, tool: string, summary: string): Verdict {
   return { kind: 'ask', summary: `${tool} · ${summary}`, key: tool, label: t('웹 보기', 'Web'), does: 'web', turnOn: 'web' }
 }
 
+/**
+ * 격리 안의 명령이 새 호스트로 나가려 할 때 (11/27, agentSandbox.ts): 「웹 보기」 토글을 따르고, 꺼져 있으면 호스트마다 묻는다(「늘」은 그 호스트만).
+ * 명령 자체는 판정이 이미 허락했다 (pip install · curl …): 여기서는 어디로 나가는지만 본다
+ */
+function judgeNet(ctx: PolicyCtx, host: string): Verdict {
+  const key = `net:${host}`
+  if (autoNow(ctx).web || ctx.always?.(key)) return { kind: 'allow' }
+  return { kind: 'ask', summary: t(`명령이 인터넷에 접속 · ${host}`, `A command connects to the internet · ${host}`), key, label: t(`인터넷 · ${host}`, `Internet · ${host}`), does: 'web' }
+}
+
 /** 도구 한 번을 허락할지: allow · ask(허락 카드) · deny(막고 이유) */
 export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknown>): Verdict {
   if (FREE_TOOLS.has(tool)) return { kind: 'allow' }
+  if (tool === SANDBOX_NET_TOOL) return judgeNet(ctx, str(input.host))
   if (tool === PLAN_TOOL) {
     if (ctx.mode !== 'plan' || ctx.planOk) return { kind: 'allow' }
     return { kind: 'ask', summary: t('계획', 'Plan'), plan: clip(str(input.plan), 6000), key: `${PLAN_TOOL}:${crypto.randomBytes(4).toString('hex')}`, label: t('계획', 'Plan') }
