@@ -17,7 +17,7 @@ import { readFeedbackCloud, writeFeedbackCloud } from '../feedbackCloud.js'
 import { CLAIM_TTL_MS, isLiveClaim, lastTouched, readClaims, releaseClaims } from '../feedbackClaims.js'
 import { exportFeedback, importFeedback } from '../feedbackBundle.js'
 import { MOCKUP_FILE, mockupType } from '../feedbackMockups.js'
-import { relayStatus, sendToRelay, senderId } from '../feedbackRelay.js'
+import { grantRelayConsent, relayConsented, relayStatus, sendToRelay, senderId } from '../feedbackRelay.js'
 import { revealInFinder } from '../materials.js'
 import { repoInfo } from '../gitsync.js'
 import os from 'node:os'
@@ -55,9 +55,10 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     return run
   }
   let relayTimer: NodeJS.Timeout | null = null
+  // 저절로 보내기는 사용자가 「관리자에게 보내기」를 한 번 누른 뒤에만 (배포 계약 4: 관리자에게 가는 것은 사용자가 켠 뒤에만)
   const scheduleRelay = () => {
     const delay = syncDelayMs(ctx.registry, 'publish', opts.feedbackAutoPublishMs)
-    if (!opts.feedbackDir || !opts.feedbackRelay || delay === null) return
+    if (!opts.feedbackDir || !opts.feedbackRelay || delay === null || !relayConsented(ctx.registry.configDir)) return
     if (relayTimer) clearTimeout(relayTimer)
     relayTimer = setTimeout(() => { relayTimer = null; relayOnce().catch((e) => app.log.warn({ err: e }, '피드백 바로 보내기 실패')) }, delay)
   }
@@ -178,9 +179,10 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     if (!opts.sandbox && !process.env.VITEST) void revealInFinder(r.file)
     return r
   })
-  /** 관리자에게 바로 보내기 (11/8): 버튼. 남기면 저절로도 보낸다(scheduleRelay) */
+  /** 관리자에게 바로 보내기 (11/8): 버튼. 누르면 동의로 적고, 그 뒤로는 남기면 저절로도 보낸다(scheduleRelay, 11/27) */
   app.post('/api/feedback/relay', replies(C.FeedbackRelayed), async (): Promise<C.FeedbackRelayed> => {
     if (!opts.feedbackDir || !opts.feedbackRelay) throw new WorkbenchError(404, t('바로 보내기를 쓰지 않는 앱입니다', 'This app does not send feedback directly'))
+    grantRelayConsent(ctx.registry.configDir)
     return await relayOnce()
   })
   /** 받은 피드백 파일 가져오기 (11/8): feedback/from/<보낸 사람>/에 두고, 개인 저장소면 내 피드백처럼 올린다 */
