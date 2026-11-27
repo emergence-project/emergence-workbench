@@ -16,6 +16,7 @@
 .about-vision { color: var(--text); font-size: var(--fs-lg); font-weight: var(--fw-medium); line-height: 1.6; margin: 0 0 var(--sp-2); }
 .about-note { color: var(--text-3); font-size: var(--fs-xs); margin: var(--sp-2) 0 0; }
 .about-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-sm); line-height: 1.6; }
+.about-sublist { margin: var(--sp-1) 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: var(--sp-1); list-style: circle; }
 /* .md 절 (11/27): 요약 한 줄 · 지킬 것 · 접힌 결정 · 구현 */
 .about-summary { margin: 0 0 var(--sp-3); font-size: var(--fs-md); color: var(--text); line-height: 1.6; }
 .about-keep { margin-top: var(--sp-4); }

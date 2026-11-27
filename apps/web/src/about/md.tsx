@@ -25,7 +25,9 @@ export function inline(line: AboutLine): ReactNode {
     : <a key={i} className="a" href={x.href} {...(/^https?:/.test(x.href) && { target: '_blank', rel: 'noreferrer' })}>{inline(x.a)}</a>)
 }
 
-const items = (lines: AboutLine[]): AboutItem[] => lines.map((l) => ({ text: <>{inline(l)}</> }))
+const items = (lines: AboutLine[], sub: AboutLine[][] = []): AboutItem[] => lines.map((l, i) => ({
+  text: <>{inline(l)}{sub[i]?.length ? <ul className="about-sublist">{sub[i]!.map((x, j) => <li key={j}>{inline(x)}</li>)}</ul> : null}</>,
+}))
 
 function figureOf(names: string[]): ReactNode {
   if (!names.length) return undefined
@@ -51,7 +53,7 @@ export function mdSection(key: string): { ko: AboutSection; en: AboutSection } {
     ...(m.summary && { summary: m.summary[lang] }),
     ...(m.ask && { ask: m.ask[lang] }),
     ...(lang === 'ko' && m.prs.length && { prs: m.prs }),
-    items: items(m[lang].items),
+    items: items(m[lang].items, m[lang].sub),
     ...(m[lang].keep.length && { keep: items(m[lang].keep) }),
     ...(m[lang].decisions.length && { decisions: items(m[lang].decisions) }),
     ...(m.code.length && { code: m.code }),

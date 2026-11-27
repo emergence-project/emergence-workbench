@@ -3,7 +3,7 @@
  * 절 파일(apps/web/src/about/<쪽>/<절>.md, about-md.ts)을 받아, 고칠 파일 · 쓸 MCP 도구 · 절 이름으로 관련 절을 찾고 글로 만든다.
  * 파일을 읽는 것은 부르는 쪽(서버 aboutGuide.ts, 스크립트 agent-about.mjs)이 한다. 여기서는 계산만.
  */
-import { aboutGlobMatch, aboutLineText, parseAboutMd, type AboutMd } from './about-md.js'
+import { aboutGlobMatch, aboutLineText, parseAboutMd, type AboutLine, type AboutMd } from './about-md.js'
 
 export interface AboutEntry {
   /** <쪽>/<파일 이름> (about/prs 조각 · 확인 기록과 같은 키) */
@@ -74,8 +74,9 @@ export function aboutText(e: AboutEntry, o: { lang?: Lang; full?: boolean } = {}
   const ko = lang === 'ko'
   const lines = [`## ${e.md.title[lang]} (${e.key})`]
   if (e.md.summary) lines.push(e.md.summary[lang])
-  const list = (head: string, xs: typeof b.items) => (xs.length ? ['', `### ${head}`, ...xs.map((x) => `- ${aboutLineText(x)}`)] : [])
-  if (o.full || e.md.kind === 'norm') lines.push(...list(e.md.kind === 'norm' ? (ko ? '원칙' : 'Principles') : ko ? '지금 동작' : 'How it works', b.items))
+  const list = (head: string, xs: typeof b.items, sub: AboutLine[][] = []) =>
+    (xs.length ? ['', `### ${head}`, ...xs.flatMap((x, i) => [`- ${aboutLineText(x)}`, ...(sub[i] ?? []).map((y) => `  - ${aboutLineText(y)}`)])] : [])
+  if (o.full || e.md.kind === 'norm') lines.push(...list(e.md.kind === 'norm' ? (ko ? '원칙' : 'Principles') : ko ? '지금 동작' : 'How it works', b.items, b.sub))
   lines.push(...list(ko ? '지킬 것' : 'Keep', b.keep))
   if (o.full) {
     lines.push(...list(ko ? '결정' : 'Decisions', b.decisions))

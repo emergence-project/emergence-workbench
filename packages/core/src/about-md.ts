@@ -20,6 +20,7 @@
  * <!-- ko -->
  * - 지금 동작 한 항목 (**굵게**, `코드`, [링크](#/about/agents))
  *   이어지는 줄은 빈 줄 없이 들여 쓴다 (`코드` 안에서는 \ 이스케이프가 듣지 않는다)
+ *   - 하위 항목은 두 칸 들여 "- " (지금 동작에만, 한 단계)
  * ### 지킬 것
  * - 고칠 때 깨면 안 되는 것
  * ### 결정
@@ -35,6 +36,8 @@ export type AboutLine = AboutInline[]
 export interface AboutMdBody {
   /** 지금 동작: 항목마다 한 줄 */
   items: AboutLine[]
+  /** items[i] 아래 들여 쓴 하위 항목 ("  - "로 시작, 11/27 용어의 위계). items와 길이가 같다 */
+  sub: AboutLine[][]
   /** 지킬 것: 고칠 때 깨면 안 되는 것 (있는 절만) */
   keep: AboutLine[]
   /** 결정: 날짜와 무엇을 한 줄씩 (있는 절만) */
@@ -127,13 +130,21 @@ export function aboutInline(s: string): AboutLine {
   return out
 }
 
-const GROUPS: Record<string, keyof AboutMdBody> = { '지킬 것': 'keep', Keep: 'keep', '결정': 'decisions', Decisions: 'decisions' }
+const GROUPS: Record<string, 'keep' | 'decisions'> = { '지킬 것': 'keep', Keep: 'keep', '결정': 'decisions', Decisions: 'decisions' }
 
 function body(text: string): AboutMdBody {
-  const b: AboutMdBody = { items: [], keep: [], decisions: [] }
-  let group: keyof AboutMdBody = 'items'
+  const b: AboutMdBody = { items: [], sub: [], keep: [], decisions: [] }
+  let group: 'items' | 'keep' | 'decisions' = 'items'
   let cur: string | undefined
-  const flush = () => { if (cur !== undefined) b[group].push(aboutInline(cur)); cur = undefined }
+  let child: string | undefined
+  const flushChild = () => { if (child !== undefined) b.sub[b.sub.length - 1]!.push(aboutInline(child)); child = undefined }
+  const flush = () => {
+    flushChild()
+    if (cur === undefined) return
+    b[group].push(aboutInline(cur))
+    if (group === 'items') b.sub.push([])
+    cur = undefined
+  }
   for (const line of text.split(/\r?\n/)) {
     if (!line.trim()) { flush(); continue }
     if (/^<!--\s*ko\s*-->\s*$/.test(line)) { flush(); continue }
@@ -146,7 +157,17 @@ function body(text: string): AboutMdBody {
       continue
     }
     if (line.startsWith('- ')) { flush(); cur = line.slice(2).trim(); continue }
+    // 하위 항목: 지금 동작의 항목 바로 밑에 두 칸 들여 "- "
+    const sub = /^ {2,3}- (.*)$/.exec(line)
+    if (sub) {
+      if (group !== 'items' || (cur === undefined && child === undefined)) throw new Error(`하위 항목은 지금 동작의 항목 바로 밑에만 씁니다: ${line}`)
+      if (cur !== undefined) { b.items.push(aboutInline(cur)); b.sub.push([]); cur = undefined }
+      flushChild()
+      child = sub[1]!.trim()
+      continue
+    }
     // 이어지는 줄은 항목 바로 밑에 들여 쓴다. 그 밖의 줄은 말없이 항목이 되지 않게 오류로
+    if (/^\s+\S/.test(line) && child !== undefined) { child += ` ${line.trim()}`; continue }
     if (/^\s+\S/.test(line) && cur !== undefined) { cur += ` ${line.trim()}`; continue }
     throw new Error(`소개 절 본문은 "- " 항목과 그 밑에 들여 쓴 줄, "### 칸"만 씁니다: ${line}`)
   }

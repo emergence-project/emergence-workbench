@@ -45,6 +45,15 @@ describe('소개 절 파일 (.md)', () => {
     expect(m.en.items).toHaveLength(m.ko.items.length)
   })
 
+  it('하위 항목: 지금 동작의 항목 밑에 두 칸 들여 "- " (11/27 용어의 위계)', () => {
+    const md = ['---', 'title: { ko: 용어, en: Terms }', '---', '- **프로젝트** 연구 하나', '  - **주제** 소주제', '    이어지는 줄', '  - **노트** 문서', '- **설정**', '<!-- en -->', '- Project', '  - Topic', '- Settings'].join('\n')
+    const m = parseAboutMd(md)
+    expect(m.ko.items.map(aboutLineText)).toEqual(['프로젝트 연구 하나', '설정'])
+    expect(m.ko.sub.map((xs) => xs.map(aboutLineText))).toEqual([['주제 소주제 이어지는 줄', '노트 문서'], []])
+    expect(m.en.sub.map((xs) => xs.length)).toEqual([1, 0])
+    expect(() => parseAboutMd(md.replace('- **프로젝트** 연구 하나', '### 지킬 것\n- 하나'))).toThrow(/하위 항목/)
+  })
+
   it('한 줄 안의 굵게 · 코드 · 링크', () => {
     expect(aboutInline('a **b `c`** [d](#/x) e')).toEqual(['a ', { b: ['b ', { code: 'c' }] }, ' ', { a: ['d'], href: '#/x' }, ' e'])
   })
