@@ -28,7 +28,7 @@
 .note-toolbar .nt-state { display: inline-flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-1); font-size: var(--fs-xs); color: var(--text-3); }
 .note-toolbar .save-state { flex: none; white-space: nowrap; font-size: var(--fs-xs); color: var(--text-3); }
 .note-toolbar .save-state.conflict, .note-toolbar .save-state.error { color: var(--danger); font-weight: var(--fw-strong); }
-.note-toolbar .nt-pdf { color: var(--s-blocked); word-break: keep-all; }
+.note-toolbar .nt-pdf { color: var(--s-caution); word-break: keep-all; }
 .note-toolbar .nt-pdf.bad { color: var(--danger); }
 .note-toolbar .nt-pdf::before { content: '· '; color: var(--text-3); }
 .note-toolbar .icon-btn { width: calc(var(--input-h) + var(--sp-1)); height: calc(var(--input-h) + var(--sp-1)); border: 1px solid var(--line); background: var(--bg); }
