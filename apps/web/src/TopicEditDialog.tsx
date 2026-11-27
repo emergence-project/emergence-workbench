@@ -7,6 +7,7 @@ import { onListKey } from './listInput'
 import { noteKindLabel } from './noteKinds'
 import { TopicCardView } from './TopicCardView'
 import { eulReul, t } from './i18n'
+import { forgetKept, useKept } from './keptEdit'
 
 /** 바탕색 이름 (고르기 단추의 이름표) */
 const COLOR_LABEL: Record<TopicColor, string> = { violet: t('보라', 'Violet'), blue: t('파랑', 'Blue'), teal: t('청록', 'Teal'), orange: t('주황', 'Orange'), gray: t('회색', 'Gray') }
@@ -29,11 +30,13 @@ export function TopicEditDialog({ rid, topic, hash, pc, project, onClose, onSave
   /** 저장했을 때 (알림 글) */
   onSaved(message: string): void
 }) {
-  const [title, setTitle] = useState(topic.title)
-  const [description, setDescription] = useState(topic.description ?? '')
-  const [text, setText] = useState(topic.preview?.text ?? '')
-  const [color, setColor] = useState<TopicColor | 'default'>(topic.preview?.color ?? 'default')
-  const [image, setImage] = useState(topic.preview?.image ?? '')
+  // Esc · 취소로 닫아도 고치던 칸이 남는다 (keptEdit.ts)
+  const scope = `topic:${rid}:${topic.id}`
+  const [title, setTitle] = useKept(scope, 'title', topic.title)
+  const [description, setDescription] = useKept(scope, 'description', topic.description ?? '')
+  const [text, setText] = useKept(scope, 'text', topic.preview?.text ?? '')
+  const [color, setColor] = useKept<TopicColor | 'default'>(scope, 'color', topic.preview?.color ?? 'default')
+  const [image, setImage] = useKept(scope, 'image', topic.preview?.image ?? '')
   const [pickingImage, setPickingImage] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -61,6 +64,7 @@ export function TopicEditDialog({ rid, topic, hash, pc, project, onClose, onSave
     }
     try {
       await api.patchTopic(topic.id, patch, hash)
+      forgetKept(scope)
       onSaved(t(`주제 "${title.trim()}"${eulReul(title.trim())} 고쳤습니다`, `Edited topic "${title.trim()}"`))
     } catch (e) {
       saving.current = false

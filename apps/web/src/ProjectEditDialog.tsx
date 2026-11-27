@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { api, ConflictError, LIMITS, type ProjectColor, type ResearchApi, type ResearchListItem, type ResearchSummary } from './api'
 import { CardEditDialog } from './CardEditDialog'
 import { CardImageField, CardImagePicker } from './CardImagePicker'
@@ -9,6 +9,7 @@ import { autoProjectColor, PROJECT_COLOR_HEX, PROJECT_COLOR_LABEL, projectColor 
 import { projectTextState, readProjectEditSnapshot } from './projectEdit'
 import { ProjectProfileFields, ProjectRailCheck, type ProfilePatch } from './ProjectProfileFields'
 import { t } from './i18n'
+import { forgetKept, useKept } from './keptEdit'
 
 /**
  * 프로젝트 첫 화면과 정보 화면의 공용 고치기 창: 이름 · 설명 · 시작일 · 카드 그림(research.yaml)과
@@ -26,12 +27,17 @@ export function ProjectEditDialog({ rapi, summary, listed, all, pc, last, onProf
   onSaved(message: string): void
   onDone(): void
 }) {
-  const [title, setTitle] = useState(summary.research.title)
-  const [question, setQuestion] = useState(summary.research.question)
-  const [started, setStarted] = useState(summary.research.started)
-  const [image, setImage] = useState(summary.research.image ?? '')
+  // Esc · 취소로 닫아도 고치던 칸이 남는다 (keptEdit.ts)
+  const scope = `project:${listed.id}`
+  const opened = summary.research
+  const [title, setTitle] = useKept(scope, 'title', opened.title)
+  const [question, setQuestion] = useKept(scope, 'question', opened.question)
+  const [started, setStarted] = useKept(scope, 'started', opened.started)
+  const [image, setImage] = useKept(scope, 'image', opened.image ?? '')
+  // 파일을 읽은 뒤 견줄 열 때의 값과 칸 설정 함수 (처음 그린 때의 것으로 충분하다)
+  const atOpen = useRef({ opened, setTitle, setQuestion, setStarted, setImage })
   const [pickingImage, setPickingImage] = useState(false)
-  const [profile, setProfile] = useState<{ kind: ResearchListItem['kind']; fields: string[]; state: ResearchListItem['state']; rail: boolean; color: ProjectColor | null }>({ kind: listed.kind, fields: listed.fields, state: listed.state, rail: listed.rail, color: listed.color ?? null })
+  const [profile, setProfile] = useKept<{ kind: ResearchListItem['kind']; fields: string[]; state: ResearchListItem['state']; rail: boolean; color: ProjectColor | null }>(scope, 'profile', { kind: listed.kind, fields: listed.fields, state: listed.state, rail: listed.rail, color: listed.color ?? null })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const base = useRef({ ...summary.research, image: summary.research.image ?? '' })
@@ -47,8 +53,11 @@ export function ProjectEditDialog({ rapi, summary, listed, all, pc, last, onProf
     readProjectEditSnapshot(rapi).then(({ research, hash }) => {
       if (!active) return
       base.current = { ...research, image: research.image ?? '' }
-      setTitle(research.title); setQuestion(research.question)
-      setStarted(research.started); setImage(research.image ?? '')
+      // 고치던 칸은 그대로 두고, 파일에서 바뀐 칸만 새 값으로 (되살린 고침이 바깥 수정을 덮지 않게)
+      const fresh = (now: string, was: string, set: Dispatch<SetStateAction<string>>) => set((cur) => (cur === was || now !== was ? now : cur))
+      const { opened: was0, setTitle: sT, setQuestion: sQ, setStarted: sS, setImage: sI } = atOpen.current
+      fresh(research.title, was0.title, sT); fresh(research.question, was0.question, sQ)
+      fresh(research.started, was0.started, sS); fresh(research.image ?? '', was0.image ?? '', sI)
       setBaseHash(hash)
     }).catch((e: Error) => { if (active) setError(e.message) })
     return () => { active = false }
@@ -84,6 +93,7 @@ export function ProjectEditDialog({ rapi, summary, listed, all, pc, last, onProf
       if (profile.color !== (listed.color ?? null)) patch.color = profile.color
       if (Object.keys(patch).length) await onProfile(patch, t('저장했습니다 — 성격 · 분야 · 진행 상태는 이 컴퓨터의 설정에', 'Saved. Kind, field and status go to this computer\'s settings'))
       else if (Object.keys(info).length) onSaved(t('저장했습니다 — workbench/research.yaml', 'Saved to workbench/research.yaml'))
+      forgetKept(scope)
       onDone()
     } catch (e) {
       setError(e instanceof ConflictError ? t('다른 곳에서 research.yaml이 바뀌었습니다. 다시 열어 고쳐 주세요', 'research.yaml changed elsewhere. Reopen it and edit again') : (e as Error).message)

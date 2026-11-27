@@ -6,6 +6,7 @@ import { Icon } from './icons'
 import { go } from './router'
 import { pushRecent } from './ConceptNotes'
 import { shown, t } from './i18n'
+import { forgetKept, useKept } from './keptEdit'
 
 /**
  * 공부 (11/10 사용자 결정 "공부는 지식 라이브러리에", 시안 N7ik 4절 안 A).
@@ -199,15 +200,17 @@ function Lines({ items, label, placeholder, onChange }: { items: string[]; label
 
 /** 책 · 강의 더하기와 고치기: 여러 칸이라 고치기 창 하나 (디자인 문서 6절). 체크는 여기서 하지 않고 표에서 한다 */
 function BookDialog({ book, onClose, onDone }: { book?: StudyBook; onClose(): void; onDone(id: string, msg: string): void }) {
-  const [title, setTitle] = useState(book?.title ?? '')
-  const [kind, setKind] = useState<StudyKind>(book?.kind ?? '책')
-  const [source, setSource] = useState(book?.source ?? '')
-  const [rows, setRows] = useState<Draft[]>(book?.chapters.map((c) => ({
+  // Esc · 취소로 닫아도 고치던 칸이 남는다 (keptEdit.ts)
+  const scope = `study:${book?.id ?? ''}`
+  const [title, setTitle] = useKept(scope, 'title', book?.title ?? '')
+  const [kind, setKind] = useKept<StudyKind>(scope, 'kind', book?.kind ?? '책')
+  const [source, setSource] = useKept(scope, 'source', book?.source ?? '')
+  const [rows, setRows] = useKept<Draft[]>(scope, 'rows', book?.chapters.map((c) => ({
     title: c.title, state: c.state, goals: c.goals,
     read: c.read.map((r) => ({ ...(r.key && { key: r.key, label: r.label }), ...(r.at && { at: r.at }), ...(r.text && { text: r.text }), ...(r.url && { url: r.url }), done: r.done })),
     concepts: c.concepts.map((n) => ({ id: n.id, done: n.done })), todo: c.do.map((d) => ({ text: d.text, done: d.done })), open: c.state === '읽는 중',
   })) ?? [])
-  const [chapterLines, setChapterLines] = useState('')
+  const [chapterLines, setChapterLines] = useKept(scope, 'chapters', '')
   const [ids, setIds] = useState<{ id: string; title: string }[]>([])
   const [papers, setPapers] = useState<{ key: string; label: string }[]>([])
   const [busy, setBusy] = useState(false)
@@ -225,12 +228,14 @@ function BookDialog({ book, onClose, onDone }: { book?: StudyBook; onClose(): vo
     try {
       if (!book) {
         const made = await studyApi.create({ title, kind, ...(source.trim() && { source: source.trim() }), chapters: chapterLines.split('\n') })
+        forgetKept(scope)
         onDone(made.id, t('책 · 강의를 더했습니다', 'Added the book or lecture'))
       } else {
         await studyApi.save(book.id, { title, kind, ...(source.trim() && { source: source.trim() }), baseHash: book.hash,
           chapters: rows.map((r) => ({ title: r.title, state: r.state, goals: r.goals.map((g) => g.trim()).filter(Boolean),
             read: r.read.filter((x) => x.key || x.text?.trim()).map(({ label: _l, ...x }) => ({ ...x, ...(x.at !== undefined && { at: x.at.trim() }), ...(x.text !== undefined && { text: x.text.trim() }), ...(x.url !== undefined && { url: x.url.trim() }) })),
             concepts: r.concepts, do: r.todo.filter((d) => d.text.trim()).map((d) => ({ text: d.text.trim(), done: d.done })) })) })
+        forgetKept(scope)
         onDone(book.id, t('저장했습니다', 'Saved'))
       }
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); setBusy(false) }
