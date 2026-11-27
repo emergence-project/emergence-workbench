@@ -288,11 +288,15 @@ function judgeWeb(ctx: PolicyCtx, tool: string, summary: string): Verdict {
  * 격리 안의 명령이 새 호스트로 나가려 할 때 (11/27, agentSandbox.ts): 「웹 보기」 토글을 따르고, 꺼져 있으면 호스트마다 묻는다(「늘」은 그 호스트만).
  * 명령 자체는 판정이 이미 허락했다 (pip install · curl …): 여기서는 어디로 나가는지만 본다
  */
-function judgeNet(ctx: PolicyCtx, host: string): Verdict {
+function judgeNet(ctx: PolicyCtx, raw: string): Verdict {
+  const host = raw.toLowerCase()
   const key = `net:${host}`
+  // 이 컴퓨터 · 집 안 네트워크(앱 서버 · 다른 로컬 서비스)는 토글 · 「늘」과 상관없이 매번 묻는다 (별도 검토: 자동 모드에서 앱 API 를 불렀다)
+  if (LOCAL_HOST.test(host)) return { kind: 'ask', summary: t(`명령이 이 컴퓨터 · 내부 네트워크에 접속 · ${host}`, `A command connects to this computer or the local network · ${host}`), key, label: t(`내부 네트워크 · ${host}`, `Local network · ${host}`), does: 'outside', once: true }
   if (autoNow(ctx).web || ctx.always?.(key)) return { kind: 'allow' }
   return { kind: 'ask', summary: t(`명령이 인터넷에 접속 · ${host}`, `A command connects to the internet · ${host}`), key, label: t(`인터넷 · ${host}`, `Internet · ${host}`), does: 'web' }
 }
+const LOCAL_HOST = /^(localhost|.+\.localhost|.+\.local|127\.|0\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.|\[?::1?\]?$|\[?::ffff:|\[?f[cd][0-9a-f]{0,2}:|\[?fe[89ab][0-9a-f]?:)|^[^.:]+$/
 
 /** 도구 한 번을 허락할지: allow · ask(허락 카드) · deny(막고 이유) */
 export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknown>): Verdict {
