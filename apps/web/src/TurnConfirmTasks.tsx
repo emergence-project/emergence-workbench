@@ -47,7 +47,7 @@ function ConfirmTaskRow({ rid, task: tk, onToggle, onSaved, reload }: { rid: str
           <span className="tk-meta"><span>{taskLine(tk)}</span></span>
         </button>
         <span className="tk-confirm-act">
-          <button className="a" data-ui="수정 요청" onClick={() => setSendBack(true)}>{t('수정 요청', 'Revise')}</button>
+          <button className="a" data-ui="수정 요청" onClick={() => setSendBack(true)}>{t('반려', 'Revise')}</button>
           <button className="btn sm" data-ui="승인" onClick={() => void sendJudgment(rid, tk, 'approve', {}, onSaved, reload)}>{t('승인', 'Approve')}</button>
         </span>
       </div>
