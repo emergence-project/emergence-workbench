@@ -2,7 +2,8 @@
 //   node scripts/ci/release-gate.mjs --dmg <파일.dmg> | --app <…app> | --dir <윈도우 설치 폴더>
 //        [--version 0.3.3] [--arch arm64|x64] [--require-trusted] [--launch] [--out gate.json]
 // 검사 (번호는 계약의 절):
-//   1. 판 번호: build.json과 앱 정보(맥 Info.plist, 윈도우 실행 파일 정보)가 --version과 같은지 (계약 2). --version이 없으면 시험판으로 적기만 한다
+//   1. 판 번호: build.json과 앱 정보(맥 Info.plist, 윈도우 실행 파일 정보)가 --version과 같은지 (계약 2).
+//      --version이 없는 시험판도 앱 정보를 읽어 tauri.conf.json의 개발용 번호와 견준다: 릴리스에서만 타는 읽기 길이 PR마다 시험된다
 //   2. 만든 기계의 경로가 묶음의 글 파일에 없는지: 이 기계의 집 폴더와 저장소 폴더 (계약 1)
 //   2-1. (맥, --arch) 칩: 묶은 Node · 네이티브 부품 · 창 실행 파일이 모두 그 칩용인지 (x64 dmg에 arm64 부품이 들면 인텔 맥에서 서버가 뜨지 못한다)
 //   3. 서명: 맥은 묶음 서명이 온전한지(codesign --verify --deep --strict)를 늘 보고, 공증 · 스테이플이 됐는지를 trusted로 적는다.
@@ -124,7 +125,11 @@ async function main() {
     if (want) {
       check('build.json 판 번호', build.version === want, `${build.version ?? '없음'} (릴리스 ${want})`)
       check('앱 정보 판 번호', sameVersion(shown, want), `${shown ?? '없음'} (릴리스 ${want})`)
-    } else check('판 번호', true, `시험판: 앱 정보 ${shown ?? '없음'}, build.json ${build.version ?? '없음'}`, false)
+    } else {
+      const placeholder = JSON.parse(fs.readFileSync(path.join(root, 'desktop/src-tauri/tauri.conf.json'), 'utf8')).version
+      check('앱 정보 판 번호 (시험판)', sameVersion(shown, placeholder), `${shown ?? '읽지 못함'} (tauri.conf.json ${placeholder})`)
+      check('build.json 판 번호 (시험판)', !build.version, build.version ? `시험판인데 ${build.version}이 들었다` : '없음')
+    }
 
     // 2. 만든 기계의 경로
     const leaks = findLeaks(path.join(standalone, 'app'), [os.homedir(), root, process.env.GITHUB_WORKSPACE ?? ''])
@@ -147,7 +152,7 @@ async function main() {
       } else check('칩', true, binaries.map((b) => `${path.basename(b.file)} ${b.archs}`).join(', '), false)
     } else {
       const exe = mainExe(dir)
-      const sig = exe ? run('powershell', ['-NoProfile', '-Command', `(Get-AuthenticodeSignature -LiteralPath '${exe.replace(/'/g, "''")}').Status`]).stdout.trim() : 'no exe'
+      const sig = exe ? powershell('[string](Get-AuthenticodeSignature -LiteralPath $env:RW_GATE_EXE).Status', exe) : '실행 파일 없음'
       trust = { signedBy: sig, trusted: sig === 'Valid' }
       check('윈도우 서명 (Authenticode)', trust.trusted, sig === 'Valid' ? '서명됨' : `${sig}: 처음 열 때 "PC 보호" 창이 뜬다 (docs/install-windows.md)`, requireTrusted)
     }
@@ -183,7 +188,7 @@ async function main() {
   const summary = [`### 릴리스 관문 (${mac ? '맥' : '윈도우'}${want ? ` ${want}` : ' 시험판'}): ${ok ? '통과' : '실패'}${trust?.trusted ? '' : ' · 서명 · 공증 전'}`, '', '| | 검사 | 결과 |', '| --- | --- | --- |',
     ...checks.map((c) => `| ${c.ok ? '✓' : c.hard ? '✗' : '·'} | ${c.name} | ${String(c.detail).replace(/\|/g, '\\|')} |`), ''].join('\n')
   if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary + '\n')
-  console.log(`\n${ok ? '관문 통과' : '관문 실패'}${trust?.trusted ? '' : ' (서명 · 공증 전: 맥 묶음은 릴리스에 붙지 않는다)'}`)
+  console.log(`\n${ok ? '관문 통과' : '관문 실패'}${mac && !trust?.trusted ? ' (서명 · 공증 전: 맥 묶음은 릴리스에 붙지 않는다)' : ''}`)
   process.exit(ok ? 0 : 1)
 }
 
@@ -201,8 +206,26 @@ function mainExe(dir) {
 function exeVersion(dir) {
   const exe = mainExe(dir)
   if (!exe) return null
-  const r = run('powershell', ['-NoProfile', '-Command', `(Get-Item -LiteralPath '${exe.replace(/'/g, "''")}').VersionInfo.ProductVersion`])
-  return r.status === 0 ? r.stdout.trim() || null : null
+  return powershell('[System.Diagnostics.FileVersionInfo]::GetVersionInfo($env:RW_GATE_EXE).ProductVersion', exe) || null
+}
+
+/**
+ * PowerShell 한 줄의 출력. CI의 관문은 pwsh(7) 단계에서 돌아, 거기서 Windows PowerShell(5.1)을 부르면 PSModulePath가 섞여
+ * 보안 모듈을 불러오지 못하고 빈 출력이 나왔다(11/27 PR 실행: 서명 칸이 비었다). 그래서 pwsh를 먼저 쓰고, 없으면 PSModulePath를 뺀 Windows PowerShell.
+ * 파일 경로는 따옴표 문제가 없게 환경 변수로 넘긴다. 실패하면 오류 첫 줄을 돌려준다
+ */
+function powershell(script, exe) {
+  /** @type {NodeJS.ProcessEnv} */
+  const env = { ...process.env, RW_GATE_EXE: exe }
+  let r = run('pwsh', ['-NoProfile', '-NonInteractive', '-Command', script], { env })
+  if (r.error) {
+    const clean = { ...env }
+    delete clean.PSModulePath
+    r = run('powershell', ['-NoProfile', '-NonInteractive', '-Command', script], { env: clean })
+  }
+  const out = (r.stdout ?? '').trim()
+  if (r.status === 0 && out) return out
+  return `읽지 못함: ${((r.stderr ?? '') || String(r.error ?? '')).trim().split('\n')[0]?.slice(0, 160) ?? ''}`
 }
 
 /** 칩을 볼 실행 파일: 창(Contents/MacOS), 묶은 Node, 네이티브 부품(.node)과 그 도우미(spawn-helper) */
