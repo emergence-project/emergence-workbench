@@ -1,5 +1,5 @@
 {
-  "about": "에이전트에게 지우는 규칙과 검사의 목록. 규칙마다 왜 두는지, 무엇으로 효과를 재는지, 언제 다시 볼지를 적는다. pnpm agent:rules가 git 이력에서 수를 세어 다시 볼 때가 된 규칙과 부담이 큰 규칙을 알린다. 절차는 docs/rules/README.md.",
+  "about": "에이전트에게 지우는 규칙과, 해 보는 중인 기능(실험)의 목록. 규칙마다 누구에게(audience) 어떻게(enforce) 지우는지, 왜 두는지, 무엇으로 효과를 재는지, 언제 다시 볼지를 적는다. 앱의 소개 › 연구가 이 목록을 그대로 보이고, pnpm agent:rules가 git 이력에서 수를 세어 다시 볼 때가 된 것과 부담이 큰 것을 알린다. 절차는 docs/rules/README.md.",
   "rules": [
     {
       "id": "high-risk-human-merge",
@@ -24,7 +24,10 @@
       },
       "review": "2026-12-11",
       "verdict": "keep",
-      "note": "널리 쓰는 방식(CODEOWNERS 승인)이다. 아직 이틀이라 효과 자료가 없다. 2주 뒤 사용자를 기다린 시간과 걸러 낸 문제를 본다. 완화는 사용자 허락이 있어야 한다"
+      "note": "널리 쓰는 방식(CODEOWNERS 승인)이다. 아직 이틀이라 효과 자료가 없다. 2주 뒤 사용자를 기다린 시간과 걸러 낸 문제를 본다. 완화는 사용자 허락이 있어야 한다",
+      "audience": "fixes",
+      "enforce": "prompt",
+      "toCode": "app_merge가 고위험 파일을 고친 PR을 합치지 않게"
     },
     {
       "id": "ci-green-merge",
@@ -36,7 +39,9 @@
       "measure": null,
       "review": "2027-01-27",
       "verdict": "keep",
-      "note": "널리 쓰는 방식. 11/19–11/26 CI 400번 중 실패 35번, 그중 실제 버그를 잡은 것이 있다"
+      "note": "널리 쓰는 방식. 11/19–11/26 CI 400번 중 실패 35번, 그중 실제 버그를 잡은 것이 있다",
+      "audience": "fixes",
+      "enforce": "both"
     },
     {
       "id": "one-open-pr",
@@ -48,7 +53,9 @@
       "measure": null,
       "review": "2026-12-27",
       "verdict": "relaxed",
-      "note": "11/27 완화: 11월 PR 398개 중 335개(84%)가 다른 PR이 열려 있을 때 만들어졌고 185개는 셋 넘게 열려 있었다. 그동안 되돌린 PR은 0개다. 지켜지지 않았고 나빠진 것도 없어 '같은 파일을 고치는 열린 PR이 있으면 먼저 알린다'로 바꿨다"
+      "note": "11/27 완화: 11월 PR 398개 중 335개(84%)가 다른 PR이 열려 있을 때 만들어졌고 185개는 셋 넘게 열려 있었다. 그동안 되돌린 PR은 0개다. 지켜지지 않았고 나빠진 것도 없어 '같은 파일을 고치는 열린 PR이 있으면 먼저 알린다'로 바꿨다",
+      "audience": "fixes",
+      "enforce": "both"
     },
     {
       "id": "about-sync",
@@ -62,7 +69,9 @@
       },
       "review": "2027-01-27",
       "verdict": "relaxed",
-      "note": "11/27 완화(사용자 결정 '알림으로 + 앱이 절을 짚어 줌', 사용자가 합친 PR): 커밋 784개 중 312개, 최근 30일 41%가 '그대로' 줄을 썼고 상당수는 정해진 말이었다. 검사는 줄이 있는지만 봐서 소개가 틀린 일(#749)을 막지 못했다. 이제 git 이력에서 그 화면 파일과 함께 고쳐진 소개 절을 짚어 app_submit 답과 CI 경고로 보인다. PR 번호 조각 검사는 막는 그대로. 다시 볼 때: '그대로' 줄 비율이 줄었는지, 소개가 화면과 어긋난 피드백이 늘었는지"
+      "note": "11/27 완화(사용자 결정 '알림으로 + 앱이 절을 짚어 줌', 사용자가 합친 PR): 커밋 784개 중 312개, 최근 30일 41%가 '그대로' 줄을 썼고 상당수는 정해진 말이었다. 검사는 줄이 있는지만 봐서 소개가 틀린 일(#749)을 막지 못했다. 이제 git 이력에서 그 화면 파일과 함께 고쳐진 소개 절을 짚어 app_submit 답과 CI 경고로 보인다. PR 번호 조각 검사는 막는 그대로. 다시 볼 때: '그대로' 줄 비율이 줄었는지, 소개가 화면과 어긋난 피드백이 늘었는지",
+      "audience": "fixes",
+      "enforce": "code"
     },
     {
       "id": "ports-sync",
@@ -78,7 +87,9 @@
       },
       "review": "2027-01-27",
       "verdict": "relaxed",
-      "note": "11/27 완화(사용자가 합친 PR): PR마다 맞추는 검사를 빼고 옮길 때 맞춘다. 근거: 11/19부터 커밋 234개 중 74개에 '그대로' 줄, 안내서로 옮긴 일 0번. 짝 · 경로 검사는 둔다"
+      "note": "11/27 완화(사용자가 합친 PR): PR마다 맞추는 검사를 빼고 옮길 때 맞춘다. 근거: 11/19부터 커밋 234개 중 74개에 '그대로' 줄, 안내서로 옮긴 일 0번. 짝 · 경로 검사는 둔다",
+      "audience": "fixes",
+      "enforce": "code"
     },
     {
       "id": "ratchet-lines",
@@ -90,7 +101,9 @@
       "measure": null,
       "review": "2026-12-27",
       "verdict": "relaxed",
-      "note": "600이라는 수에 근거가 없다는 분석에 따라 '나눌지 검토' 신호로 바꿨다(#755, 다른 대화가 맡음)"
+      "note": "600이라는 수에 근거가 없다는 분석에 따라 '나눌지 검토' 신호로 바꿨다(#755, 다른 대화가 맡음)",
+      "audience": "fixes",
+      "enforce": "code"
     },
     {
       "id": "ratchet-casts",
@@ -102,7 +115,9 @@
       "measure": null,
       "review": "2026-12-27",
       "verdict": "relaxed",
-      "note": "전체 단언 796 → 615개(−23%)라 유지하되, 11/27부터 저장소 전체 합으로 센다. 파일을 나눠 옮긴 단언이 실패하던 것(최근 실패 19건 중 2건)을 없앴다"
+      "note": "전체 단언 796 → 615개(−23%)라 유지하되, 11/27부터 저장소 전체 합으로 센다. 파일을 나눠 옮긴 단언이 실패하던 것(최근 실패 19건 중 2건)을 없앴다",
+      "audience": "fixes",
+      "enforce": "code"
     },
     {
       "id": "design-check",
@@ -114,7 +129,9 @@
       "measure": null,
       "review": "2027-01-27",
       "verdict": "keep",
-      "note": "기계가 잡으니 에이전트는 130KB 문서를 다 읽지 않아도 된다. 최근 실패 19건 중 1건"
+      "note": "기계가 잡으니 에이전트는 130KB 문서를 다 읽지 않아도 된다. 최근 실패 19건 중 1건",
+      "audience": "fixes",
+      "enforce": "code"
     },
     {
       "id": "wording-check",
@@ -126,7 +143,9 @@
       "measure": null,
       "review": "2027-01-27",
       "verdict": "keep",
-      "note": "기계가 잡는다. 최근 실패 19건 중 1건"
+      "note": "기계가 잡는다. 최근 실패 19건 중 1건",
+      "audience": "fixes",
+      "enforce": "code"
     },
     {
       "id": "case-check",
@@ -138,7 +157,9 @@
       "measure": null,
       "review": "2027-01-27",
       "verdict": "keep",
-      "note": "11/26 파일 나누기에서 실제로 한 번 잡았다(FeedbackThread.tsx ↔ feedbackThread.ts)"
+      "note": "11/26 파일 나누기에서 실제로 한 번 잡았다(FeedbackThread.tsx ↔ feedbackThread.ts)",
+      "audience": "fixes",
+      "enforce": "code"
     },
     {
       "id": "shots-count-test",
@@ -154,7 +175,9 @@
       },
       "review": "2026-12-27",
       "verdict": "relaxed",
-      "note": "화면을 하나 더할 때마다 실패해 숫자만 고쳤다(20번 고침, 최근 CI 실패 19건 중 7건). 걸러 낸 것은 없다. 11/27 숫자를 빼고 '어두운 그림 둘 · 화면 이름이 겹치지 않음 · CI 명령이 기본 범위를 고름'만 본다"
+      "note": "화면을 하나 더할 때마다 실패해 숫자만 고쳤다(20번 고침, 최근 CI 실패 19건 중 7건). 걸러 낸 것은 없다. 11/27 숫자를 빼고 '어두운 그림 둘 · 화면 이름이 겹치지 않음 · CI 명령이 기본 범위를 고름'만 본다",
+      "audience": "fixes",
+      "enforce": "code"
     },
     {
       "id": "pr-not-done",
@@ -166,7 +189,10 @@
       "measure": null,
       "review": "2026-12-27",
       "verdict": "keep",
-      "note": "새로 생겨 자료 없음. 앱이 PR 본문을 만들 때 채우면 에이전트가 외울 것이 준다"
+      "note": "새로 생겨 자료 없음. 앱이 PR 본문을 만들 때 채우면 에이전트가 외울 것이 준다",
+      "audience": "fixes",
+      "enforce": "prompt",
+      "toCode": "app_submit이 PR 본문에 두 줄이 있는지 보기"
     },
     {
       "id": "branch-name",
@@ -178,7 +204,9 @@
       "measure": null,
       "review": "2027-01-27",
       "verdict": "keep",
-      "note": "기계가 잡고 비용이 없다"
+      "note": "기계가 잡고 비용이 없다",
+      "audience": "fixes",
+      "enforce": "code"
     },
     {
       "id": "korean-pr-title",
@@ -190,7 +218,10 @@
       "measure": null,
       "review": "2027-01-27",
       "verdict": "keep",
-      "note": "이유가 앱 동작에 있다"
+      "note": "이유가 앱 동작에 있다",
+      "audience": "fixes",
+      "enforce": "prompt",
+      "toCode": "app_submit이 제목에 한글이 있는지 보기"
     },
     {
       "id": "feedback-first-line",
@@ -202,7 +233,10 @@
       "measure": null,
       "review": "2027-01-27",
       "verdict": "keep",
-      "note": "앱이 state로 첫 줄을 채워 주면 규칙을 없앨 수 있다"
+      "note": "앱이 state로 첫 줄을 채워 주면 규칙을 없앨 수 있다",
+      "audience": "fixes",
+      "enforce": "prompt",
+      "toCode": "앱이 state로 답의 첫 줄을 채우기"
     },
     {
       "id": "codex-implements",
@@ -214,7 +248,9 @@
       "measure": null,
       "review": "2026-11-27",
       "verdict": "ask",
-      "note": "11/19–11/26 CI 400번 중 codex/ 브랜치는 0번. 앱 안 대화(claude/app-…)와 클라우드 대화가 다 구현한다. 지금과 맞지 않는 규칙이라 지우자는 안(개인 저장소라 사용자 확인 뒤)"
+      "note": "11/19–11/26 CI 400번 중 codex/ 브랜치는 0번. 앱 안 대화(claude/app-…)와 클라우드 대화가 다 구현한다. 지금과 맞지 않는 규칙이라 지우자는 안(개인 저장소라 사용자 확인 뒤)",
+      "audience": "fixes",
+      "enforce": "prompt"
     },
     {
       "id": "contained-runs",
@@ -226,7 +262,9 @@
       "measure": null,
       "review": "2027-01-27",
       "verdict": "keep",
-      "note": "실제 사고에서 나온 규칙. 완화는 사용자 허락이 있어야 한다"
+      "note": "실제 사고에서 나온 규칙. 완화는 사용자 허락이 있어야 한다",
+      "audience": "fixes",
+      "enforce": "both"
     },
     {
       "id": "public-privacy",
@@ -238,7 +276,161 @@
       "measure": null,
       "review": "2027-01-27",
       "verdict": "keep",
+      "note": "완화는 사용자 허락이 있어야 한다",
+      "audience": "fixes",
+      "enforce": "prompt",
+      "toCode": "공개 파일에서 이메일 · 로컬 경로를 찾는 검사"
+    },
+    {
+      "id": "research-no-fabrication",
+      "rule": "근거가 없는 내용을 지어내지 않고, 확인하지 않은 것은 「추정」이라고 적는다",
+      "where": "연구 공통 규칙 3 (설정 › 공통 규칙)",
+      "kind": "quality",
+      "audience": "uses",
+      "enforce": "prompt",
+      "since": "2026-10-13",
+      "why": "연구 기록에는 판단과 검증을 통과한 것만 쌓는다",
+      "measure": null,
+      "review": "2027-01-27",
+      "verdict": "keep",
+      "note": "잰 적 없음. 어긴 것은 사용자가 노트를 읽다가 찾는다. 「추정」 표시가 있는 문장 수를 세는 것부터 해 볼 수 있다"
+    },
+    {
+      "id": "research-user-approves",
+      "rule": "승인은 사용자만 한다. 자동 검사와 수치 일치는 사용자의 검토를 대신하지 않는다",
+      "where": "연구 공통 규칙 5, agent:check의 problem-human",
+      "kind": "safety",
+      "audience": "uses",
+      "enforce": "both",
+      "since": "2026-10-13",
+      "why": "에이전트가 스스로 맞다고 판정한 것이 쌓이지 않게",
+      "measure": null,
+      "review": "2027-01-27",
+      "verdict": "keep",
+      "note": "흐름의 승인 · 기각 칸은 agent:check가 막는다(코드). 노트의 「확정」은 글로만 지킨다. 완화는 사용자 허락이 있어야 한다"
+    },
+    {
+      "id": "research-ask-outside",
+      "rule": "workbench/ 밖 파일, 옮기기 · 지우기, 사용자가 확인한 것을 고치기 전에는 허락받는다",
+      "where": "연구 공통 규칙 7, apps/server/src/agentPolicy.ts",
+      "kind": "safety",
+      "audience": "uses",
+      "enforce": "both",
+      "since": "2026-10-13",
+      "why": "원고와 사용자가 확인한 것을 잃지 않게",
+      "measure": null,
+      "review": "2027-01-27",
+      "verdict": "keep",
+      "note": "앱 안 대화에서는 허락 판정이 묻기 · 막기로 지킨다(코드). 앱 밖 에이전트는 글로만 지킨다. 완화는 사용자 허락이 있어야 한다"
+    },
+    {
+      "id": "command-permission",
+      "rule": "앱 안 대화의 도구 · 명령은 허락 · 묻기 · 막기로 판정한다",
+      "where": "packages/core/src/chat-*.ts, apps/server/src/agentPolicy.ts",
+      "kind": "safety",
+      "audience": "uses",
+      "enforce": "code",
+      "since": "2026-10-21",
+      "why": "에이전트가 사용자 컴퓨터에서 지우거나 밖으로 보내는 일을 묻지 않고 하지 않게",
+      "measure": null,
+      "review": "2027-01-27",
+      "verdict": "keep",
+      "note": "고위험 영역이라 고친 PR은 사용자가 합친다. 막은 · 물은 횟수는 대화 기록에서 셀 수 있다(아직 세지 않음)"
+    },
+    {
+      "id": "base-hash",
+      "rule": "읽은 뒤 바뀐 파일은 덮어쓰지 않는다 (읽을 때 받은 hash를 보내고, 다르면 409)",
+      "where": "apps/server/src/workbench.ts ConflictError",
+      "kind": "safety",
+      "audience": "uses",
+      "enforce": "code",
+      "since": "2026-10-08",
+      "why": "두 컴퓨터 · 여러 에이전트가 같은 노트를 고쳐도 내용을 잃지 않게",
+      "measure": null,
+      "review": "2027-01-27",
+      "verdict": "keep",
       "note": "완화는 사용자 허락이 있어야 한다"
+    },
+    {
+      "id": "mcp-first",
+      "rule": "연구 저장소는 파일을 바로 고치기보다 앱 MCP · API로 읽고 고친다",
+      "where": "연구 공통 규칙 1 · 9, docs/agent-mcp.md",
+      "kind": "process",
+      "audience": "uses",
+      "enforce": "prompt",
+      "since": "2026-10-21",
+      "why": "앱이 형식 · 충돌 · 기록을 맡아 에이전트가 외울 것을 줄인다",
+      "measure": null,
+      "review": "2026-12-27",
+      "verdict": "watch",
+      "note": "앱 밖 에이전트는 글로만 따른다. 파일을 바로 고친 커밋 비율을 재 볼 수 있다",
+      "toCode": "앱 안 대화는 파일 쓰기 도구를 막고 MCP만 열기 (일부는 이미 그렇다)"
+    },
+    {
+      "id": "agent-check",
+      "rule": "파일을 바로 고쳤으면 pnpm agent:check로 형식과 막힌 변경을 본다",
+      "where": "docs/repo-format.md §15",
+      "kind": "quality",
+      "audience": "uses",
+      "enforce": "both",
+      "since": "2026-10-15",
+      "why": "앱을 거치지 않은 고침도 형식이 맞게",
+      "measure": null,
+      "review": "2026-12-27",
+      "verdict": "watch",
+      "note": "검사는 코드지만 돌리는 것은 글로 맡긴다. 연구 저장소 CI(research-check)가 같은 검사를 돌리면 글을 뺄 수 있다"
+    },
+    {
+      "id": "group-room",
+      "rule": "에이전트 단체방: 값비싼 판정을 여러 에이전트에게 묻고 방장이 모은다 (독립 · 토론)",
+      "where": "중앙 대화 (#514, #527)",
+      "kind": "experiment",
+      "since": "2026-11-20",
+      "why": "틀리면 비싼 판정에서 한 에이전트의 실수를 다른 에이전트가 잡게",
+      "measure": null,
+      "gauge": "단체방을 쓴 판정 수와, 단체방 뒤 판정이 뒤집힌 비율 (판정 기록이 쌓이면)",
+      "review": "2026-12-20",
+      "verdict": "watch",
+      "note": "11/20 설계: 단체방은 틀리면 비싼 때만. 연구로는 토론이 자기 일관성보다 낫다는 근거가 약하다. 뒤집힘 기록으로 실제 도움이 되는지 본다"
+    },
+    {
+      "id": "debate-chat",
+      "rule": "토론 대화: /토론으로 열어 각자 답 · 서로 비판 · 고친 답 · 정리",
+      "where": "중앙 대화 (#549)",
+      "kind": "experiment",
+      "since": "2026-11-20",
+      "why": "한 질문을 여러 모델이 비판하며 다듬게",
+      "measure": null,
+      "gauge": "맥에서 실제 Codex로 토론할 때 고른 모델 · 생각 깊이가 적용되는지 (한 번 확인), 쓴 횟수",
+      "review": "2026-12-05",
+      "verdict": "watch",
+      "note": "합쳤고 아직 맥에서 실제로 확인하지 않았다"
+    },
+    {
+      "id": "flow",
+      "rule": "흐름: 예 · 아니오로 답할 질문 › 판단할 수 있는 주장 › 근거인 시도",
+      "where": "프로젝트 화면 › 흐름 (#427, #440)",
+      "kind": "experiment",
+      "since": "2026-11-11",
+      "why": "지난 일과 앞으로 할 일을 한 그림에서 보고, 판단과 검증을 통과한 것만 쌓으려고",
+      "measure": null,
+      "gauge": "실제 연구에서 연 흐름 수와 쓰다 막힌 곳",
+      "review": "2027-01-27",
+      "verdict": "hold",
+      "note": "11/13–11/27 실제 연구에서 연 흐름 0개. 11/27 사용자 결정: 흐름은 연구가 더 필요해 보류. 버그만 고친다"
+    },
+    {
+      "id": "old-flow-dots",
+      "rule": "옛 흐름 점: 노트 옆에 점을 찍어 연구의 흐름을 그린다",
+      "where": "예전 workbench/flow/ (#91)",
+      "kind": "experiment",
+      "since": "2026-10-14",
+      "why": "연구가 어디까지 왔는지 한눈에 보려고",
+      "measure": null,
+      "gauge": "사용자가 직접 찍은 점의 비율",
+      "review": "2026-11-11",
+      "verdict": "reverted",
+      "note": "11/11 되돌림: 점 대부분을 에이전트가 스스로 쓰고 고쳐 사용자의 실제 연구 흔적이 아니었다. 지금의 흐름(질문 › 주장 › 시도)으로 바꿨다"
     }
   ]
 }

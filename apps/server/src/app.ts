@@ -25,6 +25,7 @@ import { registerSetup } from './routes/setup.js'
 import { noteAgentCall } from './agentSeen.js'
 import { registerFeedback } from './routes/feedback.js'
 import { registerAbout } from './routes/about.js'
+import { registerRules } from './routes/rules.js'
 import { registerRecordsPublish } from './routes/recordsPublish.js'
 import { registerSync } from './routes/sync.js'
 import { registerLibrary } from './routes/library.js'
@@ -373,6 +374,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerCommonRules(app, ctx)
   registerFeedback(app, ctx)
   registerAbout(app, ctx)
+  registerRules(app, ctx)
   registerRecordsPublish(app, ctx)
   registerSync(app, ctx)
   registerLibrary(app, ctx)
