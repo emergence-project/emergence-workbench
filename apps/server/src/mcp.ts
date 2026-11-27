@@ -13,7 +13,8 @@ import { LIBRARY_RID, noteRecordTarget } from '@rw/core'
 import { recordRows } from './recordRows.js'
 import { registerTaskTools } from './mcpTasks.js'
 import { registerChatTools } from './mcpChats.js'
-import { PROBLEM_INSTRUCTIONS, registerProblemTools } from './mcpProblems.js'
+import { PluginsView } from '@rw/core/contract/plugins'
+import { installedPlugins, SERVER_PLUGINS, type ServerPlugin } from './plugins/index.js'
 import { KEY_HEADER, serverTarget } from './appKey.js'
 import type { Changes } from '@rw/core/contract/changes'
 import { changesText } from './mcpChanges.js'
@@ -33,9 +34,10 @@ export const SAFETY = [
 
 /**
  * 연결할 때 에이전트에게 주는 안내: 어떤 일에 어떤 도구를 어떤 순서로 (10/15, 도구마다 설명을 따로 찾지 않게).
- * 도구를 더하거나 바꾸면 여기의 순서도 고친다 (mcp.test.ts가 여기 적은 이름이 모두 실제 도구인지 본다)
+ * 도구를 더하거나 바꾸면 여기의 순서도 고친다 (mcp.test.ts가 여기 적은 이름이 모두 실제 도구인지 본다).
+ * 설치된 플러그인(설정 › 기능)의 안내 줄이 가운데에 들어간다. INSTRUCTIONS는 모든 플러그인이 설치된 때
  */
-export const INSTRUCTIONS = [
+export const instructionsFor = (plugins: readonly ServerPlugin[]): string => [
   'Read projects, notes, records (and answer questions), delegated tasks and concept notes of Emergence Workbench through its app server.',
   'Start: rules (pass project to include that repository\'s own rules) → overview (every active project: the user\'s turn and your turn) → project_status for the project you work on (a short summary; fetch one section by name when needed) → changes_since for what changed since you last looked (other sessions, the other Mac, the user).',
   'Use these tools instead of reading or writing files under workbench/: they keep the app\'s format, show your work to the user (records, problems, task tab, edit reviews) and return short outputs. Edit files directly only for what no tool covers.',
@@ -45,10 +47,11 @@ export const INSTRUCTIONS = [
   'Change a note: read_note (keep the hash) → edit_note with baseHash. Concept note: rules with part: "concepts" (once) → search_library → read_concept → edit_concept.',
   'Delegated tasks: rules with part: "tasks" (once) → list_tasks → read_task → report_task with kind proposal when end-condition is empty (then stop), or kind result when the work is done. While working, checkpoint_task at milestones (one line: what happened, where, next). A to-do, handoff or proposal of new work: add_task.',
   'When you finish a piece of work: add_journal with one or two sentences on what you did and the files you touched.',
-  PROBLEM_INSTRUCTIONS,
+  ...plugins.flatMap((p) => (p.mcp ? [p.mcp.instructions] : [])),
   'Find a note: list_notes (status filter). Agent edits waiting for the user: list_edit_reviews.',
   'The user\'s turn (notes to review, task results to judge, agent edits) is for the user; never act on it for them.',
 ].join('\n')
+export const INSTRUCTIONS = instructionsFor(SERVER_PLUGINS)
 
 type Fetch = typeof fetch
 export type Text = { content: { type: 'text'; text: string }[]; isError?: true }
@@ -128,7 +131,9 @@ export function claudeAccount(env: NodeJS.ProcessEnv = process.env, home = os.ho
 /** appChat = 앱 고치기 대화 안에서 열 때 그 대화 id (app_submit · app_merge · app_checks · feedback_answer를 더한다) */
 /** central = 중앙 대화 안에서 열 때 (chat_list · chat_open · chat_send · chat_close를 더한다, 11/16) */
 /** chat = 중앙이 아닌 앱 안 대화의 id (central_help를 더한다, 11/19) */
-export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: Fetch; appChat?: string; central?: boolean; chat?: string; account?: string } = {}): McpServer {
+export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: Fetch; appChat?: string; central?: boolean; chat?: string; account?: string; plugins?: readonly ServerPlugin[] } = {}): McpServer {
+  // 설치된 플러그인만 도구와 안내를 낸다. 앱 서버 안의 대화는 이 컴퓨터의 설정을, 따로 뜬 입구(pnpm mcp)는 서버에 물은 것을 쓴다
+  const plugins = opts.plugins ?? installedPlugins()
   const target = opts.baseUrl ? { url: opts.baseUrl, key: opts.key } : serverTarget()
   const base = target.url.replace(/\/$/, '')
   const f0 = opts.fetch ?? fetch
@@ -146,7 +151,7 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
     return r.ok ? json(shape(r.body as never)) : r.error
   }
   const server = new McpServer({ name: 'emergence-workbench', version: '0.1.0' }, {
-    instructions: INSTRUCTIONS,
+    instructions: instructionsFor(plugins),
   })
   const ro = { readOnlyHint: true, openWorldHint: false } as const
   const project = z.string().describe('Project id (from list_projects)')
@@ -349,7 +354,8 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
 
   const writeOnce = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const
   registerTaskTools(server, { project, call, write: (url, payload) => post(base, f, url, payload), ro, writeOnce })
-  registerProblemTools(server, { project, read: (url) => get(base, f, url), write: (url, payload, method) => post(base, f, url, payload, method), ro, writeOnce })
+  const deps = { project, read: (url: string) => get(base, f, url), write: (url: string, payload: unknown, method?: 'POST' | 'PATCH') => post(base, f, url, payload, method), ro, writeOnce }
+  for (const p of plugins) p.mcp?.register(server, deps)
 
   server.registerTool('add_journal', {
     title: 'Add a line to today\'s journal',
@@ -453,5 +459,18 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
 
 /** scripts/mcp.mjs (pnpm mcp)가 부른다: 표준 입출력으로 MCP를 연다 */
 export async function startStdio(): Promise<void> {
-  await createMcpServer().connect(new StdioServerTransport())
+  await createMcpServer({ plugins: await askInstalled() }).connect(new StdioServerTransport())
+}
+
+/** 따로 뜬 입구: 앱 서버에 설치된 플러그인을 묻는다. 서버에 닿지 않으면 모두 설치된 것으로 본다 (부를 때 서버가 404로 알린다) */
+async function askInstalled(): Promise<readonly ServerPlugin[]> {
+  const target = serverTarget()
+  try {
+    const r = await fetch(`${target.url.replace(/\/$/, '')}/api/plugins`, { headers: { ...(target.key && { [KEY_HEADER]: target.key }) } })
+    if (!r.ok) return SERVER_PLUGINS
+    const body = PluginsView.safeParse(await r.json())
+    if (!body.success) return SERVER_PLUGINS
+    const off = new Set(body.data.plugins.filter((p) => !p.installed).map((p) => p.id))
+    return SERVER_PLUGINS.filter((p) => !off.has(p.manifest.id))
+  } catch { return SERVER_PLUGINS }
 }

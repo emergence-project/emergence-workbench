@@ -445,15 +445,12 @@
           "apps/web/src/styles/problems.css",
           "packages/core/src/problems.ts",
           "packages/core/src/contract/problems.ts",
-          "scripts/agent-problem.mjs"
+          "scripts/agent-problem.mjs",
+          "apps/server/src/plugins/flow/*",
+          "packages/core/src/plugins/flow/*"
         ],
         "seams": [
-          "apps/server/src/agentChanges.ts",
-          "apps/server/src/agentCheck.ts",
-          "apps/server/src/agentOverview.ts",
-          "apps/server/src/agentStatus.ts",
-          "apps/server/src/app.ts",
-          "apps/server/src/mcp.ts",
+          "apps/server/src/plugins/index.ts",
           "apps/web/src/App.tsx",
           "apps/web/src/LogPage.tsx",
           "apps/web/src/ProjectInfoPage.tsx",

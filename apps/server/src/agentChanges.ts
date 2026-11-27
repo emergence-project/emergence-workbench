@@ -7,14 +7,15 @@ import type { WorkbenchDiagnostic } from './agentCheck.js'
 import { t } from './i18n.js'
 import { folderMap, usesStandardLayout } from './projectFolders.js'
 import type { Workbench } from './workbench.js'
-import { PROBLEM_CHECKS, problemChecker } from './problemChanges.js'
+import { allPlugins } from './plugins/index.js'
 
 /**
  * 바뀐 것 검사 (`pnpm agent:check`, docs/repo-format.md §15). 공통 규칙 가운데 기계가 판정할 수 있는 것을
  * 기준 커밋 이후 바뀐 파일에서 찾는다. 파일은 읽기만 한다.
  */
 export type CheckLevel = 'error' | 'warning' | 'off'
-export const CHANGE_CHECKS = {
+/** 본체의 검사. 플러그인의 검사(흐름 problem-*)는 설치 상태와 상관없이 늘 더한다 (파일 보호) */
+const BASE_CHECKS = {
   'frozen-folder': 'error',
   locked: 'error',
   approval: 'error',
@@ -23,9 +24,9 @@ export const CHANGE_CHECKS = {
   'confirmed-edit': 'warning',
   'outside-workbench': 'warning',
   'move-delete': 'warning',
-  ...PROBLEM_CHECKS,
 } as const satisfies Record<string, CheckLevel>
-export type ChangeCheckId = keyof typeof CHANGE_CHECKS
+export const CHANGE_CHECKS: Readonly<Record<string, CheckLevel>> = Object.assign({}, BASE_CHECKS, ...allPlugins().map((p) => p.changeChecks?.levels ?? {}))
+export type ChangeCheckId = string
 export type CheckLevels = Partial<Record<ChangeCheckId, CheckLevel>>
 
 export interface ChangeDiagnostic extends WorkbenchDiagnostic { check: ChangeCheckId }
@@ -112,7 +113,7 @@ export function checkChanges(wb: Workbench, opts: { base?: string; levels?: Chec
   const repo = wb.repo
   const base = changeBase(repo, opts.base)
   if (!base) return null
-  const level = (id: ChangeCheckId): CheckLevel => opts.levels?.[id] ?? CHANGE_CHECKS[id]
+  const level = (id: ChangeCheckId): CheckLevel => opts.levels?.[id] ?? CHANGE_CHECKS[id] ?? 'warning'
   const diagnostics: ChangeDiagnostic[] = []
   const add = (check: ChangeCheckId, file: string, ko: string, en: string) => {
     const l = level(check)
@@ -129,7 +130,7 @@ export function checkChanges(wb: Workbench, opts: { base?: string; levels?: Chec
   const confirmedNotes = new Set<string>()
   /** 바뀐 노트 (폴더) */
   const work = new Map<string, string>()
-  const problems = problemChecker(repo, add)
+  const plugins = allPlugins().flatMap((p) => (p.changeChecks ? [p.changeChecks.checker(repo, add)] : []))
 
   for (const c of changes) {
     const before = c.status === 'A' ? undefined : oldText(c.from ?? c.file)
@@ -149,8 +150,8 @@ export function checkChanges(wb: Workbench, opts: { base?: string; levels?: Chec
     }
     if (c.status === 'D') removed.push(c.file)
     if (c.status === 'R') moved.push(`${c.from} → ${c.file}`)
-    // 흐름과 시도 나무 (11/11): 사용자만 하는 것 · 판정 · 일하는 규칙은 problemChanges.ts
-    if (problems.file(c, old, before, after)) continue
+    // 플러그인 폴더의 파일 (흐름과 시도 나무 11/11: 사용자만 하는 것 · 판정 · 일하는 규칙은 흐름 플러그인)
+    if (plugins.some((x) => x.file(c, old, before, after))) continue
     if (!c.file.startsWith('workbench/')) {
       outside.set(top(c.file), (outside.get(top(c.file)) ?? 0) + 1)
       if (c.status === 'A' && other.has(top(c.file))) add('nonstandard-new-file', c.file, `표준 밖 폴더 ${top(c.file)}/에 새 파일을 만들었습니다. 할 일·인계·제안은 workbench/tasks/, 결정은 workbench/decisions/, 규칙은 workbench/rules/에 둡니다.`,
@@ -178,10 +179,11 @@ export function checkChanges(wb: Workbench, opts: { base?: string; levels?: Chec
     }
   }
 
-  problems.finish()
+  for (const x of plugins) x.finish()
   // 진행 중인 흐름이 있는데 바뀐 노트를 가리키는 시도가 없다 (11/11: 새 일은 흐름 아래의 시도로 하고, 결과 노트는 시도 보고의 파일에 적는다).
   // 사용자가 직접 시킨 일로 고친 노트도 걸리므로 경고다
-  const pointed = work.size ? problems.pointed() : null
+  const pointedParts = work.size ? plugins.map((x) => x.pointed()).filter((x): x is string[] => x !== null) : []
+  const pointed = pointedParts.length ? pointedParts.flat() : null
   if (pointed) {
     const inNote = (f: string, key: string) => f === key || f.startsWith(`${key}/`)
     const skipped = [...work].filter(([key]) => !pointed.some((f) => inNote(f, key)))

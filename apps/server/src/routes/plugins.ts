@@ -5,7 +5,7 @@ import * as C from '@rw/core/contract/plugins'
 import { changePlugin, pluginInstalled, requiredBy } from '@rw/core'
 import { parseBody, replies } from '../contract.js'
 import { WorkbenchError } from '../workbench.js'
-import { SERVER_PLUGINS } from '../plugins/index.js'
+import { SERVER_PLUGINS, setPluginStates } from '../plugins/index.js'
 import { t } from '../i18n.js'
 import type { RouteContext } from './context.js'
 
@@ -35,7 +35,9 @@ export function registerPlugins(app: FastifyInstance, ctx: RouteContext): void {
     const r = changePlugin(manifests(), ctx.registry.plugins, req.params.id, installed, new Date().toISOString())
     if (!r.ok && r.reason === 'unknown') throw new WorkbenchError(404, t(`없는 기능입니다: ${r.id}`, `No such feature: ${r.id}`))
     if (!r.ok) throw new WorkbenchError(409, t(`설치된 ${r.by.join(', ')}이(가) 이 기능을 씁니다. 그것을 먼저 제거하세요`, `${r.by.join(', ')} uses this feature. Remove it first`))
-    ctx.registry.setPlugins(r.states)
+    setPluginStates(ctx.registry.setPlugins(r.states), list())
+    // 열린 화면이 사이드바 · 내 차례 · 알림을 다시 그리게 한다
+    ctx.broadcast({ type: 'plugins', research: null })
     return view()
   })
 }
