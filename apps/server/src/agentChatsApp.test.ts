@@ -6,7 +6,7 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { appBriefFor, fileEditOf, judge, partsOfPatch, type AgentRunner, type PolicyCtx, type RunEvent, type RunInput } from './agentChats.js'
 import { buildApp } from './app.js'
-import { aboutFragment, appBranch, personalReadable, appWorktrees, checkRowsOfError, ciCovers, localChecks, otherApps, sampleAppWork, type AppWork } from './appWorktree.js'
+import { aboutFragment, appBranch, personalReadable, appWorktrees, checkRowsOfError, ciCovers, localChecks, otherApps, sampleAppWork, THIS_APP, type AppWork } from './appWorktree.js'
 
 const repo = '/w/app-1'
 const W = 'mcp__workbench__'
@@ -241,6 +241,7 @@ describe('다른 앱 고치기 (11/20)', () => {
     expect(ciCovers('apps/server/src/a.ts', wb)).toBe(true)
     expect(ciCovers('docs/ports/app-fix.md', wb)).toBe(false)
     expect(ciCovers('fixtures/a/README.md', wb)).toBe(true)
+    expect(ciCovers('apps/web/src/about/project/edits.md', THIS_APP.ciPaths!)).toBe(true)
     const q = ['code-space/app/', '.github/workflows/qcad-verify.yml']
     expect(ciCovers('workbench/tasks/a.md', q)).toBe(false)
     expect(ciCovers('code-space/app/scripts/x.py', q)).toBe(true)
@@ -315,7 +316,7 @@ describe('올리기 전 (11/20 토큰 아끼기)', () => {
     fs.rmSync(dir, { recursive: true, force: true })
   })
   it('소개 번호 조각: 고친 절 파일만 "<쪽>/<절>"로, 없거나 "소개: 그대로"면 없음', () => {
-    const files = ['apps/web/src/FlowView.tsx', 'apps/web/src/about/project/flow.tsx', 'apps/web/src/about/agents/app.tsx', 'apps/web/src/about/project.tsx', 'apps/web/src/about/prs/7.json']
+    const files = ['apps/web/src/FlowView.tsx', 'apps/web/src/about/project/flow.md', 'apps/web/src/about/agents/app.tsx', 'apps/web/src/about/project.tsx', 'apps/web/src/about/prs/7.json']
     expect(aboutFragment(files, '흐름 고침', 501)).toEqual({ file: 'apps/web/src/about/prs/501.json', text: '["agents/app","project/flow"]\n' })
     expect(aboutFragment(files, '정리\n\n소개: 그대로 — 옮김', 501)).toBeUndefined()
     expect(aboutFragment(['apps/server/src/app.ts'], '', 501)).toBeUndefined()

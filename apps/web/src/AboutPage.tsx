@@ -233,6 +233,25 @@ function tabOn(): SideTab { try { return localStorage.getItem(TAB_KEY) === 'fix'
 function keepTab(v: SideTab) { try { localStorage.setItem(TAB_KEY, v) } catch { /* 위와 같다 */ } }
 
 /** 다시 정리한 설명: 절마다 항목 목록, 그리고 남은 것 */
+/** .md 절의 지킬 것 · 결정 · 구현 (11/27 "소개를 에이전트가 읽는 정본으로"): 지킬 것은 펼쳐 두고, 결정 · 구현은 접는다 */
+function SectionMore({ sec }: { sec: AboutSection }) {
+  return (
+    <>
+      {sec.keep && <div className="about-keep" data-ui="지킬 것"><h3>{t('지킬 것', 'Keep')}</h3><ul className="about-list">{sec.keep.map((it, n) => <li key={n}>{it.text}</li>)}</ul></div>}
+      {sec.decisions && <details className="about-more" data-ui="결정"><summary>{t('결정', 'Decisions')}</summary><ul className="about-list">{sec.decisions.map((it, n) => <li key={n}>{it.text}</li>)}</ul></details>}
+      {(sec.code || sec.mcp) && (
+        <details className="about-more" data-ui="구현">
+          <summary>{t('구현', 'Implementation')}</summary>
+          <ul className="about-list">
+            {sec.code?.map((f) => <li key={f}><code>{f}</code></li>)}
+            {sec.mcp && <li>MCP {sec.mcp.map((m, n) => <span key={m}>{n > 0 && ' · '}<code>{m}</code></span>)}</li>}
+          </ul>
+        </details>
+      )}
+    </>
+  )
+}
+
 function Sections({ part, at, history }: { part: AboutPart; at: number; history: boolean }) {
   const last = at === part.sections!.length - 1
   const checks = useAboutChecks()
@@ -245,8 +264,10 @@ function Sections({ part, at, history }: { part: AboutPart; at: number; history:
         const check: SectionCheckView = { key, rec, prs: sec.prs ?? [], dates: checks.prDates, enabled: checks.enabled, history, state: checks.enabled ? checkState(sec, rec, checks.exists) : 'checked' }
         return (
         <Section key={sec.title} name={sec.title} ui={sec.ui ?? sec.title} id={sectionAnchor(sec, i)} check={check} onReview={() => openReview(part.id, i)}>
+          {sec.summary && <p className="about-summary" data-ui="요약">{sec.summary}</p>}
           {part.id !== 'symbols' && sec.figure && <div className="about-figs">{sec.figure}</div>}
           <ul className="about-list">{sec.items.map((it, n) => <li key={n}>{it.text}</li>)}</ul>
+          <SectionMore sec={sec} />
           {/* 이 기능을 다른 앱에 옮기는 이식 안내서 (11/19) */}
           {sec.port && <p className="about-port" data-ui="이식 안내서">{t('다른 앱에 옮기기: ', 'Port to another app: ')}<a className="a" href={portUrl(sec.port)} target="_blank" rel="noreferrer">{`docs/ports/${sec.port}.md`}</a>{t(' — 관련 코드와 옮기는 순서', ' — the code and the steps to port it')}</p>}
           {/* 기호와 의미 쪽은 설명 한 줄 다음에 표 */}

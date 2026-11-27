@@ -1,4 +1,8 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { aboutGlobMatch } from '@rw/core'
+import { ABOUT_MD } from './about/md'
 import { ABOUT_PARTS_EN, ABOUT_PARTS_KO, COLOR_ROWS_EN, COLOR_ROWS_KO, SYMBOL_GROUPS_EN, SYMBOL_GROUPS_KO, type AboutPart, withPrFragments } from './aboutContent'
 
 // 소개 글은 절 파일마다 두 언어(ko · en)가 함께 있다. 영어 쪽 data-ui는 같은 자리의 한국어 제목을 쓰므로(withUi) 모양이 같아야 한다
@@ -6,7 +10,7 @@ const shape = (parts: AboutPart[]) => parts.map((p) => ({
   id: p.id,
   open: p.open?.map((o) => o.to),
   left: p.left?.length ?? 0,
-  sections: (p.sections ?? []).map((s) => ({ id: s.id, figure: !!s.figure, items: s.items.length, ask: !!s.ask })),
+  sections: (p.sections ?? []).map((s) => ({ id: s.id, figure: !!s.figure, items: s.items.length, ask: !!s.ask, keep: s.keep?.length ?? 0, decisions: s.decisions?.length ?? 0, summary: !!s.summary })),
 }))
 const icons = Object.fromEntries(['pencil', 'trash', 'play', 'download', 'comment', 'approve', 'sendBack', 'memo', 'feedback', 'panelLeft', 'more', 'reopen', 'search'].map((k) => [k, k])) as Parameters<typeof SYMBOL_GROUPS_KO>[0]['icons']
 
@@ -45,7 +49,7 @@ describe('PR 번호 조각 about/prs/<번호>.json (11/20)', () => {
   })
   it('있는 조각은 모두 있는 절을 가리키고 그 절에 번호가 붙는다', () => {
     const frags = import.meta.glob<string[]>('./about/prs/*.json', { eager: true, import: 'default' })
-    const sections = Object.keys(import.meta.glob('./about/*/*.tsx')).map((f) => f.match(/([^/]+\/[^/]+)\.tsx$/)![1])
+    const sections = Object.keys(import.meta.glob('./about/*/*.{tsx,md}')).map((f) => f.match(/([^/]+\/[^/]+)\.(?:tsx|md)$/)![1])
     for (const [f, keys] of Object.entries(frags)) {
       const n = Number(f.match(/(\d+)\.json$/)![1])
       for (const k of keys) {
@@ -54,5 +58,26 @@ describe('PR 번호 조각 about/prs/<번호>.json (11/20)', () => {
         expect(ABOUT_PARTS_KO.find((p) => p.id === part)?.sections?.some((s) => s.prs?.includes(n)), `${f}: ${k}`).toBe(true)
       }
     }
+  })
+})
+
+// 11/27 "소개를 에이전트가 읽는 정본으로": .md 절은 요약 한 줄과 구현 파일이 반드시 있고, 구현 glob은 저장소의 파일에 맞아야 한다
+describe('소개 .md 절', () => {
+  const root = path.resolve(__dirname, '../../..')
+  const files = (dir: string): string[] => fs.readdirSync(path.join(root, dir), { withFileTypes: true })
+    .flatMap((e) => e.name === 'node_modules' || e.name.startsWith('.') ? [] : e.isDirectory() ? files(`${dir}/${e.name}`) : [`${dir}/${e.name}`])
+  const all = ['apps/web/src', 'apps/server/src', 'packages/core/src'].flatMap(files)
+  it('요약과 구현 파일이 있고, glob마다 맞는 파일이 있다', () => {
+    expect(ABOUT_MD.size).toBeGreaterThan(0)
+    for (const [key, m] of ABOUT_MD) {
+      expect(m.summary?.ko && m.summary.en, `${key}: summary`).toBeTruthy()
+      expect(m.code.length, `${key}: code`).toBeGreaterThan(0)
+      for (const g of m.code) expect(all.some((f) => aboutGlobMatch(g, f)), `${key}: ${g}`).toBe(true)
+    }
+  })
+  it('MCP 도구 이름은 서버에 등록된 것이다', () => {
+    const src = ['mcp.ts', 'mcpTasks.ts', 'mcpProblems.ts', 'mcpChats.ts'].map((f) => fs.readFileSync(path.join(root, 'apps/server/src', f), 'utf8')).join('\n')
+    const tools = new Set([...src.matchAll(/registerTool\('([\w-]+)'/g)].map((m) => m[1]))
+    for (const [key, m] of ABOUT_MD) for (const t of m.mcp) expect(tools.has(t), `${key}: ${t}`).toBe(true)
   })
 })

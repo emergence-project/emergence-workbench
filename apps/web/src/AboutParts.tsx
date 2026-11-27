@@ -103,32 +103,6 @@ export function Intro() {
           <span><span className="about-pending">{t('반영 대기', 'Waiting to apply')}</span> {t('「수정」 탭으로 고쳐 보낸 절. 반영한 업데이트가 들어오면 사라지고 다시 확인할 차례가 됩니다', 'A section you edited and sent from the "Edit" tab. It goes away when the update that applies it arrives, and the section is yours to review again')}</span>
         </div>
       </Section>
-
-      <Section name={t('내가 이해한 것', 'What I understood')} ui="이해한 것">
-        <ol className="about-understood">
-          {lang === 'ko' ? (<>
-            <li><b>무엇을 위한 앱인가.</b> 여러 연구를 동시에 진행하는 한 사람의 작업대입니다. 노트 쓰기, 직접 유도·계산, 논문 읽기, 할 일과 기록이 창을 바꾸지 않고 한곳에서 이어져야 합니다.</li>
-            <li><b>저장소가 주인이다.</b> 연구마다 이미 있는 저장소의 구조를 앱에 맞게 바꾸지 않습니다. 앱은 그 정본을 읽고 고치며, 남기는 것은 그 저장소의 <code>workbench/</code>에 둡니다. <a className="a" href={toPart('agents')}>에이전트와 안전 ›</a></li>
-            <li><b>원고는 한 글자도 잃지 않는다.</b> 에이전트나 다른 편집기가 같은 파일을 고쳐도 앱은 덮어쓰지 않습니다.</li>
-            <li><b>화면은 "파일이 어디 있나"가 아니라 "내가 무엇을 묻나"로 나눈다.</b> 홈은 모든 프로젝트와 이번 주, 프로젝트 첫 화면은 어디까지 왔고 다음에 무엇을 하나, 지식은 주제마다 내가 아는 것. <a className="a" href={toPart('home')}>홈 ›</a></li>
-            <li><b>글의 역할을 나눈다.</b> 원고는 결과를 모으는 개인 초고이고, 노트는 한 주제 안에서 완결된 증명·유도·계산이나 주장·열린 질문 하나입니다. 여러 연구가 다시 쓰는 지식은 개념노트, 논문 하나의 정리는 문헌노트입니다. 원고는 개인 연구와 초고까지, 공동 집필·투고는 Overleaf에 둡니다. 노트 파일에는 본문만 두고 머리말은 앱이 붙입니다. <a className="a" href={toPart('notes')}>노트 ›</a></li>
-            <li><b>남이 만든 것은 참고 자료.</b> 실제로 가진 PDF·파일만 두고, 노트가 인용한 논문 정보는 bib 항목으로 그 노트 화면에서 봅니다. <a className="a" href={toPart('reading')}>참고 자료 ›</a></li>
-            <li><b>맡긴 일은 내가 판단해 끝낸다.</b> 계산·유도·대조를 에이전트에게 맡길 때 종결 조건을 적고, 에이전트가 채운 보고서를 기록 › 내 차례에서 승인하거나 수정으로 돌려보냅니다. <a className="a" href={toPart('project')}>작업 ›</a></li>
-            <li><b>남긴 말은 에이전트가 이어받는다.</b> 코멘트·질문·할 일·피드백은 파일로 남고, 에이전트가 답하거나 고칩니다. 실제 쓰다 생긴 불편을 새 기능보다 먼저 고칩니다. <a className="a" href={toPart('feedback')}>피드백 ›</a></li>
-            <li><b>같은 일은 같은 모양, 같은 자리.</b> 행동 하나에 이름 하나·기호 하나이고, 같은 일은 한 화면에서만 합니다. 무채색이 기본이고 색은 상태에만 씁니다: <StatusDot s="in-progress" label /> · <StatusDot s="blocked" label /> · <StatusDot s="stopped" label /> · <StatusDot s="solved" label />. <a className="a" href={toPart('design')}>화면 기준 ›</a></li>
-          </>) : (<>
-            <li><b>What the app is for.</b> A workbench for one person running several research projects at the same time. Writing notes, doing derivations and calculations by hand, reading papers, to-dos and records should flow together in one place without switching windows.</li>
-            <li><b>The repository is in charge.</b> The structure of each existing research repository is not reshaped to suit the app. The app reads and edits those sources of truth, and keeps what it leaves in that repository's <code>workbench/</code>. <a className="a" href={toPart('agents')}>Agents and safety ›</a></li>
-            <li><b>Not a single character of a manuscript is lost.</b> Even if an agent or another editor changes the same file, the app does not overwrite it.</li>
-            <li><b>Screens are divided by "what am I asking", not "where is the file".</b> Home is all projects and this week, a project's home screen is how far it has come and what comes next, Knowledge is what I know, by topic. <a className="a" href={toPart('home')}>Home ›</a></li>
-            <li><b>Each kind of writing has its role.</b> A manuscript is a personal draft that gathers results, and a note is one self-contained proof, derivation, calculation, claim or open question within a topic. Knowledge reused across projects is a concept note, and a summary of one paper is a literature note. Manuscripts cover personal research up to a first draft; co-writing and submission happen in Overleaf. Note files hold only the body, and the app adds the preamble. <a className="a" href={toPart('notes')}>Notes ›</a></li>
-            <li><b>What others made is reference material.</b> Only PDFs and files you actually have are kept; paper details a note cites are bib entries, seen on that note's screen. <a className="a" href={toPart('reading')}>Reference materials ›</a></li>
-            <li><b>I close delegated tasks by deciding.</b> When handing a calculation, derivation or comparison to an agent, I write completion criteria, and in the Work tab I approve or request changes on the report the agent filled in. <a className="a" href={toPart('project')}>Work ›</a></li>
-            <li><b>Agents pick up what I leave.</b> Comments, questions, to-dos and feedback are saved as files, and agents answer or fix them. Friction found in real use is fixed before new features. <a className="a" href={toPart('feedback')}>Feedback ›</a></li>
-            <li><b>The same job looks the same and sits in the same place.</b> One name and one symbol per action, and each job is done on only one screen. Neutral is the default, and color is only for status: <StatusDot s="in-progress" label /> · <StatusDot s="blocked" label /> · <StatusDot s="stopped" label /> · <StatusDot s="solved" label />. <a className="a" href={toPart('design')}>Screen standards ›</a></li>
-          </>)}
-        </ol>
-      </Section>
     </>
   )
 }
