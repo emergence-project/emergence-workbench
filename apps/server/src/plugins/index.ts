@@ -9,7 +9,7 @@
 import type { FastifyInstance } from 'fastify'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { z } from 'zod'
-import { pluginInstalled, type PluginManifest, type PluginStates } from '@rw/core'
+import { normalizePluginStates, pluginInstalled, type PluginManifest, type PluginStates } from '@rw/core'
 import type { RouteContext } from '../routes/context.js'
 import type { Workbench } from '../workbench.js'
 import type { Text } from '../mcp.js'
@@ -61,7 +61,14 @@ export interface ServerPlugin {
 export const SERVER_PLUGINS: readonly ServerPlugin[] = [flowPlugin]
 
 let list: readonly ServerPlugin[] = SERVER_PLUGINS
-let states: PluginStates = {}
+let states: PluginStates = statesFromEnv()
+/**
+ * 서버 없이 도는 pnpm agent:status · agent:check의 설치 상태. 스크립트가 이 컴퓨터 config.yaml의 `plugins:`를 RW_PLUGINS(JSON)로 넘긴다
+ * (tsImport가 모듈을 따로 불러와 setPluginStates가 닿지 않는다). 없으면 이름표의 기본값. 서버는 켤 때 setPluginStates로 덮는다
+ */
+function statesFromEnv(): PluginStates {
+  try { return normalizePluginStates(JSON.parse(process.env.RW_PLUGINS ?? '{}')) } catch { return {} }
+}
 /** app.ts가 켤 때와 설정 › 기능에서 바꿀 때 부른다 */
 export function setPluginStates(next: PluginStates, plugins: readonly ServerPlugin[] = SERVER_PLUGINS): void { states = next; list = plugins }
 

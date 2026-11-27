@@ -13,6 +13,7 @@ import { go } from '../../router'
 
 export const flowWeb: WebPlugin = {
   manifest: FLOW_MANIFEST,
+  projectQuery: 'problems', // qk.problems · qk.problem · qk.problemExceptions
   page: {
     name: 'problems',
     render: ({ rid, route, kind, onSaved }) => {

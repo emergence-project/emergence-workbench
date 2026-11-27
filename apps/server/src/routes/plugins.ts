@@ -7,6 +7,7 @@ import { parseBody, replies } from '../contract.js'
 import { WorkbenchError } from '../workbench.js'
 import { SERVER_PLUGINS, setPluginStates } from '../plugins/index.js'
 import { t } from '../i18n.js'
+import { writeStatusFor } from '../agentStatus.js'
 import type { RouteContext } from './context.js'
 
 export function registerPlugins(app: FastifyInstance, ctx: RouteContext): void {
@@ -38,6 +39,8 @@ export function registerPlugins(app: FastifyInstance, ctx: RouteContext): void {
     setPluginStates(ctx.registry.setPlugins(r.states), list())
     // 열린 화면이 사이드바 · 내 차례 · 알림을 다시 그리게 한다
     ctx.broadcast({ type: 'plugins', research: null })
+    // 에이전트가 먼저 읽는 STATUS.md의 플러그인 절(흐름)도 바로 맞춘다. 그러지 않으면 그 프로젝트의 파일이 바뀔 때까지 옛 절이 남는다
+    for (const rid of ctx.registry.ids()) void Promise.resolve().then(() => writeStatusFor(ctx.registry, rid)).catch(() => { /* 다음 변경 때 다시 */ })
     return view()
   })
 }

@@ -5,6 +5,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import { buildApp } from './app.js'
 import { installedPlugins, isPluginOn, SERVER_PLUGINS, type ServerPlugin } from './plugins/index.js'
 import { instructionsFor } from './mcp.js'
+import { fixture } from './testkit.js'
 
 // 설정 › 기능 (11/27 사용자 결정 "실험 기능을 플러그인으로, 컴퓨터마다"): 설치 상태는 이 컴퓨터의 config.yaml plugins:에만
 const tmp = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rw-plugins-'))
@@ -33,6 +34,25 @@ describe('내장 플러그인 API', () => {
     expect(instructionsFor(installedPlugins())).not.toMatch(/problem_brief/)
     await app.inject({ method: 'PUT', url: '/api/plugins/flow', payload: { installed: true } })
     expect((await problems()).json().error).toMatch(/등록되지 않은 프로젝트|not registered/)
+    await app.close()
+  })
+
+  it('제거 · 설치하면 agent-status 프로젝트의 STATUS.md 흐름 절도 바로 맞춘다 (파일이 바뀔 때까지 기다리지 않고)', async () => {
+    const repo = path.join(tmp, 'status-repo')
+    fs.cpSync(fixture, repo, { recursive: true, filter: (src) => !src.includes('.build') })
+    fs.mkdirSync(path.join(repo, '.git'), { recursive: true })
+    // 흐름은 예제 모드의 덧붙임(sandbox-extra)에만 있다
+    fs.cpSync(path.join(fixture, '../sandbox-extra/workbench/problems'), path.join(repo, 'workbench/problems'), { recursive: true })
+    fs.appendFileSync(path.join(repo, 'workbench/research.yaml'), '\nagent-status: true\n')
+    const app = buildApp({ configDir: path.join(tmp, 'status') })
+    expect((await app.inject({ method: 'POST', url: '/api/researches', payload: { path: repo } })).statusCode).toBe(200)
+    const file = path.join(repo, 'workbench/STATUS.md')
+    const flow = () => (fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '').includes('## 흐름')
+    const until = async (want: boolean) => { for (let i = 0; i < 50 && flow() !== want; i++) await new Promise((r) => setTimeout(r, 40)); return flow() }
+    await app.inject({ method: 'PUT', url: '/api/plugins/flow', payload: { installed: false } })
+    expect(await until(false)).toBe(false)
+    await app.inject({ method: 'PUT', url: '/api/plugins/flow', payload: { installed: true } })
+    expect(await until(true)).toBe(true)
     await app.close()
   })
 

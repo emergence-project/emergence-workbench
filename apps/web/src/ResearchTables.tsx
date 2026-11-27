@@ -44,8 +44,17 @@ function Verdict({ row }: { row: RuleRow }) {
   )
 }
 
+const WHEN_REVISITED = t('다시 정할 때', 'When revisited')
+/** 설정 › 기능의 실험 줄: 이 표와 같은 판정 이름과 다시 볼 날 (보류는 날짜 대신 「다시 정할 때」) */
+export function reviewLine(e: Pick<RuleEntry, 'verdict' | 'review'>): string {
+  const verdict = VERDICT[e.verdict] ?? e.verdict
+  if (e.verdict === 'hold') return `${verdict} · ${WHEN_REVISITED}`
+  if (GONE.has(e.verdict)) return verdict
+  return `${verdict} · ${t('다시 볼 날', 'review')} ${day(e.review)}${e.review <= today() ? ` ${t('지남', 'due')}` : ''}`
+}
+
 function Review({ e }: { e: RuleEntry }) {
-  if (e.verdict === 'hold') return <span className="muted">{t('다시 정할 때', 'When revisited')}</span>
+  if (e.verdict === 'hold') return <span className="muted">{WHEN_REVISITED}</span>
   if (GONE.has(e.verdict)) return <span className="muted">—</span>
   const due = e.review <= today()
   return <span className={due ? 'rt-due' : ''}>{day(e.review)}{due && ` ${t('지남', 'due')}`}</span>

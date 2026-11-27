@@ -46,7 +46,7 @@ import { useProjectIssues } from './projectIssues'
 import { RailProjects } from './RailProjects'
 import { SearchOverlay } from './Search'
 import { TopicPage } from './Topics'
-import { PluginPage } from './plugins'
+import { invalidatePluginChange, PluginPage } from './plugins'
 import { moveId, railProjects } from './projectProfile'
 import { railDragImage, useRailSlide } from './railDrag'
 import { setFeedbackNote } from './feedbackNote'
@@ -223,6 +223,7 @@ export function App() {
     // 에이전트가 쓰는 중인 글: 열린 대화에 그대로 붙인다 (다시 받지 않는다)
     if (e.type === 'agent-draft') { client.setQueryData<Chat>(qk.agentChat(e.id), (c) => (c?.state === 'running' ? { ...c, draft: e.text } : c)); return }
     if (appUpdateEvent(e)) return // 앱 업데이트 알림(화면을 바꿔 끼움 · 다시 시작 대기)은 AppUpdate.tsx가 다룬다
+    if (e.type === 'plugins') { invalidatePluginChange(client); return } // 설정 › 기능 설치 · 제거 (plugins/index.tsx)
     figuresMaybeChanged()
     // 화면 캐시: 알림이 바꾸는 자료만 (어느 프로젝트의 것이든. 홈의 프로젝트별 자료도 이것으로 새로워진다)
     invalidation.add(invalidationKeys(e)); slowInvalidation.add(slowInvalidationKeys(e))
