@@ -475,10 +475,8 @@
         ],
         "seams": [
           "apps/server/src/plugins/index.ts",
-          "apps/web/src/api.ts",
           "apps/web/src/main.tsx",
-          "apps/web/src/plugins/index.tsx",
-          "packages/core/src/index.ts"
+          "apps/web/src/plugins/index.tsx"
         ]
       },
       "review": "2027-01-27",

@@ -1,4 +1,4 @@
-import type { AttemptState, Claim, ClaimSide, FlowAnswer, FlowException } from './api'
+import type { AttemptState, Claim, ClaimSide, FlowAnswer, FlowException } from './api/problems'
 import { t } from './i18n'
 
 // 흐름 화면이 함께 쓰는 이름 (Problems.tsx · ProblemChart.tsx · ProblemDialogs.tsx · ProblemExceptions.tsx)

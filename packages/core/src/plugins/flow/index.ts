@@ -10,3 +10,6 @@ export const FLOW_MANIFEST: PluginManifest = {
   installedByDefault: true,
   keeps: ['workbench/problems/'],
 }
+
+// 흐름의 이름표 · 근거 세기 (core problems.ts). 본체 core index.ts는 다시 내보내지 않는다: 흐름 파일만 여기서 가져간다
+export * from '../../problems.js'

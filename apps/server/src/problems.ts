@@ -4,7 +4,8 @@
 // 시도의 성립 · 폐기는 작업한 쪽이 아닌 쪽이 판정하고, 주장의 상태는 그 근거에서 계산한다 (problemClaims.ts). 한도나 정체에서는 방향 보고를 내고 사용자가 계속 · 좁히기 · 종료를 정한다.
 import fs from 'node:fs'
 import path from 'node:path'
-import { PROBLEM_LIMIT, PROBLEM_LIMIT_STEP, PROBLEM_STREAK, attemptStrength, attemptTrailer, localDate, stamp } from '@rw/core'
+import { localDate, stamp } from '@rw/core'
+import { PROBLEM_LIMIT, PROBLEM_LIMIT_STEP, PROBLEM_STREAK, attemptStrength, attemptTrailer } from '@rw/core/plugins/flow'
 import type { Attempt, AttemptReportBody, RecordAttemptBody, AttemptVerdictBody, DirectionDecisionBody, DirectionReportBody, NewAttemptsBody, NewClaimBody, NewProblemBody, Problem, ProblemCloseBody, ProblemPatchBody, ProblemStop } from '@rw/core/contract/problems'
 import { writeAtomic } from './fsutil.js'
 import { fingerprints, headCommit } from './problemFiles.js'

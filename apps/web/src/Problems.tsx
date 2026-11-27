@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { problemsApi, PROBLEM_LIMIT_STEP, type Attempt, type ClaimSide, type DirectionReport, type ProblemDoc, type ProblemRow, type ProjectKind, type ProblemState, type ProblemStop } from './api'
+import { problemsApi, PROBLEM_LIMIT_STEP, type Attempt, type ClaimSide, type DirectionReport, type ProblemDoc, type ProblemRow, type ProblemState, type ProblemStop } from './api/problems'
+import { type ProjectKind } from './api'
 import { Icon } from './icons'
 import { t } from './i18n'
 import { ATTEMPT_DOT, AttemptRow, CandidateInput, errorOf, when, who } from './ProblemAttempt'

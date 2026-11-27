@@ -1,6 +1,6 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
-import { attemptStrength, fileStrength } from '@rw/core'
-import type { Attempt, AttemptState, Claim } from './api'
+import { attemptStrength, fileStrength } from '@rw/core/plugins/flow'
+import type { Attempt, AttemptState, Claim } from './api/problems'
 import { Author } from './Author'
 import { Icon } from './icons'
 import { t } from './i18n'

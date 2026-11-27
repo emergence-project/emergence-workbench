@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { attemptStrength, evidencePaths, fileStrength, hasAttemptTrailer } from '@rw/core'
+import { attemptStrength, evidencePaths, fileStrength, hasAttemptTrailer } from '@rw/core/plugins/flow'
 import { commitHasTrailer, firstCommitDay, recordFacts, reportFacts } from './problemGit.js'
 
 /** 날짜를 정한 커밋 둘: 노트(10/21), 코드(10/22, 꼬리말 있음) */
