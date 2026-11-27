@@ -133,6 +133,9 @@ function Gone({ rows }: { rows: RuleRow[] }) {
   )
 }
 
+/** 내려받은 앱: 앱 저장소의 목록이 없다 */
+const Missing = () => <p className="muted">{t('이 앱에는 규칙 목록이 없습니다. 앱 저장소(docs/rules/registry.json)에서 앱을 돌릴 때 보입니다.', 'This copy of the app has no rule list. It shows when the app runs from its repository (docs/rules/registry.json).')}</p>
+
 function useRows(): { v?: RulesView; error?: string } {
   const q = useRulesView()
   return { v: q.data, error: q.error ? String(q.error) : undefined }
@@ -143,6 +146,7 @@ export function ExperimentsTable() {
   const { v, error } = useRows()
   if (error) return <p className="error-text">{error}</p>
   if (!v) return <p className="muted">{t('불러오는 중', 'Loading')}</p>
+  if (!v.rows.length) return <Missing />
   const all = v.rows.filter((r) => r.entry.kind === 'experiment')
   const live = all.filter((r) => !GONE.has(r.entry.verdict))
   const count = (vd: RuleEntry['verdict']) => all.filter((r) => r.entry.verdict === vd).length
@@ -166,6 +170,7 @@ export function RulesTable() {
   const [how, setHow] = useState<How>('all')
   if (error) return <p className="error-text">{error}</p>
   if (!v) return <p className="muted">{t('불러오는 중', 'Loading')}</p>
+  if (!v.rows.length) return <Missing />
   const rules = v.rows.filter((r) => r.entry.kind !== 'experiment')
   const live = rules.filter((r) => !GONE.has(r.entry.verdict))
   const shown = live.filter((r) => hits(r.entry.audience, who) && hits(r.entry.enforce, how))
