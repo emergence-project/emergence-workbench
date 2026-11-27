@@ -151,11 +151,11 @@ export const DEFAULT_SCREENS = [
   ['about-research', '#/about/research', '실험과 판정'],
   ['about-rules', '#/about/rules', '규칙 목록'],
   // 소개 오른쪽 사이드바 (11/20 시안 2 · 3절, 11/24부터 앱 오른쪽 사이드바의 정보 갈래): 상단바 정보 아이콘으로 열고 이력 표의 첫 줄을 누르면 그 절로 가서 바꾼 문장에 하이라이트, 줄 아래 요약.
-  // 그다음 「수정」 탭에서 화면 구조 절의 첫 문단을 고른 모습. 사이드바와 탭이 기억되므로 소개 화면 맨 끝
+  // 그다음 「수정」 탭에서 개요 절의 첫 문단을 고른 모습. 사이드바와 탭이 기억되므로 소개 화면 맨 끝
   // 11/20: 카드의 「고칠 점」을 눌러 카드 바로 아래에 고칠 점 칸을 펼친 모습 (요약 줄의 💬는 커밋 본문이 있어야 보여, 얕게 받는 CI에는 없다).
   // 카드는 날짜 글자를 누른다: CI에는 제목이 없어 카드 가운데가 「맞아요」라 절 전체가 확인함이 되었다
   ['about-check-history', '#/about/principles', '이력 표', ['+맥락 칸 켜고 끄기', '[data-ui="이력 표"] [data-ui="고친 업데이트"] .about-hist-top .muted','[data-ui="이력 표"] [data-ui="고칠 점"]']],
-  ['about-fix', '#/about', '소개 고치기', ['[data-ui="소개 사이드바 갈래"] button:text-matches("^(수정|Edit)")', '[data-ui="화면 구조"] .about-lead']],
+  ['about-fix', '#/about', '소개 고치기', ['[data-ui="소개 사이드바 갈래"] button:text-matches("^(수정|Edit)")', '[data-ui="정의"] .about-lead']],
   ['settings', '#/settings', '설정'],
   // 설정 › 계정 (10/21): 시작 준비 (꼭 할 것 · 선택)
   ['settings-accounts', '#/account', '시작 준비 요약'],

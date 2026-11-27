@@ -360,7 +360,6 @@
   "부위 없이 적기": "Without a part",
   "이전 주고받음": "Earlier exchanges",
   "이전 쪽": "Previous page",
-  "이해한 것": "Understood",
   "인용 논문": "Cited papers",
   "인용 논문 자세히": "Cited paper details",
   "인용한 논문": "Cited papers",
@@ -1213,5 +1212,9 @@
   "규칙 진행": "Proceed with rule",
   "규칙 그대로 두기": "Leave rule as is",
   "규칙 대상": "Rule audience",
-  "규칙 방식": "Rule enforcement"
+  "규칙 방식": "Rule enforcement",
+  "정의": "Definition",
+  "요약": "Summary",
+  "지킬 것": "Keep",
+  "구현": "Implementation"
 }

@@ -16,6 +16,13 @@
 .about-vision { color: var(--text); font-size: var(--fs-lg); font-weight: var(--fw-medium); line-height: 1.6; margin: 0 0 var(--sp-2); }
 .about-note { color: var(--text-3); font-size: var(--fs-xs); margin: var(--sp-2) 0 0; }
 .about-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-sm); line-height: 1.6; }
+/* .md 절 (11/27): 요약 한 줄 · 지킬 것 · 접힌 결정 · 구현 */
+.about-summary { margin: 0 0 var(--sp-3); font-size: var(--fs-md); color: var(--text); line-height: 1.6; }
+.about-keep { margin-top: var(--sp-4); }
+.about-keep h3 { margin: 0 0 var(--sp-2); font-size: var(--fs-sm); color: var(--text-2); }
+.about-more { margin-top: var(--sp-3); font-size: var(--fs-sm); color: var(--text-2); }
+.about-more summary { cursor: pointer; }
+.about-more[open] summary { margin-bottom: var(--sp-2); }
 .about-port { margin: var(--sp-3) 0 0; font-size: var(--fs-sm); color: var(--text-2); }
 /* 10/4 17:56 "볼드 글씨가 붕 뜬다": 이름표가 글 기준선에 얹혀 떠 보였다. 줄 가운데에 맞춘다 */
 .about-unsure { display: inline-block; vertical-align: middle; line-height: 1.5; position: relative; top: -1px; font-size: var(--fs-xs); font-weight: var(--fw-strong); border-radius: var(--r-pill); padding: 0 7px; margin: 0 6px 0 0; background: color-mix(in srgb, var(--s-blocked) 14%, transparent); color: var(--s-blocked); }
@@ -41,9 +48,8 @@
 .about-map .m-side small { display: block; color: var(--text-3); font-weight: var(--fw-normal); font-size: var(--fs-2xs); }
 
 /* 소개 › 내가 이해한 것 */
-.about-understood { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: var(--sp-2); line-height: 1.7; }
-.about-understood b { margin-right: var(--sp-1); }
-.about-understood .a { margin-left: var(--sp-1); font-size: var(--fs-xs); }
+.about-pillars { margin: var(--sp-3) 0 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: var(--sp-1); line-height: 1.7; color: var(--text-2); }
+.about-pillars b { color: var(--text); }
 
 /* 요청 → 이해 → 만든 것 */
 .about-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }

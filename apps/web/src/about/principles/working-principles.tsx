@@ -6,6 +6,7 @@ import type { AboutSection } from '../types'
 export const ko: AboutSection = {
   title: '작업 원칙',
   items: [
+    { text: <><b>검증된 것만 쌓인다.</b> 판단과 검증을 통과한 것만 기록으로 남습니다. 에이전트가 낸 결과도 사람이 승인해야 쌓입니다(10/23 목적).</> },
     { text: <><b>저장소가 주인이다.</b> 연구 저장소의 구조를 앱에 맞게 바꾸지 않고, 앱이 남기는 것은 {c('workbench/')}에만 둡니다.</> },
     { text: <><b>정본은 GitHub에 있다.</b> 맥의 폴더는 그 사본이고, 맥에만 있는 {c('workbench/')}는 한 시간마다 비공개 백업 저장소에 올립니다.</> },
     { text: <><b>원고는 잃지 않는다.</b> 다른 곳에서 같은 파일이 바뀌면 덮어쓰지 않고 멈춥니다.</> },
@@ -20,6 +21,7 @@ export const ko: AboutSection = {
 export const en: AboutSection = {
   title: 'Working principles',
   items: [
+    { text: <><b>Only what is verified accumulates.</b> Only what has passed judgment and verification is kept as a record. Results an agent produces are kept only once a person approves them (purpose set 10/23).</> },
     { text: <><b>The repository is in charge.</b> The app does not reshape a research repository to suit itself, and everything the app keeps goes only in {c('workbench/')}.</> },
     { text: <><b>The source of truth is on GitHub.</b> The folder on the Mac is a copy, and {c('workbench/')} content that exists only on the Mac is pushed to a private backup repository every hour.</> },
     { text: <><b>Manuscripts are never lost.</b> If the same file changes somewhere else, the app stops instead of overwriting.</> },

@@ -9,16 +9,31 @@ import { ProofMark, StatusDot } from './StatusDot'
 import { go, href } from './router'
 import * as portingGuides from './about/reference/porting-guides'
 
-export const INTRO_SUB = t('여러 연구를 함께 진행하는 사람을 위한 작업대입니다. 맥 · 윈도우에 설치해 그 컴퓨터에서 돌고, 폰에서는 같은 앱을 웹 화면으로 엽니다. 노트 쓰기, 유도·계산, 논문 읽기, 할 일과 기록을 한 창에서 다룹니다. 각 연구 저장소가 이미 가진 파일을 그대로 읽고 고치며, 남기는 것은 그 저장소에 파일로 두어 코딩 에이전트가 이어받습니다.', 'A workbench for people running several research projects at once. It is installed on a Mac or Windows computer and runs there; on a phone you open the same app as a web page. Writing notes, derivations and calculations, reading papers, to-dos and records all happen in one window. It reads and edits the files each research repository already has, and what it leaves behind is saved as files in that repository so coding agents can pick up the work.')
+export const INTRO_SUB = t('연구와 지식 활동을 여러 사람과 여러 에이전트가 함께 하는 작업대입니다.', 'A workbench where several people and several agents do research and other knowledge work together.')
+
+/** 한눈에 머리의 정의 세 가지 (2026-11-27 사용자 정의) */
+export function IntroPillars() {
+  return (
+    <ul className="about-pillars">
+      {lang === 'ko' ? (<>
+        <li><b>함께</b> — 사람과 에이전트가 같은 정보를 보고 서로의 일을 이어받습니다. 남기는 것은 각 연구 저장소에 파일로 두어, 누가 이어 가도 같은 자료에서 시작합니다.</li>
+        <li><b>어디서나</b> — 기기가 여러 대여도 어느 기기에서든 접속해 같은 작업을 이어 합니다. 맥 · 윈도우에 설치하고, 폰에서는 같은 앱을 웹 화면으로 엽니다.</li>
+        <li><b>한곳에서</b> — 연구 프로젝트, 노트, 공부, 지시, 기록, 네트워크까지 연구에 필요한 전체를 하나의 시스템에서 관리합니다.</li>
+      </>) : (<>
+        <li><b>Together</b> — people and agents see the same information and pick up each other's work. What is left behind is saved as files in each research repository, so whoever continues starts from the same material.</li>
+        <li><b>Anywhere</b> — with several devices, you connect from any of them and continue the same work. It is installed on Mac or Windows, and on a phone you open the same app as a web page.</li>
+        <li><b>In one place</b> — research projects, notes, study, instructions, records and networking: everything research needs is managed in one system.</li>
+      </>)}
+    </ul>
+  )
+}
 
 const toPart = (id: string) => href({ page: 'about', part: id })
 
-/** 첫 쪽: 소개를 읽는 법, 화면 구조 그림, 핵심 이해 */
-export function Intro() {
+/** 화면 쪽 맨 앞: 창의 다섯 영역 그림 (11/27 한눈에서 옮김) */
+export function Layout() {
   return (
-    <>
-      <Section name={t('화면 구조', 'Screen layout')} ui="화면 구조">
-        <p className="about-lead">{t('한 창이 다섯 영역으로 나뉩니다. 영역을 누르면 그 설명으로 갑니다.', 'One window is divided into five areas. Click an area to go to its description.')}</p>
+    <div data-ui="화면 구조">
         <div className="about-map" role="img" aria-label={t('화면 구조: 위에 상단바, 왼쪽에 레일과 왼쪽 사이드바, 가운데 작업 패널, 오른쪽에 오른쪽 사이드바', 'Screen layout: top bar on top, rail and left sidebar on the left, work panel in the middle, right sidebar on the right')}>
           <a className="m-title" data-ui="상단바" href={toPart('project')}><b>{t('상단바', 'Top bar')}</b><span>{t('왼쪽 사이드바 여닫기 · 뒤로 · 앞으로 · 위치', 'Toggle left sidebar · Back · Forward · Location')}</span><span className="m-title-actions">{t('(새 버전) · 검색 · 두 패널 · 피드백 · 오른쪽 사이드바 여닫기', '(New version) · Search · Two panes · Feedback · Toggle right sidebar')}</span></a>
           <div className="m-rail" data-ui="레일">
@@ -50,55 +65,43 @@ export function Intro() {
           <a className="m-ctx" data-ui="오른쪽 사이드바" href={toPart('notes')}><b>{t('오른쪽 사이드바', 'Right sidebar')}</b><span>{t('맨 위 아이콘 줄: 정보 · 기록 (메모 · 할 일 · 질문) · 에이전트', 'Icon row on top: Info · Records (memos · to-dos · questions) · Agent')}</span></a>
         </div>
         <p className="about-note">{t('프로젝트 화면의 구조입니다. 상단바의 두 패널 버튼은 프로젝트 화면에만, 오른쪽 사이드바 버튼은 프로젝트와 지식·논문·그림 첫 화면에 있습니다. 홈·지식·논문·그림·네트워킹·피드백·소개·설정은 프로젝트 밖 화면이고, 지식·논문·그림·네트워킹·소개·설정은 자기 왼쪽 사이드바가 있습니다.', 'This is the layout of the project screen. The Two panes button in the top bar is only on project screens, and the right sidebar button is on projects and on the Knowledge, Papers and Figures home screens. Home, Knowledge, Papers, Figures, Networking, Feedback, About and Settings are screens outside projects, and Knowledge, Papers, Figures, Networking, About and Settings have their own left sidebar.')}</p>
+    </div>
+  )
+}
+
+/** 첫 쪽: 정의, 소개를 읽는 법, 핵심 이해 */
+export function Intro() {
+  return (
+    <>
+      <Section name={t('Emergence Workbench 개요', 'Emergence Workbench overview')} ui="정의">
+        <p className="about-lead">{INTRO_SUB}</p>
+        <IntroPillars />
       </Section>
 
       <Section name={t('이 소개를 읽는 법', 'How to read this page')} ui="읽는 법">
         {lang === 'ko' ? (
-          <p className="about-lead">
-            이 소개는 이 앱의 정본(single source of truth)입니다. 앱의 목표, 개발 결정, 그리고 지금 어떻게 구현되어 있는지를 여기 적고, 다른 문서는 이 소개의 자세한 설명입니다.
-            사용자와 에이전트가 함께 읽는 글이라 누구나 쉽게 읽히게 쓰고, 에이전트는 이 소개를 읽고 기능이 어떻게 구현되어 있는지와 어떤 파일로 되어 있는지를 정리합니다.
-            앱을 고치는 에이전트는 소개와 구현이 늘 맞도록 같은 PR에서 함께 고칩니다. 쪽마다 화면 하나를 다루고, 지금 앱이 어떤지를 화면의 짜임대로 적습니다. 승인하신 피드백은 여기 설명으로 옮기고 피드백 목록에서는 지웁니다.
-            틀린 곳이 있으면 툴바 오른쪽 시계로 오른쪽 사이드바를 열고 「수정」 탭에서 본문의 그곳(문단 · 표 칸 · 그림 속 상자)을 눌러 고친 글을 담아 보내 주세요.
-          </p>
+          <ul className="about-pillars">
+            <li><b>정본</b> — 앱의 목표 · 개발 결정 · 지금 구현을 적는 single source of truth. 다른 문서는 이 소개의 자세한 설명</li>
+            <li><b>독자</b> — 사용자와 에이전트가 함께 읽음. 누구나 쉽게 읽히게 씀</li>
+            <li><b>에이전트</b> — 이 소개를 읽고 기능의 구현 방식과 파일을 정리함. 앱을 고치면 같은 PR에서 소개도 고쳐 둘을 맞춤</li>
+            <li><b>짜임</b> — 시작 › 화면 › 일하는 방식 › 앱 개발 › 기준과 참고. 「화면」은 화면마다 한 쪽으로, 지금 앱이 어떤지를 그 화면의 짜임대로 적음</li>
+            <li><b>피드백</b> — 승인한 피드백은 여기 설명으로 옮기고 피드백 목록에서 지움</li>
+            <li><b>확인과 고치기</b> — 툴바 오른쪽 시계가 본문 옆에 이력 · 수정 패널을 엶. 「이력」에서 바뀐 절을 보고 ✓로 확인하고, 틀린 곳은 「수정」에서 본문의 그곳(문단 · 표 칸 · 그림 속 상자)을 눌러 고친 글을 보냄</li>
+          </ul>
         ) : (
-          <p className="about-lead">
-            This About page is the app's single source of truth. It describes the app's goals, its development decisions and how it is implemented now; other documents are detailed notes on it.
-            Users and agents both read it, so it is written to be easy for anyone to read, and agents read it to work out how each feature is implemented and which files it is made of.
-            Agents that fix the app keep the About page and the implementation in step by changing both in the same PR. Each part covers one screen and describes how the app works now, following the layout of the screen. Feedback you approve moves into these descriptions and is deleted from the feedback list.
-            If something is wrong, open the right sidebar with the clock at the right of the toolbar, and in the "Edit" tab click that place in the text (a paragraph, a table cell or a box in a figure), then add your edited text and send it.
-          </p>
+          <ul className="about-pillars">
+            <li><b>Source of truth</b> — records the app's goals, development decisions and current implementation. Other documents are detailed notes on it</li>
+            <li><b>Readers</b> — read by users and agents alike, so written to be easy for anyone</li>
+            <li><b>Agents</b> — read it to work out how each feature is implemented and which files it uses. When they change the app, they change this page in the same PR</li>
+            <li><b>Layout</b> — Start › Screens › How we work › App development › Standards and reference. Under Screens, one part per screen, describing how the app works now in the order of that screen</li>
+            <li><b>Feedback</b> — approved feedback moves into these descriptions and is deleted from the feedback list</li>
+            <li><b>Review and corrections</b> — the clock at the right of the toolbar opens a History · Edit panel beside the text. In "History", see changed sections and mark them reviewed with ✓; for anything wrong, click that place in the text in "Edit" (a paragraph, a table cell or a box in a figure) and send your edited text</li>
+          </ul>
         )}
         <div className="about-legend">
           <span><span className="about-unsure">{t('확인 전', 'Not reviewed')}</span> {t('아직 확인하지 않은 업데이트가 있는 절(왼쪽 목록에는 "확인 N"). 누르면 오른쪽 「이력」이 열려 그 줄로 가고, 그 줄의 ✓(맞아요)를 누르면 확인함이 됩니다', 'A section with an update you have not reviewed (the list on the left shows "Review N"). Click it to open "History" on the right at that row; ✓ (That is right) on the row marks it reviewed')}</span>
           <span><span className="about-pending">{t('반영 대기', 'Waiting to apply')}</span> {t('「수정」 탭으로 고쳐 보낸 절. 반영한 업데이트가 들어오면 사라지고 다시 확인할 차례가 됩니다', 'A section you edited and sent from the "Edit" tab. It goes away when the update that applies it arrives, and the section is yours to review again')}</span>
-          <span><b>{Icon.history}</b> {t('툴바 오른쪽 시계로 본문 옆에 이력 · 수정 패널을 엽니다. 이력 카드를 누르면 그 절로 가서 그 업데이트가 바꾼 문장에 하이라이트가 붙습니다', 'The clock at the right of the toolbar splits the screen and opens a History · Edit panel beside the text. Clicking a history card goes to that section and highlights the sentences that update changed')}</span>
         </div>
-      </Section>
-
-      <Section name={t('내가 이해한 것', 'What I understood')} ui="이해한 것">
-        <ol className="about-understood">
-          {lang === 'ko' ? (<>
-            <li><b>무엇을 위한 앱인가.</b> 여러 연구를 동시에 진행하는 한 사람의 작업대입니다. 노트 쓰기, 직접 유도·계산, 논문 읽기, 할 일과 기록이 창을 바꾸지 않고 한곳에서 이어져야 합니다.</li>
-            <li><b>저장소가 주인이다.</b> 연구마다 이미 있는 저장소의 구조를 앱에 맞게 바꾸지 않습니다. 앱은 그 정본을 읽고 고치며, 남기는 것은 그 저장소의 <code>workbench/</code>에 둡니다. <a className="a" href={toPart('agents')}>에이전트와 안전 ›</a></li>
-            <li><b>원고는 한 글자도 잃지 않는다.</b> 에이전트나 다른 편집기가 같은 파일을 고쳐도 앱은 덮어쓰지 않습니다.</li>
-            <li><b>화면은 "파일이 어디 있나"가 아니라 "내가 무엇을 묻나"로 나눈다.</b> 홈은 모든 프로젝트와 이번 주, 프로젝트 첫 화면은 어디까지 왔고 다음에 무엇을 하나, 지식은 주제마다 내가 아는 것. <a className="a" href={toPart('home')}>홈 ›</a></li>
-            <li><b>글의 역할을 나눈다.</b> 원고는 결과를 모으는 개인 초고이고, 노트는 한 주제 안에서 완결된 증명·유도·계산이나 주장·열린 질문 하나입니다. 여러 연구가 다시 쓰는 지식은 개념노트, 논문 하나의 정리는 문헌노트입니다. 원고는 개인 연구와 초고까지, 공동 집필·투고는 Overleaf에 둡니다. 노트 파일에는 본문만 두고 머리말은 앱이 붙입니다. <a className="a" href={toPart('notes')}>노트 ›</a></li>
-            <li><b>남이 만든 것은 참고 자료.</b> 실제로 가진 PDF·파일만 두고, 노트가 인용한 논문 정보는 bib 항목으로 그 노트 화면에서 봅니다. <a className="a" href={toPart('reading')}>참고 자료 ›</a></li>
-            <li><b>맡긴 일은 내가 판단해 끝낸다.</b> 계산·유도·대조를 에이전트에게 맡길 때 종결 조건을 적고, 에이전트가 채운 보고서를 기록 › 내 차례에서 승인하거나 수정으로 돌려보냅니다. <a className="a" href={toPart('project')}>작업 ›</a></li>
-            <li><b>남긴 말은 에이전트가 이어받는다.</b> 코멘트·질문·할 일·피드백은 파일로 남고, 에이전트가 답하거나 고칩니다. 실제 쓰다 생긴 불편을 새 기능보다 먼저 고칩니다. <a className="a" href={toPart('feedback')}>피드백 ›</a></li>
-            <li><b>같은 일은 같은 모양, 같은 자리.</b> 행동 하나에 이름 하나·기호 하나이고, 같은 일은 한 화면에서만 합니다. 무채색이 기본이고 색은 상태에만 씁니다: <StatusDot s="in-progress" label /> · <StatusDot s="blocked" label /> · <StatusDot s="stopped" label /> · <StatusDot s="solved" label />. <a className="a" href={toPart('design')}>화면 기준 ›</a></li>
-          </>) : (<>
-            <li><b>What the app is for.</b> A workbench for one person running several research projects at the same time. Writing notes, doing derivations and calculations by hand, reading papers, to-dos and records should flow together in one place without switching windows.</li>
-            <li><b>The repository is in charge.</b> The structure of each existing research repository is not reshaped to suit the app. The app reads and edits those sources of truth, and keeps what it leaves in that repository's <code>workbench/</code>. <a className="a" href={toPart('agents')}>Agents and safety ›</a></li>
-            <li><b>Not a single character of a manuscript is lost.</b> Even if an agent or another editor changes the same file, the app does not overwrite it.</li>
-            <li><b>Screens are divided by "what am I asking", not "where is the file".</b> Home is all projects and this week, a project's home screen is how far it has come and what comes next, Knowledge is what I know, by topic. <a className="a" href={toPart('home')}>Home ›</a></li>
-            <li><b>Each kind of writing has its role.</b> A manuscript is a personal draft that gathers results, and a note is one self-contained proof, derivation, calculation, claim or open question within a topic. Knowledge reused across projects is a concept note, and a summary of one paper is a literature note. Manuscripts cover personal research up to a first draft; co-writing and submission happen in Overleaf. Note files hold only the body, and the app adds the preamble. <a className="a" href={toPart('notes')}>Notes ›</a></li>
-            <li><b>What others made is reference material.</b> Only PDFs and files you actually have are kept; paper details a note cites are bib entries, seen on that note's screen. <a className="a" href={toPart('reading')}>Reference materials ›</a></li>
-            <li><b>I close delegated tasks by deciding.</b> When handing a calculation, derivation or comparison to an agent, I write completion criteria, and in the Work tab I approve or request changes on the report the agent filled in. <a className="a" href={toPart('project')}>Work ›</a></li>
-            <li><b>Agents pick up what I leave.</b> Comments, questions, to-dos and feedback are saved as files, and agents answer or fix them. Friction found in real use is fixed before new features. <a className="a" href={toPart('feedback')}>Feedback ›</a></li>
-            <li><b>The same job looks the same and sits in the same place.</b> One name and one symbol per action, and each job is done on only one screen. Neutral is the default, and color is only for status: <StatusDot s="in-progress" label /> · <StatusDot s="blocked" label /> · <StatusDot s="stopped" label /> · <StatusDot s="solved" label />. <a className="a" href={toPart('design')}>Screen standards ›</a></li>
-          </>)}
-        </ol>
       </Section>
     </>
   )
