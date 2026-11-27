@@ -8,6 +8,9 @@ code:
   - apps/web/src/Problems.tsx
   - apps/web/src/Problem*.tsx
   - apps/web/src/problemNames.tsx
+  - apps/web/src/plugins/flow/*
+  - apps/server/src/plugins/flow/*
+  - packages/core/src/plugins/flow/*
   - apps/server/src/problems.ts
   - apps/server/src/routes/problems.ts
   - apps/server/src/mcpProblems.ts
@@ -49,6 +52,8 @@ prs: [424, 427, 428, 429, 430, 431, 432, 434, 435, 439, 440]
 
 - 에이전트는 흐름 하나를 **이어받기 요약**(질문 · 메시지 · 주장과 그 근거 · 폐기 사유 · 다음 후보 · 한도, 3KB 이하)으로 읽고 시작합니다. 그래서 새 대화도 지난 시도를 다시 읽지 않고 이어 갑니다. 형식은 `docs/repo-format.md` 16절, 에이전트 도구는 `docs/agent-mcp.ko.md`에 있습니다.
 
+- 흐름은 첫 내장 플러그인입니다(11/27): 설정 › 기능에서 이 컴퓨터에서 제거하면 사이드바 줄 · 내 차례 수 · 이 화면 · API · 에이전트 MCP 도구가 다시 시작 없이 빠지고, `workbench/problems/`의 파일은 그대로 남아 다시 설치하면 돌아옵니다.
+
 <!-- en -->
 - "Flow" in the left sidebar. This is where new work happens (11/11). A **flow** starts from one question with a yes or no answer; **claims** that can be judged hang under it as a tree, and each claim carries the **attempts** (methods tried) as its grounds, leading to verdicts and a decision on direction (11/13 "a dot is a claim, attempts are its grounds"). One flow is one folder (`workbench/problems/<flow>/`); each claim and each attempt is one file. The screen title follows the kind of project: "Research flow" or "Workflow". The older flow chart of dots and lines and its judgment screen were removed on 11/11; only the look of the chart came back on 11/12 as a view of the present flows (see "Chart and list" below). The old dot files (`workbench/flow/`) stay in the repository and the app no longer reads them.
 
@@ -81,3 +86,5 @@ prs: [424, 427, 428, 429, 430, 431, 432, 434, 435, 439, 440]
 - **Uploading** (11/13): flow files (question, claims, attempts, exceptions) are pushed to GitHub by this computer about 30 seconds after a write, like records (only that folder is committed and pushed, when Settings › Sync has pushing on automatic). So agents in the cloud and on other computers read the question, claims and verdicts you just wrote, and the attempts they push come back with the automatic pull. A failed push shows the same notice as records. With pushing on manual, the app does not push flow files.
 
 - An agent picks up one flow from its **brief** (question, message, claims and their grounds, why attempts were dropped, next candidate and limit, under 3KB), so a new conversation continues without rereading past attempts. The format is in `docs/repo-format.md` §16 and the agent tools in `docs/agent-mcp.md`.
+
+- Flow is the first built-in plugin (11/27): removing it on this computer in Settings › Features takes away its sidebar row, your-turn counts, this screen, the API and the agents' MCP tools without a restart, while the files in `workbench/problems/` stay and come back when it is installed again.
