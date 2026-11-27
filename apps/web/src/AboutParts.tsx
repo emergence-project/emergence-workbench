@@ -79,6 +79,7 @@ export function Intro() {
       </Section>
 
       <Section name={t('이 소개를 읽는 법', 'How to read this page')} ui="읽는 법">
+        <h3 className="about-sub first">{t('이 소개는 무엇인가', 'What this page is')}</h3>
         {lang === 'ko' ? (
           <ul className="about-pillars">
             <li><b>정본</b> — 앱의 목표 · 개발 결정 · 지금 구현을 적는 single source of truth. 다른 문서는 이 소개의 자세한 설명</li>
