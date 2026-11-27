@@ -78,13 +78,11 @@ jobs:
               IFS=. read -r major minor patch <<< "${last#v}"
               version="$major.$minor.$((patch + 1))"
             fi
+            echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "::error::버전은 0.3.0 모양이어야 합니다: $version"; exit 1; }
             tag="v$version"
             if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" >/dev/null 2>&1; then
               echo "::error::$tag 태그가 이미 있습니다. 다른 번호를 적거나 비워 두세요."; exit 1
             fi
-          fi
-          if [ -n "$version" ]; then
-            echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "::error::버전은 0.3.0 모양이어야 합니다: $version"; exit 1; }
           fi
           echo "버전 ${version:-시험판} · 태그 ${tag:-없음}"
           echo "version=$version" >> "$GITHUB_OUTPUT"
@@ -262,7 +260,7 @@ jobs:
         env:
           MODE: ${{ steps.sign.outputs.mode }}
         run: |
-          gate=(--dmg "out/${{ matrix.asset }}" --launch --out "out/${{ matrix.asset }}.gate.json")
+          gate=(--dmg "out/${{ matrix.asset }}" --arch ${{ matrix.arch }} --launch --out "out/${{ matrix.asset }}.gate.json")
           [ -n "$VERSION" ] && gate+=(--version "$VERSION")
           [ "$MODE" = developer-id ] && gate+=(--require-trusted)
           node scripts/ci/release-gate.mjs "${gate[@]}"
@@ -275,10 +273,10 @@ jobs:
           if-no-files-found: ignore
 
   # 태그로 돌았거나 「릴리스로 내기」일 때만: 관문을 통과한 파일을 그 태그의 릴리스에 붙인다 (태그 · 릴리스가 없으면 이 커밋에 만든다)
-  # 맥 일이 실패해도 윈도우 설치 파일은 낸다(맥 dmg만 빠진다). GITHUB_TOKEN으로 만든 태그는 이 파일을 다시 돌리지 않는다(GitHub 규칙)
+  # 맥 일이 실패해도 윈도우 설치 파일은 낸다(맥 dmg만 빠진다). 실행을 취소하면 내지 않는다. GITHUB_TOKEN으로 만든 태그는 이 파일을 다시 돌리지 않는다(GitHub 규칙)
   release:
     needs: [version, windows, mac]
-    if: always() && needs.version.outputs.tag != '' && needs.windows.result == 'success'
+    if: ${{ !cancelled() && needs.version.outputs.tag != '' && needs.windows.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -314,6 +312,13 @@ jobs:
           done
           notes="윈도우: 아래 Assets의 EmergenceWorkbench_x64-setup.exe 하나만 받아 실행하세요. Source code 두 개는 코드 묶음이라 받지 않아도 됩니다. 안내: docs/install-windows.md"
           [ -n "$macs" ] && notes="$notes"$'\n\n'"맥: 칩에 맞는 dmg를 받으세요 (Apple 실리콘은 _aarch64, 인텔은 _x64).$macs"
-          gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
-            || gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$SHA" --title "Emergence Workbench $TAG" --generate-notes --notes "$notes"
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            # 이미 있는 릴리스(손으로 만든 것 · 다시 돌린 실행): 맥 dmg를 붙이면 안내 한 줄을 더한다 (이미 있으면 두지 않는다)
+            body=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json body -q .body)
+            if [ -n "$macs" ] && ! printf '%s' "$body" | grep -q '^맥: '; then
+              gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --notes "$body"$'\n\n'"맥: 칩에 맞는 dmg를 받으세요 (Apple 실리콘은 _aarch64, 인텔은 _x64).$macs"
+            fi
+          else
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$SHA" --title "Emergence Workbench $TAG" --generate-notes --notes "$notes"
+          fi
           gh release upload "$TAG" "${files[@]}" -R "$GITHUB_REPOSITORY" --clobber

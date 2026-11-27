@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
-import { findLeaks, macTrust, sameVersion } from './release-gate.mjs'
+import { chipMismatches, findLeaks, gatePasses, hostCanRun, macTrust, sameVersion } from './release-gate.mjs'
 
 test('판 번호: 윈도우의 네 자리 번호와 릴리스 번호를 같은 판으로 본다', () => {
   assert.equal(sameVersion('0.3.3.0', '0.3.3'), true)
@@ -43,4 +43,26 @@ test('맥 신뢰: Developer ID · 공증 · 스테이플이 모두 있어야 tru
   assert.equal(full.signedBy, 'Developer ID Application: Someone (TEAM123456)')
   // 공증은 됐지만 스테이플이 없으면 오프라인 맥에서 열리지 않는다
   assert.equal(macTrust({ details: devId, assess: 'accepted\nsource=Notarized Developer ID', assessOk: true, stapled: false }).trusted, false)
+})
+
+test('켜 보기를 건너뛰는 것은 이 기계가 그 칩을 돌릴 수 없을 때뿐', () => {
+  assert.equal(hostCanRun('arm64', 'arm64', false), true)
+  assert.equal(hostCanRun('arm64', 'x86_64', true), true)
+  assert.equal(hostCanRun('arm64', 'x86_64', false), false)
+  assert.equal(hostCanRun('x86_64', 'arm64', true), false)
+  assert.equal(hostCanRun('arm64', 'x86_64 arm64', false), true)
+  // 칩을 읽지 못하면 여기서는 거짓이지만, 관문은 그런 Node를 건너뛰지 않고 켜 보게 해 거기서 실패시킨다
+  assert.equal(hostCanRun('arm64', '', true), false)
+})
+
+test('칩: x64 dmg에 arm64 부품이 하나라도 들면 그 파일을 짚는다', () => {
+  const files = [{ file: 'Contents/MacOS/emergence-workbench', archs: 'x86_64' }, { file: 'node/bin/node', archs: 'x86_64' }, { file: 'pty.node', archs: 'arm64' }]
+  assert.deepEqual(chipMismatches('x86_64', files), ['pty.node (arm64)'])
+  assert.deepEqual(chipMismatches('arm64', [{ file: 'u', archs: 'x86_64 arm64' }]), [])
+  assert.deepEqual(chipMismatches('arm64', [{ file: 'broken', archs: '' }]), ['broken (알 수 없음)'])
+})
+
+test('판정: 단단한 검사 하나라도 어긋나면 실패, 무른 검사는 적기만', () => {
+  assert.equal(gatePasses([{ ok: true, hard: true }, { ok: false, hard: false }]), true)
+  assert.equal(gatePasses([{ ok: true, hard: true }, { ok: false, hard: true }]), false)
 })

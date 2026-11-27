@@ -1,13 +1,15 @@
 // 릴리스 관문 (docs/release-contract.md): 사람이 받을 파일 그대로를 CI의 새 기계에서 검사한다. .github/workflows/desktop.yml이 부른다.
 //   node scripts/ci/release-gate.mjs --dmg <파일.dmg> | --app <…app> | --dir <윈도우 설치 폴더>
-//        [--version 0.3.3] [--require-trusted] [--launch] [--out gate.json]
+//        [--version 0.3.3] [--arch arm64|x64] [--require-trusted] [--launch] [--out gate.json]
 // 검사 (번호는 계약의 절):
 //   1. 판 번호: build.json과 앱 정보(맥 Info.plist, 윈도우 실행 파일 정보)가 --version과 같은지 (계약 2). --version이 없으면 시험판으로 적기만 한다
 //   2. 만든 기계의 경로가 묶음의 글 파일에 없는지: 이 기계의 집 폴더와 저장소 폴더 (계약 1)
+//   2-1. (맥, --arch) 칩: 묶은 Node · 네이티브 부품 · 창 실행 파일이 모두 그 칩용인지 (x64 dmg에 arm64 부품이 들면 인텔 맥에서 서버가 뜨지 못한다)
 //   3. 서명: 맥은 묶음 서명이 온전한지(codesign --verify --deep --strict)를 늘 보고, 공증 · 스테이플이 됐는지를 trusted로 적는다.
 //      --require-trusted면 trusted가 아닐 때 실패한다. 윈도우는 Authenticode 서명 여부를 적기만 한다 (계약 3)
 //   4. (--launch) 묶은 서버를 빈 집 폴더로 켜 보는 desktop-smoke.mjs를 그 묶음에 돌린다.
-//      맥에서 trusted면 내려받은 것처럼 격리 표시(com.apple.quarantine)를 붙인 사본으로 돌린다 (계약 1 · 7)
+//      맥에서 trusted면 내려받은 것처럼 격리 표시(com.apple.quarantine)를 붙인 사본으로 돌린다 (계약 1 · 7).
+//      이 기계가 그 칩을 돌릴 수 없을 때(arm64 기계에 Rosetta가 없는 x64)만 건너뛰고, 그 밖의 실패는 모두 관문 실패다
 // 결과를 표로 알리고(GitHub이면 작업 요약에도) --out에 JSON으로 남긴다. 릴리스 작업은 trusted가 아닌 맥 묶음을 붙이지 않는다.
 import { execFileSync, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -56,6 +58,23 @@ export function macTrust({ details, assess, assessOk, stapled }) {
   return { signedBy: developerId ? authority : /Signature=adhoc/.test(details) ? 'ad-hoc' : authority ?? 'none', developerId, notarized, stapled, trusted: developerId && notarized && stapled }
 }
 
+/** lipo가 쓰는 칩 이름 */
+export const LIPO_ARCH = { arm64: 'arm64', x64: 'x86_64' }
+
+/** 이 기계가 그 칩의 실행 파일을 돌릴 수 있는지: 같은 칩이거나, arm64 기계에서 x86_64를 Rosetta로 */
+export function hostCanRun(host, archs, rosetta) {
+  const list = archs.split(/\s+/).filter(Boolean)
+  return list.includes(host) || (host === 'arm64' && list.includes('x86_64') && rosetta)
+}
+
+/** 묶음의 실행 파일들이 모두 원하는 칩을 담는지. 어긋난 파일 목록 (빈 목록이면 맞음) */
+export function chipMismatches(expected, files) {
+  return files.filter((f) => !f.archs.split(/\s+/).includes(expected)).map((f) => `${f.file} (${f.archs || '알 수 없음'})`)
+}
+
+/** 관문 판정: 단단한(hard) 검사가 하나라도 어긋나면 실패. 무른 검사는 적기만 한다 */
+export const gatePasses = (checks) => checks.every((c) => c.ok || !c.hard)
+
 const run = (cmd, args, opts = {}) => spawnSync(cmd, args, { encoding: 'utf8', ...opts })
 
 async function main() {
@@ -64,6 +83,8 @@ async function main() {
   const want = opt('--version')
   const requireTrusted = args.includes('--require-trusted')
   const launch = args.includes('--launch')
+  const arch = opt('--arch')
+  if (arch && !(arch in LIPO_ARCH)) { console.error(`모르는 --arch: ${arch} (arm64 또는 x64)`); process.exit(2) }
   const outFile = opt('--out')
   const given = ['--dmg', '--app', '--dir'].filter((o) => opt(o))
   if (given.length !== 1) { console.error('사용법: release-gate.mjs --dmg <파일> | --app <앱> | --dir <설치 폴더> [--version x.y.z] [--require-trusted] [--launch] [--out gate.json]'); process.exit(2) }
@@ -84,11 +105,12 @@ async function main() {
     if (dmg) {
       const mnt = path.join(tmp, 'mnt')
       fs.mkdirSync(mnt)
-      execFileSync('hdiutil', ['attach', '-nobrowse', '-readonly', '-mountpoint', mnt, dmg], { stdio: 'ignore' })
+      const attach = run('hdiutil', ['attach', '-nobrowse', '-readonly', '-mountpoint', mnt, dmg])
+      if (attach.status !== 0) throw new Error(`dmg를 열지 못했습니다: ${(attach.stderr || attach.stdout).trim()}`)
       try {
         check('dmg 안에 Applications 바로가기', fs.existsSync(path.join(mnt, 'Applications')), fs.existsSync(path.join(mnt, 'Applications')) ? '있음' : '없음 (끌어다 놓을 자리가 안 보인다)', false)
         execFileSync('ditto', [path.join(mnt, APP_NAME), path.join(tmp, APP_NAME)])
-      } finally { run('hdiutil', ['detach', mnt, '-quiet']) }
+      } finally { if (run('hdiutil', ['detach', mnt, '-quiet']).status !== 0) run('hdiutil', ['detach', mnt, '-force', '-quiet']) }
       app = path.join(tmp, APP_NAME)
     }
     const base = mac ? app : dir
@@ -118,8 +140,11 @@ async function main() {
       trust = macTrust({ details, assess: assess.stderr + assess.stdout, assessOk: assess.status === 0, stapled })
       const why = trust.trusted ? `${trust.signedBy}, 공증 · 스테이플 됨` : `${trust.signedBy}${trust.developerId ? '' : ' (Developer ID 아님)'}, 공증 ${trust.notarized ? '됨' : '안 됨'}, 스테이플 ${trust.stapled ? '됨' : '안 됨'}: 받은 사람의 맥이 열기를 막는다`
       check('맥이 믿는 앱 (Gatekeeper)', trust.trusted, why, requireTrusted)
-      const archs = run('lipo', ['-archs', path.join(standalone, 'node/bin/node')]).stdout.trim()
-      check('칩', !!archs, `묶은 Node: ${archs || '알 수 없음'}`, false)
+      const binaries = machOFiles(app, standalone).map((file) => ({ file: path.relative(app, file), archs: run('lipo', ['-archs', file]).stdout.trim() }))
+      if (arch) {
+        const off = chipMismatches(LIPO_ARCH[arch], binaries)
+        check(`칩 (${arch})`, off.length === 0 && binaries.length > 0, off.length ? `다른 칩: ${off.slice(0, 5).join(', ')}` : `실행 파일 ${binaries.length}개 모두 ${LIPO_ARCH[arch]}`)
+      } else check('칩', true, binaries.map((b) => `${path.basename(b.file)} ${b.archs}`).join(', '), false)
     } else {
       const exe = mainExe(dir)
       const sig = exe ? run('powershell', ['-NoProfile', '-Command', `(Get-AuthenticodeSignature -LiteralPath '${exe.replace(/'/g, "''")}').Status`]).stdout.trim() : 'no exe'
@@ -138,9 +163,11 @@ async function main() {
         execFileSync('xattr', ['-w', '-r', 'com.apple.quarantine', flag, copy])
         target = path.join(copy, 'Contents/Resources/standalone')
       } else if (mac) check('격리 표시로 켜 보기', true, '건너뜀: 공증 전이라 맥이 막는 것이 정해져 있다 (위 Gatekeeper 줄)', false)
-      const node = path.join(target, mac ? 'node/bin/node' : 'node/node.exe')
-      const runnable = !mac || canRun(node)
-      if (!runnable) check('켜 보기', true, `건너뜀: 이 기계가 묶은 Node의 칩(${run('lipo', ['-archs', node]).stdout.trim()})을 돌리지 못한다 (Rosetta 없음)`, false)
+      const nodeArchs = mac ? run('lipo', ['-archs', path.join(target, 'node/bin/node')]).stdout.trim() : ''
+      const host = mac ? run('uname', ['-m']).stdout.trim() : ''
+      // 칩을 읽지 못한 Node(망가진 파일)는 건너뛰지 않고 켜 본다: 거기서 실패해야 한다
+      const runnable = !mac || !nodeArchs || hostCanRun(host, nodeArchs, run('arch', ['-x86_64', '/usr/bin/true']).status === 0)
+      if (!runnable) check('켜 보기', true, `건너뜀: 이 기계(${host})가 묶은 Node의 칩(${nodeArchs || '알 수 없음'})을 돌리지 못한다 (Rosetta 없음)`, false)
       else {
         const smoke = run(process.execPath, [path.join(root, 'scripts/ci/desktop-smoke.mjs'), '--standalone', target], { stdio: 'inherit', env: { ...process.env, SMOKE_CODEX: '0' } })
         check('받은 묶음으로 켜 보기 (빈 집 폴더, 개발 도구 없음)', smoke.status === 0, smoke.status === 0 ? 'desktop-smoke 통과' : `desktop-smoke 실패 (${smoke.status ?? smoke.signal})`)
@@ -150,7 +177,7 @@ async function main() {
     check('관문 실행', false, String(e?.message ?? e))
   } finally { for (const c of cleanups.reverse()) { try { c() } catch { /* 지우지 못한 임시 폴더는 다음 실행이 덮는다 */ } } }
 
-  const ok = checks.every((c) => c.ok || !c.hard)
+  const ok = gatePasses(checks)
   const result = { ok, platform: mac ? 'darwin' : 'win32', version: want ?? null, trusted: trust?.trusted ?? false, signedBy: trust?.signedBy ?? null, checks }
   if (outFile) fs.writeFileSync(outFile, JSON.stringify(result, null, 2) + '\n')
   const summary = [`### 릴리스 관문 (${mac ? '맥' : '윈도우'}${want ? ` ${want}` : ' 시험판'}): ${ok ? '통과' : '실패'}${trust?.trusted ? '' : ' · 서명 · 공증 전'}`, '', '| | 검사 | 결과 |', '| --- | --- | --- |',
@@ -178,9 +205,15 @@ function exeVersion(dir) {
   return r.status === 0 ? r.stdout.trim() || null : null
 }
 
-/** 이 기계가 그 Node를 돌릴 수 있는지 (arm64 기계의 x64 Node는 Rosetta가 있어야 한다) */
-function canRun(node) {
-  return run(node, ['-e', '0']).status === 0
+/** 칩을 볼 실행 파일: 창(Contents/MacOS), 묶은 Node, 네이티브 부품(.node)과 그 도우미(spawn-helper) */
+function machOFiles(app, standalone) {
+  const macos = path.join(app, 'Contents/MacOS')
+  const files = fs.existsSync(macos) ? fs.readdirSync(macos).map((f) => path.join(macos, f)) : []
+  files.push(path.join(standalone, 'node/bin/node'))
+  for (const e of fs.readdirSync(standalone, { recursive: true, withFileTypes: true })) {
+    if (e.isFile() && (e.name.endsWith('.node') || e.name === 'spawn-helper')) files.push(path.join(e.parentPath, e.name))
+  }
+  return files.filter((f) => fs.existsSync(f))
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) await main()
