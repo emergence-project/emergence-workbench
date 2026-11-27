@@ -2,19 +2,25 @@ import { mdSection } from './md'
 import type { AboutPart } from './types'
 
 const structure = mdSection('layout/structure')
-const terms = mdSection('layout/terms')
+const project = mdSection('layout/project')
+const library = mdSection('layout/library')
+const agents = mdSection('layout/agents')
+const networking = mdSection('layout/networking')
+const feedback = mdSection('layout/feedback')
+const settings = mdSection('layout/settings')
+const status = mdSection('layout/status')
 
-// 소개 › 구성과 용어 (#/about/layout). 11/27 「화면」 묶음과 이름이 겹쳐 「화면과 용어」에서 바꿈. 11/27 사용자 "구성요소의 용어와 개념을 화면과 함께 먼저, 원칙과 규칙은 그다음":
-// 앱의 구성(프로젝트 · 라이브러리 …, 11/27 사용자 "앱의 구성과 화면 구성으로 나눠서") (11/28 사용자: 화면 구성은 구성에 합치고 화면별 디자인은 화면 기준에서) 다음에 용어를 화면의 자리 순서로 푼다. 원칙은 「일하는 방식」 맨 앞 쪽(principles)에 있다.
+// 소개 › 앱의 구성 (#/about/layout). 11/28 사용자 "2부를 앱의 구성으로 두고 섹션별로": 한눈에(그림 둘) 다음에 구성요소마다 절 하나(정의 · 하위 요소 · 저장 위치 · 자세히).
+// 구성요소의 정의는 여기 한 곳에만 두고, 뒤의 「화면」 묶음은 동작을 설명한다. 화면별 모양은 화면 기준(design/), 원칙은 「일하는 방식」 맨 앞(principles).
 
 export const ko: AboutPart = {
-  id: 'layout', title: '구성과 용어',
-  sub: '앱 전체가 어떻게 짜여 있는지와, 구성요소마다의 말뜻입니다. 화면 하나하나의 자세한 동작은 다음 「화면」 묶음에 있습니다.',
-  sections: [structure.ko, terms.ko],
+  id: 'layout', title: '앱의 구성',
+  sub: '앱을 이루는 구성요소마다 무엇이고, 무엇을 담고, 어디에 저장되는지입니다. 화면 하나하나의 자세한 동작은 다음 「화면」 묶음에 있습니다.',
+  sections: [structure.ko, project.ko, library.ko, agents.ko, networking.ko, feedback.ko, settings.ko, status.ko],
 }
 
 export const en: AboutPart = {
-  id: 'layout', title: 'Structure and terms',
-  sub: 'How the whole app is put together, and what each component is called. How each screen works in detail is in the Screens group that follows.',
-  sections: [structure.en, terms.en],
+  id: 'layout', title: 'How the app is built',
+  sub: 'For each component of the app: what it is, what it holds, and where it is stored. How each screen works in detail is in the Screens group that follows.',
+  sections: [structure.en, project.en, library.en, agents.en, networking.en, feedback.en, settings.en, status.en],
 }
