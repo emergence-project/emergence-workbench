@@ -1,6 +1,6 @@
 {
   "lines": {
-    "packages/core/src/chat-auto.ts": 609
+    "packages/core/src/chat-auto.ts": 605
   },
   "casts": {
     "apps/server/src/agentChanges.ts": 4,

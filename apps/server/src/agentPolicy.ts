@@ -7,6 +7,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { CENTRAL_RID, type ChatMode, type ChatScope, type ChatWrite } from '@rw/core/contract/agentChats'
 import { autoOf, commandKind, heredocBodiesRemoved, LIBRARY_RID, neverBypass, writesFiles, runProgram, runPrograms, stateOnlyCommand, touchesSecret, unreadWhy, type ChatAutoValues, type Unread, type ChatKind, type NeverBypass } from '@rw/core'
+import { placer } from './agentPlaces.js'
 import { commandCritical } from './critical.js'
 import { SANDBOX_NET_TOOL } from './agentSandbox.js'
 import { isInside } from './fsutil.js'
@@ -28,9 +29,10 @@ export const FREE_TOOLS = new Set(['Skill', 'TodoWrite', 'Task', 'Agent', 'ToolS
 export const PLAN_TOOL = 'ExitPlanMode'
 /** 파일을 바로 쓰는 도구: 1단계에서는 막는다 (노트는 edit_note로) */
 export const FILE_WRITE_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'] as const
-export const MCP_WRITES = new Set(['new_note', 'edit_note', 'edit_concept', 'add_record', 'answer_record', 'problem_propose', 'problem_prepare', 'attempt_add', 'attempt_start', 'attempt_report', 'attempt_verdict', 'direction_report'])
-/** 앱 고치기 대화가 막는 연구 쪽 쓰기 (위 + 맡긴 일 · 일지) */
-export const RESEARCH_WRITES = new Set([...MCP_WRITES, 'add_task', 'report_task', 'add_journal'])
+// 맡긴 일 · 일지 쓰기와 흐름의 claim_add · attempt_record · problem_exception 도 쓰기다 (11/27 보안 검토: 빠져 있어 읽기 전용 · 계획 승인 전에도 묻지 않고 썼다)
+export const MCP_WRITES = new Set(['new_note', 'edit_note', 'edit_concept', 'add_record', 'answer_record', 'problem_propose', 'problem_prepare', 'attempt_add', 'attempt_start', 'attempt_report', 'attempt_verdict', 'direction_report', 'claim_add', 'attempt_record', 'problem_exception', 'add_task', 'report_task', 'checkpoint_task', 'add_journal'])
+/** 앱 고치기 대화가 막는 연구 쪽 쓰기 */
+export const RESEARCH_WRITES = MCP_WRITES
 /** 앱 고치기 대화만 쓰는 앱 MCP 도구: 커밋해 PR 열기 · CI 결과 */
 export const APP_SUBMIT = 'app_submit'
 export const APP_CHECKS = 'app_checks'
@@ -310,7 +312,10 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
     // 읽는 도구는 ~ 를 홈으로 푼다: 풀지 않고 보면 ~/.zshrc 가 프로젝트 안의 「~」 폴더로 읽혀 묻지 않았다 (11/25 검토)
     const p = pathOf(input).replace(/^~(?=\/|$)/, os.homedir())
     const base = p ? path.resolve(ctx.repo, p) : ctx.repo
-    const ok = (at: string) => isInside(ctx.repo, at) || at === ctx.repo || ctx.readable.some((d) => at === d || isInside(d, at))
+    // 링크를 따라간 실제 자리로 본다 (11/27 보안 검토: 프로젝트 안의 링크가 ~/.ssh 를 가리키면 묻지 않고 읽혔다)
+    const inRoots = placer([ctx.repo, ...ctx.readable])
+    const rawBase = p ? (path.isAbsolute(p) ? p : `${ctx.repo}/${p}`) : ctx.repo
+    const ok = (at: string) => inRoots(at, at === base ? rawBase : undefined)
     // Glob의 무늬가 폴더를 벗어나면(/etc/** · ../../**) 그 자리를 본다: 별표 앞까지가 찾는 폴더다
     const pat = tool === 'Glob' ? str(input.pattern).replace(/^~(?=\/|$)/, os.homedir()) : ''
     const wild = pat.split('/').findIndex((seg) => /[*?[{]/.test(seg))
@@ -401,12 +406,13 @@ function judgeCommand(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
   return readFully(ctx, cmd, summary, commandCore(ctx, cmd, summary))
 }
 function commandCore(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
-  const roots = [ctx.repo, ...ctx.readable]
-  const does = commandKind(cmd, { cwd: ctx.repo, home: os.homedir(), inside: (abs) => roots.some((d) => abs === d || isInside(d, abs)) })
+  const does = commandKind(cmd, { cwd: ctx.repo, home: os.homedir(), inside: placer([ctx.repo, ...ctx.readable]), slashes: true })
   const auto = ctx.auto?.() ?? autoOf({ write: ctx.write, mode: ctx.mode })
   const what = clip(cmd, 80)
   const gated = ctx.mode === 'plan' && !ctx.planOk
   if (ctx.mode === 'auto' && ctx.write !== 'read') return autoCore(ctx, cmd, summary)
+  // 읽기 전용: 새 자리와 주고받는 git 가운데 저장소를 바꾸는 것(설정 쓰기 · 원격 정하기 · 받기)은 그 git 때문에 밖이 되어도 전처럼 막는다 (11/27 검토)
+  if (ctx.write === 'read' && does === 'outside' && GIT_REPO_WRITE.test(cmd) && commandKind(cmd, { cwd: ctx.repo, home: os.homedir(), inside: () => true }) === 'outside') return { kind: 'deny', reason: t('읽기만 하는 대화라 고치지 않습니다', 'This conversation is read-only'), message: 'This conversation is read-only: do not change, move or delete files. Tell the user what you would change instead.' }
   if (does === 'read') {
     if (auto.read) return { kind: 'allow' }
     return { kind: 'ask', summary, key: 'read', label: t('읽기', 'Read'), does, turnOn: 'read' }
@@ -415,14 +421,16 @@ function commandCore(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
     if (ctx.write === 'read') return { kind: 'deny', reason: t('읽기만 하는 대화라 고치지 않습니다', 'This conversation is read-only'), message: 'This conversation is read-only: do not change, move or delete files. Tell the user what you would change instead.' }
     if (gated) return { kind: 'deny', reason: t('계획을 승인하기 전이라 고치지 않습니다', 'Not changed before the plan is approved'), message: `Plan first: do not change anything yet. When your plan is ready, call ${PLAN_TOOL} with the plan; the user approves it in the app, then you can make the changes.` }
     if (does === 'delete') return { kind: 'ask', summary, key: `delete:${cmd}`, label: t(`삭제 · ${what}`, `Delete · ${what}`), does, once: true }
-    if (ctx.mode === 'edit') return { kind: 'allow' }
+    // 편집 자동 수락이 묻지 않고 맡는 편집은 git 내부(.git: 훅 · 설정은 git이 실행한다) 밖만 (11/27 보안 검토). 링크로 밖을 가리키는 곳은 위의 does 가 이미 밖이다
+    if (ctx.mode === 'edit') return touchesGit(ctx, cmd) ? gitAsk(summary, cmd, what) : { kind: 'allow' }
     return { kind: 'ask', summary, key: 'edit', label: t('편집', 'Edit'), does, turnOn: 'edit' }
   }
   if (does === 'run') {
     // 「늘」은 줄 안의 실행 프로그램이 모두 허락됐을 때만 (pnpm test 늘이 `pnpm test && ./deploy.sh`를 묻지 않고 돌리지 않게)
     const progs = runPrograms(cmd)
     const missing = progs.filter((p) => !ctx.always?.(`run:${p}`))
-    if (auto.run || (progs.length > 0 && !missing.length)) return { kind: 'allow' }
+    // 묻지 않고 돌리는 실행도 git 내부(훅 · 설정)를 건드리면 한 번 묻는다 (11/27 검토)
+    if (auto.run || (progs.length > 0 && !missing.length)) return touchesGit(ctx, cmd) ? gitAsk(summary, cmd, what) : { kind: 'allow' }
     const prog = missing[0] ?? runProgram(cmd)
     return { kind: 'ask', summary, key: `run:${prog}`, label: t(`실행 · ${prog}`, `Run · ${prog}`), does }
   }
@@ -433,6 +441,17 @@ function commandCore(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
   }
   return { kind: 'ask', summary, key: `${does}:${cmd}`, label: t(`외부 · ${what}`, `Outside · ${what}`), does: 'outside', once: true }
 }
+
+/**
+ * 명령이 git 내부(.git)를 건드리는지 (11/27 보안 검토): / 가 든 낱말까지 실제 자리로(링크를 따라, 그 자리에 .git 이 있을 때) 본다.
+ * cd "$(git rev-parse --git-dir)" 처럼 git 폴더로 옮겨 가는 치환도 그렇게 본다. 무늬 · 셸의 다른 꼴로 비켜 가는 것은 OS 격리가 막을 몫이다
+ */
+const touchesGit = (ctx: PolicyCtx, cmd: string) => leaves(ctx, cmd, [ctx.repo, ...ctx.readable])
+/** roots 밖이나 git 내부를 건드리는지 (자동 모드는 roots = 작업 폴더만: 함께 읽는 폴더도 고치지 않는다) */
+const leaves = (ctx: PolicyCtx, cmd: string, roots: string[]) => GIT_DIR_CD.test(cmd) || commandKind(cmd, { cwd: ctx.repo, home: os.homedir(), inside: placer(roots, { noGit: true }), slashes: true }) === 'outside'
+const GIT_REPO_WRITE = /\bgit\b[^;&|\n]*\s(config|fetch|pull)\b|\bgit\b[^;&|\n]*\sremote\s+(add|set-url)\b/
+const GIT_DIR_CD = /\b(cd|pushd)\s+["']?(\$\(|`)[^)`]*(--git-dir|--git-path|--git-common-dir|--absolute-git-dir|\.git\b)|\b(cd|pushd)\s+["']?\$\{?GIT_DIR\b/
+const gitAsk = (summary: string, cmd: string, what: string): Verdict => ({ kind: 'ask', summary, key: `outside:${cmd}`, label: t(`git 내부 · ${what}`, `Git internals · ${what}`), does: 'outside', once: true })
 
 /** pnpm install --frozen-lockfile: 잠금 파일 그대로 까는 것이라 새 꾸러미를 받지 않는다 (작업 폴더를 처음 열 때) */
 // (--옵션\s*)* 꼴은 맞지 않는 긴 줄에서 되짚기가 폭발한다(옵션 28개에 6초): 옵션 사이 빈칸을 꼭 하나 이상으로
@@ -465,7 +484,7 @@ function autoCore(ctx: PolicyCtx, cmd: string, summary: string, on: Pick<ChatAut
   }
   if (anywhere === 'read') return on.read ? { kind: 'allow' } : { kind: 'ask', summary, key: 'read', label: t('읽기', 'Read'), does: 'read', turnOn: 'read' }
   // 편집 · 실행이 작업 폴더 밖 경로를 건드리면 묻는다 (고치기는 이 대화의 작업 폴더 안에서만, 함께 읽는 폴더도 고치지 않는다)
-  if (commandKind(cmd, { cwd: ctx.repo, home: os.homedir(), inside: (abs) => abs === ctx.repo || isInside(ctx.repo, abs) }) === 'outside') return once('outside', t('폴더 밖', 'Outside the folder'))
+  if (leaves(ctx, cmd, [ctx.repo])) return once('outside', t('폴더 밖 · git 내부', 'Outside the folder · git internals'))
   if (anywhere === 'edit') return { kind: 'allow' }
   const progs = runPrograms(cmd)
   if (on.run || (progs.length > 0 && progs.every((p) => ctx.always?.(`run:${p}`)))) return { kind: 'allow' }

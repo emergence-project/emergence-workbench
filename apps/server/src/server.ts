@@ -263,6 +263,9 @@ if (bundled && process.env.RW_SANDBOX !== '1') {
 }
 // 설치 파일로 깐 앱: 창이 켤 때마다 만든 열쇠(appKey.ts). 예제 모드는 쓰지 않는다
 const serverKey = process.env.RW_SANDBOX !== '1' && process.env.RW_KEY ? process.env.RW_KEY : undefined
+// 열쇠는 이 서버만 쥔다 (11/27 보안 검토): 이 서버가 띄우는 git · 에이전트 · 터미널이 물려받지 않게 환경에서 뺀다. 앱 안 에이전트의 MCP는 열쇠를 따로 받고,
+// 바깥 MCP 입구(pnpm mcp)는 포트도 없으면 server.json(이 사용자만 읽음)에서 포트와 열쇠를 함께 찾는다 (appKey.ts serverTarget)
+if (process.env.RW_KEY) { delete process.env.RW_KEY; delete process.env.RW_PORT }
 const app = buildApp({ configDir, google, ...(process.env.RW_SANDBOX === '1' && { agentRunner: sampleAgentRunner, agentApp: sampleAppWork(path.join(configDir, 'agent-worktrees'), path.join(feedbackDir, 'pictures')) }), watch: true, sandbox: process.env.RW_SANDBOX === '1', ...(process.env.RW_SANDBOX === '1' && running && { aboutRepo: { root: repoRoot, running } }), feedbackDir, feedbackPublish: process.env.RW_SANDBOX !== '1' && (!!personal || !!process.env.RW_FEEDBACK_DIR), feedbackAutoPublishMs: 30_000, feedbackRelay: process.env.RW_SANDBOX === '1' || personal || process.env.RW_FEEDBACK_DIR ? undefined : (process.env.RW_FEEDBACK_RELAY ?? FEEDBACK_RELAY_URL) || undefined, feedbackSync: personal && !process.env.RW_FEEDBACK_DIR ? () => pullPersonal(personalDir) : undefined, personalDir: personal ? personalDir : undefined, appRepo, appAutoUpdate: { everyMs: 10 * 60_000, idleMs: 5 * 60_000 }, researchAutoPullMs: process.env.RW_SANDBOX === '1' ? undefined : 10 * 60_000, peoplePapersMs: process.env.RW_SANDBOX === '1' ? undefined : 6 * 60 * 60_000, recordsAutoPublishMs: process.env.RW_SANDBOX === '1' ? undefined : 30_000, appVersion: (running ?? bundled?.commit)?.slice(0, 7), ...(bundled && { bundled: { commit: bundled.commit ?? '', builtAt: bundled.builtAt ?? '', ...(bundled.version && { version: bundled.version }) } }), backup, port, ...(serverKey && { key: serverKey }) })
 
 // RW_STATIC=1 (실사용 서비스): 빌드한 화면을 이 서버가 함께 내보낸다
