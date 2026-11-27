@@ -18,6 +18,8 @@ PR마다 GitHub Actions CI(`.github/workflows/ci.yml`: type-check·test·build)�
 - 비밀값: `secretStore.ts`
 - CI와 검사 스크립트: `.github/`, `scripts/ci/`
 
+**내려받는 앱 (2026-11-27 사용자 결정 "배포 문제는 증상 말고 근본적으로"):** 설치 파일 · dmg에 드는 것(창 `desktop/`, 묶기 `scripts/bundle-app.mjs`, 묶이는 서버 · 화면 코드)은 `docs/release-contract.md`의 계약을 지킨다. 저장소 폴더 · 개발 도구 · 만든 기계의 경로 · 관리자의 서버나 계정에 기대는 것을 설치판에 넣지 않고, 관리자에게 무엇이든 보내는 기능은 사용자가 켜기 전에는 끈다. 릴리스에는 `scripts/ci/release-gate.mjs`(관문)를 통과한 파일만 붙고 맥 dmg는 공증된 것만 붙는다(`.github/workflows/desktop.yml`). 관문이 막으면 검사를 끄거나 우회하지 말고 막힌 까닭을 고친다.
+
 PR 설명에는 이번에 하지 않은 것을 `Not done:` 한 줄 이상으로 적는다(없으면 "없음"). 브랜치 이름은 `claude/…` · `codex/…`이고 CI 첫 단계가 검사한다(바깥 fork PR은 빼고).
 
 시작 전에 열린 PR을 확인하고, 같은 파일을 고치는 열린 PR이 있으면 먼저 알린다(2026-11-27 완화: 예전 "열린 PR은 한 번에 하나"는 11월 PR의 84%가 지키지 않았고 되돌린 PR은 0개였다. 근거는 `docs/rules/registry.json` `one-open-pr`). 앱 안 「앱 고치기」 대화(`claude/app-…`)는 앱이 파일 겹침을 막는다. 같은 화면·기능을 고친 것과 그에 딸린 문서 수정은 한 PR로 묶고, 파일 안전 수정(내용 유실·덮어쓰기)과 서로 관계없는 수정은 따로 올린다.

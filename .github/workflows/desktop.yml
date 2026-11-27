@@ -1,17 +1,23 @@
-# 윈도우용 내려받는 앱(설치 파일 .exe)을 GitHub Actions의 윈도우 기계에서 만든다. 관리자의 컴퓨터가 맥이라 윈도우 빌드는 여기서만 한다.
-# 하는 일: 서버 · 화면 · Node를 묶고(scripts/bundle-app.mjs) → 그 서버가 윈도우에서 도는지 보고 화면을 찍고(scripts/ci/desktop-smoke.mjs)
-#          → Tauri 창을 NSIS 설치 파일로 만든다. 설치 파일과 그림은 산출물 windows-installer · windows-shots로 남는다.
+# 내려받는 앱(윈도우 설치 파일 .exe, 맥 .dmg)을 GitHub Actions의 새 기계에서 만들고, 사람이 받을 파일 그대로를 릴리스 관문에 통과시킨다.
+# 계약: docs/release-contract.md (사람이 받는 것은 이 저장소 폴더가 아니라 CI가 만든 파일이다).
+# 하는 일:
+#   version  릴리스 번호를 한 번 정한다(계약 2). 뒤의 일은 모두 이 번호를 받아 쓴다
+#   windows  서버 · 화면 · Node를 묶고(scripts/bundle-app.mjs) → 묶은 서버가 윈도우에서 도는지 보고 화면을 찍고(scripts/ci/desktop-smoke.mjs)
+#            → NSIS 설치 파일을 만들어 → 조용히 깔고 → 깐 폴더로 릴리스 관문(scripts/ci/release-gate.mjs)
+#   mac      칩마다(arm64 · x64) 묶고 → 앱 · dmg를 만들고(서명 열쇠가 있으면 Developer ID 서명 · 공증) → dmg 안의 앱으로 릴리스 관문
+#   release  관문을 통과한 파일만 릴리스에 붙인다. 맥 dmg는 공증된(trusted) 것만 붙인다: 공증 전 dmg는 받은 사람의 맥이 열기를 막는다
 # 언제 도나:
 # - 묶기 · 창 · 서버 · 이 파일을 바꾼 PR (서버가 윈도우에서 도는지 PR마다 본다) (Actions 화면에서 손으로도 돌릴 수 있다)
-#   PR에서는 설치 파일(Tauri 빌드, 약 6분)을 창(desktop/) · 묶기 · 이 파일을 바꾼 PR에서만 만든다 (11/20 "검사 시간이 병목").
+#   PR에서는 설치 파일 · dmg(Tauri 빌드, 약 6분)를 창(desktop/) · 묶기 · 관문 · 이 파일을 바꾼 PR에서만 만든다 (11/20 "검사 시간이 병목").
 #   서버만 바꾼 PR은 윈도우 시험 · 묶기 · 묶은 서버 돌려 보기까지(약 1분 반)만 한다. 태그 · 손으로 돌림은 늘 만든다.
-# - 릴리스: Actions 화면 › Desktop (Windows) › Run workflow에서 「릴리스로 내기」를 켜고 돌린다(버전을 비우면 마지막 릴리스의 다음 번호).
-#   같은 일을 한 뒤 그 번호의 태그와 GitHub 릴리스를 만들고 설치 파일을 붙인다 (내려받기 쪽: 릴리스의 Assets).
+# - 릴리스: Actions 화면 › Desktop › Run workflow에서 「릴리스로 내기」를 켜고 돌린다(버전을 비우면 마지막 릴리스의 다음 번호).
+#   같은 일을 한 뒤 그 번호의 태그와 GitHub 릴리스를 만들고 관문을 통과한 파일을 붙인다 (내려받기 쪽: 릴리스의 Assets).
 #   태그를 올릴 수 없는 클라우드 에이전트도 이 실행은 돌릴 수 있다(11/8 "릴리스를 매번 따로 해야 해?").
 # - v로 시작하는 태그를 직접 올려도 같은 일을 한다
-# 서명하지 않은 설치 파일이라 처음 실행할 때 윈도우가 "PC 보호" 창을 띄운다(추가 정보 › 실행). 서명은 docs/install-windows.md.
+# 서명: 윈도우 설치 파일은 아직 서명하지 않아 처음 실행할 때 "PC 보호" 창이 뜬다(docs/install-windows.md).
+#       맥은 저장소 비밀값(APPLE_CERTIFICATE 등, docs/release-contract.md "맥 서명 켜기")이 있으면 Developer ID로 서명 · 공증하고, 없으면 임시 서명만 한다.
 # 바깥 액션은 ci.yml처럼 커밋 SHA로 고정한다.
-name: Desktop (Windows)
+name: Desktop
 
 on:
   pull_request:
@@ -21,6 +27,7 @@ on:
       - 'packages/**'
       - 'scripts/bundle-app.mjs'
       - 'scripts/ci/desktop-smoke.mjs'
+      - 'scripts/ci/release-gate.mjs'
       - '.github/workflows/desktop.yml'
   push:
     tags: ['v*']
@@ -44,28 +51,23 @@ permissions:
   contents: read
 
 jobs:
-  windows:
-    runs-on: windows-latest
-    timeout-minutes: 60
+  # 릴리스 번호를 여기서 한 번만 정한다. 태그로 돌면 그 번호, 「릴리스로 내기」면 적은 번호나 마지막 릴리스의 다음 번호, 그 밖은 시험판(번호 없음)
+  version:
+    runs-on: ubuntu-latest
     outputs:
+      version: ${{ steps.ver.outputs.version }}
       tag: ${{ steps.ver.outputs.tag }}
+      build: ${{ steps.need.outputs.build }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 22
-          cache: pnpm
-      # 앱 버전과 릴리스 태그: 태그로 돌면 그 번호, 「릴리스로 내기」면 적은 번호나 마지막 릴리스의 다음 번호, 그 밖은 tauri.conf.json (태그 없음)
       - name: 버전 정하기
         id: ver
-        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           WANT_RELEASE: ${{ inputs.release }}
           WANT_VERSION: ${{ inputs.version }}
         run: |
-          version=$(node -p "require('./desktop/src-tauri/tauri.conf.json').version")
+          version=""
           tag=""
           case "$GITHUB_REF" in refs/tags/v*) version="${GITHUB_REF#refs/tags/v}"; tag="v$version" ;; esac
           if [ "$WANT_RELEASE" = "true" ]; then
@@ -76,61 +78,98 @@ jobs:
               IFS=. read -r major minor patch <<< "${last#v}"
               version="$major.$minor.$((patch + 1))"
             fi
-            echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "::error::버전은 0.3.0 모양이어야 합니다: $version"; exit 1; }
             tag="v$version"
             if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" >/dev/null 2>&1; then
               echo "::error::$tag 태그가 이미 있습니다. 다른 번호를 적거나 비워 두세요."; exit 1
             fi
           fi
-          echo "버전 $version · 태그 ${tag:-없음}"
+          if [ -n "$version" ]; then
+            echo "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "::error::버전은 0.3.0 모양이어야 합니다: $version"; exit 1; }
+          fi
+          echo "버전 ${version:-시험판} · 태그 ${tag:-없음}"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-      - run: pnpm install --frozen-lockfile
-      # PR이 설치 파일까지 만들어야 하나: 창 · 묶기 · 이 파일을 바꿨을 때만. PR의 합친 커밋(HEAD)과 기준 커밋을 견준다
+      # PR이 설치 파일 · dmg까지 만들어야 하나: 창 · 묶기 · 관문 · 이 파일을 바꿨을 때만. PR의 합친 커밋(HEAD)과 기준 커밋을 견준다
       - name: 설치 파일까지 만들지 정하기
         id: need
-        shell: bash
         env:
           EVENT: ${{ github.event_name }}
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           if [ "$EVENT" != pull_request ]; then echo "build=1" >> "$GITHUB_OUTPUT"; exit 0; fi
           git fetch -q --depth=1 origin "$BASE"
-          if git diff --name-only "$BASE" HEAD | grep -qE '^(desktop/|scripts/bundle-app\.mjs$|scripts/app-icon\.svg$|\.github/workflows/desktop\.yml$)'; then
-            echo "build=1" >> "$GITHUB_OUTPUT"; echo "창 · 묶기를 바꾼 PR: 설치 파일까지 만든다"
+          if git diff --name-only "$BASE" HEAD | grep -qE '^(desktop/|scripts/bundle-app\.mjs$|scripts/app-icon\.svg$|scripts/ci/(desktop-smoke|release-gate)\.mjs$|\.github/workflows/desktop\.yml$)'; then
+            echo "build=1" >> "$GITHUB_OUTPUT"; echo "창 · 묶기 · 관문을 바꾼 PR: 설치 파일 · dmg까지 만든다"
           else
-            echo "build=0" >> "$GITHUB_OUTPUT"; echo "서버 · 화면만 바꾼 PR: 설치 파일은 건너뛴다"
+            echo "build=0" >> "$GITHUB_OUTPUT"; echo "서버 · 화면만 바꾼 PR: 설치 파일 · dmg는 건너뛴다"
           fi
+
+  windows:
+    needs: version
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      BUILD: ${{ needs.version.outputs.build }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       # 묶기 전에: 바깥에서 받을 것이 없어 GitHub 내려받기가 막혀도 이 시험은 돈다
       - name: 계정 동기화 · 열쇠 보관이 윈도우에서 되는지 보기
         run: pnpm --filter @rw/server exec vitest run src/accountSync.test.ts src/secretStore.test.ts src/githubAccount.test.ts
+      # 릴리스 번호를 서버의 build.json에도 넣는다: 설치한 앱이 그 번호로 새 릴리스를 알아본다 (releaseCheck.ts)
       - name: 서버 · 화면 · Node 묶기
-        run: node scripts/bundle-app.mjs --platform win32 --arch x64
+        shell: bash
+        run: node scripts/bundle-app.mjs --platform win32 --arch x64 ${VERSION:+--version "$VERSION"}
       - name: 묶은 서버가 윈도우에서 도는지 보기
         run: node scripts/ci/desktop-smoke.mjs --print --shots desktop-shots --chrome "C:\Program Files\Google\Chrome\Application\chrome.exe"
       - name: 설치 파일 만들기
-        if: steps.need.outputs.build == '1'
+        if: env.BUILD == '1'
         shell: bash
         working-directory: desktop/src-tauri
-        env:
-          version: ${{ steps.ver.outputs.version }}
         run: |
           npx -y @tauri-apps/cli@2.12.4 icon ../../scripts/app-icon.svg
           # 창 코드 시험 (포트 · 열쇠 · 바깥으로 여는 주소): 아이콘을 만든 뒤라야 빌드된다
           cargo test
+          # 시험판은 tauri.conf.json의 개발용 번호를 그대로 쓴다
+          config=()
+          [ -n "$VERSION" ] && config=(--config "{\"version\":\"$VERSION\"}")
           # tauri가 NSIS를 GitHub 릴리스에서 받다가 504로 멈출 때가 있어(11/8 · 11/9) 여섯 번까지 다시, 기다림은 1 · 2 · 3 · 4 · 5분 (컴파일은 남아 있어 금방)
           for i in 1 2 3 4 5 6; do
-            npx -y @tauri-apps/cli@2.12.4 build --bundles nsis --config tauri.standalone.conf.json --config "{\"version\":\"$version\"}" && break
+            npx -y @tauri-apps/cli@2.12.4 build --bundles nsis --config tauri.standalone.conf.json "${config[@]}" && break
             [ "$i" = 6 ] && exit 1
             echo "설치 파일 만들기 다시 ($i)"; sleep $((i * 60))
           done
           ls -la target/release/bundle/nsis
+      # 사람이 받을 설치 파일 그대로: 조용히 깔고(/S) 깐 폴더로 관문을 돌린다. 이 계정만 까는 설치라 관리자 권한이 필요 없다
+      - name: 설치 파일을 깔아 릴리스 관문 돌리기
+        if: env.BUILD == '1'
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem desktop/src-tauri/target/release/bundle/nsis/*.exe | Select-Object -First 1
+          $dest = Join-Path $env:RUNNER_TEMP 'ewb-installed'
+          Start-Process -FilePath $exe.FullName -ArgumentList '/S', "/D=$dest" -Wait
+          # 설치 프로그램이 /D를 따르지 않았으면 기본 자리(이 계정의 LOCALAPPDATA)에 있다
+          if (-not (Test-Path (Join-Path $dest 'standalone'))) { $dest = Join-Path $env:LOCALAPPDATA 'Emergence Workbench' }
+          Write-Host "깐 자리: $dest"
+          New-Item -ItemType Directory -Force out-win | Out-Null
+          Copy-Item $exe.FullName out-win/
+          $gate = @('scripts/ci/release-gate.mjs', '--dir', $dest, '--launch', '--out', 'out-win/gate-windows.json')
+          if ($env:VERSION) { $gate += @('--version', $env:VERSION) }
+          node @gate
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      # 관문이 실패해도 살펴볼 수 있게 남긴다 (릴리스는 이 일이 성공했을 때만 붙인다)
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: steps.need.outputs.build == '1'
+        if: always() && env.BUILD == '1'
         with:
           name: windows-installer
-          path: desktop/src-tauri/target/release/bundle/nsis/*.exe
-          if-no-files-found: error
+          path: out-win/
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
@@ -138,11 +177,108 @@ jobs:
           path: desktop-shots
           if-no-files-found: ignore
 
-  # 태그로 돌았거나 「릴리스로 내기」일 때만: 설치 파일을 그 태그의 릴리스에 붙인다 (태그 · 릴리스가 없으면 이 커밋에 만든다)
-  # GITHUB_TOKEN으로 만든 태그는 이 파일을 다시 돌리지 않는다(GitHub 규칙)
+  # 맥: 칩마다 dmg 하나. x64는 arm64 기계에서 엮어 만들고, 그 기계가 Rosetta로 돌릴 수 있으면 켜 보기까지 한다
+  mac:
+    needs: version
+    if: needs.version.outputs.build == '1'
+    runs-on: macos-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            target: aarch64-apple-darwin
+            asset: EmergenceWorkbench_aarch64.dmg
+          - arch: x64
+            target: x86_64-apple-darwin
+            asset: EmergenceWorkbench_x64.dmg
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: rustup target add ${{ matrix.target }}
+      - run: pnpm install --frozen-lockfile
+      - name: 서버 · 화면 · Node 묶기
+        run: node scripts/bundle-app.mjs --platform darwin --arch ${{ matrix.arch }} ${VERSION:+--version "$VERSION"}
+      # 서명 열쇠: 저장소 비밀값이 있을 때만 이 기계의 임시 키체인에 넣는다. 없으면 임시 서명(-)만 해 묶음 서명은 온전하지만 맥이 믿지는 않는다
+      - name: 서명 열쇠 준비
+        id: sign
+        env:
+          CERT: ${{ secrets.APPLE_CERTIFICATE }}
+          CERT_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          # PR에서는 공증(몇 분, Apple 서버)을 하지 않는다: 서명 · 공증은 릴리스 · 손으로 돌릴 때만
+          if [ "$EVENT" = pull_request ] || [ -z "$CERT" ] || [ -z "$IDENTITY" ]; then
+            if [ -n "$CERT" ]; then key=있음; else key=없음; fi
+            echo "Developer ID 서명 안 함 ($EVENT, 열쇠 $key): 임시 서명만 한다 (이 dmg는 릴리스에 붙지 않는다)"
+            echo "identity=-" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          kc="$RUNNER_TEMP/sign.keychain-db"; pw=$(openssl rand -hex 16)
+          security create-keychain -p "$pw" "$kc"
+          security set-keychain-settings -lut 21600 "$kc"
+          security unlock-keychain -p "$pw" "$kc"
+          echo "$CERT" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -P "$CERT_PASSWORD" -A -t cert -f pkcs12 -k "$kc"
+          rm -f "$RUNNER_TEMP/cert.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$pw" "$kc" >/dev/null
+          security list-keychains -d user -s "$kc" $(security list-keychains -d user | tr -d '"')
+          # 묶음 안의 네이티브 부품(터미널 부품 등)도 공증되려면 같은 열쇠 · 강화 런타임 · 시각 도장으로 서명해야 한다.
+          # Node는 nodejs.org가 Developer ID로 서명 · 공증해 낸 것이라 그대로 둔다
+          find desktop/standalone -type f ! -path '*/node/bin/node' | while read -r f; do
+            if file -b "$f" | grep -q 'Mach-O'; then codesign --force --options runtime --timestamp --sign "$IDENTITY" "$f"; fi
+          done
+          echo "identity=$IDENTITY" >> "$GITHUB_OUTPUT"
+          echo "mode=developer-id" >> "$GITHUB_OUTPUT"
+      - name: 앱과 dmg 만들기
+        working-directory: desktop/src-tauri
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ steps.sign.outputs.identity }}
+          NOTARY_ID: ${{ secrets.APPLE_ID }}
+          NOTARY_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          NOTARY_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          npx -y @tauri-apps/cli@2.12.4 icon ../../scripts/app-icon.svg
+          # 창 코드 시험은 이 기계의 칩 것만 (x64는 엮어 만들기만)
+          if [ "${{ matrix.arch }}" = arm64 ]; then cargo test; fi
+          # 공증: 열쇠와 Apple 계정이 모두 있을 때만 tauri에 넘긴다 (빈 값을 넘기면 tauri가 공증하려다 실패한다)
+          if [ "$APPLE_SIGNING_IDENTITY" != "-" ] && [ -n "$NOTARY_ID" ]; then
+            export APPLE_ID="$NOTARY_ID" APPLE_PASSWORD="$NOTARY_PASSWORD" APPLE_TEAM_ID="$NOTARY_TEAM"
+          fi
+          config=()
+          [ -n "$VERSION" ] && config=(--config "{\"version\":\"$VERSION\"}")
+          npx -y @tauri-apps/cli@2.12.4 build --target ${{ matrix.target }} --bundles app,dmg --config tauri.standalone.conf.json "${config[@]}"
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          cp target/${{ matrix.target }}/release/bundle/dmg/*.dmg "$GITHUB_WORKSPACE/out/${{ matrix.asset }}"
+      # dmg를 열어 꺼낸 앱 그대로. Developer ID 열쇠로 만들었으면 공증까지 되어야 통과한다
+      - name: 릴리스 관문
+        env:
+          MODE: ${{ steps.sign.outputs.mode }}
+        run: |
+          gate=(--dmg "out/${{ matrix.asset }}" --launch --out "out/${{ matrix.asset }}.gate.json")
+          [ -n "$VERSION" ] && gate+=(--version "$VERSION")
+          [ "$MODE" = developer-id ] && gate+=(--require-trusted)
+          node scripts/ci/release-gate.mjs "${gate[@]}"
+      # 관문이 실패해도 살펴볼 수 있게 남긴다. 릴리스는 관문 결과(.gate.json)가 통과 · 공증인 dmg만 붙인다
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: mac-${{ matrix.arch }}
+          path: out/
+          if-no-files-found: ignore
+
+  # 태그로 돌았거나 「릴리스로 내기」일 때만: 관문을 통과한 파일을 그 태그의 릴리스에 붙인다 (태그 · 릴리스가 없으면 이 커밋에 만든다)
+  # 맥 일이 실패해도 윈도우 설치 파일은 낸다(맥 dmg만 빠진다). GITHUB_TOKEN으로 만든 태그는 이 파일을 다시 돌리지 않는다(GitHub 규칙)
   release:
-    needs: windows
-    if: needs.windows.outputs.tag != ''
+    needs: [version, windows, mac]
+    if: always() && needs.version.outputs.tag != '' && needs.windows.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -151,15 +287,33 @@ jobs:
         with:
           name: windows-installer
           path: out
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        continue-on-error: true
+        with:
+          pattern: mac-*
+          path: mac
+          merge-multiple: true
       - env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.windows.outputs.tag }}
+          TAG: ${{ needs.version.outputs.tag }}
           SHA: ${{ github.sha }}
         run: |
           # 이름에 번호를 넣지 않아 releases/latest/download/EmergenceWorkbench_x64-setup.exe가 늘 최신 설치 파일을 가리킨다
-          # (친구 안내서의 「설치 파일 받기」 버튼, 11/9 "밑에 소스코드 두 개도 받는 거임?"). 앱의 새 버전 알림은 x64-setup.exe로 끝나는 파일을 찾는다
-          mv out/*.exe out/EmergenceWorkbench_x64-setup.exe
+          # (친구 안내서의 「설치 파일 받기」 버튼, 11/9 "밑에 소스코드 두 개도 받는 거임?"). 앱의 새 버전 알림은 x64-setup.exe · 칩별 dmg로 끝나는 파일을 찾는다
+          exe=$(ls out/*.exe | head -1)
+          mv "$exe" out/EmergenceWorkbench_x64-setup.exe
+          files=(out/EmergenceWorkbench_x64-setup.exe)
+          macs=""
+          for dmg in mac/*.dmg; do
+            [ -f "$dmg" ] || continue
+            if jq -e '.ok and .trusted' "$dmg.gate.json" >/dev/null 2>&1; then
+              files+=("$dmg"); macs="$macs $(basename "$dmg")"
+            else
+              echo "::notice::$(basename "$dmg")는 공증 전이라 릴리스에 붙이지 않는다 (docs/release-contract.md 맥 서명 켜기)"
+            fi
+          done
+          notes="윈도우: 아래 Assets의 EmergenceWorkbench_x64-setup.exe 하나만 받아 실행하세요. Source code 두 개는 코드 묶음이라 받지 않아도 됩니다. 안내: docs/install-windows.md"
+          [ -n "$macs" ] && notes="$notes"$'\n\n'"맥: 칩에 맞는 dmg를 받으세요 (Apple 실리콘은 _aarch64, 인텔은 _x64).$macs"
           gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
-            || gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$SHA" --title "Emergence Workbench $TAG" --generate-notes \
-                 --notes "윈도우 설치 파일: 아래 Assets의 EmergenceWorkbench_x64-setup.exe 하나만 받아 실행하세요. Source code 두 개는 코드 묶음이라 받지 않아도 됩니다. 안내: docs/install-windows.md"
-          gh release upload "$TAG" out/EmergenceWorkbench_x64-setup.exe -R "$GITHUB_REPOSITORY" --clobber
+            || gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$SHA" --title "Emergence Workbench $TAG" --generate-notes --notes "$notes"
+          gh release upload "$TAG" "${files[@]}" -R "$GITHUB_REPOSITORY" --clobber

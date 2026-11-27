@@ -25,6 +25,6 @@
 
 설치 파일은 GitHub Actions의 윈도우 기계가 만듭니다(`.github/workflows/desktop.yml`).
 
-- 시험: Actions › Desktop (Windows) › Run workflow. 산출물 `windows-installer`(설치 파일)와 `windows-shots`(윈도우에서 찍은 화면).
-- 내놓기: Actions 화면 › **Desktop (Windows) › Run workflow**에서 「릴리스로 내기」를 켜고 돌립니다(버전을 비우면 다음 번호). 그 실행이 설치 파일을 만들고 그 커밋에 태그와 릴리스를 만들어 설치 파일을 붙입니다. 태그를 올리지 못하는 클라우드 에이전트도 이 실행은 돌릴 수 있습니다. `v`로 시작하는 태그를 직접 올려도 같습니다.
+- 시험: Actions › Desktop › Run workflow. 산출물 `windows-installer`(설치 파일과 릴리스 관문 결과)와 `windows-shots`(윈도우에서 찍은 화면). 같은 실행이 맥 dmg(`mac-arm64` · `mac-x64`)도 만듭니다.
+- 내놓기: Actions 화면 › **Desktop › Run workflow**에서 「릴리스로 내기」를 켜고 돌립니다(버전을 비우면 다음 번호). 그 실행이 설치 파일을 만들어 실행 기계에 깔고 깐 것으로 릴리스 관문([release-contract.md](release-contract.md))을 돌린 뒤, 그 커밋에 태그와 릴리스를 만들어 통과한 파일을 붙입니다. 태그를 올리지 못하는 클라우드 에이전트도 이 실행은 돌릴 수 있습니다. `v`로 시작하는 태그를 직접 올려도 같습니다.
 - 서명: 지금은 서명하지 않습니다. "PC 보호" 창을 없애려면 코드 서명 인증서가 필요합니다(예: Microsoft Trusted Signing, 한 달 약 10달러). 서명을 붙이면 이 절을 고칩니다.
