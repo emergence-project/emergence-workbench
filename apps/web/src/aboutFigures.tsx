@@ -309,7 +309,7 @@ export function FeedbackAnswersTable() {
 
 const toPart = (id: string) => href({ page: 'about', part: id })
 
-/** 창의 다섯 영역 (소개 › 화면과 용어 › 화면 구조). 영역을 누르면 그 설명 쪽으로 간다 */
+/** 창의 다섯 영역 (소개 › 구성과 용어 › 화면 구조). 영역을 누르면 그 설명 쪽으로 간다 */
 export function ScreenAreasFigure() {
   return (
     <div className="about-map" data-ui="화면 구조" role="img" aria-label={t('화면 구조: 위에 상단바, 왼쪽에 레일과 왼쪽 사이드바, 가운데 작업 패널, 오른쪽에 오른쪽 사이드바', 'Screen layout: top bar on top, rail and left sidebar on the left, work panel in the middle, right sidebar on the right')}>
