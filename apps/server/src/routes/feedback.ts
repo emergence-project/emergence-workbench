@@ -55,12 +55,18 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     return run
   }
   let relayTimer: NodeJS.Timeout | null = null
-  // 저절로 보내기는 사용자가 「관리자에게 보내기」를 한 번 누른 뒤에만 (배포 계약 4: 관리자에게 가는 것은 사용자가 켠 뒤에만)
+  // 저절로 보낼지 (배포 계약 4: 관리자에게 가는 것은 사용자가 켠 뒤에만): 중계가 있고, 사용자가 「관리자에게 보내기」를 한 번 눌렀고,
+  // 설정 › 동기화의 기록 올리기가 수동이 아닐 때. 보내는 타이머와 화면 · 검사가 보는 relay.auto가 이 하나를 쓴다
+  const relayDelay = (): number | null => {
+    if (!opts.feedbackDir || !opts.feedbackRelay || !relayConsented(ctx.registry.configDir)) return null
+    return syncDelayMs(ctx.registry, 'publish', opts.feedbackAutoPublishMs)
+  }
   const scheduleRelay = () => {
-    const delay = syncDelayMs(ctx.registry, 'publish', opts.feedbackAutoPublishMs)
-    if (!opts.feedbackDir || !opts.feedbackRelay || delay === null || !relayConsented(ctx.registry.configDir)) return
+    const delay = relayDelay()
+    if (delay === null) return
     if (relayTimer) clearTimeout(relayTimer)
-    relayTimer = setTimeout(() => { relayTimer = null; relayOnce().catch((e) => app.log.warn({ err: e }, '피드백 바로 보내기 실패')) }, delay)
+    // 기다리는 사이 수동으로 바꿨으면 보내지 않는다
+    relayTimer = setTimeout(() => { relayTimer = null; if (relayDelay() === null) return; relayOnce().catch((e) => app.log.warn({ err: e }, '피드백 바로 보내기 실패')) }, delay)
   }
   const scheduleAutoPublish = () => {
     scheduleRelay()
@@ -125,7 +131,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     autoPublish: !!opts.feedbackDir && !!opts.feedbackPublish && opts.feedbackAutoPublishMs !== undefined,
     delay: (() => { const d = syncDelayMs(ctx.registry, 'publish', opts.feedbackAutoPublishMs); return d === null ? null : Math.round(d / 1000) })(),
     lastAutoPublish: lastAuto,
-    relay: opts.feedbackDir && opts.feedbackRelay ? relayStatus(opts.feedbackDir, ctx.registry.configDir, { from: sender(), named: !!named() }) : null,
+    relay: opts.feedbackDir && opts.feedbackRelay ? { ...relayStatus(opts.feedbackDir, ctx.registry.configDir, { from: sender(), named: !!named() }), auto: relayDelay() !== null } : null,
     entries: opts.feedbackDir ? listFeedback(opts.feedbackDir) : [],
   }))
 

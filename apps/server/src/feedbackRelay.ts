@@ -3,7 +3,7 @@
 // 보낸 기록(feedback-relay.json, 앱 설정 폴더)에 날짜 파일마다 내용 해시와 보낸 그림을 적어 바뀐 날짜와 새 그림만 보낸다.
 // 이미 보낸 날짜는 그때의 이름으로 다시 보낸다(as): 나중에 이름을 넣어도 관리자 쪽에 같은 항목이 두 폴더로 갈라지지 않게 (11/9).
 // 사용자가 켜기 전에는 보내지 않는다 (11/27 배포 계약 4, docs/release-contract.md): 처음 한 번은 사용자가 「관리자에게 보내기」를 눌러야 하고,
-// 그 누름을 동의(consent)로 적은 뒤에만 남길 때마다 저절로 보낸다.
+// 그 누름을 동의(consent)로 적은 뒤에만 설정 › 동기화의 기록 올리기 주기에 따라 저절로 보낸다(수동이면 버튼으로만).
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -67,7 +67,7 @@ export function pendingBundle(dir: string, configDir: string, from: string, now 
   return { bundle: { ...full, days, pictures }, count, sent }
 }
 
-/** 보내기 상태: 마지막으로 보낸 때와 실패 문장, 보낼 항목 수, 보내는 이름(named: 내 이름이나 GitHub 계정에서 왔는지), 저절로 보내는지(auto: 사용자가 켰는지) */
+/** 보내기 상태: 마지막으로 보낸 때와 실패 문장, 보낼 항목 수, 보내는 이름(named: 내 이름이나 GitHub 계정에서 왔는지). 저절로 보내는지(auto)는 라우트가 보내기 타이머와 같은 판단으로 붙인다 */
 export function relayStatus(dir: string, configDir: string, sender: { from: string; named: boolean }) {
   const sent = readSent(configDir)
   const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => /^\d{4}-\d{2}-\d{2}\.md$/.test(f)) : []
@@ -75,7 +75,7 @@ export function relayStatus(dir: string, configDir: string, sender: { from: stri
     const text = fs.readFileSync(path.join(dir, f), 'utf8')
     return sent.days[f.slice(0, 10)] === hash(text) ? n : n + (text.match(/^## /gm)?.length ?? 0)
   }, 0)
-  return { pending, at: sent.at ?? null, error: sent.error ?? null, auto: sent.consent === true, ...sender }
+  return { pending, at: sent.at ?? null, error: sent.error ?? null, ...sender }
 }
 
 /**

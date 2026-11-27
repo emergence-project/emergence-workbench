@@ -82,8 +82,9 @@ try {
   check((await fetch(base + '/api', { headers: { origin: base, cookie } })).ok, '그 쿠키로 화면 · API가 열림')
 
   // 배포 계약 4 (docs/release-contract.md): 처음 켠 앱은 관리자에게 아무것도 저절로 보내지 않는다 (피드백 중계는 사용자가 누른 뒤에만)
-  const fb = await (await get('/api/feedback')).json()
-  check(fb.relay === null || fb.relay?.auto === false, `처음 켠 앱은 피드백을 관리자에게 저절로 보내지 않음 (${fb.relay ? `중계 있음, auto=${fb.relay.auto}` : '중계 없음'})`)
+  const fbRes = await get('/api/feedback')
+  const fb = fbRes.ok ? await fbRes.json() : null
+  check(!!fb && (fb.relay === null || fb.relay?.auto === false), `처음 켠 앱은 피드백을 관리자에게 저절로 보내지 않음 (${!fb ? `/api/feedback ${fbRes.status}` : fb.relay ? `중계 있음, auto=${fb.relay.auto}` : '중계 없음'})`)
 
   const term = await (await get('/api/terminal')).json()
   check(term.available === true, `터미널 부품(node-pty)을 읽음 (${term.reason ?? 'ok'})`)

@@ -12,8 +12,8 @@ const ROWS: { kind: SyncKind; ui: string; name: (admin: boolean) => string; desc
     desc: (admin) => admin
       ? t('자동이면 기록이나 피드백을 쓰고 고른 시간이 지나면 GitHub에 올립니다(그 사이 더 쓰면 다시 셉니다). 수동이면 "지금 올리기"로만 올립니다. 어느 쪽이든 기록 탭 맨 위의 "지금 올리기"로 바로 올릴 수 있습니다.',
         'With Auto, records and feedback are pushed to GitHub after the chosen time (writing again restarts the count). With Manual, only "Push now" pushes. Either way, "Push now" at the top of the Records tab pushes right away.')
-      : t('자동이면 기록을 쓰고 고른 시간이 지나면 GitHub에 올립니다(그 사이 더 쓰면 다시 셉니다). 수동이면 "지금 올리기"로만 올립니다. 피드백은 이와 상관없이 잠시 뒤 관리자에게 갑니다.',
-        'With Auto, records are pushed to GitHub after the chosen time (writing again restarts the count). With Manual, only "Push now" pushes. Feedback goes to the maintainer shortly after you leave it either way.'),
+      : t('자동이면 기록을 쓰고 고른 시간이 지나면 GitHub에 올립니다(그 사이 더 쓰면 다시 셉니다). 수동이면 "지금 올리기"로만 올립니다. 피드백은 「관리자에게 보내기」를 한 번 누른 뒤로 이 주기를 따라 관리자에게 갑니다(수동이면 그 버튼으로만).',
+        'With Auto, records are pushed to GitHub after the chosen time (writing again restarts the count). With Manual, only "Push now" pushes. After you click "Send to maintainer" once, feedback goes to the maintainer on this interval too (with Manual, only with that button).'),
     warn: (c) => (c.mode === 'manual' || c.every > 300 ? t('클라우드 에이전트가 기록을 늦게 봅니다.', 'Cloud agents see your records later.') : null),
   },
   {

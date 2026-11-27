@@ -93,7 +93,7 @@ export function FeedbackFileButtons() {
     {state.data.relay && <button className={`btn${state.data.relay.pending ? ' primary' : ''}`} data-ui="관리자에게 보내기" disabled={busy || !state.data.relay.pending}
       title={!state.data.relay.pending ? t('남긴 피드백을 모두 관리자에게 보냈습니다', 'All your feedback has been sent to the maintainer')
         : state.data.relay.auto ? t('남긴 피드백은 잠시 뒤 자동으로 관리자에게 갑니다. 지금 바로 보내려면 누르세요', 'Feedback goes to the maintainer automatically shortly after you leave it. Click to send now')
-          : t('누르면 남긴 피드백(글 · 그림)과 보내는 이름이 관리자의 서버로 갑니다. 누르기 전에는 아무것도 보내지 않고, 한 번 보낸 뒤로는 남길 때마다 잠시 뒤 자동으로 보냅니다', 'Click to send your feedback (text and pictures) and the sending name to the maintainer\'s server. Nothing is sent before you click; after the first time, new feedback is sent automatically shortly after you leave it')}
+          : t('누르면 남긴 피드백(글 · 그림)과 보내는 이름이 관리자의 서버로 갑니다. 누르기 전에는 아무것도 보내지 않고, 한 번 보낸 뒤로는 설정 › 동기화의 기록 올리기 주기에 따라 자동으로 보냅니다(수동이면 이 버튼으로만)', 'Click to send your feedback (text and pictures) and the sending name to the maintainer\'s server. Nothing is sent before you click; after the first time, new feedback is sent automatically on the Push records interval in Settings › Sync (with Manual, only with this button)')}
       onClick={() => void run(async () => { const r = await api.relayFeedback(); void client.invalidateQueries({ queryKey: qk.feedback }); return r.message })}>
       {busy ? t('보내는 중…', 'Sending…') : state.data.relay.pending ? `${t('관리자에게 보내기', 'Send to maintainer')} · ${state.data.relay.pending}` : t('모두 보냄', 'All sent')}
     </button>}
