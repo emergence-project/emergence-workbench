@@ -18,7 +18,8 @@ import { EXPLORE_AGENT, FILE_WRITE_TOOLS, MCP_NAME, type AgentRunner, type OneSh
 import { CHAT_EFFORTS, CLAUDE_START_MODEL, type ChatEffort, type ModelChoice } from '@rw/core/contract/agentChats'
 import { claudeEnv, claudeExecutable } from './ask.js'
 import { skillsPluginDir, userConnectors } from './agentExtras.js'
-import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
+import type { HookCallback, McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
+import { aboutNotifier } from './aboutGuide.js'
 import { gitIdentityEnv } from './git.js'
 import crypto from 'node:crypto'
 import { Unread } from './agentInbox.js'
@@ -147,7 +148,7 @@ async function sideAnswer(o: OneShot): Promise<string> {
 /** 탐색을 맡는 하위 에이전트의 모델 (작고 빠른 것) */
 export const EXPLORE_MODEL = 'haiku'
 /** 읽기만 하는 앱 MCP 도구 (하위 에이전트도 같은 허락 규칙을 거친다) */
-const READ_MCP = ['rules', 'list_projects', 'overview', 'project_status', 'list_notes', 'list_edit_reviews', 'read_note', 'read_records', 'list_records', 'problems', 'problem_read', 'problem_brief', 'list_tasks', 'read_task', 'search_library', 'read_concept']
+const READ_MCP = ['about', 'rules', 'list_projects', 'overview', 'project_status', 'list_notes', 'list_edit_reviews', 'read_note', 'read_records', 'list_records', 'problems', 'problem_read', 'problem_brief', 'list_tasks', 'read_task', 'search_library', 'read_concept']
 const exploreAgent = {
   description: 'Fast read-only explorer on a small model. Use it to search across many files or read several large files; it returns only the findings (paths, line numbers, short quotes), so the main conversation stays short.',
   tools: ['Read', 'Glob', 'Grep', ...READ_MCP.map((t) => `mcp__${MCP_NAME}__${t}`)],
@@ -201,6 +202,8 @@ export function claudeAgentRunner(mcpFor: (appChat?: string, central?: boolean, 
         model: input.model === 'default' ? CLAUDE_START_MODEL : input.model,
         effort: input.effort,
         includePartialMessages: true,
+        // 앱 고치기 대화 (11/27 실험 about-hook): 읽거나 고친 파일을 구현으로 적은 소개 절의 요약 · 지킬 것을 한 번씩 건넨다
+        ...(input.appChat && { hooks: { PostToolUse: [{ matcher: 'Read|Edit|Write|MultiEdit', hooks: [aboutHook(input.cwd)] }] } }),
         canUseTool: async (tool, toolInput) => {
           const d = await input.canUseTool(tool, toolInput)
           return d.allow ? { behavior: 'allow', updatedInput: toolInput } : { behavior: 'deny', message: d.message }
@@ -241,3 +244,17 @@ export function claudeAgentRunner(mcpFor: (appChat?: string, central?: boolean, 
     }
   }, { models: modelLister(), side: sideAnswer })
 }
+
+/** 소개 훅: 파일 경로를 받는 도구 뒤에 관련 절을 덧붙인다. 소개를 못 읽어도 대화는 그대로 */
+function aboutHook(cwd: string): HookCallback {
+  const note = aboutNotifier(cwd)
+  return async (h) => {
+    if (h.hook_event_name !== 'PostToolUse') return {}
+    const ti = h.tool_input
+    const file = ti && typeof ti === 'object' && 'file_path' in ti && typeof ti.file_path === 'string' ? ti.file_path : undefined
+    let context: string | undefined
+    try { context = file ? note(file) : undefined } catch { context = undefined }
+    return context ? { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: context } } : {}
+  }
+}
+
