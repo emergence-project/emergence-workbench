@@ -63,3 +63,11 @@ test('구현(code:)으로 적은 절을 먼저 짚는다 (11/27)', () => {
   assert.deepEqual(aboutReminders({ files: ['apps/server/src/agentEditsDiff.ts', 'apps/web/src/about/project/edits.md'], messages: '', code, match, ext }), [])
   assert.deepEqual(aboutReminders({ files: ['apps/server/src/agentEdits.test.ts'], messages: '', code, match, ext }), [])
 })
+
+test('구현으로 적은 절과 함께 고쳐 온 절을 함께 짚는다', () => {
+  const code = { 'project/flow': ['apps/web/src/Problems.tsx'] }
+  const match = (g, f) => g === f
+  const history = [{ files: ['apps/web/src/Sidebar.tsx', 'apps/web/src/about/project/screen-layout.tsx'] }]
+  const [r] = aboutReminders({ files: ['apps/web/src/Problems.tsx', 'apps/web/src/Sidebar.tsx'], messages: '', history, code, match, ext: () => '.md' })
+  assert.match(r ?? '', /구현으로 적은 소개 절: apps\/web\/src\/about\/project\/flow\.md\. 이 화면 파일과 함께 고쳐 온 소개 절: apps\/web\/src\/about\/project\/screen-layout\.md/)
+})

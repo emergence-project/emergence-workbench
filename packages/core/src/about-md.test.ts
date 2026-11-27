@@ -51,7 +51,7 @@ describe('소개 절 파일 (.md)', () => {
 
   it('모르는 칸 · 머리말 없음은 오류', () => {
     expect(() => parseAboutMd('본문만')).toThrow()
-    expect(() => parseAboutMd('---\ntitle: { ko: a, en: b }\n---\n### 기타\n- x')).toThrow(/모르는 칸/)
+    expect(() => parseAboutMd('---\ntitle: { ko: a, en: b }\n---\n### 기타\n- x\n<!-- en -->\n- y')).toThrow(/모르는 칸/)
     expect(() => aboutYaml('이상한 줄')).toThrow()
   })
 
@@ -60,5 +60,25 @@ describe('소개 절 파일 (.md)', () => {
     expect(aboutGlobMatch('apps/server/src/agentEdits*.ts', 'apps/server/src/x/agentEdits.ts')).toBe(false)
     expect(aboutGlobMatch('apps/web/src/styles/**', 'apps/web/src/styles/a/b.css')).toBe(true)
     expect(aboutGlobMatch('apps/**/Problem*.tsx', 'apps/web/src/ProblemChart.tsx')).toBe(true)
+  })
+})
+
+describe('소개 절 파일: 말없이 글이 바뀌지 않는다 (검토 11/27)', () => {
+  const head = (y: string) => `---\ntitle: { ko: a, en: b }\n${y}\n---\n- x\n<!-- en -->\n- y\n`
+  it('값 안의 # · 따옴표 · 숫자 모양 글은 그대로', () => {
+    expect(parseAboutMd(head('summary:\n  ko: 이슈 #12 참조\n  en: "Flow" and "x"\nid: 007')).summary).toEqual({ ko: '이슈 #12 참조', en: '"Flow" and "x"' })
+    expect(parseAboutMd(head('id: 007')).id).toBe('007')
+    expect(parseAboutMd(head('title2: a #b')).title.ko).toBe('a')
+  })
+  it('{ } 안에 쉼표가 든 값은 오류', () => {
+    expect(() => parseAboutMd('---\ntitle: { ko: 쓰기, 읽기, en: Write }\n---\n- x\n<!-- en -->\n- y\n')).toThrow(/쉼표/)
+  })
+  it('항목이 아닌 줄 · en 줄 개수는 오류', () => {
+    const t = (b: string) => () => parseAboutMd(`---\ntitle: { ko: a, en: b }\n---\n${b}`)
+    expect(t('- x\n이어짐\n<!-- en -->\n- y')).toThrow(/항목/)
+    expect(t('- x\n\n  떨어진 줄\n<!-- en -->\n- y')).toThrow(/항목/)
+    expect(t('- x\n---\n<!-- en -->\n- y')).toThrow(/항목/)
+    expect(t('- x\n<!-- en -->\n- y\n<!-- en -->\n- z')).toThrow(/하나/)
+    expect(t('- x')).toThrow(/하나/)
   })
 })

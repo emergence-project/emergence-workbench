@@ -42,7 +42,7 @@ export const sectionOf = (f) => f.match(/^apps\/web\/src\/about\/([^/]+)\/([^/]+
  * @param {(glob: string, file: string) => boolean} match
  */
 export function sectionsByCode(files, code, match) {
-  return Object.keys(code).filter((s) => code[s].some((g) => files.some((f) => match(g, f)))).sort()
+  return Object.entries(code).filter(([, gs]) => gs.some((g) => files.some((f) => match(g, f)))).map(([s]) => s).sort()
 }
 
 /**
@@ -63,7 +63,7 @@ export function sectionsFor(screens, history, n = 3) {
 
 /**
  * 알림 (막지 않는다): 화면이나 절의 구현 파일을 바꿨는데 소개를 고치지 않았고 '그대로' 이유도 없으면, 살펴볼 소개 절을 짚는다
- * @param {{ files: string[], messages: string, history?: { files: string[] }[] }} o
+ * @param {{ files: string[], messages: string, history?: { files: string[] }[], code?: Record<string, string[]>, match?: (glob: string, file: string) => boolean, ext?: (section: string) => string }} o
  */
 export function aboutReminders({ files, messages, history = [], code = {}, match = () => false, ext = () => '.tsx' }) {
   const isTest = (f) => /\.test\.[cm]?[jt]sx?$/.test(f)
@@ -73,13 +73,14 @@ export function aboutReminders({ files, messages, history = [], code = {}, match
   if (!screens.length || aboutChanged || sameNote(messages)) return []
   const shown = `${screens.slice(0, 5).join(', ')}${screens.length > 5 ? ' …' : ''}`
   const byCode = sectionsByCode(screens, code, match)
-  const sections = byCode.length ? byCode : sectionsFor(screens, history)
+  // 구현으로 적지 않은 화면 파일은 지금처럼 함께 고쳐 온 절로 짚는다 (둘을 함께 보인다)
+  const rest = screens.filter((f) => !Object.values(code).some((gs) => gs.some((g) => match(g, f))))
+  const byHistory = rest.length ? sectionsFor(rest, history).filter((s) => !byCode.includes(s)) : []
   const path = (s) => `${ABOUT_DIR}/${s}${ext(s)}`
-  const where = byCode.length
-    ? `이 파일을 구현으로 적은 소개 절: ${byCode.map(path).join(', ')}`
-    : sections.length
-      ? `이 화면 파일과 함께 고쳐 온 소개 절: ${sections.map(path).join(', ')}`
-      : `함께 고쳐 온 소개 절이 없습니다. ${ABOUT_DIR}/<쪽>/ 아래에서 이 화면을 설명하는 절을 찾으세요`
+  const where = [
+    byCode.length && `이 파일을 구현으로 적은 소개 절: ${byCode.map(path).join(', ')}`,
+    byHistory.length && `이 화면 파일과 함께 고쳐 온 소개 절: ${byHistory.map(path).join(', ')}`,
+  ].filter(Boolean).join('. ') || `함께 고쳐 온 소개 절이 없습니다. ${ABOUT_DIR}/<쪽>/ 아래에서 이 화면을 설명하는 절을 찾으세요`
   return [`소개 확인: 파일이 바뀌었습니다 (${shown}). ${where}. 설명이 달라졌으면 그 절(ko · en)을 고치고, 그대로면 두어도 됩니다(이유를 남기려면 커밋 메시지에 "소개: 그대로 — 이유").`]
 }
 
@@ -98,11 +99,16 @@ export function checkAbout({ files, messages, aboutSource, pr }) {
 const aboutSources = (dir) => fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))
   .map((e) => e.isDirectory() ? aboutSources(path.join(dir, e.name)) : /\.(?:tsx?|md)$/.test(e.name) ? fs.readFileSync(path.join(dir, e.name), 'utf8') : '').join('\n')
 
-/** .md 절의 구현 glob { "<쪽>/<절>": string[] } (형식은 packages/core/src/about-md.ts를 그대로 쓴다) */
+/**
+ * .md 절의 구현 glob { "<쪽>/<절>": string[] } (형식은 packages/core/src/about-md.ts를 그대로 쓴다)
+ * @param {string} dir
+ * @returns {Promise<{ code: Record<string, string[]>, match: (glob: string, file: string) => boolean }>}
+ */
 async function codeOfSections(dir) {
   const { tsxApi } = await import('./tsx-api.mjs')
   const { tsImport } = await tsxApi()
   const { parseAboutMd, aboutGlobMatch } = await tsImport('../../packages/core/src/about-md.ts', import.meta.url)
+  /** @type {Record<string, string[]>} */
   const code = {}
   for (const part of fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory() && e.name !== 'prs')) {
     for (const f of fs.readdirSync(path.join(dir, part.name)).filter((x) => x.endsWith('.md'))) {
@@ -136,8 +142,14 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
     history = git('log', '-n', '2000', '--format=%x01', '--name-only', base).split('\u0001').map((b) => ({ files: b.split('\n').filter(Boolean) }))
   } catch { /* 이력 없음 */ }
-  const { code, match } = await codeOfSections(ABOUT_DIR)
-  const ext = (s) => fs.existsSync(`${ABOUT_DIR}/${s}.md`) ? '.md' : '.tsx'
+  // 알림만 하는 일이라, 절 파일을 읽지 못해도(형식 오류 · tsx 없음) 검사를 막지 않고 이력 기반 알림으로 돌아간다
+  const { code, match } = await codeOfSections(ABOUT_DIR).catch((e) => {
+    console.log(`※ 소개 절의 구현(code:)을 읽지 못해 함께 고친 이력으로만 짚습니다: ${e instanceof Error ? e.message : e}`)
+    /** @type {Record<string, string[]>} */
+    const none = {}
+    return { code: none, match: () => false }
+  })
+  const ext = (/** @type {string} */ s) => fs.existsSync(`${ABOUT_DIR}/${s}.md`) ? '.md' : '.tsx'
   for (const r of aboutReminders({ files, messages, history, code, match, ext })) {
     console.log(`※ ${r}`)
     if (process.env.GITHUB_ACTIONS) console.log(`::warning title=소개 확인::${r}`)

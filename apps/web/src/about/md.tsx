@@ -46,7 +46,7 @@ export function mdSection(key: string): { ko: AboutSection; en: AboutSection } {
     ...(m.port && { port: m.port }),
     ...(m.figure && { figure: figureOf(m.figure) }),
     ...(m.summary && { summary: m.summary[lang] }),
-    ...(lang === 'ko' && m.ask && { ask: m.ask.ko }),
+    ...(m.ask && { ask: m.ask[lang] }),
     ...(lang === 'ko' && m.prs.length && { prs: m.prs }),
     items: items(m[lang].items),
     ...(m[lang].keep.length && { keep: items(m[lang].keep) }),

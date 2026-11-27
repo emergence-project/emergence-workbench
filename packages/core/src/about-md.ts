@@ -16,7 +16,7 @@
  * ---
  * <!-- ko -->
  * - 지금 동작 한 항목 (**굵게**, `코드`, [링크](#/about/agents))
- *   이어지는 줄은 들여 쓴다
+ *   이어지는 줄은 빈 줄 없이 들여 쓴다 (`코드` 안에서는 \ 이스케이프가 듣지 않는다)
  * ### 지킬 것
  * - 고칠 때 깨면 안 되는 것
  * ### 결정
@@ -56,18 +56,25 @@ export interface AboutMd {
 
 type Val = string | number | Val[] | { [k: string]: Val }
 
+/** 'a' · "a"는 따옴표를 벗긴다 (안에 같은 따옴표가 없을 때만. "a" and "b"는 그대로) */
 const unquote = (s: string) => {
   const t = s.trim()
-  return (t.startsWith("'") && t.endsWith("'")) || (t.startsWith('"') && t.endsWith('"')) ? t.slice(1, -1) : t
+  return /^'[^']*'$/.test(t) || /^"[^"]*"$/.test(t) ? t.slice(1, -1) : t
 }
-const scalar = (s: string): string | number => { const t = unquote(s); return /^\d+$/.test(t) ? Number(t) : t }
-/** [a, b] · { ko: x, en: y } 한 줄 (안에 같은 괄호를 다시 쓰지 않는 단순한 것만) */
+const scalar = (s: string): string => unquote(s)
+/** [a, b] · { ko: x, en: y } 한 줄. 값에 쉼표를 쓰지 못한다: 쉼표가 있는 글은 들여 쓴 줄(ko: …)로 쓴다 */
 function flow(s: string): Val {
   const t = s.trim()
+  const close = t.startsWith('[') ? ']' : '}'
+  if (!t.endsWith(close)) throw new Error(`소개 머리말의 괄호가 닫히지 않음: ${t}`)
   const inner = t.slice(1, -1).trim()
   const parts = inner ? inner.split(',').map((x) => x.trim()) : []
-  if (t.startsWith('[')) return parts.map(scalar)
-  return Object.fromEntries(parts.map((p) => { const i = p.indexOf(':'); return [p.slice(0, i).trim(), scalar(p.slice(i + 1))] }))
+  if (close === ']') return parts.map(scalar)
+  return Object.fromEntries(parts.map((p) => {
+    const i = p.indexOf(':')
+    if (i < 1) throw new Error(`소개 머리말 { } 안에 쉼표가 든 값: ${t} (들여 쓴 줄로 쓰세요)`)
+    return [p.slice(0, i).trim(), scalar(p.slice(i + 1))]
+  }))
 }
 
 /** 머리말: 맨 위 key: 값, 값이 없으면 들여 쓴 줄들(- 목록 또는 sub: 값) */
@@ -80,7 +87,7 @@ export function aboutYaml(yaml: string): Record<string, Val> {
     const m = /^([A-Za-z_][\w-]*):\s*(.*)$/.exec(line)
     if (!m) throw new Error(`소개 머리말을 읽지 못함: ${line}`)
     const key = m[1]!
-    const v = m[2]!.replace(/\s+#.*$/, '')
+    const v = m[2]!.trim()
     if (v.startsWith('[') || v.startsWith('{')) { out[key] = flow(v); continue }
     if (v) { out[key] = scalar(v); continue }
     const block: string[] = []
@@ -119,7 +126,8 @@ function body(text: string): AboutMdBody {
   let cur: string | undefined
   const flush = () => { if (cur !== undefined) b[group].push(aboutInline(cur)); cur = undefined }
   for (const line of text.split(/\r?\n/)) {
-    if (!line.trim() || /^<!--.*-->$/.test(line.trim())) { flush(); continue }
+    if (!line.trim()) { flush(); continue }
+    if (/^<!--\s*ko\s*-->\s*$/.test(line)) { flush(); continue }
     const h = /^###\s+(.+)$/.exec(line)
     if (h) {
       flush()
@@ -128,8 +136,10 @@ function body(text: string): AboutMdBody {
       group = g
       continue
     }
-    if (line.startsWith('- ')) { flush(); cur = line.slice(2).trim() } else if (/^\s/.test(line) && cur !== undefined) cur += ` ${line.trim()}`
-    else { flush(); cur = line.trim() }
+    if (line.startsWith('- ')) { flush(); cur = line.slice(2).trim(); continue }
+    // 이어지는 줄은 항목 바로 밑에 들여 쓴다. 그 밖의 줄은 말없이 항목이 되지 않게 오류로
+    if (/^\s+\S/.test(line) && cur !== undefined) { cur += ` ${line.trim()}`; continue }
+    throw new Error(`소개 절 본문은 "- " 항목과 그 밑에 들여 쓴 줄, "### 칸"만 씁니다: ${line}`)
   }
   flush()
   return b
@@ -145,7 +155,9 @@ export function parseAboutMd(text: string): AboutMd {
   const y = aboutYaml(fm.yaml)
   const title = pair(y.title)
   if (!title?.ko || !title.en) throw new Error('소개 절 머리말에 title: { ko, en }이 없습니다')
-  const [ko = '', en = ''] = fm.body.split(/^<!--\s*en\s*-->\s*$/m)
+  const halves = fm.body.split(/^<!--\s*en\s*-->\s*$/m)
+  if (halves.length !== 2) throw new Error('소개 절 본문에 <!-- en --> 줄이 꼭 하나 있어야 합니다')
+  const [ko = '', en = ''] = halves
   const str = (v: Val | undefined) => (v === undefined ? undefined : String(v))
   return {
     ...(str(y.id) && { id: str(y.id) }),
