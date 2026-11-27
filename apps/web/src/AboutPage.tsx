@@ -144,7 +144,7 @@ const NAV_GROUPS: { title: string; parts: string[] }[] = [
   { title: t('시작', 'Start'), parts: ['intro', 'layout'] },
   { title: t('화면', 'Screens'), parts: ['home', 'project', 'notes', 'knowledge', 'reading', 'network', 'settings'] },
   { title: t('일하는 방식', 'How work flows'), parts: ['principles', 'agents', 'feedback'] },
-  { title: t('앱 개발', 'App development'), parts: ['research', 'rules'] },
+  { title: t('앱 개발', 'App development'), parts: ['building', 'research', 'rules'] },
   { title: t('기준과 참고', 'Standards and reference'), parts: ['design', 'symbols', 'reference', 'next'] },
 ]
 
