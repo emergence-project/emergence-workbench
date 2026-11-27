@@ -8,7 +8,7 @@ import { kindLabel } from '../recordLabels'
 import { RecordList } from '../RecordList'
 import { recordKind, recordRoute } from '../recordsPanelHelpers'
 import { feedbackKindName, REPLY } from '../feedbackTags'
-import { go } from '../router'
+import { go, type Route } from '../router'
 import { agentName, taskLine } from '../taskView'
 import { recordLine } from '../workRecords'
 import { sendJudgment, TaskCard } from '../WorkTasks'
@@ -69,7 +69,11 @@ const GROUP_NAME: Record<TurnItem['kind'], () => string> = {
   task: () => t('맡긴 일 결과', 'Delegated task results'),
   flow: () => t('흐름 결정', 'Flow decisions'),
   edits: () => t('수정 검토', 'Edit review'),
+  library: () => t('지식 라이브러리', 'Knowledge library'),
 }
+
+/** 지식 라이브러리 기록이 가리키는 곳: 개념노트면 그 노트, 아니면 지식 첫 화면 (알림 종과 같다) */
+const libraryRoute = (target: string): Route => (target.startsWith('concept-') ? { page: 'library', topic: target.slice('concept-'.length) } : { page: 'library' })
 
 /** 피드백 항목의 이름: 교정한 문장, 없으면 원문 첫 줄 */
 const feedbackTitle = (e: FeedbackItem) => (e.status?.clean || e.text).split('\n')[0]!.trim()
@@ -92,7 +96,7 @@ function TurnCard({ x, onOpen, busy, act }: { x: TurnItem; onOpen(): void; busy:
     buttons = x.turn === 'answer'
       ? <><button className="btn" disabled={busy} onClick={onOpen}>{REPLY['코멘트']}</button><button className="btn" disabled={busy} onClick={() => act(() => api.reviewFeedback(e.key, '중단'))}>{REPLY['중단']}</button><button className="btn primary" disabled={busy} onClick={() => act(() => api.reviewFeedback(e.key, '진행'))}>{REPLY['진행']}</button></>
       : <><button className="btn" disabled={busy} onClick={onOpen}>{REPLY['코멘트']}</button><button className="btn" disabled={busy} onClick={onOpen}>{REPLY['반려']}</button><button className="btn primary" disabled={busy} onClick={() => act(() => api.reviewFeedback(e.key, '승인'))}>{REPLY['승인']}</button></>
-  } else if (x.kind === 'record') {
+  } else if (x.kind === 'record' || x.kind === 'library') {
     const { entry } = x.rec
     meta = <><Chip rid={x.rid} name={x.project} />{entry.by && <span className="ph-agent">{agentName(entry.by)}</span>}<span>{kindLabel(recordKind(entry))}</span></>
     title = recordLine(entry) || t('(빈 기록)', '(empty)')
@@ -156,13 +160,13 @@ function TurnSheet({ x, onClose, onSaved }: { x: TurnItem; onClose(): void; onSa
       <Compose e={e} />
       <button className="a ph-more" onClick={() => go({ page: 'feedback', key: e.key })}>{t('피드백 화면에서 전체 대화 보기', 'See the whole thread on the feedback screen')}</button>
     </>
-  } else if (x.kind === 'record') {
+  } else if (x.kind === 'record' || x.kind === 'library') {
     const { file, entry } = x.rec
     head = entry.by ? t(`${agentName(entry.by)}의 ${kindLabel(recordKind(entry))}`, `${kindLabel(recordKind(entry))} from ${agentName(entry.by)}`) : kindLabel(recordKind(entry))
     inner = <>
       <div className="ph-meta"><Chip rid={x.rid} name={x.project} />{file.target === 'project' ? t('이 프로젝트', 'This project') : file.title}</div>
       <RecordList rid={x.rid} file={file} filter={recordKind(entry) === '지시' ? '지시' : '질문'} items={[entry]} work
-        onGo={() => { const r = recordRoute(x.rid, file, () => undefined); if (r) go(r) }} />
+        onGo={() => { const r = x.kind === 'library' ? libraryRoute(file.target) : recordRoute(x.rid, file, () => undefined); if (r) go(r) }} />
     </>
   } else if (x.kind === 'task') {
     head = x.task.title

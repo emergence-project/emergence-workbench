@@ -1,5 +1,5 @@
 import { useQueries, useQuery } from '@tanstack/react-query'
-import { taskTurn, userTurn } from '@rw/core'
+import { LIBRARY_RID, taskTurn, userTurn } from '@rw/core'
 import { api, commentsApi, tasksApi, type FeedbackItem, type ResearchListItem, type Task } from '../api'
 import { t } from '../i18n'
 import { qk } from '../queries'
@@ -15,6 +15,8 @@ import { userTurnRecords, type FlatRecord } from '../workRecords'
 export type TurnItem =
   | { kind: 'feedback'; key: string; at: string; item: FeedbackItem; turn: 'answer' | 'confirm' }
   | { kind: 'record'; key: string; at: string; rid: string; project: string; rec: FlatRecord }
+  /** 지식 라이브러리(개념노트)의 에이전트 질문 · 지시 (11/27 결정: 알림 종 · 레일에는 있는데 여기서 빠지던 것) */
+  | { kind: 'library'; key: string; at: string; rid: string; project: string; rec: FlatRecord }
   | { kind: 'task'; key: string; at: string; rid: string; project: string; task: Task }
   | { kind: 'flow'; key: string; at: string; rid: string; project: string; n: number }
   | { kind: 'edits'; key: string; at: string; rid: string; project: string; n: number }
@@ -22,7 +24,7 @@ export type TurnItem =
 /** 확인만 (11/23 결정 필요 · 확인만): 반영이 끝난 피드백과 종결 조건을 통과한 맡긴 일. 탭 수 · 알림에 넣지 않는다 */
 export const isConfirm = (x: TurnItem) => (x.kind === 'feedback' && x.turn === 'confirm') || (x.kind === 'task' && taskTurn(x.task) === 'confirm')
 
-export const TURN_GROUPS = ['feedback', 'record', 'task', 'flow', 'edits'] as const satisfies TurnItem['kind'][]
+export const TURN_GROUPS = ['feedback', 'record', 'task', 'flow', 'edits', 'library'] as const satisfies TurnItem['kind'][]
 
 export function useTurns(): { items: TurnItem[]; loading: boolean; projects: ResearchListItem[]; failed: string[] } {
   const list = useQuery({ queryKey: qk.researches, queryFn: () => api.researches() })
@@ -32,6 +34,7 @@ export function useTurns(): { items: TurnItem[]; loading: boolean; projects: Res
   const issues = useQuery({ queryKey: qk.researchIssues, queryFn: () => api.researchIssues(), enabled: projects.length > 0 })
   const records = useQueries({ queries: projects.map((r) => ({ queryKey: qk.records(r.id), queryFn: () => commentsApi(r.id).records() })) })
   const tasks = useQueries({ queries: projects.map((r) => ({ queryKey: qk.tasks(r.id), queryFn: () => tasksApi(r.id).scan() })) })
+  const library = useQuery({ queryKey: qk.records(LIBRARY_RID), queryFn: () => commentsApi(LIBRARY_RID).records() })
 
   const items: TurnItem[] = []
   for (const e of feedback.data?.enabled ? feedback.data.entries : []) {
@@ -46,6 +49,8 @@ export function useTurns(): { items: TurnItem[]; loading: boolean; projects: Res
     const n = issues.data?.edits[r.id] ?? 0
     if (n) items.push({ kind: 'edits', key: `edits:${r.id}`, at: '', rid: r.id, project: r.title, n })
   })
+  const libraryName = t('지식 라이브러리', 'Knowledge library')
+  for (const rec of userTurnRecords(library.data?.files ?? [])) items.push({ kind: 'library', key: `lib:${rec.file.target}:${rec.entry.id}`, at: rec.entry.id, rid: LIBRARY_RID, project: libraryName, rec })
   const loading = list.isPending || feedback.isPending || records.some((q) => q.isPending) || tasks.some((q) => q.isPending)
   // 받지 못한 것: 그 묶음이 없는 것으로 보이지 않게 이름을 돌려준다 (11/27: 피드백을 못 읽으면 피드백 답 묶음이 말없이 빠졌다)
   const failed = [
@@ -54,6 +59,7 @@ export function useTurns(): { items: TurnItem[]; loading: boolean; projects: Res
     records.some((q) => q.isError) && t('기록', 'records'),
     tasks.some((q) => q.isError) && t('맡긴 일', 'delegated tasks'),
     issues.isError && t('수정 검토 · 흐름', 'edit reviews and flows'),
+    library.isError && t('지식 라이브러리 기록', 'knowledge library records'),
   ].filter((x): x is string => !!x)
   return { items, loading, projects, failed }
 }
