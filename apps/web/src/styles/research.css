@@ -1,0 +1,31 @@
+/* 소개 › 연구의 두 표 (ResearchTables.tsx, 2026-11-27 "추천대로"). 사용자 차례인 줄만 주황, 나머지 판정은 글자로만 */
+.rt { display: grid; gap: var(--sp-2); min-width: 0; margin-bottom: var(--sp-3); }
+.rt-meta { color: var(--text-3); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.rt-filters { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.rt-tbl { border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+.rt-row { display: grid; grid-template-columns: minmax(0, 1fr) 72px 104px 132px 84px; gap: var(--sp-3); align-items: center; padding: var(--sp-2) var(--sp-3); border-top: 1px solid var(--line); font-size: var(--fs-sm); }
+.rt-tbl > .rt-row:first-child { border-top: 0; }
+.rt-row.head { background: var(--bg-sunken); color: var(--text-3); font-size: var(--fs-xs); padding-block: var(--sp-1); }
+.rt-row.you { box-shadow: inset 3px 0 0 var(--s-blocked); }
+.rt-row .num { color: var(--text-2); font-variant-numeric: tabular-nums; min-width: 0; }
+.rt-row .tag { width: max-content; }
+.rt-name { all: unset; cursor: pointer; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.rt-name[aria-expanded='true'] { white-space: normal; }
+.rt-name:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-xs); }
+.rt-cut { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rt-verdict { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--text-2); flex-wrap: wrap; }
+.rt-verdict.you { color: var(--s-blocked); font-weight: var(--fw-strong); }
+.rt-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--s-blocked); flex: none; }
+.rt-due { color: var(--text); }
+.rt-more { grid-column: 1 / -1; display: grid; gap: 2px; color: var(--text-2); font-size: var(--fs-sm); padding-bottom: var(--sp-1); min-width: 0; overflow-wrap: anywhere; }
+.rt-more b { color: var(--text); font-weight: var(--fw-strong); margin-right: var(--sp-1); }
+.rt-btns { grid-column: 1 / -1; display: flex; gap: var(--sp-2); }
+.rt-group-head { padding: var(--sp-2) var(--sp-3) var(--sp-1); border-top: 1px solid var(--line); color: var(--text-2); font-weight: var(--fw-strong); font-size: var(--fs-sm); }
+.rt-group-head + .rt-row { border-top: 0; }
+.rt-gone summary { cursor: pointer; color: var(--text-2); font-size: var(--fs-sm); }
+.rt-gone-row { color: var(--text-2); font-size: var(--fs-sm); padding: var(--sp-1) 0 0 var(--sp-3); }
+/* 좁은 폭: 이름 · 판정만 한 줄, 나머지는 펼쳐서 */
+@media (max-width: 720px) {
+  .rt-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .rt-row > :nth-child(2), .rt-row > :nth-child(4), .rt-row > :nth-child(5) { display: none; }
+}
