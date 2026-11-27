@@ -55,14 +55,16 @@ export function Intro() {
       <Section name={t('이 소개를 읽는 법', 'How to read this page')} ui="읽는 법">
         {lang === 'ko' ? (
           <p className="about-lead">
-            이 소개는 Claude(코딩 에이전트)가 지금까지의 대화와 피드백에서 무엇을 알아들었고 그것을 화면에 어떻게 만들었는지 보여 드리는 곳입니다.
-            쪽마다 화면 하나를 다루고, 지금 앱이 어떤지를 화면의 짜임대로 적습니다. 승인하신 피드백은 여기 설명으로 옮기고 피드백 목록에서는 지웁니다.
+            이 소개는 이 앱의 정본(single source of truth)입니다. 앱의 목표, 개발 결정, 그리고 지금 어떻게 구현되어 있는지를 여기 적고, 다른 문서는 이 소개의 자세한 설명입니다.
+            사용자와 에이전트가 함께 읽는 글이라 누구나 쉽게 읽히게 쓰고, 에이전트는 이 소개를 읽고 기능이 어떻게 구현되어 있는지와 어떤 파일로 되어 있는지를 정리합니다.
+            앱을 고치는 에이전트는 소개와 구현이 늘 맞도록 같은 PR에서 함께 고칩니다. 쪽마다 화면 하나를 다루고, 지금 앱이 어떤지를 화면의 짜임대로 적습니다. 승인하신 피드백은 여기 설명으로 옮기고 피드백 목록에서는 지웁니다.
             틀린 곳이 있으면 툴바 오른쪽 시계로 오른쪽 사이드바를 열고 「수정」 탭에서 본문의 그곳(문단 · 표 칸 · 그림 속 상자)을 눌러 고친 글을 담아 보내 주세요.
           </p>
         ) : (
           <p className="about-lead">
-            This page is where Claude (the coding agent) shows what it understood from the conversations and feedback so far, and how it built that into the screens.
-            Each part covers one screen and describes how the app works now, following the layout of the screen. Feedback you approve moves into these descriptions and is deleted from the feedback list.
+            This About page is the app's single source of truth. It describes the app's goals, its development decisions and how it is implemented now; other documents are detailed notes on it.
+            Users and agents both read it, so it is written to be easy for anyone to read, and agents read it to work out how each feature is implemented and which files it is made of.
+            Agents that fix the app keep the About page and the implementation in step by changing both in the same PR. Each part covers one screen and describes how the app works now, following the layout of the screen. Feedback you approve moves into these descriptions and is deleted from the feedback list.
             If something is wrong, open the right sidebar with the clock at the right of the toolbar, and in the "Edit" tab click that place in the text (a paragraph, a table cell or a box in a figure), then add your edited text and send it.
           </p>
         )}
