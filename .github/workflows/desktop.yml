@@ -256,7 +256,13 @@ jobs:
           fi
           config=()
           [ -n "$VERSION" ] && config=(--config "{\"version\":\"$VERSION\"}")
-          npx -y @tauri-apps/cli@2.12.4 build --target ${{ matrix.target }} --bundles app,dmg --config tauri.standalone.conf.json "${config[@]}"
+          # dmg를 만드는 hdiutil이 CI 맥에서 가끔 "Resource busy"로 멈춘다(11/27 인텔 기계, 바로 앞 실행은 통과).
+          # 세 번까지 다시, 기다림은 20 · 40초 (컴파일은 남아 있어 금방). 공증까지 다시 하게 되는 것은 릴리스 실행뿐이다
+          for i in 1 2 3; do
+            npx -y @tauri-apps/cli@2.12.4 build --target ${{ matrix.target }} --bundles app,dmg --config tauri.standalone.conf.json "${config[@]}" && break
+            [ "$i" = 3 ] && exit 1
+            echo "앱 · dmg 만들기 다시 ($i)"; sleep $((i * 20))
+          done
           mkdir -p "$GITHUB_WORKSPACE/out"
           cp target/${{ matrix.target }}/release/bundle/dmg/*.dmg "$GITHUB_WORKSPACE/out/${{ matrix.asset }}"
       # dmg를 열어 꺼낸 앱 그대로. Developer ID 열쇠로 만들었으면 공증까지 되어야 통과한다
