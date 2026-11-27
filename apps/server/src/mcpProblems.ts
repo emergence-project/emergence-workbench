@@ -5,7 +5,7 @@
 // (흐름을 시작하고 종료하는 것, 메시지 · 독자 · 한도 · 순서는 사용자만. 판정은 작업한 쪽이 아닌 쪽만).
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import { ATTEMPT_VERDICTS, CLAIM_SIDES, EXCEPTION_KINDS, TEST_RESULTS } from '@rw/core'
+import { ATTEMPT_VERDICTS, CLAIM_SIDES, EXCEPTION_KINDS, TEST_RESULTS } from '@rw/core/plugins/flow'
 import * as C from '@rw/core/contract/problems'
 import type { Text } from './mcp.js'
 

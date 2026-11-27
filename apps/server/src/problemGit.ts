@@ -1,6 +1,6 @@
 // 흐름의 근거를 git에서 읽는 것 (11/20 결정 "흐름 근거 공통 기준"): 한 날의 기본값과 커밋 꼬리말.
 // 쓰기 함수(problems.ts)는 git을 부르지 않으므로, 부르는 쪽(라우트 · pnpm agent:problem)이 여기서 먼저 읽어 넘긴다.
-import { evidencePaths, hasAttemptTrailer } from '@rw/core'
+import { evidencePaths, hasAttemptTrailer } from '@rw/core/plugins/flow'
 import { GIT_TIMEOUT, git } from './git.js'
 import { headCommit } from './problemFiles.js'
 

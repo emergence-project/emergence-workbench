@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { problemsApi, type FlowException, type NewExceptionBody, type ProblemRow } from './api'
+import { problemsApi, type FlowException, type NewExceptionBody, type ProblemRow } from './api/problems'
 import { Dialog } from './dialogs'
 import { t } from './i18n'
 import { EXCEPTION_NAME } from './problemNames'

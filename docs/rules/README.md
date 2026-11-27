@@ -45,6 +45,14 @@
 - 다시 볼 날이 7일 안이면 알린다(실패는 아님). 다시 볼 날(`review`)이 지났는데 판단이 되돌림 · 없앰이 아니면 실패한다. 사용자와 정해 `verdict` · `note` · `review`를 고친다.
 - 테스트 파일은 부르는 쪽으로 세지 않는다. import가 아닌 연결(주소 · 페이지 이름 같은 문자열, 화면 그림 목록, `package.json`의 명령)은 세지 않으니, 지울 때는 `problems` 같은 이름도 찾아본다.
 
+### 흐름: 검사가 세지 않는 연결 (2026-11-27)
+
+흐름의 import 이음매는 셋(서버 등록부 `apps/server/src/plugins/index.ts`, 화면 등록부 `apps/web/src/plugins/index.tsx`, CSS 차례 때문에 남긴 `apps/web/src/main.tsx`)이다. 흐름 파일은 이름표 · 근거 세기를 `@rw/core/plugins/flow`에서, 화면 호출은 `./api/problems`에서 직접 가져온다(본체 `api.ts` · core `index.ts`는 다시 내보내지 않는다). 흐름을 떼어 낼 때는 아래 글자 연결도 고친다.
+
+- 서버: `watcher.ts`(흐름 파일 알림), `changes.ts`(변경 기록의 흐름 항목), `routes/recordsPublish.ts`(자동 올리기의 `problems`), 에이전트 도구 이름 목록 `agentPolicy.ts`(고위험 영역) · `agentAcp.ts` · `agentRunner.ts`, 안내문 `mcp.ts` · `agentStatus.ts`, 연구 목록 계약 `packages/core/src/contract/research.ts`의 흐름 수.
+- 화면: 주소 `router.ts`, 화면 캐시 키 `queries.ts`, 탭 `workspaceTabs.ts` · `App.tsx` · `appCrumbs.ts`, 파일 나무 `FileTree.tsx`, 변경 화면 `ChangesPage.tsx`, 홈 카드 `HomePage.tsx`, 알림 종 `NoticeBell.tsx`, 프로젝트 정보 `ProjectInfoPage.tsx`, 내 차례 `RecordTurns.tsx`, 폰 차례 `phone/PhoneTurns.tsx`, 연구 알림 타입 `api/research.ts`.
+- 그 밖: 화면 그림 목록 `scripts/shots/screens.mjs` · `scripts/shots/changes.mjs`, `package.json`의 `agent:problem`, 예제 `fixtures/**/workbench/problems/`.
+
 ## 첫 점검 (2026-11-27)
 
 커밋 784개 · PR 754개 · 11/19–11/26 CI 400번(실패 35번 중 19번 분류)을 봤다. 결과와 판단은 `registry.json`의 `note`에 있다.

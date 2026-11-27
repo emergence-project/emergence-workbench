@@ -1,7 +1,7 @@
 // 흐름 · 주장 · 시도 파일을 읽고 쓰는 모양 (workbench/problems/<id>/problem.yaml + <주장 번호>.yaml + <시도 글자>.yaml, docs/repo-format.md §16).
 // 규칙(누가 무엇을 하나)은 problems.ts, 여기는 파일 ↔ 값만: 너그럽게 읽고(모르는 칸은 남긴다), 정한 칸 순서로 쓴다.
 import YAML from 'yaml'
-import { ATTEMPT_STATES, CLAIM_SIDES, DIRECTION_VERDICTS, FLOW_ANSWERS, PROBLEM_LIMIT, PROBLEM_STATES, REPORT_WHYS, TEST_RESULTS } from '@rw/core'
+import { ATTEMPT_STATES, CLAIM_SIDES, DIRECTION_VERDICTS, FLOW_ANSWERS, PROBLEM_LIMIT, PROBLEM_STATES, REPORT_WHYS, TEST_RESULTS } from '@rw/core/plugins/flow'
 import type { AttemptState, ClaimSide, DirectionReport, FlowAnswer, Literature, ProblemState } from '@rw/core/contract/problems'
 import { hashOf } from './fsutil.js'
 
