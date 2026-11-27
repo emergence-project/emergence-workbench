@@ -73,7 +73,7 @@ export function Layout() {
 export function Intro() {
   return (
     <>
-      <Section name={t('정의', 'Definition')} ui="정의">
+      <Section name={t('Emergence Workbench 개요', 'Emergence Workbench overview')} ui="정의">
         <p className="about-lead">{INTRO_SUB}</p>
         <IntroPillars />
       </Section>
