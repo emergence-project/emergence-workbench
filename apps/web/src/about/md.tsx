@@ -27,11 +27,13 @@ export function inline(line: AboutLine): ReactNode {
 
 const items = (lines: AboutLine[]): AboutItem[] => lines.map((l) => ({ text: <>{inline(l)}</> }))
 
-function figureOf(name: string | undefined): ReactNode {
-  if (!name) return undefined
-  const f = FIGS[name]
-  if (!isComponent(f)) throw new Error(`소개 그림이 없습니다: ${name} (aboutFigures.tsx)`)
-  return createElement(f)
+function figureOf(names: string[]): ReactNode {
+  if (!names.length) return undefined
+  return names.map((name) => {
+    const f = FIGS[name]
+    if (!isComponent(f)) throw new Error(`소개 그림이 없습니다: ${name} (aboutFigures.tsx)`)
+    return createElement(f, { key: name })
+  })
 }
 
 /** 절 파일 하나 → 한국어 · 영어 절 */
@@ -44,7 +46,8 @@ export function mdSection(key: string): { ko: AboutSection; en: AboutSection } {
     ...(m.id && { id: m.id }),
     ...(m.ui && { ui: m.ui }),
     ...(m.port && { port: m.port }),
-    ...(m.figure && { figure: figureOf(m.figure) }),
+    ...(m.figure.length && { figure: figureOf(m.figure) }),
+    ...(m.was.length && { was: m.was }),
     ...(m.summary && { summary: m.summary[lang] }),
     ...(m.ask && { ask: m.ask[lang] }),
     ...(lang === 'ko' && m.prs.length && { prs: m.prs }),

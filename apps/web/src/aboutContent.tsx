@@ -59,8 +59,10 @@ export function withPrFragments(parts: AboutPart[], files: Record<string, { ko?:
   }
   if (!add.size) return parts
   return parts.map((p) => ({ ...p, sections: p.sections?.map((sec) => {
-    const more = add.get(keyOf.get(sec) ?? '')
-    return more ? { ...sec, prs: [...new Set([...(sec.prs ?? []), ...more])].sort((a, b) => a - b) } : sec
+    // 옛 절 키(was)를 가리키는 조각도 이 절의 것 (절을 합치거나 쪼개도 이력이 이어지게, 11/27)
+    const more = [keyOf.get(sec) ?? '', ...(sec.was ?? [])].flatMap((k) => add.get(k) ?? [])
+    if (!more.length) return sec
+    return { ...sec, prs: [...new Set([...(sec.prs ?? []), ...more])].sort((a, b) => a - b) }
   }) }))
 }
 

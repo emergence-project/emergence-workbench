@@ -8,11 +8,14 @@
  * summary:                         # 한 줄 요약 (필수): 에이전트가 먼저 받는 글
  *   ko: …
  *   en: …
- * code: [apps/web/src/AgentEditsPage.tsx, apps/server/src/agentEdits*.ts]   # 구현 파일 glob (필수)
+ * code: [apps/web/src/AgentEditsPage.tsx, apps/server/src/agentEdits*.ts]   # 구현 파일 glob (기능 절은 필수)
+ * kind: norm                       # 절 종류 (11/27 Fable 안): feature 기능(기본, 파일 · 도구로 찾음) · norm 규범(어느 파일에나 걸림,
+ *                                  #   앱 고치기 대화가 처음 파일을 다룰 때 한 번 건넴) · reference 참조(용어 · 기호, 키로 찾음)
  * mcp: [edit_note]                 # 이 기능을 쓰는 MCP 도구
- * figure: ScreenLayoutFigure       # aboutFigures.tsx의 그림 이름
+ * figure: ScreenLayoutFigure       # aboutFigures.tsx의 그림 이름 (여럿이면 [A, B])
  * prs: [103, 137]                  # 옛 PR 번호 (새 번호는 about/prs/<번호>.json 조각)
- * ui · port · was · ask            # 피드백 부위 이름 · 이식 안내서 · 옛 절 이름 · 확인 전 물음
+ * was: [principles/status-and-turns]  # 이 절로 합치거나 이름을 바꾼 옛 절 키: 옛 PR 조각 · 절 찾기가 이 절로 풀린다
+ * ui · port · ask                  # 피드백 부위 이름 · 이식 안내서 · 확인 전 물음
  * ---
  * <!-- ko -->
  * - 지금 동작 한 항목 (**굵게**, `코드`, [링크](#/about/agents))
@@ -38,14 +41,20 @@ export interface AboutMdBody {
   decisions: AboutLine[]
 }
 
+/** 절 종류: 기능(파일 · 도구로 찾음) · 규범(어느 파일에나 걸림) · 참조(용어 · 기호) */
+export type AboutKind = 'feature' | 'norm' | 'reference'
+export const ABOUT_KINDS: readonly AboutKind[] = ['feature', 'norm', 'reference']
+const isKind = (s: string): s is AboutKind => ABOUT_KINDS.some((k) => k === s)
+
 export interface AboutMd {
   id?: string
+  kind: AboutKind
   title: { ko: string; en: string }
   summary?: { ko: string; en: string }
   ask?: { ko: string; en: string }
   ui?: string
   port?: string
-  figure?: string
+  figure: string[]
   code: string[]
   mcp: string[]
   prs: number[]
@@ -159,14 +168,17 @@ export function parseAboutMd(text: string): AboutMd {
   if (halves.length !== 2) throw new Error('소개 절 본문에 <!-- en --> 줄이 꼭 하나 있어야 합니다')
   const [ko = '', en = ''] = halves
   const str = (v: Val | undefined) => (v === undefined ? undefined : String(v))
+  const kind = str(y.kind) ?? 'feature'
+  if (!isKind(kind)) throw new Error(`소개 절 머리말의 kind는 ${ABOUT_KINDS.join(' · ')} 중 하나입니다: ${kind}`)
   return {
     ...(str(y.id) && { id: str(y.id) }),
+    kind,
     title,
     ...(pair(y.summary) && { summary: pair(y.summary) }),
     ...(pair(y.ask) && { ask: pair(y.ask) }),
     ...(str(y.ui) && { ui: str(y.ui) }),
     ...(str(y.port) && { port: str(y.port) }),
-    ...(str(y.figure) && { figure: str(y.figure) }),
+    figure: list(y.figure).map(String),
     code: list(y.code).map(String),
     mcp: list(y.mcp).map(String),
     prs: list(y.prs).map(Number).filter(Boolean),

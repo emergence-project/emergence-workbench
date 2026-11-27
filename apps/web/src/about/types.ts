@@ -22,6 +22,8 @@ export interface AboutSection {
   prs?: number[]
   /** 절 파일 about/<쪽>/<절>.md의 "<쪽>/<절>" (.md 절만, 11/27) */
   file?: string
+  /** 이 절로 합치거나 이름을 바꾼 옛 절 키: 옛 PR 조각의 번호가 이 절에 붙는다 (.md의 was) */
+  was?: string[]
   /** 한 줄 요약: 절 제목 밑에 보이고 에이전트가 먼저 받는 글 (11/27 "소개를 에이전트가 읽는 정본으로") */
   summary?: string
   /** 지킬 것: 이 기능을 고칠 때 깨면 안 되는 것 (있는 절만) */
