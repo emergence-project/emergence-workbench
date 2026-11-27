@@ -21,7 +21,7 @@ The failure this contract prevents: an app that works on the machine that built 
 ## How a release runs
 
 1. Actions › **Desktop** › Run workflow with "release" on (or push a `v*` tag).
-2. `version` decides the number. `windows` and `mac` (arm64 and x64) build with that number.
+2. `version` decides the number. `windows` and `mac` build with that number; each Mac chip is built and launched on a runner of that chip (`macos-latest` for arm64, `macos-15-intel` for x64).
 3. Windows: the NSIS installer is installed silently on the runner and the gate runs on the installed folder. Mac: the dmg is mounted, the app copied out, and the gate runs on that copy; if the build is trusted, the bundled server is started from a copy marked as downloaded (`com.apple.quarantine`).
 4. `release` creates the tag and release and attaches the files that passed. If the Mac jobs fail, the Windows installer is still released; the Mac dmgs are left out.
 
@@ -51,6 +51,7 @@ With them, release runs sign the bundled native parts and the app, notarize and 
 
 - **git on a new Mac.** The Mac app does not carry git (the Windows installer carries MinGit). On a Mac without the Xcode Command Line Tools, macOS asks to install them the first time the app needs git, for example when creating a project. CI runners have the tools, so the gate cannot see this.
 - **Windows signing.** Not signed; see [install-windows.md](install-windows.md).
+- **Intel runners.** `macos-15-intel` is GitHub's last Intel runner (until 2027). Launching the x64 build on an Apple-silicon runner through Rosetta does not stand in for an Intel Mac (the server's git calls fail on arm64-only developer tools), so when that runner goes, decide whether to stop the x64 dmg or release it without the launch check.
 - **Rule 4** has no automated check yet, and the in-app feedback "Send to maintainer" currently sends automatically shortly after feedback is left. Making it opt-in is a separate change.
 
 ---
@@ -73,4 +74,4 @@ With them, release runs sign the bundled native parts and the app, notarize and 
 
 **맥 서명 켜기(관리자):** Apple Developer Program 가입이 필요하다. 위 영어 절의 표대로 저장소 비밀값 여섯 개를 넣으면 릴리스 실행이 묶음 안의 네이티브 부품과 앱을 서명하고 공증 · 스테이플하며, 관문이 trusted를 요구한다. PR 실행은 서명 · 공증하지 않는다. 서명 경로는 아직 한 번도 돌지 않았다: 첫 서명 릴리스가 그 시험이고, 거기서 실패하면 맥 파일은 나가지 않는다.
 
-**알려진 빈틈:** 맥 앱은 git을 품지 않아(윈도우는 MinGit을 품는다) Xcode 명령줄 도구가 없는 맥에서는 처음 git이 필요할 때(프로젝트 만들기 등) macOS가 설치를 묻는다. CI 기계에는 도구가 있어 관문이 보지 못한다. 윈도우 서명 없음. 규칙 4는 아직 자동 검사가 없고, 앱 안 피드백의 「관리자에게 보내기」는 지금 피드백을 남기면 잠시 뒤 저절로 보낸다. 사용자가 켜야 보내도록 바꾸는 것은 따로 한다.
+**알려진 빈틈:** 맥 앱은 git을 품지 않아(윈도우는 MinGit을 품는다) Xcode 명령줄 도구가 없는 맥에서는 처음 git이 필요할 때(프로젝트 만들기 등) macOS가 설치를 묻는다. CI 기계에는 도구가 있어 관문이 보지 못한다. 윈도우 서명 없음. x64 dmg는 GitHub의 마지막 인텔 기계(`macos-15-intel`, 2027년까지)에서 만들고 켜 본다. arm64 기계에서 Rosetta로 켜면 인텔 맥을 대신하지 못한다(서버가 부르는 git이 arm64 전용 명령줄 도구를 읽지 못한다). 규칙 4는 아직 자동 검사가 없고, 앱 안 피드백의 「관리자에게 보내기」는 지금 피드백을 남기면 잠시 뒤 저절로 보낸다. 사용자가 켜야 보내도록 바꾸는 것은 따로 한다.

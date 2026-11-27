@@ -175,20 +175,24 @@ jobs:
           path: desktop-shots
           if-no-files-found: ignore
 
-  # 맥: 칩마다 dmg 하나. x64는 arm64 기계에서 엮어 만들고, 그 기계가 Rosetta로 돌릴 수 있으면 켜 보기까지 한다
+  # 맥: 칩마다 dmg 하나, 그 칩의 기계에서 만들고 켜 본다. arm64 기계에서 Rosetta로 x64를 켜면 서버가 부르는 git이
+  # x86_64로 돌다 arm64 전용 명령줄 도구를 읽지 못해 실패한다(11/27 PR 첫 실행): 인텔 맥이 아니라 Rosetta를 시험하게 된다.
+  # macos-15-intel은 GitHub의 마지막 인텔 기계다(2027년까지). 없어지면 x64 dmg를 그만 내거나 켜 보기 없이 낼지 정한다
   mac:
     needs: version
     if: needs.version.outputs.build == '1'
-    runs-on: macos-latest
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         include:
           - arch: arm64
+            runner: macos-latest
             target: aarch64-apple-darwin
             asset: EmergenceWorkbench_aarch64.dmg
           - arch: x64
+            runner: macos-15-intel
             target: x86_64-apple-darwin
             asset: EmergenceWorkbench_x64.dmg
     env:
@@ -244,8 +248,8 @@ jobs:
           NOTARY_TEAM: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           npx -y @tauri-apps/cli@2.12.4 icon ../../scripts/app-icon.svg
-          # 창 코드 시험은 이 기계의 칩 것만 (x64는 엮어 만들기만)
-          if [ "${{ matrix.arch }}" = arm64 ]; then cargo test; fi
+          # 창 코드 시험 (칩마다 그 칩의 기계에서)
+          cargo test
           # 공증: 열쇠와 Apple 계정이 모두 있을 때만 tauri에 넘긴다 (빈 값을 넘기면 tauri가 공증하려다 실패한다)
           if [ "$APPLE_SIGNING_IDENTITY" != "-" ] && [ -n "$NOTARY_ID" ]; then
             export APPLE_ID="$NOTARY_ID" APPLE_PASSWORD="$NOTARY_PASSWORD" APPLE_TEAM_ID="$NOTARY_TEAM"
