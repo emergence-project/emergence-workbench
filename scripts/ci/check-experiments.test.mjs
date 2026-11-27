@@ -54,3 +54,28 @@ test('다시 볼 날이 지나면 실패, 되돌린 실험은 통과', () => {
 test('울타리가 없는 실험 · 규칙은 보지 않는다', () => {
   assert.deepEqual(run([{ id: 'r', kind: 'process', review: '2020-01-01', verdict: 'watch' }, { id: 'e', kind: 'experiment', review: '2020-01-01', verdict: 'watch' }], {}), [])
 })
+
+test('tsImport로 부르는 스크립트도 센다', () => {
+  const sources = { 'src/feat.ts': '', 'scripts/x.mjs': "const P = await tsImport('../src/feat.ts', opts)" }
+  assert.match(run([exp({ owns: ['src/feat.ts'], seams: [] })], sources)[0], /scripts\/x\.mjs가 src\/feat\.ts을 부릅니다/)
+})
+
+test('이음매가 다시 내보낸(export *) 이름을 가져오면 실패, 다른 이름은 통과', () => {
+  const sources = {
+    'src/feat.ts': 'export const flowThing = 1\nexport type FlowRow = {}',
+    'src/index.ts': "export * from './feat.js'\nexport * from './other.js'",
+    'src/other.ts': 'export const plain = 2',
+    'src/use.ts': "import { plain, type FlowRow as R } from './index.js'",
+    'src/ok.ts': "import { plain } from './index'",
+  }
+  const fails = run([exp({ owns: ['src/feat.ts'], seams: ['src/index.ts'] })], sources)
+  assert.equal(fails.length, 1)
+  assert.match(fails[0], /src\/use\.ts가 src\/index\.ts을 거쳐 실험의 FlowRow/)
+})
+
+test('다시 볼 날 7일 안이면 알림만', () => {
+  const warnings = []
+  const fails = checkExperiments({ registry: { rules: [exp({ owns: ['src/feat.ts'], seams: [] }, { review: '2026-12-01' })] }, files: ['src/feat.ts'], read: () => '', today: '2026-11-27', warnings })
+  assert.deepEqual(fails, [])
+  assert.match(warnings[0], /7일 안/)
+})
