@@ -3,8 +3,8 @@ id: working
 kind: norm
 title: { ko: 작업 원칙, en: Working principles }
 summary:
-  ko: 앱을 만들고 고치고 쓸 때 사람과 에이전트가 함께 지키는 원칙입니다. 어느 기능을 고치든 걸립니다.
-  en: The principles people and agents keep when building, fixing and using the app. They apply whatever feature is changed.
+  ko: 무엇이 쌓이고, 어디가 정본이고, 언제 묻는지를 정한 원칙입니다. 어느 기능을 고치든 걸리고, 앱 고치기 대화는 처음에 이 절을 받습니다.
+  en: What accumulates, where the source of truth lives, and when to ask. They apply whatever feature is changed, and an app-fix conversation receives this section first.
 ---
 <!-- ko -->
 - **검증된 것만 쌓인다.** 판단과 검증을 통과한 것만 기록으로 남습니다. 에이전트가 낸 결과도 사람이 승인해야 쌓입니다(10/23 목적).

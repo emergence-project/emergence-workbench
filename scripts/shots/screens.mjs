@@ -139,8 +139,8 @@ export const DEFAULT_SCREENS = [
   ['about-flow', '#/about/project/flow', '흐름'],
   // 소개 › 프로젝트 화면 › 화면의 짜임의 그림 (11/23): 상단바 · 레일 · 두 사이드바 · 주 패널 · 옆 패널
   ['about-layout', '#/about/project/screen-layout', '화면의 짜임'],
-  // 소개 › 정의와 원칙 쪽의 정의 절: 글의 짜임 그림에 흐름 · 맡긴 일, 정의에 흐름 · 주장 · 시도 (11/19)
-  ['about-principles', '#/about/principles', '정의'],
+  // 소개 › 화면과 용어 쪽의 용어 절: 글의 짜임 그림에 흐름 · 맡긴 일, 용어에 흐름 · 주장 · 시도 (11/19, 11/27 정의와 원칙에서 옮김)
+  ['about-principles', '#/about/layout/terms', '정의'],
   // 피드백 유형과 답 (10/21): 답의 첫 줄에 쓰는 말 표
   ['about-answers', '#/about/feedback/answers', '유형과 답'],
   // 소개 › 단축키와 파일 위치의 「다른 앱에 옮기기」 (11/19): 이식 안내서 docs/ports 목록과 소개 동기화
