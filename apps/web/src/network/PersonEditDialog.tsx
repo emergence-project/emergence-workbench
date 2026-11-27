@@ -4,6 +4,7 @@ import { AffiliationFields } from '../AffiliationFields'
 import { latexApi, networkApi, type PersonView, type S2Author } from '../api'
 import { CardEditDialog } from '../CardEditDialog'
 import { plural, t } from '../i18n'
+import { forgetKept, useKept } from '../keptEdit'
 import { qk, queryClient } from '../queries'
 import { addedOf, announce, Avatar, useLatexSetup, withChange } from './people'
 
@@ -13,10 +14,13 @@ import { addedOf, announce, Avatar, useLatexSetup, withChange } from './people'
  * 노트 저자면 이름·이메일·소속·교신 저자는 저자와 소속(내보내기의 \author 줄)에, 홈페이지·메모·다른 이름은 네트워킹에 저장한다.
  */
 export function PersonEditDialog({ person, people, onDone, onSaved, location }: { person: PersonView; people: PersonView[]; onDone(nextId?: string): void; onSaved(m: string): void; /** 머리의 위치 (기본: 네트워킹 › 이름) */ location?: string }) {
-  const [d, setD] = useState({
+  // Esc · 취소로 닫아도 고치던 칸이 남는다 (keptEdit.ts). 교신 저자는 원고 저자에서 읽어 채우므로 따로 둔다
+  const scope = `person:${person.id}`
+  const [d, setD] = useKept(scope, 'form', {
     name: person.name, email: [person.email, ...person.emails].filter(Boolean).join('\n'), affiliations: person.affiliations.length ? person.affiliations : [''], homepage: person.homepage ?? '',
-    note: person.note ?? '', aliases: person.aliases.join(', '), corresponding: false, s2: person.s2 ?? '', dropPhoto: false,
+    note: person.note ?? '', aliases: person.aliases.join(', '), s2: person.s2 ?? '', dropPhoto: false,
   })
+  const [corresponding, setCorresponding] = useState(false)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   // 원고 저자는 창을 열 때 새로 받고(받는 동안 교신 저자 칸은 잠근다), 받으면 교신 저자를 한 번 채운다
@@ -29,7 +33,7 @@ export function PersonEditDialog({ person, people, onDone, onSaved, location }: 
     if (!latex.data || latex.isFetching) return
     setLoaded(true)
     const a = latex.data.authors.find((x) => personId(x.name) === person.id)
-    if (a) setD((cur) => ({ ...cur, corresponding: !!a.corresponding }))
+    if (a) setCorresponding(!!a.corresponding)
   }, [loaded, latex.data, latex.isFetching, latex.isError, latex.error, person.id])
   const authorsLoaded = !person.author || loaded
   const set = (patch: Partial<typeof d>) => setD((cur) => ({ ...cur, ...patch }))
@@ -48,7 +52,7 @@ export function PersonEditDialog({ person, people, onDone, onSaved, location }: 
       if (person.author) {
         // 저장 직전에 지금 저자 목록을 새로 읽어 그 위에 고친다
         const { authors: current } = await queryClient.fetchQuery({ queryKey: qk.latexSetup, queryFn: () => latexApi.get(), staleTime: 0 })
-        const mine = { name, ...(email && { email }), ...(emails.length && { emails }), ...(d.corresponding && { corresponding: true }), affiliations }
+        const mine = { name, ...(email && { email }), ...(emails.length && { emails }), ...(corresponding && { corresponding: true }), affiliations }
         // 저자가 아직 없으면(처음 받은 사람의 시작 준비, id 빈 값) 첫 저자로 더한다
         await latexApi.saveAuthors(current.some((a) => personId(a.name) === person.id) ? current.map((a) => (personId(a.name) === person.id ? mine : a)) : [mine, ...current])
       }
@@ -62,6 +66,7 @@ export function PersonEditDialog({ person, people, onDone, onSaved, location }: 
       if (needsEntry) await networkApi.savePeople(addedOf(withChange(people, person, change)))
       if (d.dropPhoto && person.photo) await networkApi.removePhoto(person.id)
       announce()
+      forgetKept(scope)
       onSaved(t('프로필을 저장했습니다', 'Profile saved'))
       onDone(personId(name))
     } catch (e) { setMessage(t(`저장하지 못했습니다 — ${(e as Error).message}`, `Couldn't save: ${(e as Error).message}`)); setBusy(false) }
@@ -83,7 +88,7 @@ export function PersonEditDialog({ person, people, onDone, onSaved, location }: 
       }
       look={person.author ? (
         <label className="check pe-corr" title={t('노트를 내보낼 때 이름 뒤에 \\thanks{corresponding author}가 붙습니다', 'Adds \\thanks{corresponding author} after the name when exporting notes')}>
-          <input type="checkbox" checked={d.corresponding} disabled={busy || !authorsLoaded} onChange={(e) => set({ corresponding: e.target.checked })} />{t('교신 저자', 'Corresponding author')}
+          <input type="checkbox" checked={corresponding} disabled={busy || !authorsLoaded} onChange={(e) => setCorresponding(e.target.checked)} />{t('교신 저자', 'Corresponding author')}
         </label>
       ) : undefined}
       lower={

@@ -503,6 +503,25 @@ try {
     await eventually(async () => (await page.locator('[data-ui="담은 곳"] li').count()) === 1, 'The typed edit was not added')
     assert.match(await page.locator('[data-ui="담은 곳"] li').first().innerText(), /›/, 'The spot from another page should carry its page name')
   })
+  await caseOf('edit-dialog-keeps-typed-fields-after-escape', async (page) => {
+    // 고치기 창을 Esc로 닫아도 고치던 칸이 남는다 (11/27 결정: 맡기기 창처럼). 저장이 실패하면 그대로 남는다
+    await catchWrites(page)
+    await page.goto(new URL('#/r/sample-research/t/coloring', base).href)
+    const dialog = page.locator('[data-ui="주제 고치기 창"]')
+    await page.locator('[data-ui="주제 고치기"]').first().click()
+    const name = dialog.locator('input').first()
+    const before = await name.inputValue()
+    await name.fill(`${before} 고치던 이름`)
+    await page.keyboard.press('Escape')
+    await eventually(async () => !(await dialog.count()), 'Escape did not close the dialog')
+    await page.locator('[data-ui="주제 고치기"]').first().click()
+    assert.equal(await dialog.locator('input').first().inputValue(), `${before} 고치던 이름`, 'The typed name was lost after Escape')
+    // 되돌려 적으면 남긴 것이 없어진다: 다시 열면 원래 이름
+    await dialog.locator('input').first().fill(before)
+    await page.keyboard.press('Escape')
+    await page.locator('[data-ui="주제 고치기"]').first().click()
+    assert.equal(await dialog.locator('input').first().inputValue(), before, 'An unchanged field should open with the saved value')
+  })
 } finally { await browser.close(); await api.dispose() }
 await fs.writeFile(`${out}/results.json`, JSON.stringify({ base: base.href, checks }, null, 2))
 assert(checks.length, 'No selected test case')
