@@ -42,6 +42,13 @@ describe('경로로 볼 낱말', () => {
     // slashes 가 아니면 경로 모양(/ ~ ..)만: 전과 같다
     expect(pathWords(['h/y', '/etc/x', '-f/etc/y'])).toEqual(['/etc/x', '/etc/y'])
   })
+  it('프로젝트가 /tmp 안이면 그 안의 경로는 임시 폴더 예외 없이 inside 로 본다 (리눅스 CI: 시험 폴더가 /tmp 에 생긴다)', () => {
+    const inside = (abs: string) => (abs === '/tmp/p' || abs.startsWith('/tmp/p/')) && !abs.includes('/.git/')
+    expect(commandKind('cp x .git/hooks/pre-commit', { cwd: '/tmp/p', slashes: true, inside })).toBe('outside')
+    expect(commandKind('cp x notes/a.md', { cwd: '/tmp/p', slashes: true, inside })).toBe('edit')
+    // 프로젝트 밖의 /tmp 는 전처럼 임시 폴더
+    expect(commandKind('cp x /tmp/other/y', { cwd: '/tmp/p', slashes: true, inside })).toBe('edit')
+  })
   it('commandKind: slashes 낱말은 inside 에 .. 를 풀기 전의 글과 함께 묻는다', () => {
     const seen: string[] = []
     const kind = commandKind('cp x h/y', { cwd: '/w/p', slashes: true, inside: (abs, raw) => { seen.push(raw ?? abs); return !(raw ?? abs).includes('/h/') } })

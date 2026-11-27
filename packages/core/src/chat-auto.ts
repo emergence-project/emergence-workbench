@@ -540,8 +540,8 @@ function outsideOne(p: string, o: Where): boolean {
   if (/^~[^/]/.test(bare) || /^\$\{?(HOME|PWD)/.test(bare)) return true
   const expanded = bare.startsWith('~') ? `${home}${bare.slice(1)}` : bare
   const raw = expanded.startsWith('/') ? expanded : `${cwd}/${expanded}`, abs = normalize(raw)
-  // 임시 폴더는 .. 를 푼 뒤에 본다: /tmp/../etc/passwd 는 임시 폴더가 아니다. inside 에는 .. 를 풀기 전의 글(raw)도 준다
-  return abs !== '/tmp' && !abs.startsWith('/tmp/') && !o.inside(abs, raw)
+  // 임시 폴더는 .. 를 푼 뒤에 본다(/tmp/../etc/passwd 는 아니다). 프로젝트가 /tmp 안이면 그 안은 inside 로 본다(git 내부 판정). inside 에는 .. 를 풀기 전의 글(raw)도 준다
+  return !((abs === '/tmp' || abs.startsWith('/tmp/')) && abs !== cwd && !abs.startsWith(`${cwd}/`)) && !o.inside(abs, raw)
 }
 
 /** /a/b/../c → /a/c (따로 path 모듈 없이, core는 브라우저에서도 돈다) */

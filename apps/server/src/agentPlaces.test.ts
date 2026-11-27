@@ -6,6 +6,8 @@ import { globHitsGit, placer, realPlace } from './agentPlaces.js'
 import { judge, type PolicyCtx } from './agentPolicy.js'
 
 // 11/27 앱 전체 보안 검토: 판정이 글자와 실제 자리 둘 다로 경로를 본다 (링크 · git 내부)
+/** 시험 폴더가 /tmp 안인지 (리눅스): 판정은 /tmp 를 임시 폴더로 보아 프로젝트 밖의 /tmp 쓰기를 묻지 않는다 */
+const TMP_IS_TMP = /^\/tmp(\/|$)/.test(fs.realpathSync(os.tmpdir()))
 describe.skipIf(process.platform === 'win32')('실제 자리로 보는 경로 판정', () => {
   let tmp = ''
   let repo = ''
@@ -83,7 +85,7 @@ describe.skipIf(process.platform === 'win32')('실제 자리로 보는 경로 �
       'ls notes | grep cd', 'git add -A && git commit -m cd', 'cd notes && ls && cd - && git status'])
       expect(bash(ctx(), c).kind, c).toBe('allow')
     for (const c of ['cp tools/fmt.sh .git/hooks/pre-commit', 'echo x > .git/hooks/pre-commit', 'chmod +x .git/hooks/post-commit', 'cp x h/pre-commit', 'cp x .g*/hooks/pre-commit', 'cp x [.]git/config', 'sort -o.git/config x',
-      'git config core.hooksPath tools', 'cd notes/in/../../.. && cp notes/a.md b', 'cp notes/a.md notes/dang', 'cp x notes/up2/pre-commit',
+      'git config core.hooksPath tools', 'cp notes/a.md notes/dang', 'cp x notes/up2/pre-commit',
       'cd "$(git rev-parse --git-dir)/hooks" && cp notes/a.md pre-commit', 'cd `git rev-parse --git-path hooks` && cp notes/a.md pre-commit']) {
       const v = bash(ctx(), c)
       expect(v.kind, c).toBe('ask')
@@ -103,9 +105,17 @@ describe.skipIf(process.platform === 'win32')('실제 자리로 보는 경로 �
     expect(bash(ctx({ mode: 'auto' }), 'cp x .git/hooks/pre-commit').kind).toBe('ask')
     expect(bash(ctx({ mode: 'auto' }), 'cp x h/pre-commit').kind).toBe('ask')
     expect(bash(ctx({ mode: 'auto' }), 'cp notes/a.md notes/c.md').kind).toBe('allow')
+    expect(bash(ctx({ mode: 'edit', rid: '_app', scope: { kind: 'app' } }), 'cp x .git/hooks/pre-commit').kind).toBe('ask')
+  })
+
+  // 시험 폴더가 /tmp 안이면(리눅스 CI) 저장소 위 · 함께 읽는 폴더도 /tmp 라 임시 폴더 쓰기로 지나간다 (main 과 같은 설계). 그래서 그런 곳에서는 건너뛴다.
+  // 링크 뒤 .. 의 회귀는 위의 placer 시험이 곳과 상관없이 본다
+  it.skipIf(TMP_IS_TMP)('저장소 위로 글자상 벗어난 cd, 자동 모드의 함께 읽는 폴더 쓰기는 묻는다', () => {
+    const v = bash(ctx(), 'cd notes/in/../../.. && cp notes/a.md b')
+    expect(v.kind).toBe('ask')
+    if (v.kind === 'ask') expect(v.once).toBe(true)
     // 자동 모드는 전처럼 함께 읽는 폴더도 고치지 않는다
     expect(bash(ctx({ mode: 'auto' }), `cp notes/a.md ${lib}/a.md`).kind).toBe('ask')
-    expect(bash(ctx({ mode: 'edit', rid: '_app', scope: { kind: 'app' } }), 'cp x .git/hooks/pre-commit').kind).toBe('ask')
   })
 
   it('링크로 밖을 가리키는 노트는 묻지 않고 읽히지 않는다 (명령 · 읽기 도구)', () => {
