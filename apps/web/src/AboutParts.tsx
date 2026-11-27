@@ -14,7 +14,7 @@ export const INTRO_SUB = t('연구와 지식 활동을 여러 사람과 여러 �
 /** 한눈에 머리의 정의 세 가지 (2026-11-27 사용자 정의) */
 export function IntroPillars() {
   return (
-    <ul className="about-pillars" data-ui="정의">
+    <ul className="about-pillars">
       {lang === 'ko' ? (<>
         <li><b>함께</b> — 사람과 에이전트가 같은 정보를 보고 서로의 일을 이어받습니다. 남기는 것은 각 연구 저장소에 파일로 두어, 누가 이어 가도 같은 자료에서 시작합니다.</li>
         <li><b>어디서나</b> — 기기가 여러 대여도 어느 기기에서든 접속해 같은 작업을 이어 합니다. 맥 · 윈도우에 설치하고, 폰에서는 같은 앱을 웹 화면으로 엽니다.</li>
@@ -30,12 +30,10 @@ export function IntroPillars() {
 
 const toPart = (id: string) => href({ page: 'about', part: id })
 
-/** 첫 쪽: 소개를 읽는 법, 화면 구조 그림, 핵심 이해 */
-export function Intro() {
+/** 화면 쪽 맨 앞: 창의 다섯 영역 그림 (11/27 한눈에서 옮김) */
+export function Layout() {
   return (
-    <>
-      <Section name={t('화면 구조', 'Screen layout')} ui="화면 구조">
-        <p className="about-lead">{t('한 창이 다섯 영역으로 나뉩니다. 영역을 누르면 그 설명으로 갑니다.', 'One window is divided into five areas. Click an area to go to its description.')}</p>
+    <div data-ui="화면 구조">
         <div className="about-map" role="img" aria-label={t('화면 구조: 위에 상단바, 왼쪽에 레일과 왼쪽 사이드바, 가운데 작업 패널, 오른쪽에 오른쪽 사이드바', 'Screen layout: top bar on top, rail and left sidebar on the left, work panel in the middle, right sidebar on the right')}>
           <a className="m-title" data-ui="상단바" href={toPart('project')}><b>{t('상단바', 'Top bar')}</b><span>{t('왼쪽 사이드바 여닫기 · 뒤로 · 앞으로 · 위치', 'Toggle left sidebar · Back · Forward · Location')}</span><span className="m-title-actions">{t('(새 버전) · 검색 · 두 패널 · 피드백 · 오른쪽 사이드바 여닫기', '(New version) · Search · Two panes · Feedback · Toggle right sidebar')}</span></a>
           <div className="m-rail" data-ui="레일">
@@ -67,6 +65,17 @@ export function Intro() {
           <a className="m-ctx" data-ui="오른쪽 사이드바" href={toPart('notes')}><b>{t('오른쪽 사이드바', 'Right sidebar')}</b><span>{t('맨 위 아이콘 줄: 정보 · 기록 (메모 · 할 일 · 질문) · 에이전트', 'Icon row on top: Info · Records (memos · to-dos · questions) · Agent')}</span></a>
         </div>
         <p className="about-note">{t('프로젝트 화면의 구조입니다. 상단바의 두 패널 버튼은 프로젝트 화면에만, 오른쪽 사이드바 버튼은 프로젝트와 지식·논문·그림 첫 화면에 있습니다. 홈·지식·논문·그림·네트워킹·피드백·소개·설정은 프로젝트 밖 화면이고, 지식·논문·그림·네트워킹·소개·설정은 자기 왼쪽 사이드바가 있습니다.', 'This is the layout of the project screen. The Two panes button in the top bar is only on project screens, and the right sidebar button is on projects and on the Knowledge, Papers and Figures home screens. Home, Knowledge, Papers, Figures, Networking, Feedback, About and Settings are screens outside projects, and Knowledge, Papers, Figures, Networking, About and Settings have their own left sidebar.')}</p>
+    </div>
+  )
+}
+
+/** 첫 쪽: 정의, 소개를 읽는 법, 핵심 이해 */
+export function Intro() {
+  return (
+    <>
+      <Section name={t('정의', 'Definition')} ui="정의">
+        <p className="about-lead">{INTRO_SUB}</p>
+        <IntroPillars />
       </Section>
 
       <Section name={t('이 소개를 읽는 법', 'How to read this page')} ui="읽는 법">

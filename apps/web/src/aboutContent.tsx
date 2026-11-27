@@ -3,6 +3,7 @@ import * as design from './about/design'
 import * as feedback from './about/feedback'
 import * as home from './about/home'
 import * as intro from './about/intro'
+import * as layout from './about/layout'
 import * as knowledge from './about/knowledge'
 import * as network from './about/network'
 import * as next from './about/next'
@@ -35,7 +36,7 @@ export { COLOR_ROWS_EN, COLOR_ROWS_KO, SYMBOL_GROUPS_EN, SYMBOL_GROUPS_KO }
  * 화면을 바꾸고도 소개를 고치지 않은 PR은 scripts/ci/check-about.mjs가 막지 않고, 그 화면 파일과 함께 고쳐 온 소개 절을 짚어 알린다(11/27).
  * 이유를 남기려면 커밋 메시지에 "소개: 그대로 — 이유" 한 줄을 쓴다(이력에 보인다).
  */
-const PARTS = [intro, principles, home, project, notes, knowledge, reading, network, settings, agents, feedback, research, rules, design, symbols, reference, next]
+const PARTS = [intro, principles, layout, home, project, notes, knowledge, reading, network, settings, agents, feedback, research, rules, design, symbols, reference, next]
 
 /** 절 파일 about/<쪽>/<절>.tsx의 ko → "<쪽>/<절>" */
 const SECTION_FILES = import.meta.glob<{ ko?: AboutSection }>('./about/*/*.tsx', { eager: true })
