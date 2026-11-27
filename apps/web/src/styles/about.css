@@ -28,8 +28,6 @@
 .about-unsure { display: inline-block; vertical-align: middle; line-height: 1.5; position: relative; top: -1px; font-size: var(--fs-xs); font-weight: var(--fw-strong); border-radius: var(--r-pill); padding: 0 7px; margin: 0 6px 0 0; background: color-mix(in srgb, var(--s-blocked) 14%, transparent); color: var(--s-blocked); }
 
 /* 읽는 법 */
-.about-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px var(--sp-4); font-size: var(--fs-sm); color: var(--text-2); padding: var(--sp-3) var(--sp-4); background: var(--bg-sunken); border-radius: var(--r-md); }
-.about-legend b { color: var(--text); margin-right: 6px; }
 
 /* 화면 구조 그림: 실제 화면의 영역을 작게 그린 것. 영역마다 그 쪽으로 가는 링크 */
 .about-map { display: grid; grid-template-columns: max-content minmax(0, 1.2fr) minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-2); font-size: var(--fs-xs); }
@@ -68,7 +66,6 @@
 .about-step b { font-size: var(--fs-md); font-weight: var(--fw-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .about a.a { text-decoration: none; } .about a.a:hover { text-decoration: underline; }
 .about-nav-flag { margin-left: auto; flex: none; white-space: nowrap; font-size: var(--fs-xs); font-weight: var(--fw-strong); border-radius: var(--r-pill); padding: 0 var(--sp-2); background: color-mix(in srgb, var(--s-blocked) 14%, transparent); color: var(--s-blocked); }
-.about-legend { grid-template-columns: 1fr; }
 /* 쪽 맨 위 "확인해 주실 것" 알림 (막힘 색 = 사용자 차례, 피드백의 주황 수와 같은 뜻) */
 
 /* 확인할 것: 질문마다 맞아요·답하기 (10/4 17:55) */
@@ -207,7 +204,6 @@ button.about-unsure:hover, .about-nav-flag[role=button]:hover { background: colo
 .about-pending { flex: none; font-size: var(--fs-xs); font-weight: var(--fw-strong); border-radius: var(--r-pill); padding: 0 7px; background: var(--bg-sunken); color: var(--text-2); white-space: nowrap; }
 .about .sec-head .about-pending { margin-right: var(--sp-2); }
 .about-checked { flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--s-solved); white-space: nowrap; margin-right: var(--sp-2); }
-.about-legend b svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.9; vertical-align: -2px; }
 
 /* 이력 · 수정 칸 (11/20 시안 3절 안 C, AboutHistorySide.tsx): 두 칸으로 나눠 오른쪽 칸에. 업데이트마다 카드, 확인 전 카드는 옅은 주황 */
 .stage.about-with-side { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
@@ -274,5 +270,4 @@ button.about-unsure:hover, .about-nav-flag[role=button]:hover { background: colo
 .about-read-table td { vertical-align: top; line-height: 1.6; color: var(--text-2); }
 .about-read-table td b { color: var(--text); }
 .about-sub { margin: var(--sp-5) 0 var(--sp-2); font-size: var(--fs-md); font-weight: var(--fw-strong); color: var(--text); }
-.about-read-table + .about-note { margin-bottom: var(--sp-2); }
 .about-sub.first { margin-top: 0; }

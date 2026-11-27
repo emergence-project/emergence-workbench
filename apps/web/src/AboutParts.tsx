@@ -96,11 +96,6 @@ export function Intro() {
         <h3 className="about-sub">{t('독자마다 읽는 법', 'How each reader reads it')}</h3>
         <p className="about-note">{t('사용자 · 앱 안 에이전트 · 앱 밖 에이전트가 같은 글을 읽습니다. 그래서 누구나 쉽게 읽히게 씁니다.', 'Users, agents inside the app and agents outside it read the same text, so it is written to be easy for anyone.')}</p>
         <ReadersTable />
-        <p className="about-note">{t('사용자가 소개 화면에서 보는 표시:', 'Marks users see on the About screen:')}</p>
-        <div className="about-legend">
-          <span><span className="about-unsure">{t('확인 전', 'Not reviewed')}</span> {t('아직 확인하지 않은 업데이트가 있는 절(왼쪽 목록에는 "확인 N"). 누르면 오른쪽 「이력」이 열려 그 줄로 가고, 그 줄의 ✓(맞아요)를 누르면 확인함이 됩니다', 'A section with an update you have not reviewed (the list on the left shows "Review N"). Click it to open "History" on the right at that row; ✓ (That is right) on the row marks it reviewed')}</span>
-          <span><span className="about-pending">{t('반영 대기', 'Waiting to apply')}</span> {t('「수정」 탭으로 고쳐 보낸 절. 반영한 업데이트가 들어오면 사라지고 다시 확인할 차례가 됩니다', 'A section you edited and sent from the "Edit" tab. It goes away when the update that applies it arrives, and the section is yours to review again')}</span>
-        </div>
       </Section>
     </>
   )
@@ -110,11 +105,11 @@ export function Intro() {
 function ReadersTable() {
   const ko = lang === 'ko'
   const rows: [string, ReactNode, ReactNode, ReactNode][] = ko ? [
-    ['사용자', <>레일 맨 아래 「소개」 화면</>, <>화면 그대로. 툴바 오른쪽 시계가 본문 옆에 이력 · 수정 패널을 엶</>, <>「이력」에서 바뀐 절을 보고 ✓로 확인. 틀린 곳은 「수정」에서 그 자리(문단 · 표 칸 · 그림 속 상자)를 눌러 고친 글을 보냄</>],
+    ['사용자', <>레일 맨 아래 「소개」 화면</>, <>화면 그대로. 툴바 오른쪽 시계가 본문 옆에 이력 · 수정 패널을 엶. 절 제목 옆 <b>확인 전</b>은 아직 ✓하지 않은 업데이트가 있다는 뜻(왼쪽 목록에는 「확인 N」), <b>반영 대기</b>는 고쳐 보낸 글이 아직 반영되지 않았다는 뜻</>, <>「이력」에서 바뀐 절을 보고 ✓로 확인. 틀린 곳은 「수정」에서 그 자리(문단 · 표 칸 · 그림 속 상자)를 눌러 고친 글을 보냄</>],
     ['앱 안 에이전트', <>「앱 고치기」 대화: 안내문이 <code>pnpm agent:about &lt;고칠 파일&gt;</code>부터 읽게 함. 프로젝트 대화는 MCP <code>about</code></>, <>파일을 읽거나 고치면 앱이 그 파일을 구현으로 적은 절의 요약 · 지킬 것을 한 번씩 덧붙임</>, <>앱을 고친 PR에서 그 절도 고침</>],
     ['앱 밖 에이전트', <>터미널의 Claude Code · Codex 등: 앱 MCP의 <code>about</code> 도구, 또는 앱 저장소에서 <code>pnpm agent:about</code>. CLAUDE.md · AGENTS.md 첫 절이 가리킴</>, <>파일 · 도구 · 절 이름으로 찾은 절의 전문(요약 · 지금 동작 · 지킬 것 · 결정 · 구현 파일)</>, <>앱을 고친 PR에서 그 절도 고침</>],
   ] : [
-    ['Users', <>The About screen at the bottom of the rail</>, <>The screen as it is. The clock at the right of the toolbar opens a History · Edit panel beside the text</>, <>In "History", see changed sections and mark them reviewed with ✓. For anything wrong, click that place in "Edit" (a paragraph, a table cell or a box in a figure) and send your edited text</>],
+    ['Users', <>The About screen at the bottom of the rail</>, <>The screen as it is. The clock at the right of the toolbar opens a History · Edit panel beside the text. <b>Not reviewed</b> beside a section title means an update you have not marked with ✓ (the list on the left shows "Review N"); <b>Waiting to apply</b> means the text you sent has not been applied yet</>, <>In "History", see changed sections and mark them reviewed with ✓. For anything wrong, click that place in "Edit" (a paragraph, a table cell or a box in a figure) and send your edited text</>],
     ['Agents inside the app', <>"Fix the app" conversations: the brief has the agent start with <code>pnpm agent:about &lt;file to change&gt;</code>. Project conversations: the MCP <code>about</code> tool</>, <>When the agent reads or edits a file, the app adds the summary and keep list of the section that lists that file as its implementation, once each</>, <>Change that section in the PR that changes the app</>],
     ['Agents outside the app', <>Claude Code, Codex and others in a terminal: the app MCP's <code>about</code> tool, or <code>pnpm agent:about</code> in the app repository. The first section of CLAUDE.md and AGENTS.md points here</>, <>The full text of the sections found by file, tool or section name (summary · how it works · keep · decisions · files)</>, <>Change that section in the PR that changes the app</>],
   ]
