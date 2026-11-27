@@ -266,3 +266,10 @@ button.about-unsure:hover, .about-nav-flag[role=button]:hover { background: colo
   .about-map .m-rail { flex-direction: row; flex-wrap: wrap; align-items: baseline; padding: var(--sp-2); }
   .about-map .m-rail .sp { display: none; }
 }
+/* 1.2 독자마다 읽는 법 (11/27) */
+.about-read-table { margin-top: var(--sp-3); }
+.about-read-table th:nth-child(1) { width: 16%; }
+.about-read-table th:nth-child(2) { width: 28%; }
+.about-read-table th:nth-child(4) { width: 26%; }
+.about-read-table td { vertical-align: top; line-height: 1.6; color: var(--text-2); }
+.about-read-table td b { color: var(--text); }

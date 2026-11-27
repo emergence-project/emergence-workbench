@@ -82,36 +82,45 @@ export function Intro() {
         {lang === 'ko' ? (
           <ul className="about-pillars">
             <li><b>정본</b> — 앱의 목표 · 개발 결정 · 지금 구현을 적는 single source of truth. 다른 문서는 이 소개의 자세한 설명</li>
-            <li><b>독자</b> — 사용자 · 앱 안 에이전트 · 앱 밖 에이전트가 같은 글을 읽음. 누구나 쉽게 읽히게 씀
-              <ul>
-                <li><b>사용자</b> — 레일 맨 아래 「소개」 화면에서 읽음. 툴바 오른쪽 시계가 본문 옆에 이력 · 수정 패널을 엶: 「이력」에서 바뀐 절을 보고 ✓로 확인하고, 틀린 곳은 「수정」에서 본문의 그곳(문단 · 표 칸 · 그림 속 상자)을 눌러 고친 글을 보냄</li>
-                <li><b>앱 안 에이전트</b> — 「앱 고치기」 대화는 안내문이 고칠 파일의 절부터 읽게 하고(<code>pnpm agent:about &lt;파일&gt;</code>), 파일을 읽거나 고치면 앱이 그 파일을 구현으로 적은 절의 요약 · 지킬 것을 한 번씩 덧붙여 건넴. 앱을 고치면 같은 PR에서 그 절도 고침. 프로젝트 대화도 MCP <code>about</code>으로 볼 수 있음</li>
-                <li><b>앱 밖 에이전트</b> — 터미널의 Claude Code · Codex 등. 앱 MCP의 <code>about</code> 도구(파일 · 도구 · 절 이름으로 찾음)나, 앱 저장소에서 <code>pnpm agent:about</code>으로 읽음. 저장소의 CLAUDE.md · AGENTS.md 첫 절이 이 소개를 가리킴</li>
-              </ul>
-            </li>
+            <li><b>독자</b> — 사용자 · 앱 안 에이전트 · 앱 밖 에이전트가 같은 글을 읽음. 누구나 쉽게 읽히게 씀. 독자마다 읽는 법은 아래 표</li>
             <li><b>짜임</b> — 시작 › 화면 › 일하는 방식 › 앱 개발 › 기준과 참고. 「화면」은 화면마다 한 쪽으로, 지금 앱이 어떤지를 그 화면의 짜임대로 적음</li>
             <li><b>피드백</b> — 승인한 피드백은 여기 설명으로 옮기고 피드백 목록에서 지움</li>
           </ul>
         ) : (
           <ul className="about-pillars">
             <li><b>Source of truth</b> — records the app's goals, development decisions and current implementation. Other documents are detailed notes on it</li>
-            <li><b>Readers</b> — users, agents inside the app and agents outside it read the same text, so it is written to be easy for anyone
-              <ul>
-                <li><b>Users</b> — read it on the About screen at the bottom of the rail. The clock at the right of the toolbar opens a History · Edit panel beside the text: in "History", see changed sections and mark them reviewed with ✓; for anything wrong, click that place in the text in "Edit" (a paragraph, a table cell or a box in a figure) and send your edited text</li>
-                <li><b>Agents inside the app</b> — the brief of a "Fix the app" conversation has the agent read the section of the file it will change first (<code>pnpm agent:about &lt;file&gt;</code>), and when the agent reads or edits a file, the app adds the summary and keep list of the section that lists that file as its implementation, once each. When they change the app, they change that section in the same PR. Project conversations can also read it with the MCP <code>about</code> tool</li>
-                <li><b>Agents outside the app</b> — Claude Code, Codex and others in a terminal. They read it with the app MCP's <code>about</code> tool (found by file, tool or section name), or with <code>pnpm agent:about</code> in the app repository. The first section of the repository's CLAUDE.md and AGENTS.md points to this page</li>
-              </ul>
-            </li>
+            <li><b>Readers</b> — users, agents inside the app and agents outside it read the same text, so it is written to be easy for anyone. How each reads it is in the table below</li>
             <li><b>Layout</b> — Start › Screens › How we work › App development › Standards and reference. Under Screens, one part per screen, describing how the app works now in the order of that screen</li>
             <li><b>Feedback</b> — approved feedback moves into these descriptions and is deleted from the feedback list</li>
           </ul>
         )}
+        <ReadersTable />
         <div className="about-legend">
           <span><span className="about-unsure">{t('확인 전', 'Not reviewed')}</span> {t('아직 확인하지 않은 업데이트가 있는 절(왼쪽 목록에는 "확인 N"). 누르면 오른쪽 「이력」이 열려 그 줄로 가고, 그 줄의 ✓(맞아요)를 누르면 확인함이 됩니다', 'A section with an update you have not reviewed (the list on the left shows "Review N"). Click it to open "History" on the right at that row; ✓ (That is right) on the row marks it reviewed')}</span>
           <span><span className="about-pending">{t('반영 대기', 'Waiting to apply')}</span> {t('「수정」 탭으로 고쳐 보낸 절. 반영한 업데이트가 들어오면 사라지고 다시 확인할 차례가 됩니다', 'A section you edited and sent from the "Edit" tab. It goes away when the update that applies it arrives, and the section is yours to review again')}</span>
         </div>
       </Section>
     </>
+  )
+}
+
+/** 1.2 독자마다 읽는 법 (11/27 사용자 「독자를 구분해서, 표로」) */
+function ReadersTable() {
+  const ko = lang === 'ko'
+  const rows: [string, ReactNode, ReactNode, ReactNode][] = ko ? [
+    ['사용자', <>레일 맨 아래 「소개」 화면</>, <>화면 그대로. 툴바 오른쪽 시계가 본문 옆에 이력 · 수정 패널을 엶</>, <>「이력」에서 바뀐 절을 보고 ✓로 확인. 틀린 곳은 「수정」에서 그 자리(문단 · 표 칸 · 그림 속 상자)를 눌러 고친 글을 보냄</>],
+    ['앱 안 에이전트', <>「앱 고치기」 대화: 안내문이 <code>pnpm agent:about &lt;고칠 파일&gt;</code>부터 읽게 함. 프로젝트 대화는 MCP <code>about</code></>, <>파일을 읽거나 고치면 앱이 그 파일을 구현으로 적은 절의 요약 · 지킬 것을 한 번씩 덧붙임</>, <>앱을 고친 PR에서 그 절도 고침</>],
+    ['앱 밖 에이전트', <>터미널의 Claude Code · Codex 등: 앱 MCP의 <code>about</code> 도구, 또는 앱 저장소에서 <code>pnpm agent:about</code>. CLAUDE.md · AGENTS.md 첫 절이 가리킴</>, <>파일 · 도구 · 절 이름으로 찾은 절의 전문(요약 · 지금 동작 · 지킬 것 · 결정 · 구현 파일)</>, <>앱을 고친 PR에서 그 절도 고침</>],
+  ] : [
+    ['Users', <>The About screen at the bottom of the rail</>, <>The screen as it is. The clock at the right of the toolbar opens a History · Edit panel beside the text</>, <>In "History", see changed sections and mark them reviewed with ✓. For anything wrong, click that place in "Edit" (a paragraph, a table cell or a box in a figure) and send your edited text</>],
+    ['Agents inside the app', <>"Fix the app" conversations: the brief has the agent start with <code>pnpm agent:about &lt;file to change&gt;</code>. Project conversations: the MCP <code>about</code> tool</>, <>When the agent reads or edits a file, the app adds the summary and keep list of the section that lists that file as its implementation, once each</>, <>Change that section in the PR that changes the app</>],
+    ['Agents outside the app', <>Claude Code, Codex and others in a terminal: the app MCP's <code>about</code> tool, or <code>pnpm agent:about</code> in the app repository. The first section of CLAUDE.md and AGENTS.md points here</>, <>The full text of the sections found by file, tool or section name (summary · how it works · keep · decisions · files)</>, <>Change that section in the PR that changes the app</>],
+  ]
+  return (
+    <table className="about-sym-table about-read-table">
+      <thead><tr><th>{t('독자', 'Reader')}</th><th>{t('어디서 읽나', 'Where')}</th><th>{t('무엇을 받나', 'What they get')}</th><th>{t('고칠 때', 'When changing')}</th></tr></thead>
+      <tbody>{rows.map(([who, where, what, fix]) => <tr key={who}><td><b>{who}</b></td><td>{where}</td><td>{what}</td><td>{fix}</td></tr>)}</tbody>
+    </table>
   )
 }
 
