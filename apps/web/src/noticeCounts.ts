@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { LIBRARY_RID } from '@rw/core'
 import { APP_RID, conceptsApi, figuresApi, papersApi } from './api'
 import { aboutRailRoute, useAboutUncheckedCount } from './AboutPage'
+import { askPart, useRuleAsks } from './ResearchTables'
 import { t } from './i18n'
 import type { Notice } from './NoticeBell'
 import { markSuggestionsSeen, useNewSuggestions } from './network/Suggestions'
@@ -38,6 +39,7 @@ export function useNoticeCounts(): Omit<Notice, 'key'>[] {
   const suggested = suggestedNames.length
   const repos = useReposDiffCount()
   const about = useAboutUncheckedCount()
+  const asks = useRuleAsks()
   const knowledge = useKnowledgeCheckCount()
   const broken = useBrokenFigureCount()
   const answered = papers?.check.answered ?? 0
@@ -46,7 +48,9 @@ export function useNoticeCounts(): Omit<Notice, 'key'>[] {
     { kind: 'check', need: true, place: FIGURES, n: broken, text: t(`그림으로 못 바꾼 tikz ${broken}개`, `${broken} tikz source(s) failed to render`), open: () => go({ page: 'figures' }) },
     { kind: 'repo', need: true, n: repos, text: t(`GitHub와 다른 프로젝트 ${repos}개`, `${repos} project(s) differ from GitHub`), open: () => go({ page: 'repos' }) },
     { kind: 'about', need: true, place: APP_RID, n: about, text: t(`확인 전인 소개 절 ${about}개`, `${about} About section(s) not reviewed`), open: () => go(aboutRailRoute()) },
+    // 결정을 기다리는 규칙 · 실험 (소개 › 연구, 11/27): 답은 그 표에서 한다
+    ...asks.map((r) => ({ kind: 'about' as const, need: true, place: APP_RID, text: t(`결정할 ${r.entry.kind === 'experiment' ? '실험' : '규칙'}: ${r.entry.rule}`, `${r.entry.kind === 'experiment' ? 'Experiment' : 'Rule'} to decide: ${r.entry.rule}`), open: () => go({ page: 'about', part: askPart(r) }) })),
     { kind: 'person', need: false, place: NETWORK, n: suggested, text: t(`새로 추천된 사람 ${suggested}명`, `${suggested} newly suggested people`), open: () => go({ page: 'network' }), read: () => markSuggestionsSeen(suggestedNames) },
     { kind: 'answer', need: false, place: PAPERS, n: answered, text: t(`답이 온 논문 질문 ${answered}개`, `${answered} paper question(s) answered`), open: () => go({ page: 'shelf' }) },
-  ], [knowledge, broken, repos, about, suggested, suggestedNames, answered])
+  ], [knowledge, broken, repos, about, asks, suggested, suggestedNames, answered])
 }
