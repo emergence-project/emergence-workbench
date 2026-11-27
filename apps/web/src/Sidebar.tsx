@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { problemTurns, useProblems } from './Problems'
+import { PluginSidebarRows, usePluginTurns } from './plugins'
 import { turnParts } from './turnCounts'
 import { type ManuscriptInfo, type NoteRow, type ProjectKind, type ResearchApi, type Topic } from './api'
 import { flowName } from './projectProfile'
@@ -72,7 +72,8 @@ export function ResearchNav({ rid, route, materials, askCount = 0, taskCount = 0
   const edits = useAgentEdits(rid).data
   const editCount = edits ? edits.reviews.length + edits.attempts.length : 0
   // 결정할 흐름 (11/11): 방향 보고가 결정을 기다리는 흐름. 기록 › 내 차례 맨 위와 같은 수
-  const judgeCount = problemTurns(useProblems(rid).data?.problems)
+  const pluginTurns = usePluginTurns(rid)
+  const judgeCount = pluginTurns.reduce((n, x) => n + x.count, 0)
   // 한 가지는 한 줄에서만 센다 (11/26): 기록 줄은 흐름 결정을 더하지 않는다. 줄의 합이 탭 머리의 수와 같다
   const turns = turnParts({ ask: askCount, task: taskCount, flow: judgeCount, edit: editCount })
 
@@ -139,8 +140,7 @@ export function ResearchNav({ rid, route, materials, askCount = 0, taskCount = 0
                 : confirmCount > 0 && <span className="rail-count pale" data-ui="확인만 수" title={t(`확인만: 종결 조건을 통과한 맡긴 일 ${confirmCount}개`, `Confirm only: ${confirmCount} task(s) passed the end condition`)}>{confirmCount}</span>}</button>
           <button className={`nav side-row${route.page === 'edits' ? ' on' : ''}`} aria-current={route.page === 'edits' ? 'page' : undefined} data-ui="고침 검토 블록" title={t('에이전트가 고친 노트를 변경사항마다 검토', 'Review each change agents made to notes')} onClick={() => go({ page: 'edits', rid })}>
             <span className="q-ico" aria-hidden>{Icon.review}</span><span className="label">{t('수정 검토', 'Edit review')}</span>{editCount ? <span className="rail-count" title={t(`검토할 노트와 수정 요청 ${editCount}개`, `${editCount} note(s) to review and edit request(s)`)}>{editCount}</span> : null}</button>
-          <button className={`nav side-row${route.page === 'problems' ? ' on' : ''}`} aria-current={route.page === 'problems' ? 'page' : undefined} data-ui="흐름 블록" title={`${flowName(kind)}: ${t('메시지를 쓰고 시작한 질문과 그 아래에서 해 본 방법들', 'questions you started with a message, and the methods tried under them')}`} onClick={() => go({ page: 'problems', rid })}>
-            <span className="q-ico" aria-hidden>{Icon.branch}</span><span className="label">{t('흐름', 'Flow')}</span>{judgeCount ? <span className="rail-count" title={t(`결정을 기다리는 방향 보고 ${judgeCount}개`, `${judgeCount} direction report(s) waiting for your decision`)}>{judgeCount}</span> : null}</button>
+          <PluginSidebarRows rid={rid} route={route} kind={kind} turns={pluginTurns} />
         </div>
 
         <div className="side-label">{t('주제', 'Topics')}</div>

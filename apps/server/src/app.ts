@@ -27,14 +27,13 @@ import { registerFeedback } from './routes/feedback.js'
 import { registerAbout } from './routes/about.js'
 import { registerRules } from './routes/rules.js'
 import { registerPlugins } from './routes/plugins.js'
-import type { ServerPlugin } from './plugins/index.js'
+import { registerPluginRoutes, setPluginStates, SERVER_PLUGINS, type ServerPlugin } from './plugins/index.js'
 import { registerRecordsPublish } from './routes/recordsPublish.js'
 import { registerSync } from './routes/sync.js'
 import { registerLibrary } from './routes/library.js'
 import { registerKnowledge } from './routes/knowledge.js'
 import { registerSubjects } from './routes/subjects.js'
 import { registerStudy } from './routes/study.js'
-import { registerProblems } from './routes/problems.js'
 import { registerConcepts } from './routes/concepts.js'
 import { registerStatements } from './routes/statements.js'
 import { registerProject } from './routes/project.js'
@@ -182,6 +181,8 @@ export const READ_ONLY_REQUESTS = new Set([
 
 export function buildApp(opts: AppOptions): FastifyInstance & { registry: Registry } {
   const registry = new Registry(opts.configDir)
+  // 설정 › 기능: 이 컴퓨터의 플러그인 설치 상태를 현황 · 검사 · 개요가 읽게 한다
+  setPluginStates(registry.plugins, opts.plugins ?? SERVER_PLUGINS)
   setUserLatexFilesDir(opts.configDir)
   const app = Fastify({ logger: false, bodyLimit: 5 * 1024 * 1024 }) as unknown as FastifyInstance & { registry: Registry }
   app.decorate('registry', registry)
@@ -387,7 +388,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerConcepts(app, ctx)
   registerSubjects(app, ctx)
   registerStudy(app, ctx)
-  registerProblems(app, ctx)
+  registerPluginRoutes(app, ctx, opts.plugins ?? SERVER_PLUGINS)
   registerStatements(app, ctx)
   registerProject(app, ctx)
   registerManuscript(app, ctx)

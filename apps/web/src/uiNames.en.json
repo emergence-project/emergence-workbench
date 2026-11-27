@@ -1216,5 +1216,11 @@
   "정의": "Definition",
   "요약": "Summary",
   "지킬 것": "Keep",
-  "구현": "Implementation"
+  "구현": "Implementation",
+  "제거된 기능": "Removed feature",
+  "기능 묶음": "Features",
+  "기능 줄": "Feature row",
+  "기능 다시 볼 날": "Feature review date",
+  "기능 제거 버튼": "Remove feature button",
+  "기능 설치 버튼": "Install feature button"
 }
