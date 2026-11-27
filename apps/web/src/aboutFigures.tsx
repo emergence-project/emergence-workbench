@@ -82,7 +82,7 @@ export function ScreenLayoutFigure() {
 
 /** 글의 종류 표 */
 export const DOC_KINDS: { name: string; what: string; format: string; where: ReactNode }[] = [
-  { name: t('원고', 'Manuscript'), what: t('결과를 모으는 개인 초고. 공동 집필·투고는 Overleaf', 'Personal draft gathering results. Co-writing and submission in Overleaf'), format: 'LaTeX', where: <>{c('research.yaml')}의 {c('sources.manuscript')}</> },
+  { name: t('원고', 'Manuscript'), what: t('결과를 모으는 개인 초고. 공동 집필·투고는 Overleaf', 'Personal draft gathering results. Co-writing and submission in Overleaf'), format: 'LaTeX', where: <>{c('research.yaml')}{t('의 ', ' ')}{c('sources.manuscript')}</> },
   { name: t('노트', 'Note'), what: t('주제 안에서 완결된 최소 단위: 증명·유도·계산·열린 질문', 'Smallest self-contained unit in a topic: proof, derivation, calculation, open question'), format: 'Markdown + KaTeX', where: <>{c(t('workbench/topics/<주제>/', 'workbench/topics/<topic>/'))} · {c('notes/')} · {c('calc/')}</> },
   { name: t('개념노트', 'Concept note'), what: t('여러 연구가 다시 쓰는 정의·성질. 개념 하나에 노트 하나', 'Definitions and properties reused across projects. One note per concept'), format: 'Markdown + KaTeX', where: <>shared-library {c('concepts/')}</> },
   { name: t('문헌노트', 'Literature note'), what: t('논문 한 편의 정리', 'Summary of one paper'), format: 'LaTeX', where: <>shared-library {c('papers/')}</> },
