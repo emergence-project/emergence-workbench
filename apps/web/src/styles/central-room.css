@@ -29,7 +29,7 @@
 .room-to .room-who b { font-weight: var(--fw-medium); color: var(--text-2); }
 /* 2단계 판정 (11/20, 시안 R88teWLKuf7DgokaYQA61n): 판정 칩 · 입장 바꿈 · 판정 기록 */
 .verdict-chip { margin-left: auto; flex: none; display: inline-flex; align-items: center; padding: 0 var(--sp-2); border: 1px solid var(--line-strong); border-radius: var(--r-pill); font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--text-2); white-space: nowrap; }
-.verdict-chip.split { border-color: var(--s-blocked); color: var(--s-blocked); }
+.verdict-chip.split { border-color: var(--s-caution); color: var(--s-caution); }
 .verdict-stance { margin-left: auto; font-size: var(--fs-xs); color: var(--s-blocked); white-space: nowrap; }
 .verdict-stance + .verdict-chip { margin-left: 0; }
 .verdict-log { display: flex; flex-direction: column; }
@@ -38,7 +38,7 @@
 .verdict-row .verdict-q { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .verdict-row .verdict-when, .verdict-row .verdict-res { font-size: var(--fs-xs); color: var(--text-3); }
 .verdict-row .verdict-res { color: var(--text-2); }
-.verdict-row .verdict-res.split { color: var(--s-blocked); }
+.verdict-row .verdict-res.split { color: var(--s-caution); }
 .verdict-row .a { font-size: var(--fs-xs); justify-self: end; }
 .verdict-row .verdict-chip { margin-left: 0; justify-self: end; }
 /* 토론 (11/20 「토론 + 정해진 4단계」, 시안 R88teWLKuf7DgokaYQA61n): 단계 띠 · 답 줄 · 중앙 한 줄 · 설정 칸 */
