@@ -10,7 +10,7 @@ import { recordWrites } from './useRecordActions'
 import { RecordList } from './RecordList'
 import { recordRoute } from './recordsPanelHelpers'
 import { go } from './router'
-import { useProblems } from './Problems'
+import { usePluginTurns } from './plugins'
 import { openTaskId, splitJudge, taskRowKey } from './taskView'
 import { TurnCounts, TurnGroupHead } from './TurnGroup'
 import { turnParts } from './turnCounts'
@@ -85,7 +85,7 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
   const { tasks, diagnostics, loaded: tasksLoaded, error: tasksError, reload: reloadTasks } = useTasks(rid)
   const [dialog, setDialog] = useState<TaskDraft | null>(null)
   // 흐름의 결정 대기 (11/11): 방향 보고가 계속 · 좁히기 · 종료를 기다리는 흐름. 사이드바 흐름 줄의 수와 같다
-  const flowTurns = useProblems(rid).data?.problems.filter((p) => p.waiting) ?? []
+  const flowTurns = usePluginTurns(rid).flatMap((x) => x.waiting)
   // 결정 필요 · 확인만 (11/23 시안 turn-split): 종결 조건을 통과한 결과는 승인만 남아 따로 옅게 묶는다
   const judge = splitJudge(tasks)
   const judgeCount = judge.decide.length + flowTurns.length
@@ -182,7 +182,7 @@ export function WorkPage({ rid, rapi, summary, notes, topics, onSaved, focus, fi
             <TaskWeek rid={rid} tasks={tasks} entries={entries} todos={summary.todos} />
             <div className="tk-list" data-ui="내 차례 목록">
               {judge.confirm.length > 0 && decideCount > 0 && <TurnGroupHead count={decideCount} />}
-              {flowTurns.map((p) => <FlowDecisionRow key={p.id} rid={rid} id={p.id} question={p.question} />)}
+              {flowTurns.map((p) => <FlowDecisionRow key={p.id} rid={rid} id={p.id} question={p.title} />)}
               <JudgeList rid={rid} tasks={judge.decide} heading loaded={tasksLoaded} onSaved={onSaved} reload={reloadTasks} emptyText={null} openId={openTaskId(openRow)} onToggle={(id) => toggleRow(taskRowKey(id))}
                 onEditProposal={(x) => setDialog({ mode: 'proposal', from: x, endCondition: x.proposal?.endCondition.length === 1 ? x.proposal.endCondition[0] : (x.proposal?.endCondition ?? []).map((c, i) => `${i + 1}) ${c}`).join('\n') })} />
               {askRecords.map((item) => recordRow(item, true))}

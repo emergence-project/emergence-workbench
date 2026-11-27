@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { aboutReminders, checkAbout, fragmentPr, isAboutText, isScreenFile, sectionOf, sectionsFor } from './check-about.mjs'
+import { aboutReminders, checkAbout, fragmentPr, isAboutText, isScreenFile, sectionOf, sectionsByCode, sectionsFor } from './check-about.mjs'
 
 test('화면 파일을 가른다', () => {
   assert.ok(isScreenFile('apps/web/src/FlowView.tsx'))
@@ -51,4 +51,23 @@ test('소개를 고치면 고친 절의 prs에 PR 번호가 있다', () => {
   assert.deepEqual(checkAbout({ files: ['apps/web/src/FlowView.tsx', 'apps/web/src/about/prs/102.json'], messages: '', aboutSource: '', pr: 102 }), [])
   // 글을 옮기기만 한 정리는 "소개: 그대로"로 번호 없이 통과
   assert.deepEqual(checkAbout({ files: sec, messages: '정리\n\n소개: 그대로 — 옮김', aboutSource: '', pr: 102 }), [])
+})
+
+test('구현(code:)으로 적은 절을 먼저 짚는다 (11/27)', () => {
+  const code = { 'project/edits': ['apps/server/src/agentEdits*.ts'], 'project/flow': ['apps/web/src/Problems.tsx'] }
+  const match = (g, f) => new RegExp(`^${g.replace(/\./g, '\\.').replace(/\*/g, '[^/]*')}$`).test(f)
+  assert.deepEqual(sectionsByCode(['apps/server/src/agentEditsDiff.ts'], code, match), ['project/edits'])
+  const ext = (s) => (s === 'project/edits' ? '.md' : '.tsx')
+  const [r] = aboutReminders({ files: ['apps/server/src/agentEditsDiff.ts'], messages: '', code, match, ext })
+  assert.match(r ?? '', /구현으로 적은 소개 절: apps\/web\/src\/about\/project\/edits\.md/)
+  assert.deepEqual(aboutReminders({ files: ['apps/server/src/agentEditsDiff.ts', 'apps/web/src/about/project/edits.md'], messages: '', code, match, ext }), [])
+  assert.deepEqual(aboutReminders({ files: ['apps/server/src/agentEdits.test.ts'], messages: '', code, match, ext }), [])
+})
+
+test('구현으로 적은 절과 함께 고쳐 온 절을 함께 짚는다', () => {
+  const code = { 'project/flow': ['apps/web/src/Problems.tsx'] }
+  const match = (g, f) => g === f
+  const history = [{ files: ['apps/web/src/Sidebar.tsx', 'apps/web/src/about/project/screen-layout.tsx'] }]
+  const [r] = aboutReminders({ files: ['apps/web/src/Problems.tsx', 'apps/web/src/Sidebar.tsx'], messages: '', history, code, match, ext: () => '.md' })
+  assert.match(r ?? '', /구현으로 적은 소개 절: apps\/web\/src\/about\/project\/flow\.md\. 이 화면 파일과 함께 고쳐 온 소개 절: apps\/web\/src\/about\/project\/screen-layout\.md/)
 })

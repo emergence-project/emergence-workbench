@@ -26,13 +26,14 @@ import { noteAgentCall } from './agentSeen.js'
 import { registerFeedback } from './routes/feedback.js'
 import { registerAbout } from './routes/about.js'
 import { registerRules } from './routes/rules.js'
+import { registerPlugins } from './routes/plugins.js'
+import { registerPluginRoutes, setPluginStates, SERVER_PLUGINS, type ServerPlugin } from './plugins/index.js'
 import { registerRecordsPublish } from './routes/recordsPublish.js'
 import { registerSync } from './routes/sync.js'
 import { registerLibrary } from './routes/library.js'
 import { registerKnowledge } from './routes/knowledge.js'
 import { registerSubjects } from './routes/subjects.js'
 import { registerStudy } from './routes/study.js'
-import { registerProblems } from './routes/problems.js'
 import { registerConcepts } from './routes/concepts.js'
 import { registerStatements } from './routes/statements.js'
 import { registerProject } from './routes/project.js'
@@ -82,6 +83,8 @@ import { registerAccount } from './routes/account.js'
 export interface AppOptions {
   /** 앱 설정 폴더 (기본 ~/.config/research-workspace) */
   configDir: string
+  /** 내장 플러그인 목록 (기본 plugins/index.ts의 SERVER_PLUGINS. 테스트가 바꿔 끼운다) */
+  plugins?: readonly ServerPlugin[]
   /** 에이전트 설정을 찾는 집 폴더 (상태 알리기 훅, 기본 os.homedir(). 테스트는 임시 폴더) */
   agentHome?: string
   /** 파일 감시를 켤지 (테스트에서는 끔) */
@@ -178,6 +181,8 @@ export const READ_ONLY_REQUESTS = new Set([
 
 export function buildApp(opts: AppOptions): FastifyInstance & { registry: Registry } {
   const registry = new Registry(opts.configDir)
+  // 설정 › 기능: 이 컴퓨터의 플러그인 설치 상태를 현황 · 검사 · 개요가 읽게 한다
+  setPluginStates(registry.plugins, opts.plugins ?? SERVER_PLUGINS)
   setUserLatexFilesDir(opts.configDir)
   const app = Fastify({ logger: false, bodyLimit: 5 * 1024 * 1024 }) as unknown as FastifyInstance & { registry: Registry }
   app.decorate('registry', registry)
@@ -375,6 +380,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerFeedback(app, ctx)
   registerAbout(app, ctx)
   registerRules(app, ctx)
+  registerPlugins(app, ctx)
   registerRecordsPublish(app, ctx)
   registerSync(app, ctx)
   registerLibrary(app, ctx)
@@ -382,7 +388,7 @@ export function buildApp(opts: AppOptions): FastifyInstance & { registry: Regist
   registerConcepts(app, ctx)
   registerSubjects(app, ctx)
   registerStudy(app, ctx)
-  registerProblems(app, ctx)
+  registerPluginRoutes(app, ctx, opts.plugins ?? SERVER_PLUGINS)
   registerStatements(app, ctx)
   registerProject(app, ctx)
   registerManuscript(app, ctx)

@@ -157,7 +157,7 @@ export function ciCovers(file: string, rules: string[]): boolean {
   }
   return hit
 }
-export const THIS_APP: AppProfile = { name: 'Emergence Workbench', checks: LOCAL_CHECKS, about: true, shotsWorkflow: 'ci.yml', ciPaths: ['**', '!*.md', '!docs/', 'fixtures/', 'templates/'] }
+export const THIS_APP: AppProfile = { name: 'Emergence Workbench', checks: LOCAL_CHECKS, about: true, shotsWorkflow: 'ci.yml', ciPaths: ['**', '!*.md', '!docs/', 'fixtures/', 'templates/', 'apps/web/src/about/'] }
 
 /** 다른 앱: id · 이름 · 이 앱 저장소 옆의 폴더 이름. 그 폴더가 git 저장소일 때만 쓴다 */
 export function otherApps(appRoot: string): (AppProfile & { id: string; root: string })[] {
@@ -185,13 +185,13 @@ export function otherApps(appRoot: string): (AppProfile & { id: string; root: st
 }
 
 /**
- * 소개 이력의 PR 번호 조각 (11/20): 이 PR이 고친 소개 절 파일 about/<쪽>/<절>.tsx → about/prs/<번호>.json에 ["<쪽>/<절>", ...].
+ * 소개 이력의 PR 번호 조각 (11/20): 이 PR이 고친 소개 절 파일 about/<쪽>/<절>.tsx · .md → about/prs/<번호>.json에 ["<쪽>/<절>", ...].
  * 절마다 prs 줄을 PR들이 같이 고쳐 부딪히던 것을 PR마다 다른 파일로. 고친 절이 없거나 "소개: 그대로"면 없음
  */
 export function aboutFragment(files: string[], message: string, pr: number): { file: string; text: string } | undefined {
   if (/^(?:소개: 그대로|About: unchanged)/m.test(message)) return undefined
   const keys = [...new Set(files.flatMap((f) => {
-    const m = f.match(/^apps\/web\/src\/about\/([^/]+)\/([^/]+)\.tsx$/)
+    const m = f.match(/^apps\/web\/src\/about\/([^/]+)\/([^/]+)\.(?:tsx|md)$/)
     return m && m[1] !== 'prs' ? [`${m[1]}/${m[2]}`] : []
   }))].sort()
   return keys.length ? { file: `apps/web/src/about/prs/${pr}.json`, text: `${JSON.stringify(keys)}\n` } : undefined

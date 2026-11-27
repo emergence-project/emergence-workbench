@@ -1,0 +1,8 @@
+/* 설정 › 기능 (FeatureSettings.tsx): 내장 플러그인 한 줄씩 */
+.feat-lead { max-width: none; margin: 0 0 var(--sp-3); }
+.feat-row .set-name { display: flex; align-items: center; gap: var(--sp-2); }
+.feat-row .feat-stage { margin-right: 0; }
+.feat-off { color: var(--text-3); font-size: var(--fs-xs); font-weight: var(--fw-normal); }
+.feat-meta { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); max-width: none; }
+.feat-meta code { font-size: var(--fs-2xs); }
+.feat-row > .btn { flex: none; }

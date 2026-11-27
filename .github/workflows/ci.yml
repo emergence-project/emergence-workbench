@@ -15,6 +15,8 @@ on:
       - '!docs/**'
       - 'fixtures/**'
       - 'templates/**'
+      # 소개 절은 .md지만 앱 화면 글이라 검사가 돈다 (11/27 "소개를 에이전트가 읽는 정본으로")
+      - 'apps/web/src/about/**'
   workflow_dispatch:
 
 concurrency:
