@@ -273,3 +273,5 @@ button.about-unsure:hover, .about-nav-flag[role=button]:hover { background: colo
 .about-read-table th:nth-child(4) { width: 26%; }
 .about-read-table td { vertical-align: top; line-height: 1.6; color: var(--text-2); }
 .about-read-table td b { color: var(--text); }
+.about-sub { margin: var(--sp-5) 0 var(--sp-2); font-size: var(--fs-md); font-weight: var(--fw-strong); color: var(--text); }
+.about-read-table + .about-note { margin-bottom: var(--sp-2); }

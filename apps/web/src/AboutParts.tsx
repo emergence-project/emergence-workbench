@@ -82,19 +82,20 @@ export function Intro() {
         {lang === 'ko' ? (
           <ul className="about-pillars">
             <li><b>정본</b> — 앱의 목표 · 개발 결정 · 지금 구현을 적는 single source of truth. 다른 문서는 이 소개의 자세한 설명</li>
-            <li><b>독자</b> — 사용자 · 앱 안 에이전트 · 앱 밖 에이전트가 같은 글을 읽음. 누구나 쉽게 읽히게 씀. 독자마다 읽는 법은 아래 표</li>
             <li><b>짜임</b> — 시작 › 화면 › 일하는 방식 › 앱 개발 › 기준과 참고. 「화면」은 화면마다 한 쪽으로, 지금 앱이 어떤지를 그 화면의 짜임대로 적음</li>
             <li><b>피드백</b> — 승인한 피드백은 여기 설명으로 옮기고 피드백 목록에서 지움</li>
           </ul>
         ) : (
           <ul className="about-pillars">
             <li><b>Source of truth</b> — records the app's goals, development decisions and current implementation. Other documents are detailed notes on it</li>
-            <li><b>Readers</b> — users, agents inside the app and agents outside it read the same text, so it is written to be easy for anyone. How each reads it is in the table below</li>
             <li><b>Layout</b> — Start › Screens › How we work › App development › Standards and reference. Under Screens, one part per screen, describing how the app works now in the order of that screen</li>
             <li><b>Feedback</b> — approved feedback moves into these descriptions and is deleted from the feedback list</li>
           </ul>
         )}
+        <h3 className="about-sub">{t('독자마다 읽는 법', 'How each reader reads it')}</h3>
+        <p className="about-note">{t('사용자 · 앱 안 에이전트 · 앱 밖 에이전트가 같은 글을 읽습니다. 그래서 누구나 쉽게 읽히게 씁니다.', 'Users, agents inside the app and agents outside it read the same text, so it is written to be easy for anyone.')}</p>
         <ReadersTable />
+        <p className="about-note">{t('사용자가 소개 화면에서 보는 표시:', 'Marks users see on the About screen:')}</p>
         <div className="about-legend">
           <span><span className="about-unsure">{t('확인 전', 'Not reviewed')}</span> {t('아직 확인하지 않은 업데이트가 있는 절(왼쪽 목록에는 "확인 N"). 누르면 오른쪽 「이력」이 열려 그 줄로 가고, 그 줄의 ✓(맞아요)를 누르면 확인함이 됩니다', 'A section with an update you have not reviewed (the list on the left shows "Review N"). Click it to open "History" on the right at that row; ✓ (That is right) on the row marks it reviewed')}</span>
           <span><span className="about-pending">{t('반영 대기', 'Waiting to apply')}</span> {t('「수정」 탭으로 고쳐 보낸 절. 반영한 업데이트가 들어오면 사라지고 다시 확인할 차례가 됩니다', 'A section you edited and sent from the "Edit" tab. It goes away when the update that applies it arrives, and the section is yours to review again')}</span>
