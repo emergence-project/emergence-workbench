@@ -32,8 +32,9 @@ const STOP_TEXT: Record<ProblemStop, string> = {
   exhausted: t('후보 없음', 'No candidates left'),
 }
 /** 흐름 목록 (화면 캐시 qk.problems: 흐름 파일 알림이 오면, 화면이 쓰면 다시 읽는다). 사이드바의 수도 이것을 쓴다 */
-export function useProblems(rid: string) {
-  return useQuery({ queryKey: qk.problems(rid), queryFn: () => problemsApi(rid).list() })
+/** enabled: 흐름이 제거돼 있으면 false (설정 › 기능, 묻지 않는다) */
+export function useProblems(rid: string, enabled = true) {
+  return useQuery({ queryKey: qk.problems(rid), queryFn: () => problemsApi(rid).list(), enabled })
 }
 /** 사용자 차례: 방향 보고가 결정을 기다리는 흐름 수 */
 export const problemTurns = (rows: ProblemRow[] | undefined) => rows?.reduce((n, p) => n + turnsOf(p), 0) ?? 0

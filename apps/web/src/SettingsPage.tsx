@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { AppInfo } from './AppInfo'
 import { AppUpdate, useBundledApp } from './AppUpdate'
 import { AgentSettings } from './AgentSettings'
+import { FeatureSettings } from './FeatureSettings'
 import { SyncSettings } from './SyncSettings'
 import { BackupSettings } from './BackupSettings'
 import { PhoneSettings } from './PhoneSettings'
@@ -42,6 +43,8 @@ export const SETTINGS_PARTS = [
   // 기기 관리 (11/20 사용자 "설정에서 관리", "기기 관리로 하자"): 이 앱을 쓰는 컴퓨터. 옛 주소 #/server · #/settings/server도 여기
   { key: 'devices', label: t('기기 관리', 'Devices') },
   { key: 'agents', label: t('에이전트', 'Agents') },
+  // 기능 (11/27 사용자 결정 "실험 기능을 플러그인으로 설치 · 제거, 컴퓨터마다"): 내장 플러그인 설치 · 제거
+  { key: 'features', label: t('기능', 'Features') },
   { key: 'phone', label: t('폰에서 보기', 'On your phone') },
   // 아래 줄은 규칙 파일의 절 제목 (RuleSubs)
   { key: 'rules', label: t('공통 규칙', 'Common rules') },
@@ -165,6 +168,11 @@ export function SettingsPage({ ui, onChange, part, pr, onSaved }: { ui: UiSettin
             {show('agents') && <section data-ui="에이전트 묶음">
               <div className="sec-head"><h2>{t('에이전트', 'Agents')}</h2></div>
               <AgentSettings onSaved={onSaved} />
+            </section>}
+
+            {show('features') && <section data-ui="기능 묶음">
+              <div className="sec-head"><h2>{t('기능', 'Features')}</h2></div>
+              <FeatureSettings />
             </section>}
 
             {show('phone') && <section data-ui="폰에서 보기 묶음">

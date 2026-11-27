@@ -3,7 +3,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { buildApp } from './app.js'
-import { isPluginOn, SERVER_PLUGINS, type ServerPlugin } from './plugins/index.js'
+import { installedPlugins, isPluginOn, SERVER_PLUGINS, type ServerPlugin } from './plugins/index.js'
+import { instructionsFor } from './mcp.js'
 
 // 설정 › 기능 (11/27 사용자 결정 "실험 기능을 플러그인으로, 컴퓨터마다"): 설치 상태는 이 컴퓨터의 config.yaml plugins:에만
 const tmp = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'rw-plugins-'))
@@ -16,10 +17,22 @@ const plugins: ServerPlugin[] = [
 ]
 
 describe('내장 플러그인 API', () => {
-  it('뼈대 단계에서는 등록된 플러그인이 없다', async () => {
-    expect(SERVER_PLUGINS).toEqual([])
-    const app = buildApp({ configDir: path.join(tmp, 'empty') })
-    expect((await app.inject({ method: 'GET', url: '/api/plugins' })).json()).toEqual({ plugins: [] })
+  it('흐름은 기본으로 설치돼 있고, 제거하면 그 API가 다시 시작 없이 막히며 MCP 안내 · 도구에서도 빠진다', async () => {
+    expect(SERVER_PLUGINS.map((p) => p.manifest.id)).toEqual(['flow'])
+    const app = buildApp({ configDir: path.join(tmp, 'flow') })
+    const list = (await app.inject({ method: 'GET', url: '/api/plugins' })).json()
+    expect(list.plugins).toMatchObject([{ id: 'flow', installed: true, stage: 'experiment', rule: 'flow', keeps: ['workbench/problems/'] }])
+    const problems = () => app.inject({ method: 'GET', url: '/api/researches/nope/problems' })
+    expect((await problems()).json().error).toMatch(/등록되지 않은 프로젝트|not registered/)
+    expect(instructionsFor(installedPlugins())).toMatch(/problem_brief/)
+    await app.inject({ method: 'PUT', url: '/api/plugins/flow', payload: { installed: false } })
+    const off = await problems()
+    expect(off.statusCode).toBe(404)
+    expect(off.json().error).toMatch(/제거|removed/)
+    expect(installedPlugins()).toEqual([])
+    expect(instructionsFor(installedPlugins())).not.toMatch(/problem_brief/)
+    await app.inject({ method: 'PUT', url: '/api/plugins/flow', payload: { installed: true } })
+    expect((await problems()).json().error).toMatch(/등록되지 않은 프로젝트|not registered/)
     await app.close()
   })
 

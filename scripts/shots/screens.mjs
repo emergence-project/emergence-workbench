@@ -175,6 +175,8 @@ export const DEFAULT_SCREENS = [
   ['settings-central-memo', '#/settings/agents', '중앙 메모'],
   // 설정 › 에이전트 › 에이전트 자세히 (11/9): Codex 줄을 눌러 들어간 모양 (계정 · 시작 권한 · 자동 허용 · 하는 일)
   ['settings-agent-detail', '#/settings/agents', '에이전트 자세히', ['[data-ui="대화 에이전트"]:nth-of-type(2)']],
+  // 설정 › 기능 (11/27 내장 플러그인 설치 · 제거)
+  ['settings-features', '#/settings/features', '기능 줄'],
   // 폰에서 보기 (10/30): 예제 모드의 가짜 Tailscale을 켜 둔 화면(주소 · QR)
   ['settings-phone', '#/settings/phone', '폰 주소'],
   // 설정 › 공통 규칙 (10/18): 절마다 읽기, 연필로 연 원문 입력란
