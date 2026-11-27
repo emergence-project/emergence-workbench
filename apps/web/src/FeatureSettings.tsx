@@ -3,7 +3,7 @@ import { pluginsCalls, type PluginRow } from './api'
 import { flash } from './flash'
 import { lang, t } from './i18n'
 import { qk, queryClient } from './queries'
-import { useRulesView } from './ResearchTables'
+import { reviewLine, useRulesView } from './ResearchTables'
 import { href } from './router'
 
 /**
@@ -12,10 +12,6 @@ import { href } from './router'
  * 되돌릴 수 있으므로 확인 창 없이 바꾸고, 알림의 「되돌리기」로 돌린다. 실험이면 다시 볼 날과 판단을 소개 › 연구의 그 줄(규칙 목록)에서 읽어 보인다.
  */
 
-const VERDICT: Record<string, string> = {
-  keep: t('유지', 'Keep'), relaxed: t('완화', 'Relaxed'), removed: t('없앰', 'Removed'), ask: t('결정 필요', 'Needs decision'),
-  watch: t('지켜봄', 'Watching'), hold: t('보류', 'On hold'), reverted: t('되돌림', 'Reverted'),
-}
 const pick = (x: { ko: string; en: string }) => (lang === 'ko' ? x.ko : x.en)
 
 export function FeatureSettings() {
@@ -45,7 +41,7 @@ export function FeatureSettings() {
 }
 
 function FeatureRow({ p, names, review, busy, onChange }: {
-  p: PluginRow; names: Map<string, string>; review?: { verdict: string; review: string }; busy: boolean; onChange(installed: boolean): void
+  p: PluginRow; names: Map<string, string>; review?: Parameters<typeof reviewLine>[0]; busy: boolean; onChange(installed: boolean): void
 }) {
   const lockedBy = p.installed ? p.requiredBy.map((id) => names.get(id) ?? id) : []
   return (
@@ -59,7 +55,7 @@ function FeatureRow({ p, names, review, busy, onChange }: {
         <div className="set-desc">{pick(p.summary)}</div>
         {(review || p.keeps.length > 0) && (
           <div className="set-desc feat-meta">
-            {review && <a className="a" href={href({ page: 'about', part: 'research' })} data-ui="기능 다시 볼 날">{`${VERDICT[review.verdict] ?? review.verdict} · ${t('다시 볼 날', 'review')} ${review.review}`}</a>}
+            {review && <a className="a" href={href({ page: 'about', part: 'research' })} data-ui="기능 다시 볼 날">{reviewLine(review)}</a>}
             {p.keeps.length > 0 && <span title={p.keeps.join(', ')}>{t('제거해도 남는 파일: ', 'Kept when removed: ')}<code>{p.keeps.join(', ')}</code></span>}
           </div>
         )}
