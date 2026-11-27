@@ -97,6 +97,8 @@ export const qk = {
   feedbackCloud: ['feedback', 'cloud'] as const,
   /** 소개 절 확인 기록 (about.yaml, 11/11 안 C′): 피드백 알림에 같이 다시 받는다 */
   aboutChecks: ['feedback', 'about'] as const,
+  /** 규칙 · 실험 목록과 사용자 답 (소개 › 연구, rules.yaml): 피드백 알림에 같이 다시 받는다 */
+  rules: ['feedback', 'rules'] as const,
   /** 피드백 전부: 피드백 화면 · 레일의 수 · 맥 알림 · 폰 내 차례가 요청 하나를 나눠 쓴다 */
   feedbackAll: ['feedback', 'all'] as const,
   /** 개인 저장소 줄 (저장소 화면): 피드백 알림에 같이 다시 받는다 */

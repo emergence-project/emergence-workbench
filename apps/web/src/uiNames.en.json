@@ -1207,5 +1207,11 @@
   "크게 보기 고르기": "Viewer picker",
   "크게 보기 대화 접기": "Fold viewer conversation",
   "접은 대화": "Folded conversation",
-  "크게 보기 대화": "Viewer conversation"
+  "크게 보기 대화": "Viewer conversation",
+  "연구 표": "Research table",
+  "규칙 표": "Rules table",
+  "규칙 진행": "Proceed with rule",
+  "규칙 그대로 두기": "Leave rule as is",
+  "규칙 대상": "Rule audience",
+  "규칙 방식": "Rule enforcement"
 }

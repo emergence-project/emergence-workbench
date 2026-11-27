@@ -6,7 +6,8 @@ import { InfoOrAgent } from './AgentSide'
 import { closeRight, openRight, rightModeNow, useRightMode } from './noteScreen'
 import { ABOUT_PARTS, type AboutPart, type AboutSection, partOf, sectionAnchor } from './aboutContent'
 import { checkKey, checkState, lastPr, prsSince, useAboutChecks, type AboutCheckState } from './aboutChecks'
-import type { AboutCheck, AboutChecks } from './api'
+import type { AboutCheck, AboutChecks, RulesView } from './api'
+import { askPart, needsUser, useRuleAsks } from './ResearchTables'
 import { queryClient, qk } from './queries'
 import { t } from './i18n'
 import { go, href, type Route } from './router'
@@ -142,6 +143,7 @@ const NAV_GROUPS: { title: string; parts: string[] }[] = [
   { title: t('시작', 'Start'), parts: ['intro', 'principles'] },
   { title: t('화면', 'Screens'), parts: ['home', 'project', 'notes', 'knowledge', 'reading', 'network', 'settings'] },
   { title: t('일하는 방식', 'How work flows'), parts: ['agents', 'feedback'] },
+  { title: t('연구', 'Research'), parts: ['research', 'rules'] },
   { title: t('기준과 참고', 'Standards and reference'), parts: ['design', 'symbols', 'reference', 'next'] },
 ]
 
@@ -204,7 +206,10 @@ const uncheckedCount = (x: AboutPart, c: AboutChecks) => sectionChecks(x, c).fil
 export function aboutRailRoute(): Route {
   const c = queryClient.getQueryData<AboutChecks>(qk.aboutChecks)
   const part = c && ABOUT_PARTS.find((x) => uncheckedCount(x, c) > 0)
-  return part ? { page: 'about', part: part.id } : { page: 'about' }
+  if (part) return { page: 'about', part: part.id }
+  // 확인할 절이 없으면 결정을 기다리는 규칙 · 실험으로 (소개 › 연구)
+  const ask = queryClient.getQueryData<RulesView>(qk.rules)?.rows.find(needsUser)
+  return ask ? { page: 'about', part: askPart(ask) } : { page: 'about' }
 }
 
 /** 소개에서 확인 전인 절 수 (레일의 수 · 알림 종) */
@@ -212,10 +217,14 @@ export function useAboutUncheckedCount(): number {
   const checks = useAboutChecks()
   return ABOUT_PARTS.reduce((sum, x) => sum + uncheckedCount(x, checks), 0)
 }
+/** 레일의 수: 확인 전인 절 + 결정을 기다리는 규칙 · 실험 (종의 수와 같게) */
 export function AboutRailCount() {
-  const n = useAboutUncheckedCount()
+  const sections = useAboutUncheckedCount()
+  const asks = useRuleAsks().length
+  const n = sections + asks
   if (!n) return null
-  return <span className="rail-count" data-ui="확인할 곳 수" title={t(`소개에서 확인 전인 절 ${n}`, `About sections not reviewed: ${n}`)}>{n}</span>
+  const title = [sections && t(`소개에서 확인 전인 절 ${sections}`, `About sections not reviewed: ${sections}`), asks && t(`결정을 기다리는 규칙 · 실험 ${asks}`, `Rules or experiments awaiting a decision: ${asks}`)].filter(Boolean).join(' · ')
+  return <span className="rail-count" data-ui="확인할 곳 수" title={title}>{n}</span>
 }
 
 /** 이력 · 수정 가운데 고른 탭. 사이드바를 여닫는 것은 앱의 오른쪽 사이드바가 기억한다 */

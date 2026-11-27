@@ -52,3 +52,4 @@ export const api = {
 export * from './api/subjects'
 export * from './api/study'
 export * from './api/claudeAccounts'
+export * from './api/rules'
