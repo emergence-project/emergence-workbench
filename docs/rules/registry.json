@@ -247,8 +247,8 @@
       "why": "10/6 일하는 방식",
       "measure": null,
       "review": "2026-11-27",
-      "verdict": "ask",
-      "note": "11/19–11/26 CI 400번 중 codex/ 브랜치는 0번. 앱 안 대화(claude/app-…)와 클라우드 대화가 다 구현한다. 지금과 맞지 않는 규칙이라 지우자는 안(개인 저장소라 사용자 확인 뒤)",
+      "verdict": "removed",
+      "note": "11/27 사용자 \"지우자\": 개인 규칙 3절에서 지움. 근거: 11/19–11/26 CI 400번 중 codex/ 브랜치는 0번, 앱 안 대화(claude/app-…)와 클라우드 대화가 다 구현한다. Codex는 검토 쪽으로 남는다",
       "audience": "fixes",
       "enforce": "prompt"
     },
