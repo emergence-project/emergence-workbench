@@ -33,6 +33,8 @@ const dirs = given.map((a) => path.resolve(process.env.INIT_CWD ?? process.cwd()
 const { tsImport } = await tsxApi()
 const opts = { parentURL: import.meta.url, tsconfig: false }
 const { Workbench } = await tsImport('../apps/server/src/workbench.ts', opts)
+// 설정 › 기능에서 제거한 플러그인(흐름 등)은 앱의 STATUS.md처럼 빼고 보인다 (plugins/index.ts statesFromEnv)
+if (fs.existsSync(configDir)) process.env.RW_PLUGINS = JSON.stringify(new (await tsImport('../apps/server/src/registry.ts', opts)).Registry(configDir).plugins)
 
 // 폴더 하나 = 그 프로젝트의 STATUS (요약 · 절 하나 · 전부)
 if (!all && dirs.length === 1 && isResearch(dirs[0])) {

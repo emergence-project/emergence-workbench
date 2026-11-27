@@ -5,7 +5,7 @@
  * 꽂는 자리는 흐름이 실제로 쓰는 것만: 프로젝트 페이지 · 사이드바 줄 · 내 차례.
  */
 import type { ComponentType, ReactNode } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, type QueryClient } from '@tanstack/react-query'
 import { pluginInstalled, type PluginManifest, type PluginStates } from '@rw/core'
 import { pluginsCalls } from '../api/plugins'
 import type { ProjectKind } from '../api'
@@ -26,6 +26,8 @@ export interface WebPlugin {
   SidebarRow?: ComponentType<{ rid: string; route: Route; kind?: ProjectKind; count: number }>
   /** 사용자 차례. enabled가 false면 서버에 묻지 않고 비어 있어야 한다 (훅: 목록이 고정이라 부르는 차례가 바뀌지 않는다) */
   useTurns?: (rid: string, enabled: boolean) => { count: number; waiting: PluginTurn[] }
+  /** 화면 캐시에서 이 플러그인의 프로젝트 자료 키 셋째 칸 (['project', rid, 이것, …]) */
+  projectQuery?: string
 }
 
 /** 앱에 함께 들어 있는 플러그인 */
@@ -40,6 +42,19 @@ export function usePluginOn(): (id: string) => boolean {
     if (!m) return false
     return id in states ? states[id]!.installed : pluginInstalled(m, {})
   }
+}
+
+/**
+ * 플러그인 설치 · 제거 알림: 설치 상태 · 알림 종의 수 · 프로젝트 자료를 다시 받는다.
+ * 플러그인 자기 자료는 낡음 표시만 한다: 다른 창에 열린 그 화면이 설치 상태보다 먼저 다시 받으면 제거된 API가 404이고,
+ * 다시 설치하면 화면이 새로 열리며 받는다.
+ */
+export function invalidatePluginChange(client: QueryClient): void {
+  const own = (key: readonly unknown[]) => key[0] === 'project' && WEB_PLUGINS.some((p) => p.projectQuery !== undefined && key[2] === p.projectQuery)
+  void client.invalidateQueries({ queryKey: qk.plugins })
+  void client.invalidateQueries({ queryKey: qk.researchIssues })
+  void client.invalidateQueries({ queryKey: ['project'], predicate: (q) => !own(q.queryKey) })
+  void client.invalidateQueries({ queryKey: ['project'], predicate: (q) => own(q.queryKey), refetchType: 'none' })
 }
 
 /** 설치된 플러그인의 사이드바 줄과 차례 수를 함께 */
@@ -66,9 +81,15 @@ export function PluginPage({ name, ...props }: PluginPageProps & { name: Route['
   if (!plugin?.page) return null
   if (!on(plugin.manifest.id)) {
     return (
-      <div className="empty space-empty" data-ui="제거된 기능">
-        <p>{t(`${plugin.manifest.name.ko} 기능이 제거되어 있습니다. 연구 파일은 그대로 있습니다.`, `${plugin.manifest.name.en} is removed. Its research files are kept.`)}</p>
-        <button className="btn" onClick={() => go({ page: 'settings', part: 'features' })}>{t('설정 › 기능 열기', 'Open Settings › Features')}</button>
+      <div className="ws-doc">
+        <section className="pane" data-ui="본문">
+          <div className="scroll">
+            <div className="page-body"><div className="empty" data-ui="제거된 기능">
+              <p>{t(`${plugin.manifest.name.ko} 기능이 제거되어 있습니다. 연구 파일은 그대로 있습니다.`, `${plugin.manifest.name.en} is removed. Its research files are kept.`)}</p>
+              <button className="btn" onClick={() => go({ page: 'settings', part: 'features' })}>{t('설정 › 기능 열기', 'Open Settings › Features')}</button>
+            </div></div>
+          </div>
+        </section>
       </div>
     )
   }

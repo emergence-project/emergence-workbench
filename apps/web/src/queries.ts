@@ -151,8 +151,8 @@ export function invalidationKeys(e: WorkbenchEvent): QueryKey[] {
   if (e.type === 'account') return [qk.account, qk.setup, qk.githubRepos]
   // 앱 업데이트 상태는 AppUpdate.tsx가 따로 다시 확인한다 (App.tsx)
   if (e.type === 'app') return []
-  // 플러그인을 설치 · 제거하면 그 기능의 자리(사이드바 줄 · 내 차례 · 홈의 수)가 바뀐다
-  if (e.type === 'plugins') return [qk.plugins, qk.researchIssues, ['project']]
+  // 플러그인을 설치 · 제거하면 그 기능의 자리(사이드바 줄 · 내 차례 · 홈의 수)가 바뀐다. App.tsx가 invalidatePluginChange로 따로 다시 받는다
+  if (e.type === 'plugins') return []
   // 앱 고치기 대화의 피드백 화면은 slowInvalidationKeys가 (자주 오므로 느리게)
   if (e.type === 'agent-chat') return [qk.agentChatLists, ...(e.id ? [qk.agentChat(e.id)] : [qk.agentChats]), qk.agentWork]
   const keys = projectKeys(e)
