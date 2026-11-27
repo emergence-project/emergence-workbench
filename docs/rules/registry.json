@@ -63,7 +63,7 @@
       "where": "CLAUDE.md 반영 흐름, scripts/ci/check-about.mjs",
       "kind": "process",
       "since": "2026-10-15",
-      "why": "소개가 앱 설명의 정본이라 화면과 어긋나지 않게",
+      "why": "소개가 앱의 single source of truth(목표 · 결정 · 구현, 11/27 사용자 정의)라 구현과 어긋나지 않게",
       "measure": {
         "attest": "^(소개: 그대로|About: unchanged)"
       },
