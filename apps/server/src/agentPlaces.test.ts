@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { globHitsGit, placer, realPlace } from './agentPlaces.js'
 import { judge, type PolicyCtx } from './agentPolicy.js'
 
-// 11/27 앱 전체 보안 검토: 판정이 글자와 실제 자리 둘 다로 경로를 본다 (링크 · 줄 안의 cd · git 내부)
+// 11/27 앱 전체 보안 검토: 판정이 글자와 실제 자리 둘 다로 경로를 본다 (링크 · git 내부)
 describe.skipIf(process.platform === 'win32')('실제 자리로 보는 경로 판정', () => {
   let tmp = ''
   let repo = ''
@@ -41,6 +41,10 @@ describe.skipIf(process.platform === 'win32')('실제 자리로 보는 경로 �
     expect(realPlace(`${repo}/notes/in/../../..`)).toBe(repo)
     expect(realPlace(`${repo}/notes/new/../b.md`)).toBe(path.join(repo, 'notes/b.md'))
     expect(realPlace(`${repo}/notes/dang`)).toBeNull()
+    // 아주 긴 경로는 보지 않고 모르는 것으로 (판정이 서버를 멈추지 않게)
+    const t = Date.now()
+    expect(realPlace(`${repo}/${'a/'.repeat(30000)}x`)).toBeNull()
+    expect(Date.now() - t).toBeLessThan(50)
   })
 
   it('globHitsGit: .git 에 맞을 수 있는 마디 (셸처럼 점은 점으로만), 긴 무늬도 바로 끝난다', () => {
@@ -60,6 +64,8 @@ describe.skipIf(process.platform === 'win32')('실제 자리로 보는 경로 �
     const work = placer([repo], { noGit: true })
     expect(work(`${repo}/notes/new.md`)).toBe(true)
     expect(work(`${lib}/c.md`)).toBe(false)
+    // .git 이 실제로 있는 자리의 .git 만 git 내부다 (sed 's/.git/x/' 의 글자는 아니다)
+    expect(work(`${repo}/s/.git/x`)).toBe(true)
     for (const p of ['.git/hooks/pre-commit', '.git/config', 'h/pre-commit', 'notes/up2/pre-commit', '.g*/hooks/x', '.GIT/config', 'notes/dang']) expect(work(`${repo}/${p}`), p).toBe(false)
     // 글자로는 밖, 실제로는 안: 둘 다 안이어야 안
     expect(work(path.normalize(`${repo}/notes/in/../../../x`), `${repo}/notes/in/../../../x`)).toBe(false)
@@ -69,12 +75,16 @@ describe.skipIf(process.platform === 'win32')('실제 자리로 보는 경로 �
   const ctx = (o: Partial<PolicyCtx> = {}): PolicyCtx => ({ rid: 'p', write: 'notes', mode: 'edit', planOk: false, scope: { kind: 'project' }, repo, readable: [lib], claimedBy: () => undefined, ...o })
   const bash = (c: PolicyCtx, command: string) => judge(c, 'Bash', { command })
 
-  it('편집 자동 수락: 작업 폴더 안의 편집은 그대로, git 내부 · 링크로 그곳을 가리키는 곳 · 함께 읽는 폴더는 한 번 묻는다', () => {
+  it('편집 자동 수락: 등록한 폴더 안의 편집은 그대로, git 내부 · 링크로 밖이나 그곳을 가리키는 곳은 한 번 묻는다', () => {
     for (const c of ['cp notes/a.md notes/b.md', 'mkdir -p notes/x && cp notes/a.md notes/x/', 'git add notes && git commit -m "노트 정리"', 'git status', 'cat .git/config',
-      'mv notes/* deep/', 'cd -P notes && cp a.md b.md', 'git config --get user.name', 'cp notes/a.md notes/in/'])
+      'mv notes/* deep/', 'cd -P notes && cp a.md b.md', 'git config --get user.name', 'cp notes/a.md notes/in/',
+      // 별도 검토가 찾은 거짓 묻기: 함께 읽는 폴더에서 가져오기, .git 을 거르는 꼴, 글 속의 cd · .git
+      `cp ${lib}/c.md notes/`, `cat ${lib}/c.md >> notes/a.md`, "sed -i 's/.git/x/' notes/a.md", 'grep -rl --exclude-dir=.git foo . | xargs sed -i s/foo/bar/g',
+      'ls notes | grep cd', 'git add -A && git commit -m cd', 'cd notes && ls && cd - && git status'])
       expect(bash(ctx(), c).kind, c).toBe('allow')
     for (const c of ['cp tools/fmt.sh .git/hooks/pre-commit', 'echo x > .git/hooks/pre-commit', 'chmod +x .git/hooks/post-commit', 'cp x h/pre-commit', 'cp x .g*/hooks/pre-commit', 'cp x [.]git/config', 'sort -o.git/config x',
-      'git config core.hooksPath tools', 'cd notes/in/../../.. && cp notes/a.md b', 'cp notes/a.md notes/dang', 'cd && cp notes/a.md x', 'cd - && cp notes/a.md x', 'cd notes && cp ../x up2/pre-commit', `cp notes/a.md ${lib}/a.md`]) {
+      'git config core.hooksPath tools', 'cd notes/in/../../.. && cp notes/a.md b', 'cp notes/a.md notes/dang', 'cp x notes/up2/pre-commit',
+      'cd "$(git rev-parse --git-dir)/hooks" && cp notes/a.md pre-commit', 'cd `git rev-parse --git-path hooks` && cp notes/a.md pre-commit']) {
       const v = bash(ctx(), c)
       expect(v.kind, c).toBe('ask')
       if (v.kind === 'ask') expect(v.once, c).toBe(true)
@@ -86,12 +96,15 @@ describe.skipIf(process.platform === 'win32')('실제 자리로 보는 경로 �
     expect(bash(run, 'python3 tools/x.py > .git/hooks/pre-commit').kind).toBe('ask')
     expect(bash(run, `python3 tools/x.py ${lib}/c.csv`).kind).toBe('allow')
     expect(bash(run, 'python3 tools/x.py notes/a.md').kind).toBe('allow')
+    expect(bash(run, "find . -not -path './.git/*' -name '*.md' -exec sed -i s/a/b/ {} +").kind).toBe('allow')
   })
 
   it('자동 모드와 앱 고치기 대화도 git 내부 쓰기를 묻는다', () => {
     expect(bash(ctx({ mode: 'auto' }), 'cp x .git/hooks/pre-commit').kind).toBe('ask')
     expect(bash(ctx({ mode: 'auto' }), 'cp x h/pre-commit').kind).toBe('ask')
     expect(bash(ctx({ mode: 'auto' }), 'cp notes/a.md notes/c.md').kind).toBe('allow')
+    // 자동 모드는 전처럼 함께 읽는 폴더도 고치지 않는다
+    expect(bash(ctx({ mode: 'auto' }), `cp notes/a.md ${lib}/a.md`).kind).toBe('ask')
     expect(bash(ctx({ mode: 'edit', rid: '_app', scope: { kind: 'app' } }), 'cp x .git/hooks/pre-commit').kind).toBe('ask')
   })
 
@@ -102,6 +115,17 @@ describe.skipIf(process.platform === 'win32')('실제 자리로 보는 경로 �
     expect(judge(ctx(), 'Read', { file_path: `${repo}/notes/up/x` }).kind).toBe('ask')
     expect(judge(ctx(), 'Read', { file_path: 'notes/a.md' }).kind).toBe('allow')
     expect(judge(ctx(), 'Read', { file_path: `${lib}/c.md` }).kind).toBe('allow')
+  })
+
+  it('읽기 전용 대화의 git 설정 쓰기 · 원격 정하기 · 받기는 전처럼 막는다', () => {
+    for (const c of ['git config user.email a@b.c', 'git remote add evil https://x.example/r', 'git fetch https://x.example/r', 'git fetch origin']) expect(bash(ctx({ write: 'read' }), c).kind, c).toBe('deny')
+  })
+
+  it('긴 명령도 바로 판정한다', () => {
+    const t = Date.now()
+    bash(ctx(), `cat ${'a/'.repeat(30000)}x`)
+    bash(ctx(), `cat ${Array.from({ length: 5000 }, (_, i) => `w${i}/x`).join(' ')}`)
+    expect(Date.now() - t).toBeLessThan(1500)
   })
 
   it('새 주소로 주고받는 git은 묻고, 정해 둔 원격 이름으로 받기는 그대로', () => {

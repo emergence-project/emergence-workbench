@@ -1,8 +1,6 @@
 /**
- * 명령 판정(commandKind)이 경로를 어디로 볼지 (11/27 앱 전체 보안 검토): 경로로 볼 낱말, 새 자리와 주고받는 git, 줄 안의 cd 자리.
+ * 명령 판정(commandKind)이 경로를 어디로 볼지 (11/27 앱 전체 보안 검토): 경로로 볼 낱말, 새 자리와 주고받는 git.
  */
-import { segments, substitutions, unmask, words } from './chat-shell.js'
-
 /** 받기(fetch · pull)에서 값을 따로 받는 긴 옵션: 그 값은 저장소 자리가 아니다. git 은 줄여 쓴 긴 옵션(--dep)도 받는다 */
 const FETCH_VALUE_LONG = ['--depth', '--deepen', '--shallow-since', '--shallow-exclude', '--jobs', '--server-option', '--negotiation-tip', '--refmap', '--filter', '--strategy', '--strategy-option']
 const FETCH_VALUE_SHORT = /^-[joXs]$/
@@ -42,29 +40,15 @@ export function gitOutside(sub: string, rest: string[]): boolean {
 export const pathPart = (a: string) => /^--?[A-Za-z][\w-]*=(.+)$/.exec(a)?.[1] ?? /^-[A-Za-z]([/~].+|\..+)$/.exec(a)?.[1] ?? /^[A-Za-z_]\w*=([/~.].*)$/.exec(a)?.[1] ?? a
 /** 가운데의 ../ 로 폴더를 벗어나는 것도 본다 (sub/../../밖) */
 export const looksLikePath = (a: string) => a.startsWith('/') || a.startsWith('~') || a.startsWith('..') || a.includes('../') || a.endsWith('/..') || /^"?\$\{?(HOME|PWD)\b/.test(a)
-/** 경로로 볼 낱말: 경로 모양이거나, every(서버가 실제 파일로 판정할 때)면 옵션이 아닌 낱말 모두 (11/27) */
-export const pathWord = (v: string, every?: boolean) => looksLikePath(v) || (!!every && !!v && !v.startsWith('-'))
-
-/**
- * 줄 안에서 cd 로 옮겨 가는 자리: `cd notes && cp x h/y` 의 h/y 는 프로젝트 폴더가 아니라 notes 에서 본 경로다.
- * 판정이 낱말을 모두 경로로 볼 때(every) 서버가 넘겨 상대 경로를 이 자리들에서도 본다. 옮겨 간 자리는 앞의 cd 에 이어 붙인다 (cd a; cd b → a/b)
- */
-export function cdBases(cmd: string, cwd: string, home: string): string[] {
-  const out: string[] = []
-  for (const seg of segments(substitutions(cmd, { proc: true }).flat)) {
-    const w = words(seg).map(unmask)
-    for (let i = 0; i < w.length; i++) {
-      if (!/^(cd|pushd|popd|chdir)$/.test(w[i]!)) continue
-      let j = i + 1
-      while (/^(-[A-Za-z]+|--)$/.test(w[j] ?? '')) j++
-      const a = w[j]
-      // 어디로 갈지 모르는 곳(cd - · 디렉터리 스택 · popd · 변수)은 / 로 둔다: 그 뒤의 상대 경로는 모두 밖으로 보인다. 인자 없는 cd 는 홈
-      const to = w[i] === 'popd' || (w[i] === 'pushd' && a === undefined) || a === '-' || /^[-+]\d+$/.test(a ?? '') || /[$`]/.test(a ?? '') ? '/'
-        : a === undefined ? home : a.replace(/^~(?=\/|$)/, home)
-      out.push(to.startsWith('/') ? to : `${out[out.length - 1] ?? cwd}/${to}`)
-      // 너무 많으면 어디인지 모르는 것으로
-      if (out.length >= 16) return [...out, '/']
-    }
-  }
-  return out
+/** 경로로 볼 낱말: 경로 모양이거나, slashes(서버가 링크 · git 내부를 실제 파일로 판정할 때)면 / 가 든 낱말도 (주소는 빼고, 11/27) */
+export const pathWord = (v: string, slashes?: boolean) => looksLikePath(v) || (!!slashes && v.includes('/') && !v.startsWith('-') && !/^[a-z][\w+.-]*:\/\//i.test(v))
+/** 이름 무늬를 받는 옵션: 그 값은 열 파일이 아니라 거르는 무늬다 (find -not -path './.git/*' · --exclude=.git/*) */
+const PATTERN_OPT = /^-(path|ipath|wholename|iwholename|regex|iregex|name|iname|lname|ilname)$/
+/** 명령 인자 가운데 경로로 볼 것 (옵션에 붙인 값 포함). 무늬 값은 slashes 로 넓히지 않는다: 전처럼 경로 모양일 때만 */
+export function pathWords(args: string[], slashes?: boolean): string[] {
+  return args.flatMap((a, i) => {
+    const v = pathPart(a)
+    const pattern = PATTERN_OPT.test(args[i - 1] ?? '') || /^--?(exclude|include|ignore)/.test(a)
+    return pathWord(v, slashes && !pattern) ? [v] : []
+  })
 }
