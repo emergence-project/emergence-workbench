@@ -34,10 +34,8 @@ test('없는 경로 · 목록에서 빠진 안내서 · 머리 없는 안내서�
   assert.equal(checkPorts({ ...base(), guides: { chat: '# 안내서' } }).length, 1)
 })
 
-test('안내서의 코드를 바꾸면 안내서와 소개 절도 고치거나 그대로인 이유를 적는다', () => {
-  assert.equal(checkPorts({ ...base(), files: ['src/a.ts'] }).length, 2)
-  assert.deepEqual(checkPorts({ ...base(), files: ['src/a.ts', 'docs/ports/chat.md', 'about/a.tsx'] }), [])
-  assert.deepEqual(checkPorts({ ...base(), files: ['src/a.ts'], messages: '고침\n\n이식 안내서: 그대로 — 내부만\n소개: 그대로 — 내부만' }), [])
-  assert.equal(checkPorts({ ...base(), files: ['src/a.ts', 'about/a.tsx'] }).length, 1)
-  assert.deepEqual(checkPorts({ ...base(), files: ['src/other.ts'] }), [])
+test('코드만 바꾼 PR은 막지 않는다 (11/27: 안내서는 옮길 때 맞춘다)', () => {
+  // 예전에는 바뀐 파일(files)을 받아 막았다. 이제 받아도 보지 않는다
+  const input = { ...base(), files: ['src/a.ts'] }
+  assert.deepEqual(checkPorts(input), [])
 })

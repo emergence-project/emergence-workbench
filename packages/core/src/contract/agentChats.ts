@@ -61,7 +61,8 @@ export const Rewound = z.object({ chat: Chat, text: z.string(), attach: z.array(
 
 /** 바뀐 것을 커밋해 올리고 PR을 연다 (이미 있으면 그 PR에 더한다). title = 한국어 한 줄 */
 export const AppSubmitBody = z.object({ title: z.string().trim().min(1).max(120), body: z.string().max(20000) }).strict()
-export const AppSubmitted = z.object({ number: z.number(), url: z.string(), created: z.boolean() }).strict()
+/** notes = 올리기 전 검사가 막지 않고 알린 것 (예: 소개 검사가 짚은 소개 절, 11/27) */
+export const AppSubmitted = z.object({ number: z.number(), url: z.string(), created: z.boolean(), notes: z.array(z.string()).optional() }).strict()
 /** 그 PR의 CI: done = 모두 끝남, ok = 모두 통과, log = 실패한 기록 끝부분 */
 export const AppChecks = z.object({
   pr: z.number().optional(),

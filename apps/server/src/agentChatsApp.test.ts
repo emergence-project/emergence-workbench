@@ -305,6 +305,15 @@ describe('올리기 전 (11/20 토큰 아끼기)', () => {
     expect(out).not.toContain('check-ports')
     fs.rmSync(dir, { recursive: true, force: true })
   })
+  it('빠른 검사: 통과한 검사의 알림 줄(※)을 막지 않고 모은다 (11/27 소개 확인)', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-chk-'))
+    fs.writeFileSync(path.join(dir, 'package.json'), '{}')
+    const notes: string[] = []
+    const out = await localChecks(dir, async () => ({ stdout: '※ 소개 확인: about/project/flow.tsx\n소개 검사 통과', stderr: '' }), undefined, notes)
+    expect(out).toBeUndefined()
+    expect(notes).toEqual(['소개 확인: about/project/flow.tsx'])
+    fs.rmSync(dir, { recursive: true, force: true })
+  })
   it('소개 번호 조각: 고친 절 파일만 "<쪽>/<절>"로, 없거나 "소개: 그대로"면 없음', () => {
     const files = ['apps/web/src/FlowView.tsx', 'apps/web/src/about/project/flow.tsx', 'apps/web/src/about/agents/app.tsx', 'apps/web/src/about/project.tsx', 'apps/web/src/about/prs/7.json']
     expect(aboutFragment(files, '흐름 고침', 501)).toEqual({ file: 'apps/web/src/about/prs/501.json', text: '["agents/app","project/flow"]\n' })

@@ -39,11 +39,30 @@ test('기준보다 늘면 실패, 줄면 알리기만, 기준 없는 큰 새 파
   assert.equal(compare({ 'big.ts': { lines: 1000, casts: 6 } }, base).problems.length, 1)
   assert.deepEqual(compare({ 'big.ts': { lines: 900, casts: 4 } }, base), { problems: [], lower: ['big.ts 줄 수 1000 → 900', 'big.ts 타입 단언 5 → 4'] })
   assert.equal(compare({ 'new.ts': { lines: LINE_LIMIT + 1, casts: 0 } }, base).problems.length, 1)
-  assert.equal(compare({ 'new.ts': { lines: LINE_LIMIT, casts: 1 } }, base).problems.length, 1)
+  assert.equal(compare({ 'big.ts': { lines: 1000, casts: 5 }, 'new.ts': { lines: LINE_LIMIT, casts: 1 } }, base).problems.length, 1)
 })
 
-test('--update는 낮추기만 하고, 한도 아래로 내려간 파일과 단언이 없어진 파일은 뺀다', () => {
+test('파일을 나눠 단언을 옮기면 전체가 늘지 않는 한 통과한다 (11/27)', () => {
+  const base = { lines: {}, casts: { 'a.ts': 3 } }
+  const split = compare({ 'a.ts': { lines: 10, casts: 1 }, 'a2.ts': { lines: 10, casts: 2 } }, base)
+  assert.deepEqual(split.problems, [])
+  assert.ok(split.lower.some((l) => l.includes('a2.ts')))
+  assert.equal(compare({ 'a.ts': { lines: 10, casts: 3 }, 'a2.ts': { lines: 10, casts: 1 } }, base).problems.length, 1)
+})
+
+test('--update는 낮추기만 하고, 한도 아래로 내려간 파일과 단언이 없어진 파일은 빼고, 옮겨 간 단언은 새 파일에 적는다', () => {
   const base = { lines: { 'a.ts': 1000, 'b.ts': 700 }, casts: { 'a.ts': 3, 'c.ts': 2 } }
-  const now = { 'a.ts': { lines: 1200, casts: 1 }, 'b.ts': { lines: 500, casts: 0 }, 'c.ts': { lines: 10, casts: 0 } }
-  assert.deepEqual(lowered(now, base), { lines: { 'a.ts': 1000 }, casts: { 'a.ts': 1 } })
+  const now = { 'a.ts': { lines: 1200, casts: 1 }, 'b.ts': { lines: 500, casts: 0 }, 'c.ts': { lines: 10, casts: 0 }, 'd.ts': { lines: 10, casts: 2 } }
+  assert.deepEqual(lowered(now, base), { lines: { 'a.ts': 1000 }, casts: { 'a.ts': 1, 'd.ts': 2 } })
+})
+
+test('--update는 단언 기준의 합을 올리지 않고, 옮긴 단언을 적은 뒤에도 같은 코드가 통과한다 (11/27 별도 검토)', () => {
+  // 새 파일에 단언을 더해 전체가 늘었으면 새 파일은 기준에 적지 않는다
+  const grown = lowered({ 'a.ts': { lines: 10, casts: 3 }, 'n.ts': { lines: 10, casts: 5 } }, { lines: {}, casts: { 'a.ts': 3 } })
+  assert.deepEqual(grown.casts, { 'a.ts': 3 })
+  // 있던 파일 사이에서 옮겼으면 지금 수를 적고, 그 기준으로 다시 검사해도 통과한다
+  const now = { 'a.ts': { lines: 10, casts: 5 }, 'b.ts': { lines: 10, casts: 1 } }
+  const next = lowered(now, { lines: {}, casts: { 'a.ts': 3, 'b.ts': 4 } })
+  assert.deepEqual(next.casts, { 'a.ts': 5, 'b.ts': 1 })
+  assert.deepEqual(compare(now, next).problems, [])
 })

@@ -8,7 +8,20 @@
       "kind": "safety",
       "since": "2026-11-27",
       "why": "11/25 점검: 최근 PR 60개가 사람 검토 없이 합쳐졌고 권한을 넓힌 것도 있었다",
-      "measure": { "touch": ["packages/core/src/chat-", "apps/server/src/agentPolicy.ts", "agentTidy.ts", "appWorktreeTidy.ts", "feedbackMerge.ts", "gitsync.ts", "gitSyncState.ts", "secretStore.ts", ".github/", "scripts/ci/"] },
+      "measure": {
+        "touch": [
+          "packages/core/src/chat-",
+          "apps/server/src/agentPolicy.ts",
+          "agentTidy.ts",
+          "appWorktreeTidy.ts",
+          "feedbackMerge.ts",
+          "gitsync.ts",
+          "gitSyncState.ts",
+          "secretStore.ts",
+          ".github/",
+          "scripts/ci/"
+        ]
+      },
       "review": "2026-12-11",
       "verdict": "keep",
       "note": "널리 쓰는 방식(CODEOWNERS 승인)이다. 아직 이틀이라 효과 자료가 없다. 2주 뒤 사용자를 기다린 시간과 걸러 낸 문제를 본다. 완화는 사용자 허락이 있어야 한다"
@@ -39,15 +52,17 @@
     },
     {
       "id": "about-sync",
-      "rule": "화면을 바꾼 PR은 소개 절도 고치거나 '소개: 그대로 — 이유'를 쓴다",
+      "rule": "화면을 바꾼 PR은 소개 절을 살핀다: 검사가 막지 않고, 그 화면 파일과 함께 고쳐 온 소개 절을 짚어 알린다",
       "where": "CLAUDE.md 반영 흐름, scripts/ci/check-about.mjs",
       "kind": "process",
       "since": "2026-10-15",
       "why": "소개가 앱 설명의 정본이라 화면과 어긋나지 않게",
-      "measure": { "attest": "^(소개: 그대로|About: unchanged)" },
-      "review": "2026-12-11",
-      "verdict": "ask",
-      "note": "커밋 784개 중 312개에 '그대로' 줄이 있고 상당수는 '파일만 나눔' 같은 정해진 말이다. 검사는 줄이 있는지만 보고 맞는지는 보지 않는다. 그래도 소개가 틀린 일(#749)은 있었다. 막는 검사를 알림으로 바꾸고, 바뀐 화면에 맞는 소개 절을 앱이 짚어 주게 하자는 안 (scripts/ci라 사용자가 합침)"
+      "measure": {
+        "attest": "^(소개: 그대로|About: unchanged)"
+      },
+      "review": "2027-01-27",
+      "verdict": "relaxed",
+      "note": "11/27 완화(사용자 결정 '알림으로 + 앱이 절을 짚어 줌', 사용자가 합친 PR): 커밋 784개 중 312개, 최근 30일 41%가 '그대로' 줄을 썼고 상당수는 정해진 말이었다. 검사는 줄이 있는지만 봐서 소개가 틀린 일(#749)을 막지 못했다. 이제 git 이력에서 그 화면 파일과 함께 고쳐진 소개 절을 짚어 app_submit 답과 CI 경고로 보인다. PR 번호 조각 검사는 막는 그대로. 다시 볼 때: '그대로' 줄 비율이 줄었는지, 소개가 화면과 어긋난 피드백이 늘었는지"
     },
     {
       "id": "ports-sync",
@@ -56,10 +71,14 @@
       "kind": "process",
       "since": "2026-11-19",
       "why": "안내서가 코드와 어긋나지 않게",
-      "measure": { "attest": "^(이식 안내서: 그대로|Ports: unchanged)" },
-      "review": "2026-12-11",
-      "verdict": "ask",
-      "note": "11/19부터 커밋 234개 중 74개에 '그대로' 줄, 안내서 고침 59번. 그동안 안내서로 실제 옮긴 일은 아직 없다. PR마다 맞추지 말고 옮길 때 그 안내서를 맞추는 안 (경로가 있는지 보는 검사는 둔다)"
+      "measure": {
+        "touch": [
+          "docs/ports/"
+        ]
+      },
+      "review": "2027-01-27",
+      "verdict": "relaxed",
+      "note": "11/27 완화(사용자가 합친 PR): PR마다 맞추는 검사를 빼고 옮길 때 맞춘다. 근거: 11/19부터 커밋 234개 중 74개에 '그대로' 줄, 안내서로 옮긴 일 0번. 짝 · 경로 검사는 둔다"
     },
     {
       "id": "ratchet-lines",
@@ -82,8 +101,8 @@
       "why": "타입 검사를 피하는 곳이 늘지 않게",
       "measure": null,
       "review": "2026-12-27",
-      "verdict": "ask",
-      "note": "전체 단언이 796개에서 615개로 23% 줄었다(유지할 만함). 다만 파일 하나를 둘로 나누면 옮긴 단언이 새 파일의 '기준 0'에 걸려 실패한다(최근 실패 19건 중 3건). 파일마다가 아니라 PR 전체 수로 세는 안 (scripts/ci라 사용자가 합침)"
+      "verdict": "relaxed",
+      "note": "전체 단언 796 → 615개(−23%)라 유지하되, 11/27부터 저장소 전체 합으로 센다. 파일을 나눠 옮긴 단언이 실패하던 것(최근 실패 19건 중 2건)을 없앴다"
     },
     {
       "id": "design-check",
@@ -128,7 +147,11 @@
       "kind": "quality",
       "since": "2026-11-12",
       "why": "CI가 찍는 범위가 몰래 바뀌지 않게",
-      "measure": { "touch": ["scripts/shots/options.test.mjs"] },
+      "measure": {
+        "touch": [
+          "scripts/shots/options.test.mjs"
+        ]
+      },
       "review": "2026-12-27",
       "verdict": "relaxed",
       "note": "화면을 하나 더할 때마다 실패해 숫자만 고쳤다(20번 고침, 최근 CI 실패 19건 중 7건). 걸러 낸 것은 없다. 11/27 숫자를 빼고 '어두운 그림 둘 · 화면 이름이 겹치지 않음 · CI 명령이 기본 범위를 고름'만 본다"

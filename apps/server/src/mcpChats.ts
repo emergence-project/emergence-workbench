@@ -25,14 +25,15 @@ export function registerChatTools(server: McpServer, o: {
     const chat = encodeURIComponent(opts.appChat)
     server.registerTool('app_submit', {
       title: 'Commit and open PR',
-      description: 'Commit every change in the work folder, push the branch and open the pull request (or add to it if already open). Before pushing, the app runs pnpm type-check and the ports-guide, about and structure-ratchet checks (scripts/ci/check-ports.mjs, check-about.mjs, check-ratchet.mjs) in the work folder; if one fails it undoes its commit, pushes nothing and returns the errors, so fix them and call app_submit again. After the pull request number is known, the app writes the about sections you changed to apps/web/src/about/prs/<number>.json and pushes once more (do not add the number to a section\'s prs yourself). Title: one Korean line the user reads in the update history. Body: follow the PR template (Before / After / How / Checks).',
+      description: 'Commit every change in the work folder, push the branch and open the pull request (or add to it if already open). Before pushing, the app runs pnpm type-check and the ports-guide, about and structure-ratchet checks (scripts/ci/check-ports.mjs, check-about.mjs, check-ratchet.mjs) in the work folder; if one fails it undoes its commit, pushes nothing and returns the errors, so fix them and call app_submit again. When you changed a screen but no about section, the reply names the about sections that usually change with that screen file: read them and update the one whose description no longer matches. After the pull request number is known, the app writes the about sections you changed to apps/web/src/about/prs/<number>.json and pushes once more (do not add the number to a section\'s prs yourself). Title: one Korean line the user reads in the update history. Body: follow the PR template (Before / After / How / Checks).',
       inputSchema: { title: z.string().describe('One-line Korean PR title'), body: z.string().describe('PR body following the template') },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
     }, async (a) => {
       const r = await post(`/api/agent-chats/${chat}/app/submit`, a)
       if (!r.ok) return r.error
-      const b = z.object({ number: z.number(), url: z.string(), created: z.boolean() }).parse(r.body)
-      return text(`${b.created ? 'Opened' : 'Updated'} PR #${b.number}: ${b.url}. CI runs now (about 3 minutes); call app_checks to read the result.`)
+      const b = z.object({ number: z.number(), url: z.string(), created: z.boolean(), notes: z.array(z.string()).optional() }).parse(r.body)
+      const notes = b.notes?.length ? `\n\nThe checks did not block, but ask you to look:\n${b.notes.map((n) => `- ${n}`).join('\n')}\nIf one applies, fix it and call app_submit again; otherwise carry on.` : ''
+      return text(`${b.created ? 'Opened' : 'Updated'} PR #${b.number}: ${b.url}. CI runs now (about 3 minutes); call app_checks to read the result.${notes}`)
     })
     server.registerTool('app_merge', {
       title: 'Merge own PR',

@@ -20,7 +20,8 @@ import { WorkbenchError } from './workbench.js'
 
 const exec = promisify(execFile)
 
-export interface AppPr { number: number; url: string; created: boolean }
+/** notes = 올리기 전 검사가 막지 않고 알린 것 (예: 살펴볼 소개 절) */
+export interface AppPr { number: number; url: string; created: boolean; notes?: string[] }
 export interface AppCheck { name: string; state: string; link?: string }
 export interface AppChecks { pr?: number; checks: AppCheck[]; done: boolean; ok: boolean; log?: string }
 /** 작업 폴더에서 main 갈래 이후 바뀐 파일 하나 (올린 것 · 올리지 않은 것 · 새 파일 모두). patch = 그 파일의 git diff (줄임) */
@@ -95,13 +96,23 @@ export const LOCAL_CHECKS: LocalCheck[] = [
 export type CheckRun = (cmd: string, args: string[], cwd: string, env?: Record<string, string>) => Promise<unknown>
 const runCheck: CheckRun = (cmd, args, cwd, env) => exec(cmd, args, { cwd, timeout: 5 * 60_000, maxBuffer: 16 * 1024 * 1024, env: { ...process.env, NO_COLOR: '1', FORCE_COLOR: '0', ...env } })
 
-/** 빠른 검사들을 돌려 떨어진 것의 출력 끝부분을 모은다 (모두 통과면 undefined). 명령이 없으면(ENOENT) 그 검사는 건너뛴다 */
-export async function localChecks(dir: string, run: CheckRun = runCheck, list: LocalCheck[] = LOCAL_CHECKS): Promise<string | undefined> {
+/** 통과한 검사가 남긴 알림 줄 ("※ "로 시작, 예: 소개 검사가 짚는 소개 절, 11/27) */
+export const checkNotes = (out: unknown): string[] => {
+  const stdout = out && typeof out === 'object' && 'stdout' in out ? out.stdout : undefined
+  return typeof stdout === 'string' ? stdout.split('\n').filter((l) => l.startsWith('※ ')).map((l) => l.slice(2).trim()) : []
+}
+
+/**
+ * 빠른 검사들을 돌려 떨어진 것의 출력 끝부분을 모은다 (모두 통과면 undefined). 명령이 없으면(ENOENT) 그 검사는 건너뛴다.
+ * notes를 주면 통과한 검사의 알림 줄을 거기에 모은다 (막지 않고 에이전트에게 돌려줄 것)
+ */
+export async function localChecks(dir: string, run: CheckRun = runCheck, list: LocalCheck[] = LOCAL_CHECKS, notes?: string[]): Promise<string | undefined> {
   const failed: string[] = []
   for (const c of list) {
     if (!fs.existsSync(path.join(dir, c.needs))) continue
     try {
-      await run(c.cmd, c.args, dir, c.env)
+      const out = await run(c.cmd, c.args, dir, c.env)
+      notes?.push(...checkNotes(out))
     } catch (e) {
       const { code, stdout, stderr, message } = Object.assign({ code: '', stdout: '', stderr: '', message: '' }, e)
       if (code === 'ENOENT') continue
@@ -278,7 +289,8 @@ export function appWorktrees(root: string, base: string, rules?: string, profile
       const ahead = (await git(dir, ['rev-list', '--count', 'origin/main..HEAD'])).trim()
       if (ahead === '0') throw new WorkbenchError(400, t('바뀐 것이 없어 올리지 않았습니다', 'Nothing changed, so nothing was pushed'))
       // 형식 검사 · 이식 안내서 · 소개 · 구조 래칫 검사를 먼저: 떨어지면 방금 한 커밋을 풀고(고친 것은 그대로) 오류를 대화에 돌려준다
-      const failed = await localChecks(dir, undefined, profile.checks)
+      const notes: string[] = []
+      const failed = await localChecks(dir, undefined, profile.checks, notes)
       if (failed) {
         if (staged) await git(dir, ['reset', '--soft', 'HEAD~1'])
         throw new WorkbenchError(400, `${t('올리기 전 검사에서 떨어져 올리지 않았습니다. 고친 뒤 다시 app_submit 하세요', 'Local checks failed, so nothing was pushed. Fix and call app_submit again')}\n\n${failed}`)
@@ -302,7 +314,7 @@ export function appWorktrees(root: string, base: string, rules?: string, profile
         await git(dir, ['commit', '-m', `소개 이력: #${pr.number}에서 고친 절`])
         await git(dir, ['push', '-u', 'origin', `HEAD:refs/heads/${branch}`])
       }
-      return { ...pr, created: !had }
+      return { ...pr, created: !had, ...(notes.length && { notes }) }
     },
     async checks(dir, branch) {
       const pr = await prOf(dir, branch)
