@@ -82,20 +82,28 @@ export function Intro() {
         {lang === 'ko' ? (
           <ul className="about-pillars">
             <li><b>정본</b> — 앱의 목표 · 개발 결정 · 지금 구현을 적는 single source of truth. 다른 문서는 이 소개의 자세한 설명</li>
-            <li><b>독자</b> — 사용자와 에이전트가 함께 읽음. 누구나 쉽게 읽히게 씀</li>
-            <li><b>에이전트</b> — 이 소개를 읽고 기능의 구현 방식과 파일을 정리함. 앱을 고치면 같은 PR에서 소개도 고쳐 둘을 맞춤</li>
+            <li><b>독자</b> — 사용자 · 앱 안 에이전트 · 앱 밖 에이전트가 같은 글을 읽음. 누구나 쉽게 읽히게 씀
+              <ul>
+                <li><b>사용자</b> — 레일 맨 아래 「소개」 화면에서 읽음. 툴바 오른쪽 시계가 본문 옆에 이력 · 수정 패널을 엶: 「이력」에서 바뀐 절을 보고 ✓로 확인하고, 틀린 곳은 「수정」에서 본문의 그곳(문단 · 표 칸 · 그림 속 상자)을 눌러 고친 글을 보냄</li>
+                <li><b>앱 안 에이전트</b> — 「앱 고치기」 대화는 안내문이 고칠 파일의 절부터 읽게 하고(<code>pnpm agent:about &lt;파일&gt;</code>), 파일을 읽거나 고치면 앱이 그 파일을 구현으로 적은 절의 요약 · 지킬 것을 한 번씩 덧붙여 건넴. 앱을 고치면 같은 PR에서 그 절도 고침. 프로젝트 대화도 MCP <code>about</code>으로 볼 수 있음</li>
+                <li><b>앱 밖 에이전트</b> — 터미널의 Claude Code · Codex 등. 앱 MCP의 <code>about</code> 도구(파일 · 도구 · 절 이름으로 찾음)나, 앱 저장소에서 <code>pnpm agent:about</code>으로 읽음. 저장소의 CLAUDE.md · AGENTS.md 첫 절이 이 소개를 가리킴</li>
+              </ul>
+            </li>
             <li><b>짜임</b> — 시작 › 화면 › 일하는 방식 › 앱 개발 › 기준과 참고. 「화면」은 화면마다 한 쪽으로, 지금 앱이 어떤지를 그 화면의 짜임대로 적음</li>
             <li><b>피드백</b> — 승인한 피드백은 여기 설명으로 옮기고 피드백 목록에서 지움</li>
-            <li><b>확인과 고치기</b> — 툴바 오른쪽 시계가 본문 옆에 이력 · 수정 패널을 엶. 「이력」에서 바뀐 절을 보고 ✓로 확인하고, 틀린 곳은 「수정」에서 본문의 그곳(문단 · 표 칸 · 그림 속 상자)을 눌러 고친 글을 보냄</li>
           </ul>
         ) : (
           <ul className="about-pillars">
             <li><b>Source of truth</b> — records the app's goals, development decisions and current implementation. Other documents are detailed notes on it</li>
-            <li><b>Readers</b> — read by users and agents alike, so written to be easy for anyone</li>
-            <li><b>Agents</b> — read it to work out how each feature is implemented and which files it uses. When they change the app, they change this page in the same PR</li>
+            <li><b>Readers</b> — users, agents inside the app and agents outside it read the same text, so it is written to be easy for anyone
+              <ul>
+                <li><b>Users</b> — read it on the About screen at the bottom of the rail. The clock at the right of the toolbar opens a History · Edit panel beside the text: in "History", see changed sections and mark them reviewed with ✓; for anything wrong, click that place in the text in "Edit" (a paragraph, a table cell or a box in a figure) and send your edited text</li>
+                <li><b>Agents inside the app</b> — the brief of a "Fix the app" conversation has the agent read the section of the file it will change first (<code>pnpm agent:about &lt;file&gt;</code>), and when the agent reads or edits a file, the app adds the summary and keep list of the section that lists that file as its implementation, once each. When they change the app, they change that section in the same PR. Project conversations can also read it with the MCP <code>about</code> tool</li>
+                <li><b>Agents outside the app</b> — Claude Code, Codex and others in a terminal. They read it with the app MCP's <code>about</code> tool (found by file, tool or section name), or with <code>pnpm agent:about</code> in the app repository. The first section of the repository's CLAUDE.md and AGENTS.md points to this page</li>
+              </ul>
+            </li>
             <li><b>Layout</b> — Start › Screens › How we work › App development › Standards and reference. Under Screens, one part per screen, describing how the app works now in the order of that screen</li>
             <li><b>Feedback</b> — approved feedback moves into these descriptions and is deleted from the feedback list</li>
-            <li><b>Review and corrections</b> — the clock at the right of the toolbar opens a History · Edit panel beside the text. In "History", see changed sections and mark them reviewed with ✓; for anything wrong, click that place in the text in "Edit" (a paragraph, a table cell or a box in a figure) and send your edited text</li>
           </ul>
         )}
         <div className="about-legend">
