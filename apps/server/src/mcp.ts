@@ -40,6 +40,7 @@ export const SAFETY = [
 export const instructionsFor = (plugins: readonly ServerPlugin[]): string => [
   'Read projects, notes, records (and answer questions), delegated tasks and concept notes of Emergence Workbench through its app server.',
   'Start: rules (pass project to include that repository\'s own rules) → overview (every active project: the user\'s turn and your turn) → project_status for the project you work on (a short summary; fetch one section by name when needed) → changes_since for what changed since you last looked (other sessions, the other Mac, the user).',
+  'Before changing a feature of the app, or when unsure how one works: about (with file, tool or section) gives the app\'s own description of it, the decisions behind it and its files.',
   'Use these tools instead of reading or writing files under workbench/: they keep the app\'s format, show your work to the user (records, problems, task tab, edit reviews) and return short outputs. Edit files directly only for what no tool covers.',
   'Outputs are short on purpose: read a longer rule (rules part) or STATUS section (project_status section) only when the work needs it.',
   'Answer the user\'s questions: list_records with unanswered: true → read_note for the context → answer_record (result first, a few lines).',
@@ -195,6 +196,24 @@ export function createMcpServer(opts: { baseUrl?: string; key?: string; fetch?: 
       `- part: "tasks" · delegated tasks (workbench/tasks/*.md: end condition, result format, approval) · ${size(tasksDoc())}`,
       `- part: "concepts" · concept notes in the shared library (sources, format, what not to invent) · ${size(await conceptsDoc())}`].join('\n'))
     return text(parts.join('\n\n'))
+  })
+
+  // 앱 소개 (11/27 사용자 결정 "소개를 읽고 일을 시작하게"): 앱의 기능이 어떻게 되어 있는지의 정본
+  server.registerTool('about', {
+    title: 'About the app',
+    description: 'The app\'s About pages: the source of truth for what each feature of Emergence Workbench does, the decisions behind it and which files implement it. Without arguments: one line per section (key · title — summary). With section (a key like project/edits, or a part like project), file (a repository path such as apps/web/src/AgentEditsPage.tsx) or tool (an MCP tool name such as edit_note): the full text of the matching sections. Read the section before changing or relying on a feature. Only sections already moved to the new format are listed.',
+    inputSchema: {
+      section: z.string().optional().describe('Section key (project/edits), section id or part (project)'),
+      file: z.string().optional().describe('App repository path; returns the sections whose implementation covers it'),
+      tool: z.string().optional().describe('MCP tool name; returns the sections about the feature it serves'),
+    },
+    annotations: ro,
+  }, async ({ section, file, tool }) => {
+    const qs = new URLSearchParams(Object.entries({ section, file, tool }).filter((x): x is [string, string] => !!x[1]))
+    const r = await get(base, f, `/api/about/guide${qs.size ? `?${qs}` : ''}`)
+    if (!r.ok) return r.error
+    const b = r.body as { text: string; errors: string[] }
+    return text(b.errors.length ? `${b.text}\n\n(could not read: ${b.errors.join('; ')})` : b.text)
   })
 
   server.registerTool('list_projects', {

@@ -39,6 +39,8 @@ export function appBriefFor(o: { branch: string; write: ChatWrite; mode?: ChatMo
     // 공개 저장소라 (11/19 개인정보 점검)
     'The app repository is public: PR, commit and issue text and committed files never name real research projects, people, personal emails or local paths. Say "a real repository" or similar instead.',
     ...(o.feedback ? [] : [`When every check is green, call ${APP_MERGE} to squash-merge your own pull request, unless the user asked to look at it before merging. The app refuses while CI is not green or the branch conflicts with main.`]),
+    // 소개가 정본 (11/27): 고칠 기능의 절을 먼저. 읽은 파일의 절은 훅이 덧붙인다 (agentRunner.ts aboutHook)
+    'The app\'s About pages are its source of truth: before changing a feature, read its section with `pnpm agent:about <file you will change>` (or `pnpm agent:about` for the list). When you read or edit a file, the app adds the summary of the About section that covers it.',
     'Update tests and docs that the change touches (about sections, uiNames.en.json, design-system.md) as CLAUDE.md says; app_submit adds the PR number to the about sections you changed.',
     'Research projects are read-only here: do not change notes, records, tasks or problems.',
   ]
