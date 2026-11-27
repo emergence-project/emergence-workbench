@@ -66,23 +66,23 @@ export function ScreenLayoutFigure() {
         </div>
         <div className="sl-body">
           <div className="sl-rail" title={t('레일', 'Rail')}>
-            <i>{Icon.home}</i><span className="sl-pj">AB</span><span className="sl-pj">CD</span><span className="sl-more">+n</span>
-            <span className="sl-gap" /><i>{Icon.library}</i><i>{Icon.feedback}</i>
+            <i>{Icon.home}</i><i>{Icon.spark}</i><i>{Icon.repo}</i><span className="sl-pj">AB</span><span className="sl-pj">CD</span><span className="sl-more">+n</span>
+            <span className="sl-gap" /><i>{Icon.library}</i><i>{Icon.network}</i><i>{Icon.feedback}</i>
           </div>
-          {area(t('왼쪽 사이드바', 'Left sidebar'), t('프로젝트 정보 · 작업 · 기록 · 수정 검토 · 흐름 · 주제 › 노트 · 자료', 'Project info · Work · Records · Edit review · Flows · Topic › Note · Materials'), t('프로젝트 | 파일 | 목차', 'Project | Files | Outline'))}
+          {area(t('왼쪽 사이드바', 'Left sidebar'), t('프로젝트 정보 · 기록 · 수정 검토 · 흐름 · 주제 › 노트 · 자료', 'Project info · Records · Edit review · Flows · Topic › Note · Materials'), t('프로젝트 | 파일 | 목차', 'Project | Files | Outline'))}
           {area(t('주 패널', 'Main pane'), t('고른 화면. 위에 탭 바', 'The chosen screen, with a tab bar on top'), t('탭', 'Tabs'))}
           {area(t('옆 패널', 'Side pane'), t('함께 볼 PDF · 논문 (두 패널)', 'PDF or paper to read alongside (Two panes)'), t('탭', 'Tabs'))}
           {area(t('오른쪽 사이드바', 'Right sidebar'), t('지금 연 노트의 정보 · 기록, 이 프로젝트의 에이전트 대화', 'Info and records of the open note, this project\'s agent conversations'), t('정보 | 기록 | 에이전트', 'Info | Records | Agents'))}
         </div>
       </div>
-      <figcaption className="muted">{t('맨 왼쪽 레일은 홈 · 프로젝트 머리글자 · 라이브러리 · 피드백으로 가는 버튼. 두 사이드바는 상단바 양 끝 버튼(⌘\\ · ⌥⌘\\)으로 여닫고, 옆 패널은 두 패널을 켰을 때만 보입니다', 'The rail at the far left has buttons for Home, project initials, the libraries and Feedback. The two sidebars open and close with the buttons at both ends of the top bar (⌘\\ · ⌥⌘\\); the side pane shows only with Two panes on')}</figcaption>
+      <figcaption className="muted">{t('맨 왼쪽 레일은 홈 · 에이전트 · 저장소 · 프로젝트 머리글자 · 라이브러리 · 네트워킹 · 피드백으로 가는 버튼. 두 사이드바는 상단바 양 끝 버튼(⌘\\ · ⌥⌘\\)으로 여닫고, 옆 패널은 두 패널을 켰을 때만 보입니다', 'The rail at the far left has buttons for Home, Agents, Repositories, project initials, the libraries, Networking and Feedback. The two sidebars open and close with the buttons at both ends of the top bar (⌘\\ · ⌥⌘\\); the side pane shows only with Two panes on')}</figcaption>
     </figure>
   )
 }
 
 /** 글의 종류 표 */
 export const DOC_KINDS: { name: string; what: string; format: string; where: ReactNode }[] = [
-  { name: t('원고', 'Manuscript'), what: t('결과를 모으는 개인 초고. 공동 집필·투고는 Overleaf', 'Personal draft gathering results. Co-writing and submission in Overleaf'), format: 'LaTeX', where: <>{c('research.yaml')}의 {c('sources.manuscript')}</> },
+  { name: t('원고', 'Manuscript'), what: t('결과를 모으는 개인 초고. 공동 집필·투고는 Overleaf', 'Personal draft gathering results. Co-writing and submission in Overleaf'), format: 'LaTeX', where: <>{c('research.yaml')}{t('의 ', ' ')}{c('sources.manuscript')}</> },
   { name: t('노트', 'Note'), what: t('주제 안에서 완결된 최소 단위: 증명·유도·계산·열린 질문', 'Smallest self-contained unit in a topic: proof, derivation, calculation, open question'), format: 'Markdown + KaTeX', where: <>{c(t('workbench/topics/<주제>/', 'workbench/topics/<topic>/'))} · {c('notes/')} · {c('calc/')}</> },
   { name: t('개념노트', 'Concept note'), what: t('여러 연구가 다시 쓰는 정의·성질. 개념 하나에 노트 하나', 'Definitions and properties reused across projects. One note per concept'), format: 'Markdown + KaTeX', where: <>shared-library {c('concepts/')}</> },
   { name: t('문헌노트', 'Literature note'), what: t('논문 한 편의 정리', 'Summary of one paper'), format: 'LaTeX', where: <>shared-library {c('papers/')}</> },

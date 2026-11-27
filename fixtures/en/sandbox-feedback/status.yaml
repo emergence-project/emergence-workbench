@@ -70,6 +70,7 @@
   note: Not changed yet, because deleting a folder cannot be undone.
   ask: Should it really delete the folder? Removing only the registration was chosen to keep folders safe.
   handled_at: 2026-10-04T14:40
+  mockups: [2026-10-04-1440-mockup-card-delete.png, 2026-10-04-1440-mockup-card-delete.html, 2026-10-04-1440-mockup-card-keep.png]
   by: claude
 2026-10-04 15:00 노트 화면 › 툴바:
   state: 동의

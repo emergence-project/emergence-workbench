@@ -73,7 +73,7 @@ export const ABOUT_PARTS_EN: AboutPart[] = PARTS.map((p) => p.en)
 /** English parts carry the Korean titles as `ui` so data-ui values stay Korean */
 const withUi = (en: AboutPart[]): AboutPart[] => en.map((p, i) => {
   const ko = ABOUT_PARTS_KO[i]
-  return { ...p, ui: ko?.title, sections: p.sections?.map((sec, j) => ({ ...sec, ui: ko?.sections?.[j]?.title, prs: ko?.sections?.[j]?.prs })) }
+  return { ...p, ui: ko?.ui ?? ko?.title, sections: p.sections?.map((sec, j) => ({ ...sec, ui: ko?.sections?.[j]?.ui ?? ko?.sections?.[j]?.title, prs: ko?.sections?.[j]?.prs })) }
 })
 
 export const ABOUT_PARTS: AboutPart[] = lang === 'ko' ? ABOUT_PARTS_KO : withUi(ABOUT_PARTS_EN)
