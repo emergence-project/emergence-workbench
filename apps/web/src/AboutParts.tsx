@@ -80,19 +80,23 @@ export function Intro() {
 
       <Section name={t('이 소개를 읽는 법', 'How to read this page')} ui="읽는 법">
         {lang === 'ko' ? (
-          <p className="about-lead">
-            이 소개는 이 앱의 정본(single source of truth)입니다. 앱의 목표, 개발 결정, 그리고 지금 어떻게 구현되어 있는지를 여기 적고, 다른 문서는 이 소개의 자세한 설명입니다.
-            사용자와 에이전트가 함께 읽는 글이라 누구나 쉽게 읽히게 쓰고, 에이전트는 이 소개를 읽고 기능이 어떻게 구현되어 있는지와 어떤 파일로 되어 있는지를 정리합니다.
-            앱을 고치는 에이전트는 소개와 구현이 늘 맞도록 같은 PR에서 함께 고칩니다. 쪽마다 화면 하나를 다루고, 지금 앱이 어떤지를 화면의 짜임대로 적습니다. 승인하신 피드백은 여기 설명으로 옮기고 피드백 목록에서는 지웁니다.
-            틀린 곳이 있으면 툴바 오른쪽 시계로 오른쪽 사이드바를 열고 「수정」 탭에서 본문의 그곳(문단 · 표 칸 · 그림 속 상자)을 눌러 고친 글을 담아 보내 주세요.
-          </p>
+          <ul className="about-pillars">
+            <li><b>정본</b> — 앱의 목표 · 개발 결정 · 지금 구현을 적는 single source of truth. 다른 문서는 이 소개의 자세한 설명</li>
+            <li><b>독자</b> — 사용자와 에이전트가 함께 읽음. 누구나 쉽게 읽히게 씀</li>
+            <li><b>에이전트</b> — 이 소개를 읽고 기능의 구현 방식과 파일을 정리함. 앱을 고치면 같은 PR에서 소개도 고쳐 둘을 맞춤</li>
+            <li><b>짜임</b> — 쪽마다 화면 하나. 지금 앱이 어떤지를 화면의 짜임대로 적음</li>
+            <li><b>피드백</b> — 승인한 피드백은 여기 설명으로 옮기고 피드백 목록에서 지움</li>
+            <li><b>고치기</b> — 틀린 곳은 툴바 오른쪽 시계 › 「수정」 탭 › 본문의 그곳(문단 · 표 칸 · 그림 속 상자)을 눌러 고친 글을 보냄</li>
+          </ul>
         ) : (
-          <p className="about-lead">
-            This About page is the app's single source of truth. It describes the app's goals, its development decisions and how it is implemented now; other documents are detailed notes on it.
-            Users and agents both read it, so it is written to be easy for anyone to read, and agents read it to work out how each feature is implemented and which files it is made of.
-            Agents that fix the app keep the About page and the implementation in step by changing both in the same PR. Each part covers one screen and describes how the app works now, following the layout of the screen. Feedback you approve moves into these descriptions and is deleted from the feedback list.
-            If something is wrong, open the right sidebar with the clock at the right of the toolbar, and in the "Edit" tab click that place in the text (a paragraph, a table cell or a box in a figure), then add your edited text and send it.
-          </p>
+          <ul className="about-pillars">
+            <li><b>Source of truth</b> — records the app's goals, development decisions and current implementation. Other documents are detailed notes on it</li>
+            <li><b>Readers</b> — read by users and agents alike, so written to be easy for anyone</li>
+            <li><b>Agents</b> — read it to work out how each feature is implemented and which files it uses. When they change the app, they change this page in the same PR</li>
+            <li><b>Layout</b> — one part per screen, describing how the app works now in the order of the screen</li>
+            <li><b>Feedback</b> — approved feedback moves into these descriptions and is deleted from the feedback list</li>
+            <li><b>Corrections</b> — for anything wrong: clock at the right of the toolbar › "Edit" tab › click that place in the text (a paragraph, a table cell or a box in a figure) and send your edited text</li>
+          </ul>
         )}
         <div className="about-legend">
           <span><span className="about-unsure">{t('확인 전', 'Not reviewed')}</span> {t('아직 확인하지 않은 업데이트가 있는 절(왼쪽 목록에는 "확인 N"). 누르면 오른쪽 「이력」이 열려 그 줄로 가고, 그 줄의 ✓(맞아요)를 누르면 확인함이 됩니다', 'A section with an update you have not reviewed (the list on the left shows "Review N"). Click it to open "History" on the right at that row; ✓ (That is right) on the row marks it reviewed')}</span>
