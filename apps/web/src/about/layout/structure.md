@@ -1,7 +1,7 @@
 ---
 id: structure
 kind: reference
-title: { ko: 한눈에, en: At a glance }
+title: { ko: 전체 그림, en: The whole picture }
 summary:
   ko: 앱은 프로젝트 · 라이브러리 · 에이전트 · 네트워킹 · 피드백 · 설정과 계정으로 짜여 있고, 한 창은 상단바 · 레일 · 왼쪽 사이드바 · 작업 패널 · 오른쪽 사이드바 다섯 영역입니다.
   en: The app is made of projects, the library, agents, networking, feedback, and settings and account; one window has five areas, the top bar, rail, left sidebar, work panes and right sidebar.
