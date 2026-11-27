@@ -1,6 +1,6 @@
 /** 앱 설정의 모양 · 태그와 프로젝트 성격 값 · 이름 만들기 (registry.ts에서 나눔) */
 import path from 'node:path'
-import type { AgentSettings, SyncSettings, Author, LatexTemplate, Person, UiSettings } from '@rw/core'
+import type { AgentSettings, SyncSettings, Author, LatexTemplate, Person, PluginStates, UiSettings } from '@rw/core'
 import type { TexDefinitions } from './library.js'
 import type { Engine } from './latex.js'
 import type { ProjectColor, ProjectKind, ProjectState } from '@rw/core/contract/research'
@@ -10,7 +10,7 @@ import type { ProjectColor, ProjectKind, ProjectState } from '@rw/core/contract/
  * 연구 저장소 경로는 기기마다 다르므로 git 저장소가 아니라 여기에 둔다.
  */
 /** load()가 읽어 AppConfig로 옮기는 키. latex는 예전 서식 하나(latexTemplates로 옮김). 이 밖의 키는 저장할 때 그대로 둔다 */
-export const CONFIG_KEYS = new Set(['engine', 'library', 'study', 'reviews', 'pdfFolders', 'personalRepo', 'researches', 'ui', 'latexTemplates', 'latexDefault', 'latexBuiltins', 'authors', 'people', 'latex', 'agents', 'sync', 'gitIdentity', 'meAt', 'peopleAt'])
+export const CONFIG_KEYS = new Set(['engine', 'library', 'study', 'reviews', 'pdfFolders', 'personalRepo', 'researches', 'ui', 'latexTemplates', 'latexDefault', 'latexBuiltins', 'authors', 'people', 'latex', 'agents', 'sync', 'gitIdentity', 'meAt', 'peopleAt', 'plugins'])
 
 export interface AppConfig {
   engine: Engine
@@ -35,6 +35,8 @@ export interface AppConfig {
   agents: AgentSettings
   /** 설정 › 동기화에서 바꾼 칸 (10/19). 없는 칸은 앱을 켤 때 정한 값 */
   sync: Partial<SyncSettings>
+  /** 설정 › 기능에서 설치 · 제거한 내장 플러그인 (11/27, 컴퓨터마다). 없는 id는 이름표의 기본값 */
+  plugins?: PluginStates
   /** LaTeX 서식 모음 (article·PRL·beamer …). 서식마다 문서 종류 줄, 공통 줄, 패키지 */
   latexTemplates: LatexTemplate[]
   /** 내보낼 때 쓰는 서식의 id */
