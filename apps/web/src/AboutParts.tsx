@@ -9,7 +9,7 @@ import { ProofMark, StatusDot } from './StatusDot'
 import { go, href } from './router'
 import * as portingGuides from './about/reference/porting-guides'
 
-export const INTRO_SUB = t('여러 연구를 여러 사람과 여러 에이전트가 함께 진행하는 작업대입니다.', 'A workbench where several people and several agents carry out several research projects together.')
+export const INTRO_SUB = t('연구와 지식 활동을 여러 사람과 여러 에이전트가 함께 하는 작업대입니다.', 'A workbench where several people and several agents do research and other knowledge work together.')
 
 /** 한눈에 머리의 정의 세 가지 (2026-11-27 사용자 정의) */
 export function IntroPillars() {
