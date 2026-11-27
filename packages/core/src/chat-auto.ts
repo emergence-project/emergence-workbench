@@ -9,7 +9,7 @@ import { uniqNames } from './chat-readonly.js'
 import { sedWrites } from './chat-sed.js'
 import { VarWatch } from './chat-vars.js'
 import { codeSpawns, codeTouchesOutside } from './chat-pycode.js'
-import { cdBases, gitNewPlace } from './chat-place.js'
+import { gitNewPlace, looksLikePath, pathPart, pathWord } from './chat-place.js'
 
 // 셸 글 읽기는 chat-shell.ts로 옮겼다: 여기서 가져다 쓰던 곳을 위해 그대로 내보낸다
 export { bare, joinLines, prepare, redirects, segments, substitutions, unmask, words } from './chat-shell.js'
@@ -129,7 +129,7 @@ export function leading(all: string[]): { rest: string[]; env: boolean } {
 
 /**
  * 명령이 하는 일. inside(path, raw)는 그 절대 경로가 프로젝트나 등록한 폴더 안인지 (cwd는 프로젝트 폴더, raw = .. 를 풀기 전의 글).
- * 폴더 밖 경로를 건드리면 외부, 모르는 프로그램은 실행으로 본다. every: 경로 모양이 아닌 낱말도 경로로 보고 줄 안의 cd 자리(bases)에서도 본다 (서버가 실제 파일로 판정, 11/27)
+ * 폴더 밖 경로를 건드리면 외부, 모르는 프로그램은 실행으로 본다. every: 경로 모양이 아닌 낱말도 경로로 보고, 상대 경로는 bases(줄 안의 cd 자리, cdBases)에서도 본다 (서버가 실제 파일로 판정, 11/27)
  */
 type Where = { cwd: string; inside(abs: string, raw?: string): boolean; home?: string; every?: boolean; bases?: string[] }
 
@@ -166,7 +166,6 @@ export function commandKind(cmd0: string, o: Where, depth = 0): ChatKind {
   // 폴더 밖을 가리키는 글만 본다(codeTouchesOutside). 그 밖의 프로그램(sh · bash · tee · 묶음 …)과 확실하지 않은 꼴은 전처럼 본문도 읽는다.
   // 쓴 파일을 뒤에서 돌리는 것(cat > x.sh <<E … ; sh x.sh)은 쓰기 도구로 쓰고 돌리는 것과 같다: 파일의 내용은 여기서 보지 않는다
   let cmd = cmd0
-  if (depth === 0 && o.every && !o.bases) o = { ...o, bases: cdBases(cmd0, o.cwd, o.home ?? '') }
   let code: ChatKind = 'read'
   for (let n = 0; depth === 0 && n < 20; n++) {
     const hd = certainHeredoc(cmd)
@@ -245,7 +244,7 @@ function kindCore(cmd: string, o: Where, depth: number, watch?: VarWatch): ChatK
     }
     noteGroupVars(all, groupVars)
     // for x in /etc/*: 도는 낱말이 폴더 밖이면 그 변수를 읽는 것도 밖이다
-    if (all[0] === 'for' && all[2] === 'in') for (const x of expandWords(all.slice(3))) { const v = pathPart(x); if (pathWord(v, o) && touchesOutside(v, o)) bump('outside') }
+    if (all[0] === 'for' && all[2] === 'in') for (const x of expandWords(all.slice(3))) { const v = pathPart(x); if (pathWord(v, o.every) && touchesOutside(v, o)) bump('outside') }
     // zsh의 ${(e)…}: 값을 한 번 더 펼친다 (안의 $( … )가 돈다)
     for (const text of evalFlags(seg)) { bump('run'); bump(commandKind(text, o, depth + 1)) }
     // 묶음으로도 나눠 보고(`{ true } always { rm x }`), 나누지 않고도 본다(인자로 쓴 { 는 낱말이다: rm a { b)
@@ -277,7 +276,7 @@ function wordsKind(all: string[], o: Where, depth: number, outer: number): ChatK
     if (depth > 5 && inner.length) bump('run')
     else for (const x of inner) bump(typeof x === 'string' ? commandKind(x, o, outer + 1) : wordsKind(x, o, depth + 1, outer))
     // 폴더 밖 경로 (읽기라도 폴더 밖이면 외부)
-    for (const a of ew.slice(1)) { const v = pathPart(a); if (pathWord(v, o) && touchesOutside(v, o)) bump('outside') }
+    for (const a of ew.slice(1)) { const v = pathPart(a); if (pathWord(v, o.every) && touchesOutside(v, o)) bump('outside') }
     // 따옴표 친 빈칸이 든 중괄호도 펼쳐 본다 (11/26): cat {/etc/passwd,"a b"} 는 따옴표를 벗기면 빈칸이 든 낱말이라 펼치지 않았다
     // (코드를 받는 프로그램의 낱말은 빼고: awk '{print $1,/x/}' 의 /x/ 는 경로가 아니다. 많이 펼쳐진다고 밖으로 보지는 않는다: 따옴표 친 JSON이 흔하다)
     if (!CODE_ARG.test(prog)) for (const a of ew.slice(1)) if (a.includes('{') && /[\s"]/.test(a)) {
@@ -526,10 +525,6 @@ function sedScripts(args: string[], strict = false): string[] {
   return [...out, ...(out.length ? [] : named.slice(0, first + 1)), ...(strict ? [] : named.filter((a) => /\s/.test(a)))]
 }
 
-/** 옵션에 붙여 적은 경로도 본다: --file=/etc/x · -f/etc/x · of=/etc/x */
-const pathPart = (a: string) => /^--?[A-Za-z][\w-]*=(.+)$/.exec(a)?.[1] ?? /^-[A-Za-z]([/~].+)$/.exec(a)?.[1] ?? /^[A-Za-z_]\w*=([/~.].*)$/.exec(a)?.[1] ?? a
-/** 가운데의 ../ 로 폴더를 벗어나는 것도 본다 (sub/../../밖) */
-const looksLikePath = (a: string) => a.startsWith('/') || a.startsWith('~') || a.startsWith('..') || a.includes('../') || a.endsWith('/..') || /^"?\$\{?(HOME|PWD)\b/.test(a)
 
 function touchesOutside(p: string, o: Where): boolean {
   // 중괄호로 여럿이 되는 경로는 하나라도 밖이면 밖이다 ({a,~/x}). 다 펼치지 못할 만큼 많으면 어디인지 모르니 밖으로
@@ -547,8 +542,6 @@ function outsideOne(p: string, o: Where): boolean {
   // 임시 폴더는 .. 를 푼 뒤에 본다: /tmp/../etc/passwd 는 임시 폴더가 아니다. 상대 경로는 줄 안의 cd 자리(o.bases)에서도 본다. inside 에는 .. 를 풀기 전의 글(raw)도 준다
   return (expanded.startsWith('/') ? [''] : [cwd, ...(o.bases ?? [])]).some((b) => { const raw = b ? `${b}/${expanded}` : expanded, abs = normalize(raw); return abs !== '/tmp' && !abs.startsWith('/tmp/') && !o.inside(abs, raw) })
 }
-/** 경로로 볼 낱말: 경로 모양이거나, every 면 옵션이 아닌 낱말 모두 */
-const pathWord = (v: string, o: Where) => looksLikePath(v) || (!!o.every && !!v && !v.startsWith('-'))
 
 /** /a/b/../c → /a/c (따로 path 모듈 없이, core는 브라우저에서도 돈다) */
 function normalize(abs: string): string {

@@ -26,7 +26,7 @@ describe('줄 안의 cd 자리', () => {
   })
   it('every: 경로 모양이 아닌 낱말도 inside 에 묻고, 상대 경로는 cd 자리에서도 본다 (.. 를 풀기 전의 글과 함께)', () => {
     const seen: string[] = []
-    const kind = commandKind('cd notes && cp x h/y', { cwd: '/w/p', every: true, inside: (abs, raw) => { seen.push(raw ?? abs); return !(raw ?? abs).includes('/notes/h/') } })
+    const kind = commandKind('cd notes && cp x h/y', { cwd: '/w/p', every: true, bases: cdBases('cd notes && cp x h/y', '/w/p', '/h'), inside: (abs, raw) => { seen.push(raw ?? abs); return !(raw ?? abs).includes('/notes/h/') } })
     expect(kind).toBe('outside')
     expect(seen).toContain('/w/p/notes/h/y')
     expect(seen).toContain('/w/p/h/y')

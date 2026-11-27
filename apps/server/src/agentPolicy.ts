@@ -6,7 +6,7 @@ import crypto from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import { CENTRAL_RID, type ChatMode, type ChatScope, type ChatWrite } from '@rw/core/contract/agentChats'
-import { autoOf, commandKind, heredocBodiesRemoved, LIBRARY_RID, neverBypass, writesFiles, runProgram, runPrograms, stateOnlyCommand, touchesSecret, unreadWhy, type ChatAutoValues, type Unread, type ChatKind, type NeverBypass } from '@rw/core'
+import { autoOf, cdBases, commandKind, heredocBodiesRemoved, LIBRARY_RID, neverBypass, writesFiles, runProgram, runPrograms, stateOnlyCommand, touchesSecret, unreadWhy, type ChatAutoValues, type Unread, type ChatKind, type NeverBypass } from '@rw/core'
 import { placer } from './agentPlaces.js'
 import { commandCritical } from './critical.js'
 import { isInside } from './fsutil.js'
@@ -390,7 +390,7 @@ function judgeCommand(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
   return readFully(ctx, cmd, summary, commandCore(ctx, cmd, summary))
 }
 function commandCore(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
-  const does = commandKind(cmd, { cwd: ctx.repo, home: os.homedir(), inside: placer([ctx.repo, ...ctx.readable]), every: true })
+  const does = commandKind(cmd, { cwd: ctx.repo, home: os.homedir(), inside: placer([ctx.repo, ...ctx.readable]), every: true, bases: cdBases(cmd, ctx.repo, os.homedir()) })
   const auto = ctx.auto?.() ?? autoOf({ write: ctx.write, mode: ctx.mode })
   const what = clip(cmd, 80)
   const gated = ctx.mode === 'plan' && !ctx.planOk
@@ -424,7 +424,7 @@ function commandCore(ctx: PolicyCtx, cmd: string, summary: string): Verdict {
 }
 
 /** 명령이 이 대화의 작업 폴더 밖이나 git 내부(.git)를 건드리는지: 실제 자리로(링크 · 무늬 · 줄 안의 cd), 경로 모양이 아닌 낱말도 본다 (agentPlaces.ts) */
-const outsideWork = (ctx: PolicyCtx, cmd: string) => commandKind(cmd, { cwd: ctx.repo, home: os.homedir(), inside: placer([ctx.repo], { noGit: true }), every: true }) === 'outside'
+const outsideWork = (ctx: PolicyCtx, cmd: string) => commandKind(cmd, { cwd: ctx.repo, home: os.homedir(), inside: placer([ctx.repo], { noGit: true }), every: true, bases: cdBases(cmd, ctx.repo, os.homedir()) }) === 'outside'
 
 /** pnpm install --frozen-lockfile: 잠금 파일 그대로 까는 것이라 새 꾸러미를 받지 않는다 (작업 폴더를 처음 열 때) */
 // (--옵션\s*)* 꼴은 맞지 않는 긴 줄에서 되짚기가 폭발한다(옵션 28개에 6초): 옵션 사이 빈칸을 꼭 하나 이상으로
