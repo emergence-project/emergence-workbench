@@ -57,7 +57,7 @@ export const DEFAULT_SCREENS = [
   // 노트 화면 (10/5 시안): 오른쪽 사이드바 정보를 연 모습
   ['note-info', '#/r/{rid}/w/workbench%2Ftopics%2Fkempe%2Flist-coloring%2Fnote.md', '노트 정보', '맥락 칸 켜고 끄기'],
   // 오른쪽 사이드바 정보에서 설명을 고치는 모습 (10/5 피드백 "문서 정보 수정의 디자인")
-  ['note-info-edit', '#/r/{rid}/w/workbench%2Ftopics%2Fkempe%2Flist-coloring%2Fnote.md', '노트 정보', '[aria-label="수정 — 설명"], [aria-label="Edit description"]'],
+  ['note-info-edit', '#/r/{rid}/w/workbench%2Ftopics%2Fkempe%2Flist-coloring%2Fnote.md', '노트 정보', '[data-ui="정보 고치기"]'],
   // 고치는 중의 노트 머리: 제목이 이름 칸이 된다 (10/5 피드백 "제목 영역 편집")
   ['note-title-edit', '#/r/{rid}/w/workbench%2Ftopics%2Fkempe%2Flist-coloring%2Fnote.md', '노트 이름', '고치기'],
   // 지식 첫 화면 (라이브러리 L1, 10/6): 최근 노트 · 점검 · 통계 · 라이브러리 정보, "개념노트 만들기" 메뉴. 지도는 지식 안의 페이지(사이드바 "지도" 줄)
@@ -213,7 +213,7 @@ export const DEFAULT_SCREENS = [
   // 앞 화면의 기억(탭 · 오른쪽 사이드바)을 바꾸지 않게 맨 끝에 둔다
   ['concept-tab', '#/r/{rid}/c/planar-graph', '개념노트'],
   // 개념노트의 오른쪽 사이드바 "기록" = 프로젝트 기록과 같은 패널 (10/18, 라이브러리 workbench/comments/concept-<id>.md). 말풍선이 기록으로 바꾼다. 갈래가 기억되므로 맨 끝
-  ['knowledge-records', '#/library/t/planargraph', '적기', '코멘트 버튼'],
+  ['knowledge-records', '#/library/t/planargraph', '적기', '[data-ui="오른쪽 레일"] button[data-mode="records"]'],
   // 프로젝트의 오른쪽 사이드바 기록 (10/14 "모두 보기" → 작업 탭). 앞 화면이 기록 갈래를 켜 두었다
   ['project-records', '#/r/{rid}', '모두 보기'],
   // 프로젝트 정보 › 변경사항 (10/27): 예제를 이때 git 저장소로 만들고 커밋 · 커밋 안 된 고침 · 에이전트가 받은 때를 넣는다(changes.mjs). 다른 화면이 git 없이 찍히게 맨 끝

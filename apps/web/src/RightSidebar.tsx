@@ -6,8 +6,8 @@ import { useConceptMacros } from './conceptMacros'
 import { Icon } from './icons'
 import { shortLabel } from './notes'
 import { LOOSE_NOTES_LABEL, NO_KIND_LABEL, NOTE_KIND_LABEL, noteKindChoices } from './noteKinds'
-import { NoteHistorySide, useNoteHistory } from './NoteHistory'
-import { headWriterOf, useRightMode, useRightSlotsOwner, type RightMode } from './noteScreen'
+import { HistoryButton, NoteHistorySide, setNoteHistory, useNoteHistory } from './NoteHistory'
+import { headWriterOf, setInfoEditing, setInfoLeave, toggleInfoEditing, useInfoEditing, useInfoTools, useInfoToolsOwner, useRightMode, useRightSlotsOwner, type RightMode } from './noteScreen'
 import { go, type Route } from './router'
 import { StatusDot } from './StatusDot'
 import { store } from './store'
@@ -20,7 +20,11 @@ import { SideTerminalClose, TerminalPane, useTerminalAvailable } from './Termina
  * 에이전트 탭은 이 프로젝트의 대화(레일 › 에이전트와 같은 목록)이고, 패널 자리를 작업 화면 아래로 옮겼으면 그 자리를 알린다.
  * 터미널 칸(terminalRid가 있고 이 컴퓨터에서 연 화면일 때)은 그 프로젝트 폴더의 셸로, 코드 블록 「터미널에서 실행」만 연다(상단바 아이콘은 11/23에 뺌). 한 번 열면 다른 갈래로 가도 셸을 그대로 둔다
  */
-export function RightSidebar({ info, records, agent, terminalRid }: { info: ReactNode; records: ReactNode; agent?: ReactNode; terminalRid?: string }) {
+export function RightSidebar({ info, records, agent, terminalRid, ownSlots = true }: {
+  info: ReactNode; records: ReactNode; agent?: ReactNode; terminalRid?: string
+  /** false면 칸 목록을 바깥 화면이 알린다(사이드바가 닫혀 있어도 레일이 그 화면의 칸을 보이게) */
+  ownSlots?: boolean
+}) {
   const chosen = useRightMode()
   const terminal = useTerminalAvailable() && !!terminalRid
   // 에이전트 · 터미널 탭이 없는 사이드바(개념노트 화면 안 등)에서는 정보를 보인다
@@ -29,10 +33,17 @@ export function RightSidebar({ info, records, agent, terminalRid }: { info: Reac
   useEffect(() => { if (mode === 'terminal') setTermOpened(true) }, [mode])
   // 터미널은 레일에 두지 않는다(11/23: 터미널은 에이전트 대화 창 안). 코드 블록 「터미널에서 실행」(openRight)만 이 칸을 연다
   const modes: RightMode[] = ['info', 'records', ...(agent ? ['agent' as const] : [])]
-  useRightSlotsOwner(modes)
+  useRightSlotsOwner(ownSlots ? modes : null)
+  const tools = useInfoTools()
+  const history = useNoteHistory()
+  const editing = useInfoEditing()
   return (
     <div className="rs" data-ui="오른쪽 사이드바">
-      {(mode === 'info' || mode === 'records') && <div className="rs-head rs-name" data-ui="오른쪽 사이드바 머리줄"><span className="rs-name-t">{mode === 'info' ? t('정보', 'Info') : t('기록', 'Records')}</span></div>}
+      {(mode === 'info' || mode === 'records') && <div className="rs-head rs-name" data-ui="오른쪽 사이드바 머리줄"><span className="rs-name-t">{mode === 'info' ? t('정보', 'Info') : t('기록', 'Records')}</span>
+        {mode === 'info' && tools.history && <HistoryButton on={history.on} onChange={setNoteHistory} />}
+        {mode === 'info' && tools.edit && !(tools.history && history.on) && <button className={`icon-btn${editing ? ' on' : ''}`} data-ui="정보 고치기" aria-pressed={editing}
+          data-tip={editing ? t('편집 완료', 'Done editing') : t('수정 — 정보', 'Edit info')} aria-label={t('수정 — 정보', 'Edit info')} onClick={() => void toggleInfoEditing()}>{Icon.pencil}</button>}
+      </div>}
       {mode === 'info' && <div className="rs-scroll">{info}</div>}
       <div className="rs-col" hidden={mode !== 'records'}>{records}</div>
       {mode === 'agent' && agent && <div className="rs-col">{agent}</div>}
@@ -53,10 +64,10 @@ const foldedNow = () => new Set(store.get<string[]>(FOLD_KEY, []))
 
 /**
  * 칸 하나: 이름 옆 개수(또는 짧은 도움말), 칸마다 접을 수 있다 (10/5 시안 "오른쪽 사이드바").
- * actions는 이름 줄 오른쪽 버튼(예: 설명 고치기 연필)으로, 눌러도 칸이 접히지 않는다
+ * 고치기는 머리줄의 연필 하나로 켠다(11/28). 평소에는 값만 보이고 빈 칸은 보이지 않는다
  */
-function Section({ label, count, hint, actions, className, children, ui }: {
-  label: string; count?: number; hint?: string; actions?: ReactNode; className?: string; children: ReactNode; ui: string
+function Section({ label, count, hint, className, children, ui }: {
+  label: string; count?: number; hint?: string; className?: string; children: ReactNode; ui: string
 }) {
   const [open, setOpen] = useState(() => !foldedNow().has(ui))
   const toggle = (next: boolean) => {
@@ -69,7 +80,6 @@ function Section({ label, count, hint, actions, className, children, ui }: {
     <details className={`rs-sec${className ? ` ${className}` : ''}`} open={open} data-ui={ui} onToggle={(e) => { const o = (e.currentTarget as HTMLDetailsElement).open; if (o !== open) toggle(o) }}>
       <summary className="rs-label" title={hint}>
         {label}{count !== undefined && <span className="rs-n">· {count}</span>}
-        {actions && <span className="rs-sec-act" onClick={(e) => e.preventDefault()}>{actions}</span>}
         <span className="chev" aria-hidden>›</span>
       </summary>
       <div className="rs-sec-body">{children}</div>
@@ -101,10 +111,13 @@ function MoreList<T>({ items, render, empty }: { items: T[]; render(x: T): React
   </>
 }
 
-/** 정보 갈래. 툴바의 시계(이력 보기)가 켜져 있으면 Markdown 노트는 그 파일을 고친 커밋 목록 (11/16 시안 2절 ③′) */
+/** 정보 갈래. 머리줄의 시계(이력 보기)가 켜져 있으면 Markdown 노트는 그 파일을 고친 커밋 목록 (11/16 시안 2절 ③′, 시계는 11/28에 툴바에서 머리줄로) */
 export function NoteInfo(props: Parameters<typeof NoteInfoBody>[0]) {
   const history = useNoteHistory()
-  return history.on && props.row.file.endsWith('.md') ? <NoteHistorySide key={props.row.file} rid={props.rid} file={props.row.file} /> : <NoteInfoBody {...props} />
+  const md = props.row.file.endsWith('.md')
+  useInfoToolsOwner({ history: md, edit: true })
+  useEffect(() => () => { setInfoEditing(false); setInfoLeave(null) }, [])
+  return history.on && md ? <NoteHistorySide key={props.row.file} rid={props.rid} file={props.row.file} /> : <NoteInfoBody {...props} />
 }
 
 /** 상태와 다시 열 조건 · 성격 · 주제 · 설명 · 개념노트(본문에 쓴 것) · 이 노트를 인용한 노트 · 맨 아래 파일 경로 */
@@ -119,77 +132,85 @@ function NoteInfoBody({ rid, row, topics, proves = [], projectKind, version, onC
 }) {
   const [links, setLinks] = useState<NoteLinks | null>(null)
   useEffect(() => { notesApi(rid).links(row.file).then(setLinks).catch(() => setLinks(null)) }, [rid, row.file, version])
+  const editing = useInfoEditing()
+  /** 적어 둔 설명 (저절로 뽑은 것은 빈 글로 고치기 시작한다) */
+  const written = row.descriptionAuto ? '' : row.description ?? ''
+  /** 고치는 중의 설명 글. null이면 고치지 않는 중 */
   const [desc, setDesc] = useState<string | null>(null)
-  useEffect(() => setDesc(null), [row.file])
+  useEffect(() => setDesc(editing ? written : null), [editing, row.file]) // eslint-disable-line react-hooks/exhaustive-deps
   /** 머리말 고치기. 노트 화면이 열려 있으면 그 화면이 맡는다(고치던 본문을 먼저 저장하고 편집기에 반영). 됐으면 true */
   const patch = (p: NoteHeadPatch, message: string): Promise<boolean> => {
     const writer = headWriterOf(rid, row.file)
     return (writer ? writer(p) : notesApi(rid).setHead(row.file, p, row.hash)).then(() => { onChanged(); onSaved(message); return true })
       .catch((e: Error) => { onSaved(e instanceof ConflictError ? t('다른 곳에서 노트 정보가 바뀌어 고치지 않았습니다. 다시 해 주세요.', 'The note info changed elsewhere, so nothing was changed. Try again.') : e.message); return false })
   }
-  /** 설명 저장: 저장된 뒤에만 입력 칸을 닫는다 (실패하면 적던 글이 남는다) */
-  const saveDesc = (v: string) => { void patch({ description: v }, t('설명을 적었습니다', 'Saved the description')).then((ok) => { if (ok) setDesc((d) => (d === v ? null : d)) }) }
-  // 설명 칸과 그 아래 취소 · 저장 단추에서 같이 받는다 (11/19 피드백 09:04)
-  const descKeys = (e: KeyboardEvent) => { if (desc !== null && e.key === 'Escape') setDesc(null) }
-  const sendDesc = () => { if (desc !== null && lengthOf(desc) <= LIMITS.description) saveDesc(desc) }
+  const descOk = desc === null || lengthOf(desc) <= LIMITS.description
+  const saveDesc = (v: string) => patch({ description: v }, t('설명을 적었습니다', 'Saved the description'))
+  // 연필을 끌 때: 적던 설명이 달라졌으면 저장하고, 저장하지 못하면 고치는 채로 둔다 (적던 글이 남는다)
+  useEffect(() => {
+    setInfoLeave(async () => (desc === null || desc === written ? true : descOk ? saveDesc(desc) : false))
+    return () => setInfoLeave(null)
+  })
+  const descKeys = (e: KeyboardEvent) => { if (e.key === 'Escape') setDesc(written) }
+  const sendDesc = () => { if (desc !== null && descOk && desc !== written) void saveDesc(desc) }
   const titleOfTopic = (id: string) => topics.find((t) => t.id === id)?.title ?? id
   const rest = topics.filter((t) => !row.topics.includes(t.id))
   const moveUp = (i: number) => { const next = [...row.topics]; [next[i - 1], next[i]] = [next[i]!, next[i - 1]!]; void patch({ topics: next }, i === 1 ? t(`주 주제를 "${titleOfTopic(next[0]!)}"${josa(titleOfTopic(next[0]!), '로')} 바꿨습니다`, `Main topic is now "${titleOfTopic(next[0]!)}"`) : t('주제 순서를 바꿨습니다', 'Changed the topic order')) }
+  const kindName = row.kind ? NOTE_KIND_LABEL[row.kind] : NO_KIND_LABEL
   return (
-    <div className="note-info" data-ui="노트 정보">
+    <div className={`note-info${editing ? ' editing' : ''}`} data-ui="노트 정보">
       <Section label={t('상태', 'Status')} ui="상태">
         <div><StatusDot s={row.status} label />{row.resume && <span className="rs-resume">{t(' · 다시 열 조건: ', ' · Reopen when: ')}{row.resume}</span>}</div>
       </Section>
-      <Section label={t('성격', 'Kind')} ui="성격">
-        <select id="rs-kind" aria-label={t('성격', 'Kind')} className="rs-select" value={row.kind ?? ''} title={row.kindAuto ? t('적지 않아 폴더(calc/)에서 정한 성격입니다', 'Not set, so the kind comes from the folder (calc/)') : undefined}
-          onChange={(e) => { const k = (e.target.value || null) as NoteCategory | null; void patch({ kind: k }, t(`성격: ${k ? NOTE_KIND_LABEL[k] : NO_KIND_LABEL}`, `Kind: ${k ? NOTE_KIND_LABEL[k] : NO_KIND_LABEL}`)) }}>
-          <option value="">{NO_KIND_LABEL}</option>
-          {[...new Set([...noteKindChoices(projectKind), ...(row.kind ? [row.kind] : [])])].map((k) => <option key={k} value={k}>{NOTE_KIND_LABEL[k]}</option>)}
-        </select>
-      </Section>
-      <Section label={t('주제', 'Topics')} hint={t('첫 번째 주제가 주 주제입니다', 'The first topic is the main topic')} ui="주제">
+      {(editing || row.kind) && <Section label={t('성격', 'Kind')} ui="성격">
+        {editing
+          ? <select id="rs-kind" aria-label={t('성격', 'Kind')} className="rs-select" value={row.kind ?? ''} title={row.kindAuto ? t('적지 않아 폴더(calc/)에서 정한 성격입니다', 'Not set, so the kind comes from the folder (calc/)') : undefined}
+            onChange={(e) => { const k = (e.target.value || null) as NoteCategory | null; void patch({ kind: k }, t(`성격: ${k ? NOTE_KIND_LABEL[k] : NO_KIND_LABEL}`, `Kind: ${k ? NOTE_KIND_LABEL[k] : NO_KIND_LABEL}`)) }}>
+            <option value="">{NO_KIND_LABEL}</option>
+            {[...new Set([...noteKindChoices(projectKind), ...(row.kind ? [row.kind] : [])])].map((k) => <option key={k} value={k}>{NOTE_KIND_LABEL[k]}</option>)}
+          </select>
+          : <div className="rs-value" title={row.kindAuto ? t('적지 않아 폴더(calc/)에서 정한 성격입니다', 'Not set, so the kind comes from the folder (calc/)') : undefined}>{kindName}</div>}
+      </Section>}
+      {(editing || row.topics.length > 0) && <Section label={t('주제', 'Topics')} hint={t('첫 번째 주제가 주 주제입니다', 'The first topic is the main topic')} ui="주제">
         <div className="rs-chips">
           {row.topics.map((id, i) => (
             <span key={id} className="tag rs-topic" data-ui="주제 이름표" data-ui-item={titleOfTopic(id)}>
               <button type="button" className="a" title={t('주제 화면으로', 'Go to topic')} onClick={() => go({ page: 'topic', rid, tid: id })}>{titleOfTopic(id)}</button>
-              {i > 0 && <button className="x" title={t('위로 — 앞에 두면 주 주제', 'Move up. The first one is the main topic')} aria-label={t(`위로: ${titleOfTopic(id)}`, `Move up: ${titleOfTopic(id)}`)} onClick={() => moveUp(i)}>↑</button>}
-              <button className="x" title={t('제거', 'Remove')} aria-label={t(`제거: ${titleOfTopic(id)}`, `Remove: ${titleOfTopic(id)}`)} onClick={() => void patch({ topics: row.topics.filter((x) => x !== id) }, t(`주제에서 뺐습니다: ${titleOfTopic(id)}`, `Removed from topic: ${titleOfTopic(id)}`))}>×</button>
+              {editing && i > 0 && <button className="x" title={t('위로 — 앞에 두면 주 주제', 'Move up. The first one is the main topic')} aria-label={t(`위로: ${titleOfTopic(id)}`, `Move up: ${titleOfTopic(id)}`)} onClick={() => moveUp(i)}>↑</button>}
+              {editing && <button className="x" title={t('제거', 'Remove')} aria-label={t(`제거: ${titleOfTopic(id)}`, `Remove: ${titleOfTopic(id)}`)} onClick={() => void patch({ topics: row.topics.filter((x) => x !== id) }, t(`주제에서 뺐습니다: ${titleOfTopic(id)}`, `Removed from topic: ${titleOfTopic(id)}`))}>×</button>}
             </span>
           ))}
           {row.topics.length === 0 && <span className="muted" title={t(`주제에 넣지 않은 노트는 ${LOOSE_NOTES_LABEL}에 모입니다`, `Notes without a topic are gathered in ${LOOSE_NOTES_LABEL}`)}>{t('없음', 'None')}</span>}
-          {rest.length > 0 && (
+          {editing && rest.length > 0 && (
             <select className="rs-select rs-add" value="" aria-label={t('주제 추가', 'Add topic')} onChange={(e) => e.target.value && void patch({ topics: [...row.topics, e.target.value] }, t(`주제에 넣었습니다: ${titleOfTopic(e.target.value)}`, `Added to topic: ${titleOfTopic(e.target.value)}`))}>
               <option value="">{t('＋ 추가…', '＋ Add…')}</option>
               {rest.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
             </select>
           )}
         </div>
-      </Section>
-      <Section label={t('설명', 'Description')} ui="설명" className="rs-desc"
-        actions={desc === null && <span className="hover-actions rs-desc-act"><button className="icon-btn sm" title={t('수정 — 설명', 'Edit description')} aria-label={t('수정 — 설명', 'Edit description')} onClick={() => setDesc(row.descriptionAuto ? '' : row.description ?? '')}>{Icon.pencil}</button></span>}>
+      </Section>}
+      {(desc !== null || row.description) && <Section label={t('설명', 'Description')} ui="설명" className="rs-desc">
         {desc === null
-          ? row.description
-            ? <div className={row.descriptionAuto ? 'muted' : ''} title={row.descriptionAuto ? t('적은 설명이 없어 본문 첫 문단에서 뽑았습니다', 'No description written, so the first paragraph is used') : undefined}><DescriptionText text={row.description} /></div>
-            : <p className="empty rs-empty" title={t('연필을 눌러 설명을 적습니다', 'Click the pencil to write a description')}>{t('없음', 'None')}</p>
+          ? <div className={row.descriptionAuto ? 'muted' : ''} title={row.descriptionAuto ? t('적은 설명이 없어 본문 첫 문단에서 뽑았습니다', 'No description written, so the first paragraph is used') : undefined}><DescriptionText text={row.description ?? ''} /></div>
           : <>
-            <SendArea className="rs-desc-input" autoFocus rows={4} value={desc} aria-label={t('설명', 'Description')} placeholder={t('여러 줄로 적고 "- "로 목록을 만듭니다. 비우면 본문 첫 문단을 씁니다.', 'Write several lines. Start a line with "- " for a list. Leave empty to use the first paragraph.')}
+            <SendArea className="rs-desc-input" rows={4} value={desc} aria-label={t('설명', 'Description')} placeholder={t('여러 줄로 적고 "- "로 목록을 만듭니다. 비우면 본문 첫 문단을 씁니다.', 'Write several lines. Start a line with "- " for a list. Leave empty to use the first paragraph.')}
               onChange={(e) => setDesc(e.target.value)} onSend={sendDesc} onKeyDown={descKeys} />
             <SendBox className="rs-desc-bar" onSend={sendDesc} onKeyDown={descKeys}>
-              <span className={`rs-count${lengthOf(desc) > LIMITS.description ? ' over' : ''}`}>{lengthOf(desc)}/{LIMITS.description}</span>
+              <span className={`rs-count${descOk ? '' : ' over'}`}>{lengthOf(desc)}/{LIMITS.description}</span>
               <span className="sp" />
-              <button className="btn sm" onClick={() => setDesc(null)}>{t('취소', 'Cancel')}</button>
-              <button className="btn primary sm" disabled={lengthOf(desc) > LIMITS.description} onClick={() => saveDesc(desc)}>{t('저장', 'Save')}</button>
+              <button className="btn sm" disabled={desc === written} onClick={() => setDesc(written)}>{t('취소', 'Cancel')}</button>
+              <button className="btn primary sm" disabled={!descOk || desc === written} onClick={sendDesc}>{t('저장', 'Save')}</button>
             </SendBox>
           </>}
-      </Section>
-      <Section label={t('본문에 쓴 개념노트', 'Concept notes used')} count={links?.bodyConcepts.length} hint={t('본문에 [[링크]]로 쓴 개념노트', 'Concept notes linked with [[links]] in the text')} ui="쓰는 개념노트">
-        <MoreList items={links?.bodyConcepts ?? []} empty={t('없음', 'None')}
+      </Section>}
+      {!!links?.bodyConcepts.length && <Section label={t('본문에 쓴 개념노트', 'Concept notes used')} count={links.bodyConcepts.length} hint={t('본문에 [[링크]]로 쓴 개념노트', 'Concept notes linked with [[links]] in the text')} ui="쓰는 개념노트">
+        <MoreList items={links.bodyConcepts} empty={t('없음', 'None')}
           render={(c) => <button type="button" className="a" onClick={() => go({ page: 'concept', rid, id: c.id })}>{c.title}</button>} />
-      </Section>
-      <Section label={t('이 노트를 인용한 노트', 'Cited by')} count={links?.citedBy.length} hint={t('이 노트로 연결되는 링크를 쓴 노트', 'Notes that link to this note')} ui="이 노트를 인용한 노트">
-        <MoreList items={links?.citedBy ?? []} empty={t('없음', 'None')}
+      </Section>}
+      {!!links?.citedBy.length && <Section label={t('이 노트를 인용한 노트', 'Cited by')} count={links.citedBy.length} hint={t('이 노트로 연결되는 링크를 쓴 노트', 'Notes that link to this note')} ui="이 노트를 인용한 노트">
+        <MoreList items={links.citedBy} empty={t('없음', 'None')}
           render={(n) => <button type="button" className="a rs-note" onClick={() => go(routeOfNote(rid, n))}><StatusDot s={n.status} />{n.title}</button>} />
-      </Section>
+      </Section>}
       {proves.length > 0 && <Section label={t('증명하는 진술', 'Statements proved')} count={proves.length} hint={t('이 노트를 증명으로 단 진술', 'Statements that list this note as a proof')} ui="증명하는 진술">
         <MoreList items={proves} empty={t('없음', 'None')}
           render={(s) => <button type="button" className="a" onClick={() => go({ page: 'statement', rid, sid: s.id })}>{shortLabel(s)}</button>} />

@@ -6,7 +6,7 @@ import { t } from './i18n'
 
 /**
  * 노트 도구 줄 (10/5 시안 "노트 도구 줄"): 연구노트 · 계산 노트 · 보조 노트가 같은 줄을 쓴다.
- * - 읽을 때: 왼쪽 노트 상태, 오른쪽 저장 상태 · 코멘트(말풍선) · 고치기(연필) · 컴파일 ▶ · ⋯
+ * - 읽을 때: 왼쪽 노트 상태, 오른쪽 저장 상태 · 고치기(연필) · 컴파일 ▶ · ⋯ (기록과 이력은 오른쪽 레일 · 정보 머리줄이 연다, 11/28)
  * - 고칠 때: 왼쪽 제목 · 상태, 가운데 보기 전환(Markdown 노트), 오른쪽 저장 상태 · "편집 완료"
  * ⋯에는 컴파일에 딸린 설정과 드문 일(서식 고르기 · PDF 보기 · 내보내기 · 파일 다시 읽기 · Finder에서 보기 · 지우기)을 둔다.
  */
@@ -52,9 +52,6 @@ export interface NoteToolbarProps {
   editDisabled?: boolean
   onDone?(): void
   doneDisabled?: boolean
-  /** 말풍선. 없으면 보이지 않는다 */
-  onComment?(): void
-  commentOn?: boolean
   onCompile?(): void
   /** ⌘↵로도 컴파일한다(LaTeX 편집기만). 툴팁에 단축키를 적는다 */
   compileKey?: boolean
@@ -69,7 +66,7 @@ export interface NoteToolbarProps {
   extra?: ReactNode
 }
 
-export function NoteToolbar({ ui = '노트 도구 줄', title, status, save, savedAt, saveAction, saveUi, pdfNote, editing, view, onView, onEdit, editDisabled, onDone, doneDisabled, onComment, commentOn, onCompile, compiling, compileDisabled, compileTip, compileKey, compileUi = '컴파일 버튼', menu, anchors, extra }: NoteToolbarProps) {
+export function NoteToolbar({ ui = '노트 도구 줄', title, status, save, savedAt, saveAction, saveUi, pdfNote, editing, view, onView, onEdit, editDisabled, onDone, doneDisabled, onCompile, compiling, compileDisabled, compileTip, compileKey, compileUi = '컴파일 버튼', menu, anchors, extra }: NoteToolbarProps) {
   const [open, setOpen] = useState(false)
   const saveLabel = useSaveLabel(save, savedAt)
   const hasView = editing && view && onView
@@ -100,9 +97,6 @@ export function NoteToolbar({ ui = '노트 도구 줄', title, status, save, sav
           </span>
           <div className="nt-actions">
               {extra}
-              {onComment && <button className={`icon-btn${commentOn ? ' on' : ''}`} data-ui="코멘트 버튼" data-tip={t('코멘트', 'Comment')} aria-label={t('코멘트 — 오른쪽 사이드바에서', 'Comment in the right sidebar')} aria-pressed={!!commentOn}
-                // The selection menu closes on document pointerdown. Preserve the selection until this button's click attaches it.
-                onPointerDown={(event) => event.stopPropagation()} onMouseDown={(event) => event.preventDefault()} onClick={onComment}>{Icon.comment}</button>}
               {editing ? <button className="icon-btn on" data-ui="다 고침" data-tip={t('보기로 (Esc)', 'View (Esc)')} aria-label={t('보기로', 'View')} disabled={doneDisabled} onClick={onDone}>{Icon.eye}</button>
                 : onEdit && <button className="icon-btn" data-ui="고치기" data-tip={`${t('수정', 'Edit')} · ${saveLabel}`} aria-label={t('수정', 'Edit')} disabled={editDisabled} onClick={onEdit}>{Icon.pencil}</button>}
               {onCompile && <button className="btn primary btn-icon nt-play" data-ui={compileUi} disabled={compileDisabled || compiling} aria-label={compileTip ?? t('컴파일', 'Compile')} title={t(`${compileTip ?? '컴파일'} — 컴파일하고 PDF를 엽니다${compileKey ? ' (⌘↵)' : ''}`, `${compileTip ?? 'Compile'}: compile and open the PDF${compileKey ? ' (⌘↵)' : ''}`)} onClick={onCompile}>{compiling ? '…' : Icon.play}</button>}

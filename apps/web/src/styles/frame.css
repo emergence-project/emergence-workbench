@@ -26,3 +26,6 @@
 .side-label { font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text); }
 .project-nav > .side-quick:first-child > .side-row > .label { font-weight: var(--fw-strong); color: var(--text); }
 .side .tree-name { font-size: var(--fs-sm); }
+
+/* 정보 칸: 평소에는 값만 (고치기는 머리줄의 연필 하나로) */
+.rs-value { font-size: var(--fs-sm); color: var(--text); }
