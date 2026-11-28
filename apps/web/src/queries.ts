@@ -105,6 +105,8 @@ export const qk = {
   personalRepo: ['feedback', 'personal'] as const,
   /** 프로젝트마다 확인할 것의 수(판단할 맡긴 일 · 에이전트 고침 · 물은 기록): 레일 · 홈 · 폰 내 차례 */
   researchIssues: ['research-issues'] as const,
+  /** 설정 › 기능: 이 컴퓨터의 플러그인 설치 상태 (plugins/index.tsx) */
+  plugins: ['plugins'] as const,
   /** 답을 기다리는 에이전트 기록 (알림 종). researchIssues 아래 키라 그 키를 다시 받을 때 함께 받는다 */
   recordTurns: ['research-issues', 'record-turns'] as const,
   /** 연구 공통 규칙 (설정 › 공통 규칙, 개인 저장소 사본. 프로젝트 알림과 상관없다) */
@@ -149,6 +151,8 @@ export function invalidationKeys(e: WorkbenchEvent): QueryKey[] {
   if (e.type === 'account') return [qk.account, qk.setup, qk.githubRepos]
   // 앱 업데이트 상태는 AppUpdate.tsx가 따로 다시 확인한다 (App.tsx)
   if (e.type === 'app') return []
+  // 플러그인을 설치 · 제거하면 그 기능의 자리(사이드바 줄 · 내 차례 · 홈의 수)가 바뀐다. App.tsx가 invalidatePluginChange로 따로 다시 받는다
+  if (e.type === 'plugins') return []
   // 앱 고치기 대화의 피드백 화면은 slowInvalidationKeys가 (자주 오므로 느리게)
   if (e.type === 'agent-chat') return [qk.agentChatLists, ...(e.id ? [qk.agentChat(e.id)] : [qk.agentChats]), qk.agentWork]
   const keys = projectKeys(e)
@@ -167,7 +171,7 @@ export function slowInvalidationKeys(e: WorkbenchEvent): QueryKey[] {
 /** 모든 사람 페이지 (qk.person(id)의 앞부분) */
 const PERSON_PAGES: QueryKey = [...qk.network, 'person']
 
-function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' | 'agent-chat' | 'agent-draft' | 'agent-hooks' | 'feedback' | 'account' | 'app' }>): QueryKey[] {
+function projectKeys(e: Exclude<WorkbenchEvent, { type: 'library' | 'agent-chat' | 'agent-draft' | 'agent-hooks' | 'feedback' | 'account' | 'app' | 'plugins' }>): QueryKey[] {
   const rid = e.research
   // 확인할 것의 수(researchIssues)는 맡긴 일 · 노트(에이전트 고침) · 기록과, 고침을 받거나 되돌릴 때의 research 알림에서 바뀐다
   switch (e.type) {

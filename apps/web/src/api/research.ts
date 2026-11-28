@@ -38,6 +38,7 @@ export type WorkbenchEvent =
   | { type: 'account'; research: null }
   /** 앱 업데이트 상태가 바뀜: 화면을 바꿔 끼움 · 다시 시작 대기 (11/19). AppUpdate.tsx가 다시 확인한다 */
   | { type: 'app'; research: null }
+  | { type: 'plugins'; research: null }
   /** 에이전트가 쓰는 중인 글 (다 쓰기 전, 0.3초마다). 대화를 다시 받지 않고 열린 대화에 그대로 보인다 */
   | { type: 'agent-draft'; research: string; id: string; text: string }
   | { type: 'note'; research: string; file: string; hash: string | null }

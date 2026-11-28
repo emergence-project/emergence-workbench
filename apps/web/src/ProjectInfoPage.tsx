@@ -13,7 +13,7 @@ import { locale, plural, t } from './i18n'
 import { ObsidianMarkdown } from './ObsidianMarkdown'
 import { splitStatus, statusBody } from './statusBody'
 import { useAgentStatus, useJournal, useProjectInfo, useRecords, useTaskScan, useTopicsOverview } from './projectQueries'
-import { useProblems } from './Problems'
+import { usePluginTurns } from './plugins'
 import { recordLine, userTurnRecords } from './workRecords'
 import { StatusDot } from './StatusDot'
 import { StarIcon } from './marks'
@@ -160,11 +160,11 @@ export function StatusPage({ rid, rapi }: { rid: string; rapi: ResearchApi }) {
   const judge = tasks ? splitJudge(tasks) : { decide: [], confirm: [] }
   const turn = judge.decide
   // 사이드바 기록 줄의 수와 같게: 판단할 맡긴 일 + 결정을 기다리는 흐름 + 에이전트가 물은 기록 (11/21: 맡긴 일만 세어 수가 달랐다)
-  const flows = useProblems(rid).data?.problems.filter((p) => p.waiting) ?? []
+  const flows = usePluginTurns(rid).flatMap((x) => x.waiting)
   const asks = userTurnRecords(useRecords(rid).data?.files ?? [])
   const turnRows: { key: string; dot: ReactNode; title: string; meta: string; open(): void; approve?(): void }[] = [
     ...turn.map((x) => ({ key: `t:${x.id}`, dot: <StatusDot s={TASK_DOT[x.state]} name={TASK_STATE_LABEL[x.state]} />, title: x.title, meta: taskLine(x), open: () => go({ page: 'task', rid, task: x.id }) })),
-    ...flows.map((p) => ({ key: `f:${p.id}`, dot: <span className="turn-dot" aria-hidden />, title: p.question, meta: t('흐름 · 방향 보고 결정 대기', 'Flow · direction report awaits your decision'), open: () => go({ page: 'problems', rid, id: p.id }) })),
+    ...flows.map((p) => ({ key: `f:${p.id}`, dot: <span className="turn-dot" aria-hidden />, title: p.title, meta: t('흐름 · 방향 보고 결정 대기', 'Flow · direction report awaits your decision'), open: () => go({ page: 'problems', rid, id: p.id }) })),
     ...asks.map((r) => ({ key: `r:${r.file.target}:${r.entry.id}`, dot: <span className="turn-dot" aria-hidden />, title: recordLine(r.entry), meta: t('에이전트의 질문', 'Agent question'), open: () => go({ page: 'records', rid }) })),
     // 확인만 (11/23 turn-split ③): 종결 조건을 통과한 결과는 옅은 줄 끝에서 바로 승인한다
     ...judge.confirm.map((x) => ({ key: `c:${x.id}`, dot: <span className="turn-dot pale" aria-hidden />, title: x.title, meta: t('확인만 · 종결 조건 통과', 'Confirm only · end condition passed'), open: () => go({ page: 'task', rid, task: x.id }),

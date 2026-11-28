@@ -4,9 +4,11 @@
 //   utilization은 0–1 비율(100을 넘는 값은 이미 %), resetsAt은 초.
 // - Codex: 계정 폴더(CODEX_HOME)의 sessions/연/월/일/rollout-*.jsonl 마지막 줄들의 rate_limits
 //   (primary · secondary = { used_percent, window_minutes, resets_at(초) 또는 resets_in_seconds }).
+//   새 Codex는 끝난 rollout을 zstd로 줄여 rollout-*.jsonl.zst로 둔다(11/28 맥에서 확인: 모두 .zst였고 .jsonl만 읽어 막대가 늘 「아직 모름」이었다).
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import zlib from 'node:zlib'
 
 export interface LimitWindow { used: number; resetsAt?: string }
 export interface Limits { five?: LimitWindow; week?: LimitWindow; at: string }
@@ -68,7 +70,7 @@ export function codexLimits(dir: string): Limits | undefined {
   const desc = (d: string) => { try { return fs.readdirSync(d).sort().reverse() } catch { return [] } }
   const files: string[] = []
   for (const y of desc(root)) for (const m of desc(path.join(root, y))) for (const d of desc(path.join(root, y, m))) {
-    for (const f of desc(path.join(root, y, m, d))) if (f.endsWith('.jsonl')) files.push(path.join(root, y, m, d, f))
+    for (const f of desc(path.join(root, y, m, d))) if (ROLLOUT.test(f)) files.push(path.join(root, y, m, d, f))
     if (files.length >= 5) break
   }
   const recent = files.map((f) => { try { return { f, t: fs.statSync(f).mtimeMs } } catch { return { f, t: 0 } } }).sort((a, b) => b.t - a.t).slice(0, 5)
@@ -79,7 +81,15 @@ export function codexLimits(dir: string): Limits | undefined {
   return undefined
 }
 
+/** rollout 파일: 그대로(.jsonl) 또는 zstd로 줄인 것(.jsonl.zst) */
+const ROLLOUT = /\.jsonl(\.zst)?$/
+
+/** 파일 끝 max 바이트의 글. .zst는 풀어서 끝을 (Node 22.15 전에는 zstd가 없어 건너뛴다) */
 function tail(f: string, max = 512 * 1024): string {
+  if (f.endsWith('.zst')) {
+    if (typeof zlib.zstdDecompressSync !== 'function') return ''
+    try { const raw = zlib.zstdDecompressSync(fs.readFileSync(f)); return raw.subarray(Math.max(0, raw.length - max)).toString('utf8') } catch { return '' }
+  }
   try {
     const fd = fs.openSync(f, 'r')
     try {

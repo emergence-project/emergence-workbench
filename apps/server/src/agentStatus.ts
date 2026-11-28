@@ -14,7 +14,7 @@ import { listNotes, noteRecordTarget, topicsOverview, type TopicStats } from './
 import { pendingQuestions, unsortedRecords, userReplies } from './comments.js'
 import { legacyJournalTodos, openTodos } from './todos.js'
 import { RULES_DOC, statusSection } from './tasks.js'
-import { problemStatusSection } from './problemBrief.js'
+import { installedPlugins } from './plugins/index.js'
 import { commonRules, type RuleFile } from './agentRules.js'
 import { DECISIONS_DIR, folderMap, listDecisions, listRules, RULES_DIR, usesStandardLayout } from './projectFolders.js'
 import type { ProjectSources, Workbench } from './workbench.js'
@@ -212,8 +212,8 @@ export async function generateStatus(wb: Workbench, now = new Date(), edits?: Ed
   // ---------- 맡긴 일 (작업 탭) ----------
   p(...statusSection(wb))
 
-  // ---------- 흐름과 시도 나무 (흐름이 있을 때만) ----------
-  p(...problemStatusSection(wb))
+  // ---------- 설치된 플러그인의 절 (흐름: 흐름이 있을 때만) ----------
+  for (const plugin of installedPlugins()) if (plugin.statusSection) p(...plugin.statusSection(wb))
 
 
   // ---------- 에이전트 수정 검토 대기 ----------

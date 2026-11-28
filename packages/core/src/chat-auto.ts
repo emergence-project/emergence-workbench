@@ -9,6 +9,7 @@ import { uniqNames } from './chat-readonly.js'
 import { sedWrites } from './chat-sed.js'
 import { VarWatch } from './chat-vars.js'
 import { codeSpawns, codeTouchesOutside } from './chat-pycode.js'
+import { gitOutside, looksLikePath, pathPart, pathWord, pathWords } from './chat-place.js'
 
 // 셸 글 읽기는 chat-shell.ts로 옮겼다: 여기서 가져다 쓰던 곳을 위해 그대로 내보낸다
 export { bare, joinLines, prepare, redirects, segments, substitutions, unmask, words } from './chat-shell.js'
@@ -127,10 +128,10 @@ export function leading(all: string[]): { rest: string[]; env: boolean } {
 }
 
 /**
- * 명령이 하는 일. inside(path)는 그 절대 경로가 프로젝트나 등록한 폴더 안인지 (cwd는 프로젝트 폴더).
- * 폴더 밖 경로를 건드리면 외부, 모르는 프로그램은 실행으로 본다
+ * 명령이 하는 일. inside(path, raw)는 그 절대 경로가 프로젝트나 등록한 폴더 안인지 (cwd는 프로젝트 폴더, raw = .. 를 풀기 전의 글).
+ * 폴더 밖 경로를 건드리면 외부, 모르는 프로그램은 실행으로 본다. slashes: / 가 든 낱말도 본다 (서버가 실제 파일로, 11/27)
  */
-type Where = { cwd: string; inside(abs: string): boolean; home?: string }
+type Where = { cwd: string; inside(abs: string, raw?: string): boolean; home?: string; slashes?: boolean }
 
 /** 치환이 겹친 깊이의 한도: 넘으면 따라가지 않고 가장 무겁게 본다 */
 const DEPTH_MAX = 40
@@ -243,7 +244,7 @@ function kindCore(cmd: string, o: Where, depth: number, watch?: VarWatch): ChatK
     }
     noteGroupVars(all, groupVars)
     // for x in /etc/*: 도는 낱말이 폴더 밖이면 그 변수를 읽는 것도 밖이다
-    if (all[0] === 'for' && all[2] === 'in') for (const x of expandWords(all.slice(3))) { const v = pathPart(x); if (looksLikePath(v) && touchesOutside(v, o)) bump('outside') }
+    if (all[0] === 'for' && all[2] === 'in') for (const x of expandWords(all.slice(3))) { const v = pathPart(x); if (pathWord(v, o.slashes) && touchesOutside(v, o)) bump('outside') }
     // zsh의 ${(e)…}: 값을 한 번 더 펼친다 (안의 $( … )가 돈다)
     for (const text of evalFlags(seg)) { bump('run'); bump(commandKind(text, o, depth + 1)) }
     // 묶음으로도 나눠 보고(`{ true } always { rm x }`), 나누지 않고도 본다(인자로 쓴 { 는 낱말이다: rm a { b)
@@ -275,7 +276,7 @@ function wordsKind(all: string[], o: Where, depth: number, outer: number): ChatK
     if (depth > 5 && inner.length) bump('run')
     else for (const x of inner) bump(typeof x === 'string' ? commandKind(x, o, outer + 1) : wordsKind(x, o, depth + 1, outer))
     // 폴더 밖 경로 (읽기라도 폴더 밖이면 외부)
-    for (const a of ew.slice(1)) { const v = pathPart(a); if (looksLikePath(v) && touchesOutside(v, o)) bump('outside') }
+    for (const v of pathWords(ew.slice(1), o.slashes)) if (touchesOutside(v, o)) bump('outside')
     // 따옴표 친 빈칸이 든 중괄호도 펼쳐 본다 (11/26): cat {/etc/passwd,"a b"} 는 따옴표를 벗기면 빈칸이 든 낱말이라 펼치지 않았다
     // (코드를 받는 프로그램의 낱말은 빼고: awk '{print $1,/x/}' 의 /x/ 는 경로가 아니다. 많이 펼쳐진다고 밖으로 보지는 않는다: 따옴표 친 JSON이 흔하다)
     if (!CODE_ARG.test(prog)) for (const a of ew.slice(1)) if (a.includes('{') && /[\s"]/.test(a)) {
@@ -447,6 +448,7 @@ function kindOf(prog: string, args: string[]): ChatKind {
       return 'delete'
     }
     if (sub === 'switch' && args.some((a) => /^(-f|--force|--discard-changes)$/.test(a))) return 'delete'
+    if (gitOutside(sub, args.slice(args.indexOf(sub) + 1))) return 'outside'
     if (GIT_EDIT.has(sub)) return 'edit'
     // 읽는 하위 명령의 쓰는 쓰임: 가지 · 태그 지우기와 만들기, 설정 쓰기, 원격 바꾸기, --output 파일
     const rest = args.slice(args.indexOf(sub) + 1)
@@ -459,7 +461,7 @@ function kindOf(prog: string, args: string[]): ChatKind {
     // 모든 저장소의 설정을 바꾸는 것은 폴더 밖이다
     if (sub === 'config' && rest.some((a) => /^--(global|system)$/.test(a)) && !rest.some((a) => /^(--get|--get-all|--get-regexp|--list|-l)$/.test(a)) && named.length > 1) return 'outside'
     if (sub === 'config' && !rest.some((a) => /^(--get|--get-all|--get-regexp|--list|-l|--show-origin|--show-scope)$/.test(a)) && (named.length > 1 || rest.some((a) => /^--(unset|add|replace-all|remove-section|rename-section|edit)|^-e$/.test(a)))) return 'edit'
-    if (sub === 'remote' && /^(add|remove|rm|rename|set-url|set-head|set-branches|prune|update)$/.test(named[0] ?? '')) return 'edit'
+    if (sub === 'remote' && /^(remove|rm|rename|set-head|set-branches|prune|update)$/.test(named[0] ?? '')) return 'edit'
     // 다른 프로그램을 돌리는 옵션: grep -O<명령> · --ext-diff
     if (rest.some((a) => /^--(open-files-in-pager|ext-diff)(=|$)/.test(a)) || (sub === 'grep' && rest.some((a) => /^-[a-zA-Z]*O/.test(a)))) return 'run'
     if (rest.some((a) => /^--output(=|$)/.test(a))) return 'edit'
@@ -523,10 +525,6 @@ function sedScripts(args: string[], strict = false): string[] {
   return [...out, ...(out.length ? [] : named.slice(0, first + 1)), ...(strict ? [] : named.filter((a) => /\s/.test(a)))]
 }
 
-/** 옵션에 붙여 적은 경로도 본다: --file=/etc/x · -f/etc/x · of=/etc/x */
-const pathPart = (a: string) => /^--?[A-Za-z][\w-]*=(.+)$/.exec(a)?.[1] ?? /^-[A-Za-z]([/~].+)$/.exec(a)?.[1] ?? /^[A-Za-z_]\w*=([/~.].*)$/.exec(a)?.[1] ?? a
-/** 가운데의 ../ 로 폴더를 벗어나는 것도 본다 (sub/../../밖) */
-const looksLikePath = (a: string) => a.startsWith('/') || a.startsWith('~') || a.startsWith('..') || a.includes('../') || a.endsWith('/..') || /^"?\$\{?(HOME|PWD)\b/.test(a)
 
 function touchesOutside(p: string, o: Where): boolean {
   // 중괄호로 여럿이 되는 경로는 하나라도 밖이면 밖이다 ({a,~/x}). 다 펼치지 못할 만큼 많으면 어디인지 모르니 밖으로
@@ -541,10 +539,9 @@ function outsideOne(p: string, o: Where): boolean {
   // ~다른사람 은 그 사람의 홈이다. ${PWD%/*} 처럼 고쳐 펼치는 것은 어디인지 모른다
   if (/^~[^/]/.test(bare) || /^\$\{?(HOME|PWD)/.test(bare)) return true
   const expanded = bare.startsWith('~') ? `${home}${bare.slice(1)}` : bare
-  const abs = normalize(expanded.startsWith('/') ? expanded : `${cwd}/${expanded}`)
-  // 임시 폴더는 .. 를 푼 뒤에 본다: /tmp/../etc/passwd 는 임시 폴더가 아니다
-  if (abs === '/tmp' || abs.startsWith('/tmp/')) return false
-  return !o.inside(abs)
+  const raw = expanded.startsWith('/') ? expanded : `${cwd}/${expanded}`, abs = normalize(raw)
+  // 임시 폴더는 .. 를 푼 뒤에 본다(/tmp/../etc/passwd 는 아니다). 프로젝트가 /tmp 안이면 그 안은 inside 로 본다(git 내부 판정). inside 에는 .. 를 풀기 전의 글(raw)도 준다
+  return !((abs === '/tmp' || abs.startsWith('/tmp/')) && abs !== cwd && !abs.startsWith(`${cwd}/`)) && !o.inside(abs, raw)
 }
 
 /** /a/b/../c → /a/c (따로 path 모듈 없이, core는 브라우저에서도 돈다) */

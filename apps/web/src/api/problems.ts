@@ -2,7 +2,7 @@
 import { enc, json, req, send } from './http'
 import type { AttemptReportBody, RecordAttemptBody, AttemptVerdictBody, DirectionDecisionBody, FlowExceptionList, FlowExceptionOne, NewAttemptsBody, NewClaimBody, NewExceptionBody, NewProblemBody, ProblemCloseBody, ProblemList, ProblemOne, ProblemPatchBody, ProblemRemoved } from '@rw/core/contract/problems'
 export type { Attempt, AttemptState, BasisReview, Claim, ClaimSide, DirectionReport, FlowAnswer, FlowException, NewExceptionBody, Problem as ProblemDoc, ProblemList, ProblemRow, ProblemState, ProblemStop } from '@rw/core/contract/problems'
-export { PROBLEM_LIMIT, PROBLEM_LIMIT_STEP } from '@rw/core'
+export { PROBLEM_LIMIT, PROBLEM_LIMIT_STEP } from '@rw/core/plugins/flow'
 
 export const problemsApi = (rid: string) => {
   const base = `/api/researches/${enc(rid)}/problems`

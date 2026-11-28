@@ -1,7 +1,7 @@
 // 흐름의 이어받기 요약(MCP problem_brief)과 STATUS의 "흐름" 절.
 // 이어받기는 다음 세션이 그 흐름을 이어 가는 데 필요한 것만 싣는다: 질문 · 메시지 · 폐기 사유 · 주장과 그 근거 · 다음 · 한도. 3KB를 넘지 않는다 (BRIEF_MAX, 주장이 한 층 더 생겨 11/13에 2KB에서 올림).
 // STATUS와 이어받기는 연구 파일 쪽 글이라 한국어로 쓴다.
-import { BRIEF_MAX } from '@rw/core'
+import { BRIEF_MAX } from '@rw/core/plugins/flow'
 import type { Attempt, Claim, Problem, ProblemStop } from '@rw/core/contract/problems'
 import { listProblemIds, readProblem } from './problems.js'
 import type { Workbench } from './workbench.js'

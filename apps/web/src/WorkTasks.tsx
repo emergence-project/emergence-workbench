@@ -196,7 +196,7 @@ export function JudgeList({ rid, tasks, loaded, onSaved, reload, onEditProposal,
   return (
     <div className="tk-list" data-ui="판단 목록">
       {heading && list.length > 0 && <div className="tk-group-h jq-h" data-ui="맡긴 일 결과 머리">{t('맡긴 일 결과', 'Delegated task results')} <span className="rail-count tk-turn">{list.length}</span>
-        <span className="muted jq-tip">{t('에이전트가 결과나 종결 조건을 보냈습니다. 펼쳐서 승인하거나 수정을 보냅니다', 'An agent sent a result or completion criteria. Expand to approve or send back')}</span></div>}
+        <span className="muted jq-tip">{t('에이전트가 결과나 종결 조건을 보냈습니다. 펼쳐서 승인하거나 반려합니다', 'An agent sent a result or completion criteria. Expand to approve or send back')}</span></div>}
       {list.map((t) => <TaskCard key={t.id} rid={rid} task={t} open={shown === t.id} onToggle={() => toggle(t.id)} onSaved={onSaved} reload={reload} onEditProposal={onEditProposal} />)}
       {!list.length && emptyText !== null && <p className="empty tk-empty">{loaded ? emptyText ?? t('판단할 것이 없습니다. 맡긴 일의 결과가 오면 여기에 보입니다.', 'Nothing to decide. Results of delegated tasks show up here.') : t('불러오는 중…', 'Loading…')}</p>}
       {children}

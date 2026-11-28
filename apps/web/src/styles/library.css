@@ -27,7 +27,7 @@
 .ob-md blockquote { margin: .6em 0; padding: 2px var(--sp-3); border-left: 3px solid var(--line-strong); color: var(--text-2); }
 .ob-md .katex-display { overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
 .ob-callout { border-left: 3px solid var(--s-progress) !important; background: color-mix(in srgb, var(--s-progress) 6%, var(--bg)); border-radius: 0 var(--r-md) var(--r-md) 0; color: var(--text) !important; padding: var(--sp-2) var(--sp-3) !important; }
-.ob-callout[data-type="warning"], .ob-callout[data-type="caution"] { border-left-color: var(--s-blocked) !important; background: color-mix(in srgb, var(--s-blocked) 7%, var(--bg)); }
+.ob-callout[data-type="warning"], .ob-callout[data-type="caution"] { border-left-color: var(--s-caution-dot) !important; background: color-mix(in srgb, var(--s-caution-dot) 10%, var(--bg)); }
 .ob-callout[data-type="tip"], .ob-callout[data-type="success"], .ob-callout[data-type="example"] { border-left-color: var(--s-solved) !important; background: color-mix(in srgb, var(--s-solved) 7%, var(--bg)); }
 .ob-callout-title { font-weight: var(--fw-title); font-size: .95em; margin-bottom: 2px; text-transform: none; }
 .ob-link { color: var(--text); border-bottom: 1px dotted currentColor; cursor: default; }

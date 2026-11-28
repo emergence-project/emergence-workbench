@@ -1,6 +1,6 @@
 import { useCallback, useState, type CSSProperties } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { problemsApi, type Attempt, type Claim, type ClaimSide, type ProblemDoc } from './api'
+import { problemsApi, type Attempt, type Claim, type ClaimSide, type ProblemDoc } from './api/problems'
 import { Icon } from './icons'
 import { t } from './i18n'
 import { AttemptDot, AttemptRow, attemptNote, CandidateInput, dayShown, errorOf, when, who } from './ProblemAttempt'

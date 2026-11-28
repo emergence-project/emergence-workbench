@@ -12,7 +12,7 @@ import { queryClient, qk } from './queries'
 import { t } from './i18n'
 import { go, href, type Route } from './router'
 import { portUrl } from './about/code'
-import { INTRO_SUB, Intro, SymbolTable, Reference, Next, PartTitle, type SectionCheckView, Section } from './AboutParts'
+import { Intro, SymbolTable, Reference, Next, PartTitle, type SectionCheckView, Section } from './AboutParts'
 
 /**
  * 이 앱 소개: 앱의 왼쪽 사이드바에서 한 쪽을 고른다 (#/about/<쪽>).
@@ -102,7 +102,7 @@ export function AboutPage({ part, anchor, rightOpen, onSaved }: { part?: string;
             <article ref={article} className="page-body about" data-ui={`소개 › ${p.ui ?? p.title}`}>
               <header>
                 {p.id === 'intro' ? <h1 className="h-title" data-ui="제목">Emergence Workbench</h1> : <h1 className="h-title">{p.title}</h1>}
-                {at <= 0 && <p className="h-sub" data-ui="부제">{p.id === 'intro' ? INTRO_SUB : p.sub}</p>}
+                {at <= 0 && <p className="h-sub" data-ui="부제">{p.sub}</p>}
                 {at <= 0 && p.open && <p className="about-open">{p.open.map((o) => <button key={o.label} className="a" onClick={() => go(o.to)}>{o.label} ›</button>)}</p>}
               </header>
               {p.id === 'intro' ? <Intro /> : p.id === 'reference' ? <Reference /> : p.id === 'next' ? <Next /> : <Sections part={p} at={at} history={side} />}
@@ -140,10 +140,11 @@ const pageLabel = (x: AboutPageRef, here: AboutPart) => x.at < 0 ? x.part.title 
 /** 설정과 같은 앱 사이드바의 쪽 목록. 쪽 주소와 피드백 부위 이름은 그대로 둔다. */
 /** 왼쪽 목록의 묶음. 쪽 번호는 묶음을 넘어 이어진다. */
 const NAV_GROUPS: { title: string; parts: string[] }[] = [
-  { title: t('시작', 'Start'), parts: ['intro', 'principles'] },
+  // 11/27 사용자 "용어와 개념을 화면과 함께 먼저, 원칙과 규칙은 그다음": 화면과 용어 › 화면들 › 원칙 › 에이전트 · 피드백
+  { title: t('시작', 'Start'), parts: ['intro', 'layout'] },
   { title: t('화면', 'Screens'), parts: ['home', 'project', 'notes', 'knowledge', 'reading', 'network', 'settings'] },
-  { title: t('일하는 방식', 'How work flows'), parts: ['agents', 'feedback'] },
-  { title: t('연구', 'Research'), parts: ['research', 'rules'] },
+  { title: t('일하는 방식', 'How work flows'), parts: ['principles', 'agents', 'feedback'] },
+  { title: t('앱 개발', 'App development'), parts: ['building', 'research', 'rules'] },
   { title: t('기준과 참고', 'Standards and reference'), parts: ['design', 'symbols', 'reference', 'next'] },
 ]
 
@@ -233,6 +234,25 @@ function tabOn(): SideTab { try { return localStorage.getItem(TAB_KEY) === 'fix'
 function keepTab(v: SideTab) { try { localStorage.setItem(TAB_KEY, v) } catch { /* 위와 같다 */ } }
 
 /** 다시 정리한 설명: 절마다 항목 목록, 그리고 남은 것 */
+/** .md 절의 지킬 것 · 결정 · 구현 (11/27 "소개를 에이전트가 읽는 정본으로"): 지킬 것은 펼쳐 두고, 결정 · 구현은 접는다 */
+function SectionMore({ sec }: { sec: AboutSection }) {
+  return (
+    <>
+      {sec.keep && <div className="about-keep" data-ui="지킬 것"><h3>{t('지킬 것', 'Keep')}</h3><ul className="about-list">{sec.keep.map((it, n) => <li key={n}>{it.text}</li>)}</ul></div>}
+      {sec.decisions && <details className="about-more" data-ui="결정"><summary>{t('결정', 'Decisions')}</summary><ul className="about-list">{sec.decisions.map((it, n) => <li key={n}>{it.text}</li>)}</ul></details>}
+      {(sec.code || sec.mcp) && (
+        <details className="about-more" data-ui="구현">
+          <summary>{t('구현', 'Implementation')}</summary>
+          <ul className="about-list">
+            {sec.code?.map((f) => <li key={f}><code>{f}</code></li>)}
+            {sec.mcp && <li>MCP {sec.mcp.map((m, n) => <span key={m}>{n > 0 && ' · '}<code>{m}</code></span>)}</li>}
+          </ul>
+        </details>
+      )}
+    </>
+  )
+}
+
 function Sections({ part, at, history }: { part: AboutPart; at: number; history: boolean }) {
   const last = at === part.sections!.length - 1
   const checks = useAboutChecks()
@@ -245,8 +265,10 @@ function Sections({ part, at, history }: { part: AboutPart; at: number; history:
         const check: SectionCheckView = { key, rec, prs: sec.prs ?? [], dates: checks.prDates, enabled: checks.enabled, history, state: checks.enabled ? checkState(sec, rec, checks.exists) : 'checked' }
         return (
         <Section key={sec.title} name={sec.title} ui={sec.ui ?? sec.title} id={sectionAnchor(sec, i)} check={check} onReview={() => openReview(part.id, i)}>
+          {sec.summary && <p className="about-summary" data-ui="요약">{sec.summary}</p>}
           {part.id !== 'symbols' && sec.figure && <div className="about-figs">{sec.figure}</div>}
           <ul className="about-list">{sec.items.map((it, n) => <li key={n}>{it.text}</li>)}</ul>
+          <SectionMore sec={sec} />
           {/* 이 기능을 다른 앱에 옮기는 이식 안내서 (11/19) */}
           {sec.port && <p className="about-port" data-ui="이식 안내서">{t('다른 앱에 옮기기: ', 'Port to another app: ')}<a className="a" href={portUrl(sec.port)} target="_blank" rel="noreferrer">{`docs/ports/${sec.port}.md`}</a>{t(' — 관련 코드와 옮기는 순서', ' — the code and the steps to port it')}</p>}
           {/* 기호와 의미 쪽은 설명 한 줄 다음에 표 */}

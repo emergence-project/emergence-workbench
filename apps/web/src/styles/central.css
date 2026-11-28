@@ -27,11 +27,11 @@ button.cb-row { cursor: pointer; }
 button.cb-row:hover { background: var(--bg-hover); }
 .cb-title { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cb-time { font-size: var(--fs-2xs); color: var(--text-3); white-space: nowrap; }
-.cb-time.stalled { color: var(--s-blocked); }
+.cb-time.stalled { color: var(--s-caution); }
 .cb-sub { grid-column: 2 / 4; display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--sp-1); font-size: var(--fs-2xs); color: var(--text-3); min-width: 0; }
 .cb-sub .tag { font-size: var(--fs-2xs); padding: 0 var(--sp-1); }
 .cb-stage.turn { color: var(--s-blocked); font-weight: var(--fw-strong); }
-.cb-stall { padding: 0 var(--sp-1); border: 1px solid var(--s-blocked); border-radius: var(--r-pill); color: var(--s-blocked); }
+.cb-stall { padding: 0 var(--sp-1); border: 1px solid var(--s-caution); border-radius: var(--r-pill); color: var(--s-caution); }
 /* 상태 표시: 점 = 그 자리에 있음, 고리 = 남이(CI · 자리) 기다림. 파랑 진행 · 청록 합침 · 주황 사용자 · 회색 멈춤 */
 .cb-mark { width: 8px; height: 8px; border-radius: 50%; box-sizing: border-box; justify-self: center; }
 .cb-mark.run { background: var(--s-progress); }
@@ -91,7 +91,7 @@ button.cb-row:hover { background: var(--bg-hover); }
 .acct-limit-name { color: var(--text-3); }
 .acct-meter { width: 72px; height: 6px; border-radius: var(--r-pill); background: var(--bg-sunken); overflow: hidden; }
 .acct-meter i { display: block; height: 100%; background: var(--text-2); }
-.acct-meter.high i { background: var(--s-blocked); }
+.acct-meter.high i { background: var(--s-caution-dot); }
 .acct-limit-num { font-variant-numeric: tabular-nums; }
 /* 계정 › Codex 「이 컴퓨터」 줄의 「ChatGPT로 연결」 · AI API 키 넣기 (11/20) */
 .chatgpt-connect { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }

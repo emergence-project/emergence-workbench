@@ -2,8 +2,9 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import zlib from 'node:zlib'
 import { afterEach, describe, expect, it } from 'vitest'
-import { claudeLimits, fresh, lastRateLimits, noteClaudeLimit, setLimitsFile } from './agentLimits.js'
+import { claudeLimits, codexLimits, fresh, lastRateLimits, noteClaudeLimit, setLimitsFile } from './agentLimits.js'
 
 let tmp = ''
 afterEach(() => { setLimitsFile(undefined); if (tmp) fs.rmSync(tmp, { recursive: true, force: true }) })
@@ -33,6 +34,18 @@ describe('계정 한도', () => {
     ].join('\n')
     expect(lastRateLimits(text)).toEqual({ at, five: { used: 3 }, week: { used: 20, resetsAt: '2026-11-20T01:01:00.000Z' } })
     expect(lastRateLimits('{}')).toBeUndefined()
+  })
+
+  // 11/28 맥에서 본 실제 꼴: 끝난 rollout은 .jsonl.zst, 이번 주 창만 primary에(10080분), secondary는 null
+  it.skipIf(typeof zlib.zstdCompressSync !== 'function')('Codex: zstd로 줄인 rollout(.jsonl.zst)도 읽는다', () => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rw-lim-'))
+    const day = path.join(tmp, 'sessions', '2026', '11', '10')
+    fs.mkdirSync(day, { recursive: true })
+    const later = Math.floor(Date.now() / 1000) + 3600
+    const line = JSON.stringify({ timestamp: '2026-11-09T23:49:59.842Z', type: 'event_msg', payload: { type: 'token_count', rate_limits: { limit_id: 'codex', primary: { used_percent: 29, window_minutes: 10080, resets_at: later }, secondary: null, plan_type: 'prolite' } } })
+    fs.writeFileSync(path.join(day, 'rollout-2026-11-10T08-40-01-a.jsonl.zst'), zlib.zstdCompressSync(Buffer.from(`{"type":"session_meta"}\n${line}\n`)))
+    expect(codexLimits(tmp)).toMatchObject({ week: { used: 29, resetsAt: new Date(later * 1000).toISOString() } })
+    expect(codexLimits(tmp)?.five).toBeUndefined()
   })
 
   it('다시 찬 창은 0으로', () => {

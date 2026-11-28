@@ -22,6 +22,9 @@ if (!fs.existsSync(path.join(root, 'research.yaml'))) {
 process.env.RW_LANG ??= 'ko'
 const { tsImport } = await tsxApi()
 const opts = { parentURL: import.meta.url, tsconfig: false }
+const configDir = process.env.RW_CONFIG_DIR ?? path.join(os.homedir(), '.config/research-workspace')
+// 설정 › 기능에서 제거한 플러그인(흐름 등)의 파일 형식 진단은 앱처럼 건너뛴다. 바뀐 것 검사(파일 보호)는 그대로 돈다 (plugins/index.ts statesFromEnv)
+if (fs.existsSync(configDir)) process.env.RW_PLUGINS = JSON.stringify(new (await tsImport('../apps/server/src/registry.ts', opts)).Registry(configDir).plugins)
 const { Workbench } = await tsImport('../apps/server/src/workbench.ts', opts)
 const { checkWorkbench } = await tsImport('../apps/server/src/agentCheck.ts', opts)
 const { checkChanges, checkLevels } = await tsImport('../apps/server/src/agentChanges.ts', opts)
@@ -31,7 +34,6 @@ const show = (d) => console.error(`${d.level === 'error' ? '오류' : '경고'} 
 const { files, diagnostics } = checkWorkbench(wb)
 diagnostics.forEach(show)
 // 바뀐 것: 검사 세기는 공통 규칙 머리말의 checks:가 정한다 (docs/repo-format.md §15)
-const configDir = process.env.RW_CONFIG_DIR ?? path.join(os.homedir(), '.config/research-workspace')
 const changes = checkChanges(wb, { base: baseRef, levels: checkLevels(commonRules(configDir)?.text) })
 if (!changes && baseRef) {
   console.error(`기준을 찾지 못했습니다: ${baseRef}`)

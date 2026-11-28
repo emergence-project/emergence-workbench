@@ -9,7 +9,7 @@ import { pendingQuestions, unsortedRecords, userReplies, userTurnRecords } from 
 import { listTasks } from './tasks.js'
 import { openTodos } from './todos.js'
 import type { Workbench } from './workbench.js'
-import { scanProblems } from './problems.js'
+import { installedPlugins } from './plugins/index.js'
 
 /** 사용자가 판단할 것: 판단할 맡긴 일(결과 · 종결 조건 제안) · 에이전트 고침 검토 · 에이전트가 물은 기록(10/15) · 결정을 기다리는 흐름의 방향 보고(11/11) */
 /** tasks: 결정할 맡긴 일, confirm: 종결 조건을 통과해 승인만 남은 맡긴 일 (11/23, 수에 넣지 않는다) */
@@ -23,7 +23,8 @@ export function userTurnOf(wb: Workbench, edits = 0): UserTurn {
     confirm: turns.filter((x) => x === 'confirm').length,
     edits,
     records: userTurnRecords(wb.root),
-    problems: scanProblems(wb).problems.filter((p) => p.waiting).length,
+    problems: 0,
+    ...Object.assign({}, ...installedPlugins().map((p) => p.userTurns?.(wb) ?? {})),
   }
 }
 

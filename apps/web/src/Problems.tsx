@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { problemsApi, PROBLEM_LIMIT_STEP, type Attempt, type ClaimSide, type DirectionReport, type ProblemDoc, type ProblemRow, type ProjectKind, type ProblemState, type ProblemStop } from './api'
+import { problemsApi, PROBLEM_LIMIT_STEP, type Attempt, type ClaimSide, type DirectionReport, type ProblemDoc, type ProblemRow, type ProblemState, type ProblemStop } from './api/problems'
+import { type ProjectKind } from './api'
 import { Icon } from './icons'
 import { t } from './i18n'
 import { ATTEMPT_DOT, AttemptRow, CandidateInput, errorOf, when, who } from './ProblemAttempt'
@@ -32,8 +33,9 @@ const STOP_TEXT: Record<ProblemStop, string> = {
   exhausted: t('후보 없음', 'No candidates left'),
 }
 /** 흐름 목록 (화면 캐시 qk.problems: 흐름 파일 알림이 오면, 화면이 쓰면 다시 읽는다). 사이드바의 수도 이것을 쓴다 */
-export function useProblems(rid: string) {
-  return useQuery({ queryKey: qk.problems(rid), queryFn: () => problemsApi(rid).list() })
+/** enabled: 흐름이 제거돼 있으면 false (설정 › 기능, 묻지 않는다) */
+export function useProblems(rid: string, enabled = true) {
+  return useQuery({ queryKey: qk.problems(rid), queryFn: () => problemsApi(rid).list(), enabled })
 }
 /** 사용자 차례: 방향 보고가 결정을 기다리는 흐름 수 */
 export const problemTurns = (rows: ProblemRow[] | undefined) => rows?.reduce((n, p) => n + turnsOf(p), 0) ?? 0

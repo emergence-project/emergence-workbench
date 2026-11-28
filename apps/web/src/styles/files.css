@@ -41,7 +41,7 @@
 .fv-line:hover .fv-more, .fv-line.menu-on .fv-more, .fv-line .fv-more:focus-visible { opacity: 1; }
 .fv-line:hover .fv-mean, .fv-line.menu-on .fv-mean { visibility: hidden; }
 .fv-menu { position: fixed; z-index: var(--z-menu); min-width: 180px; }
-.fv-mod { width: 6px; height: 6px; border-radius: 50%; background: var(--s-blocked); flex: none; display: inline-block; }
+.fv-mod { width: 6px; height: 6px; border-radius: 50%; background: var(--s-caution-dot); flex: none; display: inline-block; }
 .fv-preview { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .fv-head { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-4); border-bottom: 1px solid var(--line); font-size: var(--fs-sm); color: var(--text-2); min-width: 0; flex-wrap: wrap; }
 .fv-head .fv-path { overflow-wrap: anywhere; min-width: 0; }
