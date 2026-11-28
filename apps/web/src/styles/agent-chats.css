@@ -401,3 +401,16 @@ button.ac-bar-line:hover { background: var(--bg-hover); }
 /* 새 대화를 돌릴 곳 (서버 | 이 맥, 11/20) */
 .ac-here-pick { display: flex; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); font-size: var(--fs-sm); flex-wrap: wrap; }
 .ac-here-pick .muted { min-width: 0; }
+
+/* 앱이 다시 켜진 뒤의 허락 · 계획 카드 (11/28): 시각 줄 + 오른쪽 태그, 노란 태그에서 이어져 펼쳐지는 상자 */
+.ac-restored-wrap { display: flex; flex-direction: column; }
+.ac-restored { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-xs); white-space: nowrap; }
+.ac-restored > .muted { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ac-since-tag { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: var(--sp-1); padding: 1px var(--sp-2); border-radius: var(--r-pill); font-size: var(--fs-xs); border: 1px solid transparent; line-height: 1.5; }
+.ac-since-tag.wait { color: var(--text-3); border-color: var(--line); }
+.ac-since-tag.ok { color: var(--s-solved); border-color: var(--s-solved); }
+.ac-since-tag.warn { color: var(--text); background: var(--s-caution-bg); border-color: var(--s-caution); cursor: pointer; font: inherit; font-size: var(--fs-xs); }
+.ac-since-tag.warn.open { border-radius: var(--r-md) var(--r-md) 0 0; border-bottom-color: var(--s-caution-bg); position: relative; z-index: 1; margin-bottom: -1px; padding-bottom: calc(var(--sp-1) + 1px); }
+.ac-restored.open { align-items: flex-end; }
+.ac-since-box { list-style: none; margin: 0; padding: var(--sp-2) var(--sp-3); background: var(--s-caution-bg); border: 1px solid var(--s-caution); border-radius: var(--r-md) 0 var(--r-md) var(--r-md); font-size: var(--fs-xs); display: grid; gap: 2px; }
+.ac-since-box .mono { word-break: break-all; }

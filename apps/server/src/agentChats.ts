@@ -18,7 +18,8 @@ import { APP_RID, CENTRAL_RID, startModel } from '@rw/core/contract/agentChats'
 import type { AppChecks, AppSubmitBody, AppSubmitted, AskAnswer, Attach, Chat, ChatItem, ChatMessageBody, ChatMode, ChatRow, ChatSettings, ImageIn, NewChatBody, WorkState } from '@rw/core/contract/agentChats'
 import { newPrRound, notStarted, type AppWork } from './appWorktree.js'
 export { appEnv } from './appWorktree.js'
-import { autoCustom } from '@rw/core'
+import { autoCustom, autoOf } from '@rw/core'
+import { nothingChanged, sinceText } from './agentAskRestore.js'
 import { HERE, t } from './i18n.js'
 import { WorkbenchError } from './workbench.js'
 import { accountForNew, switchAccount } from './claudeAccounts.js'
@@ -45,6 +46,19 @@ export class AgentChats extends AgentChatsRun {
 
   work(): WorkState {
     return { chats: [...this.chats.values()].filter((c) => LIVE.has(c.state)).map((c) => ({ id: c.id, rid: c.rid, title: c.title, state: c.state, scope: c.scope, claims: c.claims })) }
+  }
+
+  /**
+   * 다시 시작이 기다릴 대화 (11/28): running = 차례가 도는 대화, background = 차례는 끝났지만 뒤에서 명령(계산 등)이 도는 대화.
+   * 허락 · 계획 카드를 기다리는 대화는 세지 않는다: 다시 켜도 카드가 남고 답하면 이어 간다 (agentAskRestore.ts)
+   */
+  restartHolds(): { running: number; background: number } {
+    let running = 0, background = 0
+    for (const c of this.chats.values()) {
+      if (c.state === 'running') running++
+      else if (c.live && (c.tasks ?? 0) > 0) background++
+    }
+    return { running, background }
   }
 
   create(b: NewChatBody, link: { feedback?: string; bundle?: string[]; record?: { target: string; id: string }; parent?: string; urgent?: boolean } = {}, prompt?: string): Chat {
@@ -178,6 +192,7 @@ export class AgentChats extends AgentChatsRun {
     const c = this.must(id)
     const it = c.items.find((x): x is Extract<ChatItem, { kind: 'ask' }> => x.kind === 'ask' && x.id === ask)
     const resolve = this.asks.get(ask)
+    if (it && !it.answer && !resolve && it.restored) return this.answerRestored(c, it, a, more)
     if (!it || it.answer || !resolve) throw new WorkbenchError(409, t('이미 답했거나 없는 허락 요청입니다', 'This request was already answered or does not exist'))
     if (more.mode === 'plan') throw new WorkbenchError(400, t('계획을 승인하면 수동 · 편집 자동 수락 가운데 하나로 이어 갑니다', 'After approving a plan, continue with manual or auto-accept edits'))
     it.answer = a
@@ -186,6 +201,46 @@ export class AgentChats extends AgentChatsRun {
     this.asks.delete(ask)
     resolve({ answer: a, ...(a === 'deny' && more.note && { note: more.note }), ...(a !== 'deny' && more.mode && { mode: more.mode }) })
     return wireOf(c)
+  }
+
+  /**
+   * 앱이 다시 켜지기 전에 물은 카드에 답하기 (11/28): 기다리던 호출은 앱과 함께 끝났으므로, 같은 세션을 이어 답과 그 사이 바뀐 것을 알린다.
+   * 허락이면 글자까지 같은 호출 하나만 다음 차례에서 묻지 않고 통과시킨다(preAllowed). 다른 호출이면 새 카드로 다시 묻는다
+   */
+  private answerRestored(c: Stored, it: Extract<ChatItem, { kind: 'ask' }>, a: AskAnswer, more: { note?: string; mode?: ChatMode }): Chat {
+    if (more.mode === 'plan') throw new WorkbenchError(400, t('계획을 승인하면 수동 · 편집 자동 수락 가운데 하나로 이어 갑니다', 'After approving a plan, continue with manual or auto-accept edits'))
+    if (LIVE.has(c.state)) throw new WorkbenchError(409, t('대화가 이미 다시 일하고 있습니다. 새 카드에 답해 주세요', 'The conversation is working again. Answer the new card'))
+    const meta = c.askMeta?.[it.id]
+    // 이어 가지 못하면(send가 던지면) 카드와 설정을 답하기 전으로 되돌린다
+    const was = { answer: it.answer, note: it.note, mode: it.mode, askMeta: c.askMeta, alwaysKeys: c.alwaysKeys, auto: c.auto, chatMode: c.mode, preAllowed: c.preAllowed }
+    const undo = () => { it.answer = was.answer; it.note = was.note; it.mode = was.mode; c.askMeta = was.askMeta; c.alwaysKeys = was.alwaysKeys; c.auto = was.auto; c.mode = was.chatMode; c.preAllowed = was.preAllowed }
+    if (c.askMeta) { const { [it.id]: _, ...rest } = c.askMeta; c.askMeta = Object.keys(rest).length ? rest : undefined }
+    const plan = it.plan !== undefined
+    // 바뀐 것이 있으면 「늘」은 받지 않고 한 번으로 (카드도 그때 「늘」을 숨긴다)
+    const answer: AskAnswer = a === 'always' && (it.once || plan || !it.since || !nothingChanged(it.since)) ? 'allow' : a
+    it.answer = answer
+    if (answer === 'deny' && more.note) it.note = clip(more.note, 2000)
+    if (answer !== 'deny' && plan && more.mode) it.mode = more.mode
+    if (answer === 'always' && meta) {
+      if (meta.turnOn === 'edit') c.mode = 'edit'
+      else if (meta.turnOn) c.auto = { ...autoOf({ write: c.write, mode: c.mode, ...(c.auto && { auto: c.auto }) }), [meta.turnOn]: true }
+      else c.alwaysKeys = [...(c.alwaysKeys ?? []), { key: meta.key, label: meta.label }]
+    }
+    const what = plan ? 'your plan' : `this call: ${it.tool} · ${it.summary}`
+    const changed = sinceText(it.since)
+    let prompt: string
+    if (answer === 'deny') {
+      prompt = `The app restarted while you were waiting for the user's answer about ${what}. The user declined${more.note ? ` and said: ${more.note}` : '.'} ${plan ? 'Revise the plan and ask again. Change nothing yet.' : 'Do not try it again in another way; continue without it or ask the user.'}\n\n${changed}`
+    } else if (plan) {
+      if (more.mode) c.mode = more.mode
+      else if (c.mode === 'plan') c.mode = 'ask'
+      prompt = `The app restarted while your plan was waiting for approval. The user has now approved the plan; carry it out.\n\n${changed}\nCheck these changes first and adjust if they affect the plan.`
+    } else {
+      if (meta) c.preAllowed = { match: meta.match }
+      prompt = `The app restarted while you were waiting for permission for ${what}. The user has now allowed it.\n\n${changed}\nFirst check that the call is still right given these changes. If it is, make exactly the same call again (same tool, same input); it will run once without asking. If something else is right now, do that instead; a different call asks the user again.`
+    }
+    const text = answer === 'deny' ? t('앱이 다시 켜지기 전에 물은 것을 거절했습니다', 'Declined what it asked before the app restarted') : t('앱이 다시 켜지기 전에 물은 것에 답했습니다. 이어 갑니다', 'Answered what it asked before the app restarted. Continuing')
+    try { return this.send(c.id, { text }, prompt) } catch (e) { undo(); this.touch(c); throw e }
   }
 
   /** 도는 동안 보내 기다리는 지시 하나 빼기 (고쳐 쓰려면 빼고 다시 보낸다) */
@@ -371,6 +426,7 @@ export class AgentChats extends AgentChatsRun {
 
   /** 테스트 · 끄기: 도는 차례를 모두 멈춘다 */
   stopAll(): void {
+    this.closing = true
     this.queue.length = 0
     for (const a of this.aborts.values()) a.abort()
   }

@@ -10,7 +10,8 @@ import { store } from './store'
 /** 차례는 끝났지만 백그라운드 명령이 돌아 끝나면 저절로 이어 갈 대화: 「종료」가 아니라 「작업 중」으로 보인다 (11/20 피드백). 넓은 대화 머리는 「작업 중」만 보이고 명령 수는 제목 아래 줄에 둔다(긴 상태 글이 제목을 누르지 않게) */
 export const inBackground = (c: Pick<ChatRow, 'state' | 'tasks'>) => c.state === 'idle' && !!c.tasks
 /** 표시 상태 (백그라운드 명령이 돌면 작업 중) */
-export const shownState = (c: Pick<ChatRow, 'state' | 'tasks'>): ChatState => (inBackground(c) ? 'running' : c.state)
+/** 보이는 상태: 뒤에서 명령이 도는 대화는 작업 중, 다시 켠 뒤 남은 허락 · 계획 카드가 있는 멈춘 대화는 내 차례(11/28) */
+export const shownState = (c: Pick<ChatRow, 'state' | 'tasks'> & Partial<Pick<ChatRow, 'wait'>>): ChatState => (inBackground(c) ? 'running' : c.wait ? 'waiting' : c.state)
 
 const KEY = 'rw-agent-seen'
 const MAX = 400
@@ -43,7 +44,7 @@ export const isUnseen = (c: ChatRow) => isUnseenIn(read(), c)
 /** 에이전트가 묻고 끝낸 대화: 읽기만 해서는 풀리지 않고 답해야 풀린다 (11/24, 서버의 asks) */
 export const asksMe = (c: Partial<Pick<ChatRow, 'asks' | 'archived'>>) => !!c.asks && !c.archived
 /** 사용자 차례: 허락 · 계획을 기다리거나 오류로 멈춘 대화, 에이전트가 묻고 끝낸 대화, 끝났는데 아직 열어 보지 않은 대화 */
-export const myTurn = (c: ChatRow) => c.state === 'waiting' || (c.state === 'error' && !c.archived) || asksMe(c) || isUnseen(c)
+export const myTurn = (c: ChatRow) => c.state === 'waiting' || !!c.wait || (c.state === 'error' && !c.archived) || asksMe(c) || isUnseen(c)
 export function markSeen(id: string, updated: string) {
   const next = seenWith(read(), id, updated)
   if (next === current) return

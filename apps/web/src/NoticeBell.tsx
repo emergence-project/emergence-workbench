@@ -93,7 +93,7 @@ export function noticesOf({ chats = [], feedback = [], errors = [], records = []
     const place = c.rid === CENTRAL_RID ? undefined : c.rid
     if (c.shipped && c.pr) news.push({ key: `shipped:${c.id}`, kind: 'update', need: false, at: c.updated, place: APP_RID, text: `#${c.pr.number} ${c.title}`, open: () => go({ page: 'feedback', ...(c.feedback && { key: c.feedback }) }) })
     else if (c.archived) continue
-    else if (c.state === 'waiting' || asksMe(c)) need.push({ key: `agent:${c.id}:${c.updated}`, kind: 'chat', need: true, at: c.updated, place, text: `「${c.title}」 ${stateName(c)}`, open: () => go({ page: 'agent', id: c.id }) })
+    else if (c.state === 'waiting' || c.wait || asksMe(c)) need.push({ key: `agent:${c.id}:${c.updated}`, kind: 'chat', need: true, at: c.updated, place, text: `「${c.title}」 ${stateName(c)}`, open: () => go({ page: 'agent', id: c.id }) })
     else if (c.state === 'error' || unseen(c)) news.push({ key: `agent:${c.id}:${c.updated}`, kind: 'chat', need: false, at: c.updated, place, text: `「${c.title}」 ${c.state === 'idle' ? t('종료 · 아직 열어 보지 않음', 'Done · not opened yet') : stateName(c)}`, open: () => go({ page: 'agent', id: c.id }) })
   }
   for (const e of feedback) {
