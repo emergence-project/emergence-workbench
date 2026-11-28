@@ -1,17 +1,21 @@
 /* 오른쪽 적기: 목록만 스크롤하고 입력칸은 아래에 고정한다. */
 .rs-col[hidden] { display: none; }
 .records-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; }
-/* 종류는 폭에 꽉 찬 선택 칸, 그 아래 줄 왼쪽 상태(진행 중 | 완료) · 오른쪽 "모두 보기" (10/18 결정) */
-.records-filters { flex: none; display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); }
-.records-subbar { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
-.records-subbar .records-all { flex: none; margin-left: auto; font-size: var(--fs-xs); white-space: nowrap; }
-.records-subbar .segmented { flex: 1; min-width: 0; }
-.records-subbar .segmented button { white-space: nowrap; }
-.records-subbar .segmented .n { color: var(--text-3); font-weight: var(--fw-normal); font-variant-numeric: tabular-nums; }
+/* 둘째 줄 (11/28): 왼쪽 수("5개 · 내 차례 1"), 오른쪽 필터 · 정렬 · 선택. 여럿을 고르면 「N개 선택」과 한꺼번에 하는 행동으로 바뀐다 */
+.records-second { flex: none; display: flex; align-items: center; gap: var(--sp-1); min-width: 0; height: 32px; padding: 0 var(--sp-2) 0 var(--sp-3); }
+.records-second .sp { flex: 1; }
+.records-second .icon-btn { color: var(--text-2); }
+.records-count { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.records-count .turn { color: var(--s-blocked); font-weight: var(--fw-strong); }
+.records-second.picking { background: var(--bg-hover); }
+.records-second.picking .records-count { color: var(--text); font-weight: var(--fw-strong); }
 .records-classify { flex: none; padding: 0 var(--sp-3) var(--sp-2); font-size: var(--fs-sm); }
 .records-classify .a { white-space: nowrap; }
 .records-classify .a:disabled { color: var(--text-3); cursor: default; text-decoration: none; }
 .records-list { flex: 1; min-height: 0; overflow: auto; padding: 0 var(--sp-3) var(--sp-3); }
+/* 묶음 없이 한 목록 (11/28): 순서가 뜻을 전한다 (내 차례, 고정, 나머지, 접힌 완료) */
+.record-flat { display: flex; flex-direction: column; gap: var(--sp-2); }
+/* 기록 화면(왼쪽)의 대상별 묶음 */
 .record-group { display: flex; flex-direction: column; gap: var(--sp-2); }
 .record-group + .record-group { margin-top: var(--sp-4); }
 .record-group-title { font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text-2); min-width: 0; }
@@ -28,16 +32,29 @@
 .record-content { margin-top: var(--sp-1); min-width: 0; font-size: var(--fs-sm); overflow-wrap: anywhere; }
 .record-quote { margin: 0 0 var(--sp-1); padding-left: var(--sp-2); border-left: 3px solid var(--line-strong); color: var(--text-3); font-size: var(--fs-xs); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 4.5em; overflow: auto; }
 .record-row.done .record-body, .record-row.split .record-body { color: var(--text-3); }
-.record-meta { display: flex; align-items: baseline; gap: var(--sp-2); margin-top: var(--sp-1); font-size: var(--fs-xs); color: var(--text-3); }
-.record-meta-left { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-1); min-width: 0; }
+.record-meta { display: flex; align-items: flex-end; gap: var(--sp-2); margin-top: var(--sp-1); font-size: var(--fs-xs); color: var(--text-3); }
+.record-meta-left { flex: 1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-1); min-width: 0; }
+/* 참고할 것 사이의 가운뎃점 */
+.record-meta-left > * + *::before { content: '·'; margin-right: var(--sp-1); color: var(--text-3); display: inline-block; text-decoration: none; }
+.record-meta-right { flex: none; display: flex; align-items: center; gap: var(--sp-1); }
 .record-meta-left > * { white-space: nowrap; flex: none; }
-.record-meta-left > .record-source, .record-meta-left > .record-goto { flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; text-align: left; }
-/* 붙은 곳 링크는 늘 밑줄 (10/18 시안: 본문의 그 자리로 가는 길이 보이게) */
-.record-meta .record-goto { text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 2px; }
-.record-meta .record-goto:hover { color: var(--text); text-decoration-color: currentColor; }
+/* 어디 (붙은 곳): 첫 줄의 종류 뒤. 늘 밑줄 (10/18 시안: 본문의 그 자리로 가는 길이 보이게), 길면 말줄임 */
+.record-row-head .record-kind { flex: none; font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--text-2); white-space: nowrap; }
+.record-row-head .record-source, .record-row-head .record-goto { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; font-size: var(--fs-xs); color: var(--text-3); }
+.record-row-head .record-goto { text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 2px; }
+.record-row-head .record-goto:hover { color: var(--text); text-decoration-color: currentColor; }
+.record-pin { flex: none; display: inline-flex; align-items: center; gap: 2px; font-size: var(--fs-xs); color: var(--text-3); white-space: nowrap; }
+.record-pin svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+input.record-pick { flex: none; margin: 0 var(--sp-1) 0 0; accent-color: var(--text); }
+/* 자리가 있으면 아이콘과 이름, 좁으면 아이콘만 (11/28): 이름은 넓은 기록 화면(.record-row-work)에서만 보인다 */
+.record-wide { display: none; }
+.record-row-work .record-wide { display: inline; }
+/* 답하기: 오른쪽 아래에 고정. 좁은 곳은 아이콘만 */
+.record-reply-btn { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.record-reply-btn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .record-meta .a { font-size: inherit; color: var(--text-2); }
 .record-meta .tag { padding: 0 var(--sp-1); font-size: var(--fs-2xs); }
-.record-when { flex: none; margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.record-when { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .record-edit textarea, .record-composer textarea { display: block; width: 100%; box-sizing: border-box; padding: var(--sp-2); border: 1px solid var(--line); border-radius: var(--r-sm); font: inherit; line-height: 1.5; color: var(--text); background: var(--bg); resize: vertical; }
 .record-edit textarea:focus, .record-composer textarea:focus { outline: none; border-color: var(--text-3); }
 .record-edit-actions { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-1); }
@@ -86,9 +103,9 @@ input.record-marker { accent-color: var(--text); }
 .record-part span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 
 /* 쓴 이와 사용자 차례 (10/15): 에이전트가 물은 질문이 답을 기다리면 주황(사용자 차례) 테두리와 점 */
-.record-row-head .record-by { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--text-2); }
+.record-meta .record-by { color: var(--text-2); }
 /* 쓴 이 없는 기록 (10/21): 앱 밖에서 직접 쓴 것은 오류 색 */
-.record-row-head .record-by.no-author { color: var(--danger); }
+.record-meta .record-by.no-author { color: var(--danger); }
 /* 쓴 이 Claude: 이름 앞 무채색 표시 (10/19 "무채색 로고"). 기록 줄 · 기록 대화 이름이 같이 쓴다 */
 .agent-mark { color: var(--text-3); margin-inline-end: calc(var(--sp-1) / 2); }
 .record-row.turn { border-color: var(--s-blocked); }
@@ -107,8 +124,6 @@ input.record-marker { accent-color: var(--text); }
 @container (max-width: 316px) { .record-composer .segmented .record-kind-ico { display: none; } }
 /* 할 일 아래 대화 (10/19 "할 일에 에이전트에게"): 기록 대화와 같은 말풍선, 아래 입력란 */
 .todo-talk { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-2); }
-/* 대화 맨 아래 이어 쓰기 (10/19 11:31) */
-.record-follow { display: flex; justify-content: flex-end; align-items: center; gap: var(--sp-3); margin-top: var(--sp-1); font-size: var(--fs-xs); }
 /* 대화 보기 (10/28 시안 QHNCb6oYYUN4FtFLkqh2bJ): 로봇 아이콘 + 글. 기록에는 결과만, 대화는 에이전트 탭에 */
 .record-chat-link { display: inline-flex; align-items: center; gap: 3px; }
 .record-chat-link svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
@@ -124,7 +139,6 @@ input.record-marker { accent-color: var(--text); }
 @media (prefers-reduced-motion: reduce) { .record-working-dot, .record-working-label { animation: none; } .record-working-label { color: var(--text-2); background: none; } }
 
 /* 대화 접기 (10/28 피드백 20:57): 앞 답은 「앞 답 N개」로, 마지막 답은 다섯 줄까지 */
-.record-fold { align-self: flex-start; margin-top: var(--sp-1); font-size: var(--fs-xs); }
 .record-clamp { max-height: calc(5 * 1.55em); overflow: hidden; }
 .record-more { align-self: flex-start; font-size: var(--fs-xs); }
 /* 입력란의 「할 일」 칩 (11/21 안 A3): 종류 줄 대신 켜고 끄는 버튼 하나. 켜면 선택 표시 */

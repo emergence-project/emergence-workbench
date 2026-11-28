@@ -216,6 +216,9 @@ export const DEFAULT_SCREENS = [
   ['knowledge-records', '#/library/t/planargraph', '적기', '[data-ui="오른쪽 레일"] button[data-mode="records"]'],
   // 프로젝트의 오른쪽 사이드바 기록 (10/14 "모두 보기" → 작업 탭). 앞 화면이 기록 갈래를 켜 두었다
   ['project-records', '#/r/{rid}', '모두 보기'],
+  // 기록 카드의 ⋯ 메뉴와 여럿 선택 (11/28 기록 칸): 맨 위 카드의 ⋯를 연 모습, 선택을 켜고 카드 하나를 고른 둘째 줄
+  ['project-records-more', '#/r/{rid}', '더 보기 항목', '[data-ui="적기 목록"] [data-ui="더 보기 메뉴"]'],
+  ['project-records-pick', '#/r/{rid}', '기록 여럿 선택', ['기록 선택 켜기', '기록 선택']],
   // 프로젝트 정보 › 변경사항 (10/27): 예제를 이때 git 저장소로 만들고 커밋 · 커밋 안 된 고침 · 에이전트가 받은 때를 넣는다(changes.mjs). 다른 화면이 git 없이 찍히게 맨 끝
   // 홈 카드의 "변경사항 N"(내가 변경사항 쪽을 열기 전)과 그 쪽. 카드 보기는 home-cards가 기억해 두었다
   ['home-changes', '#/', '변경사항 수'],

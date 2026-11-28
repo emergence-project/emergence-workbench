@@ -133,6 +133,14 @@ export const Icon = {
   bell: <svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" /><path d="M10 20.5a2 2 0 0 0 4 0" /></svg>,
   menu: <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" /></svg>,
   /** 여러 개 고르기 (대화 목록, 11/20 시안 1절): 체크 든 네모 */
+  /** 위에 고정: 압정 (11/28 기록 카드) */
+  pin: <svg viewBox="0 0 24 24"><path d="M9 4h6l-1 6 3 3.5H7L10 10z" /><path d="M12 13.5V20" /></svg>,
+  /** 필터: 깔때기 */
+  filter: <svg viewBox="0 0 24 24"><path d="M4 5.5h16l-6.2 7.2v5.6l-3.6 1.7v-7.3z" /></svg>,
+  /** 정렬: 위아래 화살표 */
+  sort: <svg viewBox="0 0 24 24"><path d="M8 19V5M4.5 8.5L8 5l3.5 3.5M16 5v14M12.5 15.5L16 19l3.5-3.5" /></svg>,
+  /** 답하기 · 의견 보내기: 돌아가는 화살표 (11/28 기록 카드의 오른쪽 아래) */
+  reply: <svg viewBox="0 0 24 24"><path d="M9.5 7L5 11.5 9.5 16" /><path d="M5 11.5h9a5 5 0 0 1 5 5V18" /></svg>,
   pick: <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3" /><path d="M8.5 12l2.5 2.5 4.5-5" /></svg>,
   archive: <svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="4" rx="1" /><path d="M5 8.5v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-10M10 12.5h4" /></svg>,
 }

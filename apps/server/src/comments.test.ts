@@ -107,6 +107,22 @@ describe('PDF 코멘트 파일', () => {
     expect(file('paper-y').trimEnd()).toBe(one.trimEnd())
   })
 
+  it('위에 고정 (11/28): 정보 줄에 pinned만 더하고 풀면 지운다. 다른 값과 본문은 그대로이고, 정보 줄이 없던 손 기록은 풀면 원래 바이트로 돌아온다', () => {
+    addComment(root, 'project', { kind: '메모', title: '프로젝트', text: '고정할 메모' }, at)
+    const id = readComments(root, 'project').comments[0]!.id
+    const pinned = updateComment(root, 'project', id, { pinned: true }, readComments(root, 'project').hash)
+    expect(pinned.comments[0]).toMatchObject({ pinned: true, src: 'user', body: '고정할 메모' })
+    const freed = updateComment(root, 'project', id, { pinned: false }, pinned.hash)
+    expect(freed.comments[0]!.pinned).toBeUndefined()
+    expect(freed.comments[0]).toMatchObject({ src: 'user', body: '고정할 메모' })
+    const hand = '# 코멘트 · 손으로 쓴 것\n\n## c-20261010-0900 · 메모 · 전체\n\n옛 기록\n'
+    writeRecord('note-hand', hand)
+    const on = updateComment(root, 'note-hand', 'c-20261010-0900', { pinned: true }, readComments(root, 'note-hand').hash)
+    expect(file('note-hand')).toContain('<!-- rw: {"pinned":true} -->')
+    updateComment(root, 'note-hand', 'c-20261010-0900', { pinned: false }, on.hash)
+    expect(file('note-hand')).toBe(hand)
+  })
+
   it('쓴 이 (10/21): 앱은 사용자 글에 src를 적고, by도 src도 없는 새 기록만 작성자 없음이다', () => {
     addComment(root, 'project', { kind: '메모', title: '프로젝트', text: '내 메모' }, at)
     addComment(root, 'project', { kind: '할 일', title: '프로젝트', text: '앱 할 일', src: 'app' }, at)

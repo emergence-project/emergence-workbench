@@ -34,3 +34,8 @@ Redraw the figure in chapter 2
 - 상태: 대기
 
 10/10 — Find a four-color counterexample for chapter 3
+
+## c-20261012-0900 · 메모 · 전체
+<!-- rw: {"src":"user","pinned":true} -->
+
+Compare with the Thomassen proof whether outer-face vertices can do with lists of size 3.

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useCmdEnter } from './cmdEnter'
 import { commentsApi, ConflictError, type CommentEntry, type CommentFile, type NoteHighlight, type RecordFile } from './api'
 import { bumpPending, keyOf, load, patch, revealComment, usePendingTick, useSlot, type CommentTarget } from './Comments'
@@ -8,10 +8,13 @@ import { Icon } from './icons'
 import { onListKey } from './listInput'
 import { go } from './router'
 import { useHighlightColor } from './ui'
-import { classifiedRecordCount, inSideFilter, isDoneRecord, recordRoute, sortRecords, type PanelFilter, type SideFilter } from './recordsPanelHelpers'
+import { classifiedRecordCount, flatRecords, inSideKinds, isDoneRecord, isUserTurnRecord, recordRoute, recordRuns, SIDE_KINDS, sideKindOf, type PanelFilter, type RecordAt, type SideKind, type SideOrder } from './recordsPanelHelpers'
 import { flash } from './flash'
 import { RecordList, type RecordPlaceOf } from './RecordList'
-import { recordWrites, useRecordActions } from './useRecordActions'
+import { recordWrites, useRecordActions, type RecordWrites } from './useRecordActions'
+import { MoreMenu } from './MoreMenu'
+import { askConfirm } from './askText'
+import { setRecordsWide } from './noteScreen'
 import { calledAgent, LIBRARY_RID } from '@rw/core'
 import { chooseRecordFilter, chooseRecordPlace } from './workRecords'
 import { recordDrafts, attachRecordDraft, type ComposerDraft } from './recordDrafts'
@@ -22,15 +25,9 @@ import { kindLabel } from './recordLabels'
 import { useRecords } from './projectQueries'
 import { RecordArchive } from './RecordArchive'
 
-// 지시는 필터에서 뺐다 (11/21 안 A): 예전 지시는 「전체」에 남는다
-/**
- * 필터 한 줄 (11/21 안 A3): 전체 · 할 일 · 대기. 「전체」는 완료까지 모두이고, 완료한 것은 목록 맨 아래 「완료 n」으로 접혀 있다.
- * 대기 = 내가 에이전트를 불렀고 답을 기다리는 기록. 종류 필터(메모 · 질문)와 진행 중 | 완료 줄은 없앴다
- */
-const FILTERS: SideFilter[] = ['전체', '할 일', '대기']
-const filterName = (f: SideFilter) => f === '대기' ? t('대기', 'Waiting') : kindLabel(f)
-/** 기록 탭으로 넘어갈 때의 종류 필터 */
-const tabFilter = (f: SideFilter): PanelFilter => f === '대기' ? '질문' : f
+/** 넓게 보기로 넘어갈 때의 종류 필터: 하나만 골랐으면 그 종류, 아니면 전체 */
+const tabFilter = (kinds: ReadonlySet<SideKind>): PanelFilter => kinds.size === 1 ? [...kinds][0]! : '전체'
+const pickKey = (target: string, id: string) => `${target}\n${id}`
 const CLASSIFY_TIP = t('Claude(작은 모델)가 분류 전 기록을 메모 · 할 일 · 질문으로 나눕니다', 'Claude (a small model) sorts unsorted records into memos, to-dos, and questions')
 // Keep a pending target disabled even when its sidebar unmounts and opens again.
 const classifying = new Set<string>()
@@ -56,11 +53,15 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf }: {
   const recordsQuery = useRecords(rid, many)
   const files = recordsQuery.data?.files ?? NO_FILES
   const error = recordsQuery.error?.message ?? null
-  const [filter, setFilter] = useState<SideFilter>('전체')
+  // 둘째 줄 (11/28 결정): 왼쪽 수, 오른쪽 필터 · 정렬 · 선택. 필터는 종류마다 체크, 정렬은 최근 것 · 오래된 것
+  const [kinds, setKinds] = useState<ReadonlySet<SideKind>>(() => new Set(SIDE_KINDS))
+  const [order, setOrder] = useState<SideOrder>('new')
   // 완료한 것은 처음과 대상을 바꿀 때마다 접어 둔다 (끝낸 기록은 숨김, 10/18 결정)
   const [doneOpen, setDoneOpen] = useState(false)
-  useEffect(() => setDoneOpen(false), [rid, target.target])
-  const shown = project ? files : slot.file ? [slot.file] : []
+  // 여럿 선택: null이면 끔. 대상을 바꾸면 끈다
+  const [picked, setPicked] = useState<ReadonlySet<string> | null>(null)
+  useEffect(() => { setDoneOpen(false); setPicked(null) }, [rid, target.target])
+  const shown = useMemo(() => project ? files : slot.file ? [slot.file] : [], [project, files, slot.file])
   // 고른 기록이 보이게 필터 · 상태를 맞추는 것은 고른 기록이 바뀔 때 한 번만 (10/20 검토: 할 일을 체크할 때마다 "완료"로 넘어갔다).
   // 저장 바로 뒤에는 새 기록이 아직 목록에 없을 수 있어, 찾을 때까지 기다린다
   const aligned = useRef<string | null>(null)
@@ -71,20 +72,24 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf }: {
     aligned.current = slot.active
     const entry = comments.find((c) => c.id === slot.active)!
     if (entry.kind === '하이라이트') return
-    setFilter((current) => inSideFilter(entry, current) ? current : '전체')
+    setKinds((current) => inSideKinds(entry, current) ? current : new Set(SIDE_KINDS))
     if (isDoneRecord(entry)) setDoneOpen(true)
   }, [slot.active, slot.file, files, project, target.target])
-  const groups = shown.map((file) => {
-    const items = sortRecords(file.comments.filter((c) => inSideFilter(c, filter)))
-    return { file, open: items.filter((c) => !isDoneRecord(c)), done: items.filter(isDoneRecord) }
-  })
-  const openCount = groups.reduce((n, g) => n + g.open.length, 0)
-  const doneCount = groups.reduce((n, g) => n + g.done.length, 0)
-  const group = (file: RecordFile, items: CommentEntry[]) => <div key={file.target} className="record-group">
-    {many && <div className="record-group-title">{file.target === 'project' ? <span>{t('이 프로젝트', 'This project')}</span>
-      : <button className="a" title={file.source} onClick={() => open(file)}>{file.title}</button>}</div>}
-    <RecordList rid={rid} file={file} filter="전체" items={items} showSource={project} placeOf={placeOf} onGo={(c) => open(file, c)} />
-  </div>
+  // 묶음 없이 한 목록 (11/28): 내 차례, 고정한 것, 나머지, 그리고 맨 아래 접힌 완료
+  const flat = useMemo(() => flatRecords(shown, kinds, order), [shown, kinds, order])
+  const everything = useMemo(() => flatRecords(shown, new Set(SIDE_KINDS)), [shown])
+  const turns = flat.open.filter((r) => isUserTurnRecord(r.c)).length
+  const pick = picked ? {
+    has: (file: RecordFile) => (c: CommentEntry) => picked.has(pickKey(file.target, c.id)),
+    toggle: (file: RecordFile) => (c: CommentEntry) => setPicked((current) => {
+      const next = new Set(current ?? []), key = pickKey(file.target, c.id)
+      if (!next.delete(key)) next.add(key)
+      return next
+    }),
+  } : null
+  const list = (rows: RecordAt[]) => <div className="record-flat">{recordRuns(rows).map((run) =>
+    <RecordList key={`${run.file.target}|${run.items[0]!.id}`} rid={rid} file={run.file} filter="전체" items={run.items} showSource={project} placeOf={placeOf} onGo={(c) => open(run.file, c)}
+      pick={pick ? { has: pick.has(run.file), toggle: pick.toggle(run.file) } : undefined} />)}</div>
   const open = (file: RecordFile, c?: CommentEntry) => {
     if (many && !(c?.page && onOpenPdf(file))) {
       const route = recordRoute(rid, file, firstPartOf)
@@ -92,6 +97,44 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf }: {
     }
     if (c && !c.lost) revealComment(rid, file.target, c.id)
   }
+  // 머리줄의 「넓게 보기」: 고른 종류 그대로, 지금 보던 노트를 왼쪽 기록 화면에서 골라 둔 채로 연다 (10/14 13:33, 10/28 22:25). 지식 라이브러리에는 기록 화면이 없다
+  const wide = useRef<() => void>(() => undefined)
+  wide.current = () => { chooseRecordFilter(tabFilter(kinds)); chooseRecordPlace(many ? null : slot.file?.target ?? target.target); go({ page: 'records', rid }) }
+  useEffect(() => {
+    if (rid === LIBRARY_RID) return
+    const openWide = () => wide.current()
+    setRecordsWide(openWide)
+    return () => setRecordsWide(null)
+  }, [rid])
+  // 여럿을 한꺼번에 (11/28): 화면이 본 판의 hash로 시작해, 쓸 때마다 돌려받은 hash를 이어 쓴다. 그사이 바깥에서 바뀐 파일은 거기서 멈추고 다시 읽는다
+  const bulk = useRecordActions(rid, { report: 'flash' })
+  const pickedRows = picked ? [...everything.open, ...everything.done].filter((r) => picked.has(pickKey(r.file.target, r.c.id))) : []
+  const runBulk = async (does: (w: RecordWrites, r: RecordAt, hash: string) => Promise<CommentFile> | null, said: (n: number) => string) => {
+    let ok = 0, skipped = 0
+    const hashes = new Map(shown.map((file) => [file.target, file.hash]))
+    for (const r of pickedRows) {
+      const done = await bulk.run(r.file.target, async (w) => {
+        const next = does(w, r, hashes.get(r.file.target)!)
+        if (!next) { skipped++; return }
+        hashes.set(r.file.target, (await next).hash); ok++
+      })
+      if (!done) break
+    }
+    const left = pickedRows.length - ok - skipped
+    flash(`${said(ok)}${left > 0 ? t(` · ${left}개는 하지 못했습니다`, ` · ${left} not done`) : ''}`)
+    setPicked(null)
+  }
+  const allPinned = pickedRows.length > 0 && pickedRows.every((r) => r.c.pinned)
+  const bulkDone = () => runBulk((w, r, hash) => isDoneRecord(r.c) || r.c.state === '끝냄' ? null : w.setState(r.file.target, r.c.id, '끝냄', hash), (n) => t(`${n}개를 완료로 넘겼습니다`, `Moved ${n} to done`))
+  const bulkPin = () => runBulk((w, r, hash) => Boolean(r.c.pinned) === !allPinned ? null : w.update(r.file.target, r.c.id, { pinned: !allPinned, baseHash: hash }), (n) => allPinned ? t(`${n}개의 고정을 풀었습니다`, `Unpinned ${n}`) : t(`${n}개를 위에 고정했습니다`, `Pinned ${n}`))
+  const bulkDelete = async () => {
+    const deletable = pickedRows.filter((r) => r.c.answers.length === 0)
+    if (!deletable.length) return flash(t('답이 달린 기록은 지울 수 없습니다', 'Records with answers cannot be deleted'))
+    if (!await askConfirm({ title: t(`기록 ${deletable.length}개를 지울까요?`, `Delete ${deletable.length} ${deletable.length === 1 ? 'record' : 'records'}?`), hint: t('되돌릴 수 없습니다. 원문과 다른 기록은 남습니다. 답이 달린 기록은 지우지 않고 남깁니다.', 'This cannot be undone. The source text and other records stay. Records with answers are kept.'), ok: t('삭제', 'Delete') })) return
+    await runBulk((w, r, hash) => r.c.answers.length ? null : w.remove(r.file.target, r.c.id, hash), (n) => t(`${n}개를 지웠습니다`, `Deleted ${n}`))
+  }
+  const count = (kind: SideKind) => everything.open.filter((r) => sideKindOf(r.c) === kind).length
+  const filtered = kinds.size < SIDE_KINDS.length
   const classify = async () => {
     const file = slot.file
     if (!file || !unsorted.length || classifying.has(key)) return
@@ -106,29 +149,39 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf }: {
     } finally { classifying.delete(key); bumpPending() }
   }
   return <section className="records-panel" data-ui="적기">
-    <div className="records-filters">
-      <div className="records-subbar">
-        <div className="segmented small full" role="group" aria-label={t('기록 필터', 'Record filter')}>
-          {FILTERS.map((f) => <button key={f} className={filter === f ? 'on' : ''} aria-pressed={filter === f} onClick={() => setFilter(f)}>{filterName(f)}</button>)}
-        </div>
-        {/* 기록 탭으로 (10/14 13:33 제안). 사이드바가 좁을 때 넓게 보도록 지금 노트를 고른 채로 연다 (10/28 22:25 수정 요청). 지식 라이브러리에는 기록 탭이 없다 */}
-        {rid !== LIBRARY_RID && <button className="a records-all" data-ui="모두 보기" data-tip={many ? t('기록 탭에서 이 프로젝트의 기록 보기', 'See this project\'s records in the Records tab') : t('기록 탭에서 이곳의 기록을 넓게 보기', 'See these records in the Records tab')}
-          onClick={() => { chooseRecordFilter(tabFilter(filter)); chooseRecordPlace(many ? null : slot.file?.target ?? target.target); go({ page: 'records', rid }) }}>{t('기록 탭에서 보기 ›', 'Open in Records ›')}</button>}
-      </div>
-    </div>
+    {picked ? <div className="records-second picking" data-ui="기록 여럿 선택" role="toolbar" aria-label={t('고른 기록에 할 일', 'Actions for the selected records')}>
+      <span className="records-count">{t(`${picked.size}개 선택`, `${picked.size} selected`)}</span>
+      <span className="sp" />
+      <button className="icon-btn sm" data-ui="선택 완료" data-tip={t('완료로 넘기기', 'Move to done')} aria-label={t('완료로 넘기기', 'Move to done')} disabled={!picked.size || bulk.busy} onClick={() => void bulkDone()}>{Icon.check}</button>
+      <button className="icon-btn sm" data-ui="선택 고정" data-tip={allPinned ? t('고정 풀기', 'Unpin') : t('위에 고정', 'Pin to top')} aria-label={allPinned ? t('고정 풀기', 'Unpin') : t('위에 고정', 'Pin to top')} disabled={!picked.size || bulk.busy} onClick={() => void bulkPin()}>{Icon.pin}</button>
+      <button className="icon-btn sm" data-ui="선택 삭제" data-tip={t('삭제', 'Delete')} aria-label={t('삭제', 'Delete')} disabled={!picked.size || bulk.busy} onClick={() => void bulkDelete()}>{Icon.trash}</button>
+      <button className="icon-btn sm tip-end" data-ui="선택 취소" data-tip={t('선택 취소', 'Cancel selection')} aria-label={t('선택 취소', 'Cancel selection')} disabled={bulk.busy} onClick={() => setPicked(null)}>{Icon.x}</button>
+    </div> : <div className="records-second" data-ui="기록 둘째 줄">
+      <span className="records-count" data-ui="기록 수">{t(`${flat.open.length}개`, `${flat.open.length}`)}{turns > 0 && <> · <b className="turn">{t(`내 차례 ${turns}`, `Your turn ${turns}`)}</b></>}</span>
+      <span className="sp" />
+      <MoreMenu small icon={Icon.filter} tip={t('필터', 'Filter')} ui="기록 필터" on={filtered} items={[
+        ...SIDE_KINDS.map((kind) => ({ label: kindLabel(kind), checked: kinds.has(kind), note: String(count(kind)), onClick: () => setKinds((current) => { const next = new Set(current); if (!next.delete(kind)) next.add(kind); return next }) })),
+        { label: t('완료한 것도 보기', 'Show done too'), checked: doneOpen, note: String(everything.done.length), divider: true, onClick: () => setDoneOpen((v) => !v) },
+      ]} />
+      <MoreMenu small icon={Icon.sort} tip={t('정렬', 'Sort')} ui="기록 정렬" on={order === 'old'} items={[
+        { label: t('최근 것 먼저', 'Newest first'), checked: order === 'new', onClick: () => setOrder('new') },
+        { label: t('오래된 것 먼저', 'Oldest first'), checked: order === 'old', onClick: () => setOrder('old') },
+      ]} />
+      <button className="icon-btn sm tip-end" data-ui="기록 선택 켜기" data-tip={t('선택: 여럿을 골라 한꺼번에', 'Select several at once')} aria-label={t('선택', 'Select')} disabled={!flat.open.length && !flat.done.length} onClick={() => setPicked(new Set())}>{Icon.pick}</button>
+    </div>}
     {(unsorted.length > 0 || classifying_) && <div className="records-classify">
       <button className="a" data-ui="자동 분류 버튼" data-tip={CLASSIFY_TIP} disabled={classifying_} onClick={() => void classify()}>{classifying_ ? t('분류하는 중…', 'Sorting…') : t(`자동 분류 ${unsorted.length}개`, `Auto-sort ${unsorted.length}`)}</button>
     </div>}
     <div className="records-list" data-ui="적기 목록">
       {error && <div className="banner danger" role="alert">{error}</div>}
-      {groups.filter((g) => g.open.length).map((g) => group(g.file, g.open))}
-      {shown.length > 0 && !openCount && !error && <p className="empty records-empty">{filter === '대기' ? t('답을 기다리는 기록이 없습니다.', 'No records waiting for an answer.') : filter === '할 일' ? t('남은 할 일이 없습니다.', 'No to-dos left.') : doneCount ? t('남은 기록이 없습니다.', 'No open records.') : t('아직 기록이 없습니다. 아래에서 적어 보세요.', 'No records yet. Write one below.')}</p>}
-      {/* 완료한 것은 맨 아래에 접어 둔다: 「전체」가 말 그대로 전체가 되게 (11/21 시안 코멘트) */}
-      {doneCount > 0 && <details className="record-done-fold" data-ui="완료한 기록" open={doneOpen} onToggle={(e) => setDoneOpen(e.currentTarget.open)}>
-        <summary>{t('완료', 'Done')} <span className="n">{doneCount}</span></summary>
-        {doneOpen && groups.filter((g) => g.done.length).map((g) => group(g.file, g.done))}
+      {flat.open.length > 0 && list(flat.open)}
+      {shown.length > 0 && !flat.open.length && !error && <p className="empty records-empty">{filtered ? t('고른 종류의 기록이 없습니다.', 'No records of the chosen kinds.') : flat.done.length ? t('남은 기록이 없습니다.', 'No open records.') : t('아직 기록이 없습니다. 아래에서 적어 보세요.', 'No records yet. Write one below.')}</p>}
+      {/* 완료한 것은 맨 아래에 접어 둔다 (11/21 시안 코멘트) */}
+      {flat.done.length > 0 && <details className="record-done-fold" data-ui="완료한 기록" open={doneOpen} onToggle={(e) => setDoneOpen(e.currentTarget.open)}>
+        <summary>{t('완료', 'Done')} <span className="n">{flat.done.length}</span></summary>
+        {doneOpen && list(flat.done)}
       </details>}
-      {filter === '전체' && <RecordArchive rid={rid} target={project ? undefined : target.target} onChanged={() => { if (!project) void load(rid, target.target, true) }} />}
+      {!filtered && <RecordArchive rid={rid} target={project ? undefined : target.target} onChanged={() => { if (!project) void load(rid, target.target, true) }} />}
       {!shown.length && !error && <p className="empty records-empty">{slot.error ?? t('불러오는 중…', 'Loading…')}</p>}
       {!project && !!slot.file?.highlights.some((h) => h.lost) && <LostHighlights rid={rid} file={slot.file} />}
     </div>

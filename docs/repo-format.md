@@ -346,7 +346,7 @@ workbench/notes/
 - 위치: `p.N`(PDF 쪽), `L<n>`(줄), `전체`.
 - 상태 줄 `- 상태: <대기|답함|끝냄>`: 질문·지시는 셋 다, 할 일은 `대기`·`끝냄`, 메모는 완료했을 때만 `끝냄`(2026-11-21, 다시 열면 줄을 지운다), 다른 종류는 없음. 기록 안 어디에 있어도 되고 마지막 것이 이긴다.
 - 정보 줄 `<!-- rw: {JSON} -->`과 인용 `> "…"`은 머리 바로 아래, 본문 글보다 앞에만 둔다.
-  - JSON 키: `rects`(PDF 점, 왼쪽 위 기준 `[x,y,w,h]`), `color`(`yellow green blue pink`), `line`, `prefix`·`suffix`(각 32자), `quoteMultiline`, `unsorted`, `split`, `edit`·`editBase`, `part`·`partText`, `by`, `todo`, `field`·`fieldHash`. 예전 할 일의 `journal`·`journalIndex`(10/16 전 일지 연결)는 읽기만 하고 새로 쓰지 않는다.
+  - JSON 키: `rects`(PDF 점, 왼쪽 위 기준 `[x,y,w,h]`), `color`(`yellow green blue pink`), `line`, `prefix`·`suffix`(각 32자), `quoteMultiline`, `unsorted`, `split`, `pinned`(위에 고정, 11/28: `true`만 쓰고 풀면 키를 지운다), `edit`·`editBase`, `part`·`partText`, `by`, `todo`, `field`·`fieldHash`. 예전 할 일의 `journal`·`journalIndex`(10/16 전 일지 연결)는 읽기만 하고 새로 쓰지 않는다.
   - `by`는 그 기록을 쓴 에이전트 이름이다(10/15, 영어 소문자 · 숫자 · `-`, 20자까지, 예: `claude-code`, `codex`). 에이전트가 아니면 앱이 `src`를 적는다(10/21 "기록의 쓴 이"): `user`는 사용자가 앱에서 쓴 것, `app`은 앱이 저절로 남긴 것(개념노트 초안의 할 일 등). `by`도 `src`도 없는 기록은 2026-10-22 전 id(`c-20261021-…`까지)면 사용자가 쓴 것으로 읽고, 그 뒤 id면 앱 · MCP를 거치지 않고 파일에 직접 쓴 것이라 화면이 "작성자 없음"을 오류 색으로 보이고 `pnpm agent:check`가 오류를 낸다. 그래서 에이전트는 기록을 MCP `add_record`로 쓰고, 직접 써야 하면 정보 줄에 `by`를 적는다. 에이전트가 쓴 질문 · 지시가 `대기`면 **사용자 차례**다(앱에서 주황, 홈 "확인 필요"와 왼쪽 띠의 수에 셈). 에이전트 함(답 없는 질문 · 대기 중인 지시)에는 사용자가 쓴 것만 든다.
   - `part`·`partText`는 적기 칸의 가리키기로 고른 화면 부위(피드백 모드와 같은 부위 이름, 바깥부터 ` › `로 잇는다)와 그 부위의 글자(10/15). 노트 본문 앵커가 아니라서 다시 찾지 않는다.
   - `edit`(`질문` · `수정`)은 고침 검토의 바뀐 곳에서 물은 질문이다(10/14). 인용은 물을 때의 지금 문단, `editBase`는 고치기 전 글의 앞 200자. `수정`은 그 문단을 다시 고쳐 달라는 것: 에이전트는 `edit_note`로 다시 고치고(검토 대상으로 남음) 무엇을 바꿨는지 답을 단다(MCP `answer_record`).

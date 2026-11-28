@@ -3,3 +3,13 @@
 .menu button { display: flex; align-items: center; gap: var(--sp-2); width: 100%; padding: 6px 10px; border-radius: var(--r-sm); text-align: left; font-size: var(--fs-sm); }
 .menu button:hover { background: var(--bg-hover); }
 .menu button.on { font-weight: var(--fw-strong); }
+/* ⋯ · 필터 · 정렬 메뉴 (MoreMenu.tsx): 창 기준 자리에 띄워 좁은 사이드바와 스크롤 칸에 잘리지 않는다 */
+.more-menu { position: relative; display: inline-flex; flex: none; }
+.menu.more-menu-pop { position: fixed; min-width: 168px; }
+.more-menu-pop button.divided { margin-top: var(--sp-1); border-top: 1px solid var(--line); border-top-left-radius: 0; border-top-right-radius: 0; padding-top: var(--sp-2); }
+.more-menu-pop button.danger { color: var(--danger); }
+.more-menu-pop button:disabled { color: var(--text-3); cursor: default; }
+.more-menu-check { flex: none; width: 14px; height: 14px; display: inline-grid; place-items: center; }
+.more-menu-check svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.more-menu-label { flex: 1; min-width: 0; white-space: nowrap; }
+.more-menu-note { flex: none; color: var(--text-3); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }

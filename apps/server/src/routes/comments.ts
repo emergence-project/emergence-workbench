@@ -72,8 +72,8 @@ export function registerComments(app: FastifyInstance, ctx: RouteContext): void 
     } finally { classifying.delete(key) }
   })
   app.patch<{ Params: { rid: string; target: string; id: string } }>('/api/researches/:rid/comments/:target/:id', replies(C.CommentFile), async (req): Promise<C.CommentFile> => {
-    const { state, color, text, kind, baseHash } = parseBody(C.CommentChangeBody, req.body)
-    const f = updateComment(recordsRoot(req.params.rid), req.params.target, req.params.id, { state, color, text, kind }, baseHash)
+    const { state, color, text, kind, pinned, baseHash } = parseBody(C.CommentChangeBody, req.body)
+    const f = updateComment(recordsRoot(req.params.rid), req.params.target, req.params.id, { state, color, text, kind, pinned }, baseHash)
     // 기록을 완료하면 그 기록의 대화는 보관함으로 (10/28 시안 2절). 도는 대화는 그대로 둔다
     if (state === '끝냄') ctx.agentChats?.archiveRecord(req.params.rid, req.params.target, req.params.id)
     return f
