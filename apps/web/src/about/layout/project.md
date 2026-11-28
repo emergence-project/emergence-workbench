@@ -19,7 +19,7 @@ prs: [277, 300, 427, 473]
   - **진술** (노트 본문의 카드) — 번호 붙은 정의 · 정리 카드. 노트가 그 증명을 맡습니다.
   - **원고** (왼쪽 사이드바 › 자료) — 결과를 모으는 개인 초고. 개인 연구와 초고까지 쓰고, 공동 집필 · 투고는 Overleaf에 둡니다.
   - **참고 자료** (왼쪽 사이드바 › 자료) — 실제로 가진 PDF · 파일. 노트가 인용한 논문 정보(bib)와 논문 라이브러리의 PDF는 따로 봅니다.
-  - **기록** (왼쪽 사이드바 › 기록 · 오른쪽 사이드바) — 메모 · 할 일 · 질문을 대상(이 프로젝트 · 노트 · 주제)별로 모아 보고 적습니다(예전의 지시도 보이고, 맡길 일은 에이전트 입력란에 씁니다). 맡긴 일과 작업 일지도 여기서 보고, 내 차례에는 맡긴 일의 판단 · 에이전트의 질문 · 흐름 결정 · 수정 검토가 모입니다.
+  - **기록** (왼쪽 사이드바 › 기록 · 오른쪽 레일 › 기록) — 메모 · 할 일 · 질문을 대상(이 프로젝트 · 노트 · 주제)별로 모아 보고 적습니다(예전의 지시도 보이고, 맡길 일은 에이전트 입력란에 씁니다). 맡긴 일과 작업 일지도 여기서 보고, 내 차례에는 맡긴 일의 판단 · 에이전트의 질문 · 흐름 결정 · 수정 검토가 모입니다.
   - **맡긴 일** (기록 › 맡긴 일) — 에이전트에게 맡긴 계산 · 유도 · 대조 하나. 종결 조건을 적고 맡기면 에이전트가 그 파일을 보고서로 채우고, 사용자가 내 차례에서 승인하거나 반려합니다(멈춤 · 폐기도 고름). 흐름에 매이지 않은 일 하나로 끝나고 사용자가 결과를 직접 판단한다는 점이 흐름의 시도와 다릅니다.
   - **흐름** (왼쪽 사이드바 › 흐름, 설정 › 기능에서 설치) — 예 · 아니오로 답할 수 있는 질문 하나와 그 아래의 주장 · 시도. 사용자가 메시지(답이 예일 때와 아니오일 때 쓸 한 문장씩)와 독자를 써야 시작되고, 답(예 · 아니오 · 답 없음)을 골라 닫습니다.
   - **주장** (흐름 차트의 점) — 흐름 안에서 판단할 수 있는 한 문장(진술)과 그 문장이 성립하는 범위(조건). 상태는 적지 않고 근거인 시도의 판정에서 계산합니다.
@@ -36,7 +36,7 @@ prs: [277, 300, 427, 473]
   - **Statement** (Cards in a note body): a numbered definition or theorem card. A note carries its proof.
   - **Manuscript** (Left sidebar › Materials): a personal draft that gathers results, up to a first draft; co-writing and submission happen in Overleaf.
   - **Reference materials** (Left sidebar › Materials): PDFs and files you actually have. Paper details a note cites (bib) and PDFs in the paper library are seen separately.
-  - **Records** (Left sidebar › Records · right sidebar): memos, to-dos and questions grouped by what they are about (this project, notes, topics). Old instructions still show; work to hand over goes in the agent input. Delegated tasks and the work journal are here too, and Your turn gathers tasks to decide, agent questions, flow decisions and edit reviews.
+  - **Records** (Left sidebar › Records · Right rail › Records): memos, to-dos and questions grouped by what they are about (this project, notes, topics). Old instructions still show; work to hand over goes in the agent input. Delegated tasks and the work journal are here too, and Your turn gathers tasks to decide, agent questions, flow decisions and edit reviews.
   - **Delegated task** (Records › Delegated tasks): one calculation, derivation or comparison handed to an agent. You write completion criteria, the agent fills the file as its report, and you approve it or send it back in Your turn (or mark it Blocked or Dropped). Unlike an attempt, it is one piece of work not tied to a flow, and you judge its result directly.
   - **Flow** (Left sidebar › Flow, installed in Settings › Features): one yes-or-no question and the claims and attempts under it. It starts only when you write its message (one sentence for a yes and one for a no) and its reader, and you close it by picking Yes, No or No answer.
   - **Claim** (A dot on the flow chart): one sentence inside a flow that can be judged (the statement) and where it holds (the condition). Its status is not written but computed from the verdicts on the attempts that ground it.

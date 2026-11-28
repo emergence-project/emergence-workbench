@@ -312,11 +312,10 @@ const toPart = (id: string) => href({ page: 'about', part: id })
 /** 창의 다섯 영역 (소개 › 앱의 구성 › 전체 그림). 영역을 누르면 그 설명 쪽으로 간다 */
 export function ScreenAreasFigure() {
   return (
-    <div className="about-map" data-ui="화면 구조" role="img" aria-label={t('화면 구조: 위에 상단바, 왼쪽에 레일과 왼쪽 사이드바, 가운데 작업 패널, 오른쪽에 오른쪽 사이드바', 'Screen layout: top bar on top, rail and left sidebar on the left, work panel in the middle, right sidebar on the right')}>
-      <a className="m-title" data-ui="상단바" href={toPart('project')}><b>{t('상단바', 'Top bar')}</b><span>{t('왼쪽 사이드바 여닫기 · 뒤로 · 앞으로 · 위치', 'Toggle left sidebar · Back · Forward · Location')}</span><span className="m-title-actions">{t('(새 버전) · 검색 · 두 패널 · 피드백 · 오른쪽 사이드바 여닫기', '(New version) · Search · Two panes · Feedback · Toggle right sidebar')}</span></a>
+    <div className="about-map" data-ui="화면 구조" role="img" aria-label={t('화면 구조: 위에 상단바, 왼쪽에 레일과 왼쪽 사이드바, 가운데 작업 패널, 오른쪽에 오른쪽 사이드바와 오른쪽 레일', 'Screen layout: top bar on top, rail and left sidebar on the left, work panes in the middle, right sidebar and right rail on the right')}>
+      <a className="m-title" data-ui="상단바" href={toPart('project')}><b>{t('상단바', 'Top bar')}</b><span>{t('홈 · 왼쪽 사이드바 여닫기 · 뒤로 · 앞으로 · 위치', 'Home · Toggle left sidebar · Back · Forward · Location')}</span><span className="m-title-actions">{t('검색 · 알림 종 · 피드백 · 오른쪽 사이드바 여닫기', 'Search · Bell · Feedback · Toggle right sidebar')}</span></a>
       <div className="m-rail" data-ui="레일">
         <b>{t('레일', 'Rail')}</b>
-        <a href={toPart('home')}>{t('홈', 'Home')}</a>
         <a href={toPart('agents')}>{t('에이전트', 'Agents')}</a>
         <a href={toPart('home')}>{t('저장소', 'Repositories')}</a>
         <a href={toPart('project')}>{t('프로젝트들', 'Projects')}</a>
@@ -327,20 +326,27 @@ export function ScreenAreasFigure() {
         <span className="sp" />
         <a href={toPart('feedback')}>{t('피드백', 'Feedback')}</a>
         <a href={toPart('intro')}>{t('소개', 'About')}</a>
+        <a href={toPart('settings')}>{t('계정', 'Account')}</a>
         <a href={toPart('settings')}>{t('설정', 'Settings')}</a>
       </div>
       <div className="m-side" data-ui="왼쪽 사이드바">
         <b>{t('왼쪽 사이드바', 'Left sidebar')}</b>
-        <a href={toPart('project')}>{t('프로젝트 | 파일 | 목차', 'Project | Files | Outline')}<small>{t('위의 탭. 목차는 지금 연 노트 · 보고서의 절', 'Tabs on top. Outline is the sections of the open note or report')}</small></a>
+        <a href={toPart('project')}>{t('머리줄', 'Header row')}<small>{t('프로젝트 아이콘 · 이동 목록 | 파일 | 목차', 'Project icon · Navigation | Files | Contents')}</small></a>
         <a href={toPart('project')}>{t('프로젝트 정보', 'Project info')}<small>{t('현황 · 변경사항 · 규칙', 'Status · Changes · Rules')}</small></a>
         <a href={toPart('project')}>{t('기록', 'Records')}<small>{t('판단 · 맡긴 일 · 할 일 · 메모 · 질문', 'Decide · Delegated tasks · To-dos · Memos · Questions')}</small></a>
         <a href={href({ page: 'about', part: 'project', anchor: 'flow' })}>{t('수정 검토 · 흐름', 'Edit review · Flow')}</a>
         <a href={toPart('notes')}>{t('주제', 'Topics')}<small>{t('주제 › 노트 나무 · 노트들', 'Topic › note tree · Loose notes')}</small></a>
         <a href={toPart('reading')}>{t('자료', 'Materials')}<small>{t('원고 · 참고 자료', 'Manuscripts · Reference materials')}</small></a>
       </div>
-      <a className="m-main" data-ui="주 패널" href={toPart('project')}><b>{t('주 패널 (왼쪽)', 'Main pane (left)')}</b><span>{t('고른 노트·화면. 탭이 없으면 프로젝트 첫 화면. 노트는 늘 여기', 'The chosen note or screen. With no tabs, the project home screen. Notes always open here')}</span></a>
+      <a className="m-main" data-ui="주 패널" href={toPart('project')}><b>{t('주 패널 (왼쪽)', 'Main pane (left)')}</b><span>{t('고른 노트·화면. 위에 탭 바, 그 오른쪽 끝에 두 패널 단추', 'The chosen note or screen. Tab bar on top, with the Two panes button at its right end')}</span></a>
       <a className="m-other" data-ui="옆 패널" href={toPart('reading')}><b>{t('옆 패널 (오른쪽)', 'Side pane (right)')}</b><span>{t('노트의 PDF, 함께 볼 논문·진술', 'The note\'s PDF, papers and statements to view alongside')}</span></a>
-      <a className="m-ctx" data-ui="오른쪽 사이드바" href={toPart('notes')}><b>{t('오른쪽 사이드바', 'Right sidebar')}</b><span>{t('맨 위 아이콘 줄: 정보 · 기록 (메모 · 할 일 · 질문) · 에이전트', 'Icon row on top: Info · Records (memos · to-dos · questions) · Agent')}</span></a>
+      <a className="m-ctx" data-ui="오른쪽 사이드바" href={toPart('notes')}><b>{t('오른쪽 사이드바', 'Right sidebar')}</b><span>{t('오른쪽 레일이 고른 칸 하나: 에이전트 대화 · 정보 · 기록', 'The one view the right rail picks: agent chat · info · records')}</span></a>
+      <div className="m-rail" data-ui="오른쪽 레일">
+        <b>{t('오른쪽 레일', 'Right rail')}</b>
+        <a href={toPart('agents')}>{t('대화', 'Chat')}</a>
+        <a href={toPart('notes')}>{t('정보', 'Info')}</a>
+        <a href={toPart('project')}>{t('기록', 'Records')}</a>
+      </div>
     </div>
   )
 }
