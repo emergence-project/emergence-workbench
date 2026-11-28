@@ -118,7 +118,7 @@ export function ResearchNav({ rid, route, materials, askCount = 0, taskCount = 0
   const recordsOn = route.page === 'records' || route.page === 'todo' || route.page === 'log' || route.page === 'task'
   return (
     <div className="project-toc" data-ui="프로젝트 목차">
-      <SideTabs label={t('프로젝트', 'Project')} turn={turns.total}
+      <SideTabs label={t('프로젝트', 'Project')} turn={turns.total} home={{ icon: Icon.layers, tip: t('프로젝트 홈', 'Project home'), onClick: () => go({ page: 'overview', rid }) }}
         turnTip={t(`내 차례: 에이전트가 물은 기록 ${askCount} · 맡긴 일 결과 ${taskCount} · 흐름 결정 ${judgeCount} · 수정 검토 ${editCount}`, `Your turn: ${askCount} agent question(s), ${taskCount} task result(s), ${judgeCount} flow decision(s), ${editCount} edit review(s)`)}
         show={!!current || route.page === 'part' || route.page === 'task' || route.page === 'concept'}
         files={<FileTree rid={rid} current={currentFile} onOpen={openFile} />}>

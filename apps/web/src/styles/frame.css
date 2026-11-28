@@ -13,3 +13,16 @@
 .ws-split { align-self: center; flex: none; margin: 0 var(--sp-2) 0 var(--sp-1); }
 .ws-tabs-wrap:has(> .ws-split) { box-shadow: inset 0 -1px 0 var(--line); }
 .ws-tabs-wrap:has(> .ws-split)::after { right: 34px; }
+
+/* 왼쪽 사이드바 머리줄 (SectionToc.tsx SideTabs, 11/28): 왼쪽에 아이콘(그 장소의 홈)이나 이름, 오른쪽에 보기 단추. 탭 바와 같은 높이 */
+.side-tabbar.side-head { display: flex; align-items: center; gap: var(--sp-1); height: 36px; padding: 0 var(--sp-2); }
+.side-head .sp { flex: 1; }
+.side-head-name { padding-left: var(--sp-1); font-size: var(--fs-md); font-weight: var(--fw-title); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-head-views { display: flex; align-items: center; gap: 2px; }
+.side-head-views .icon-btn { position: relative; }
+.side-head-views .icon-btn:disabled { opacity: .35; cursor: default; }
+.side-head-n { position: absolute; top: -4px; right: -6px; }
+/* 두 사이드바의 글꼴 단계 (11/28): 머리줄 이름 > 절 이름과 맨 위 줄(항목과 같은 크기, 굵게) > 항목 > 옅은 글 */
+.side-label { font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text); }
+.project-nav > .side-quick:first-child > .side-row > .label { font-weight: var(--fw-strong); color: var(--text); }
+.side .tree-name { font-size: var(--fs-sm); }
