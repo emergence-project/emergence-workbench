@@ -3,7 +3,7 @@ import * as C from '@rw/core/contract/subjects'
 import * as CC from '@rw/core/contract/concepts'
 import { parseBody, replies } from '../contract.js'
 import path from 'node:path'
-import { acceptedSubjects, changeSubject, matchesSubject, readSubjects, readYamlHash, setEntrySubjects } from '../subjects.js'
+import { acceptedSubjects, changeSubject, matchesSubject, readSubjects, readYamlHash, setEntrySubjects, setSubjectColors } from '../subjects.js'
 import { setConceptSubjects } from '../conceptNotes.js'
 import { figureFile } from '../figures.js'
 import { libraryBibEntries } from '../papers.js'
@@ -34,6 +34,10 @@ export function registerSubjects(app: FastifyInstance, ctx: RouteContext): void 
     return { ...tree, items, suggestions, unclassified: { notes: counts.find((s) => s.subject === '')?.count ?? 0, figures: figures.filter((f) => !f.subjects?.length).length, papers: papers.filter((p) => !p.subjects?.length).length } }
   })
   app.patch('/api/subjects', replies(C.SubjectTreeSaved), async (req): Promise<C.SubjectTreeSaved> => changeSubject(lib(), parseBody(C.RenameSubjectBody, req.body), false))
+  app.put('/api/subjects/colors', replies(C.SubjectTreeSaved), async (req): Promise<C.SubjectTreeSaved> => {
+    const { colors, baseHash } = parseBody(C.SetSubjectColorsBody, req.body)
+    return setSubjectColors(lib(), colors, baseHash)
+  })
   app.post('/api/subjects', replies(C.SubjectTreeSaved), async (req): Promise<C.SubjectTreeSaved> => changeSubject(lib(), parseBody(C.AddSubjectBody, req.body), true))
   app.put<{ Params: { id: string } }>('/api/concepts/:id/subjects', replies(CC.ConceptMd), async (req): Promise<CC.ConceptMd> => {
     const { subjects, baseHash } = parseBody(C.SetSubjectsBody, req.body)

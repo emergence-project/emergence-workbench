@@ -1,0 +1,101 @@
+/* 지식 지도 (11/28 "지식 지도 방식 개선", KnowledgeMap.tsx · KnowledgeGraph.tsx): 지도 위 가운데 툴바 하나, 아래 범례 띠, 오른쪽 미리 보기 */
+.kg-layout { min-height: 0; }
+.kn-map { container-type: inline-size; flex: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.kn-map-bar { display: flex; align-items: center; gap: var(--sp-3); min-height: 41px; padding: 0 var(--sp-4); border-bottom: 1px solid var(--line); font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; }
+.kn-map-bar > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.kn-map-bar .muted { font-size: var(--fs-sm); }
+.kn-trail { color: var(--text-3); }
+.kn-trail b { color: var(--text); }
+
+.kg-area { position: relative; flex: 1; min-height: 0; background: var(--bg); }
+.kg-canvas { position: absolute; inset: 0; }
+.kg-empty { padding: var(--sp-4); }
+
+/* 툴바: PDF 읽기 툴바(pdf.css .pdf-tools)와 같은 떠 있는 둥근 막대 */
+.kg-tools-wrap { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 6; max-width: calc(100% - 16px); }
+.kg-tools { display: flex; align-items: center; gap: 2px; padding: 3px; background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-pill); box-shadow: var(--shadow); white-space: nowrap; overflow-x: auto; scrollbar-width: none; }
+.kg-tools > * { flex-shrink: 0; }
+.kg-tool { height: 28px; min-width: 28px; padding: 0 var(--sp-2); border-radius: var(--r-pill); font-size: var(--fs-sm); color: var(--text-2); display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.kg-tool:hover:not(:disabled) { background: var(--bg-hover); color: var(--text); }
+.kg-tool:disabled { opacity: .35; }
+.kg-tool.on { background: var(--bg-sunken); color: var(--text); }
+.kg-tool.labeled { color: var(--text); font-weight: var(--fw-medium); padding: 0 10px; }
+.kg-zoom { min-width: 50px; font-variant-numeric: tabular-nums; padding: 0 var(--sp-1); }
+.kg-sep { width: 1px; height: 18px; background: var(--line-strong); margin: 0 var(--sp-1); }
+.kg-search { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 var(--sp-3) 0 10px; border-radius: var(--r-pill); background: var(--bg-sunken); color: var(--text-3); cursor: text; }
+.kg-search input::-webkit-calendar-picker-indicator { display: none !important; }
+.kg-search input { border: 0; background: transparent; font: inherit; font-size: var(--fs-sm); width: 130px; outline: 0; color: var(--text); padding: 0; }
+.kg-seg { display: inline-flex; background: var(--bg-sunken); border-radius: var(--r-pill); padding: 2px; gap: 2px; }
+.kg-seg .kg-tool { height: 24px; padding: 0 9px; }
+.kg-seg .kg-tool.on { background: var(--bg); color: var(--text); box-shadow: 0 0 0 1px var(--line-strong), var(--shadow-sm); }
+.kg-dots { display: inline-grid; grid-template-columns: 6px 6px; gap: 2px; }
+.kg-dots i { width: 6px; height: 6px; border-radius: 50%; }
+
+/* 분야 색 창: 분야 목록, 누른 분야만 색 12개 */
+.kg-colors { position: absolute; top: calc(100% + 6px); right: 0; width: 252px; background: var(--bg); border: 1px solid var(--line-strong); border-radius: var(--r-md); box-shadow: var(--shadow); padding: 6px; font-size: var(--fs-sm); z-index: var(--z-menu); }
+.kg-crow { display: flex; align-items: center; gap: var(--sp-2); width: 100%; text-align: left; padding: 5px var(--sp-2); border-radius: var(--r-sm); color: var(--text); }
+.kg-crow:hover, .kg-crow.on { background: var(--bg-sunken); }
+.kg-crow i { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.kg-cname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kg-chev { color: var(--text-3); }
+.kg-down { transform: rotate(180deg); }
+.kg-pal { display: grid; grid-template-columns: repeat(6, 22px); gap: 6px; padding: var(--sp-2) var(--sp-2) var(--sp-2) 28px; }
+.kg-sw { width: 22px; height: 22px; border-radius: 50%; position: relative; box-shadow: 0 0 0 1px var(--line); }
+.kg-sw.on { box-shadow: 0 0 0 2px var(--bg), 0 0 0 3.5px var(--text); }
+.kg-sw.taken::after { content: ""; position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: var(--bg); }
+.kg-pal-hint { grid-column: 1 / -1; color: var(--text-3); font-size: var(--fs-2xs); white-space: nowrap; }
+.kg-colors-foot { display: flex; justify-content: flex-end; margin-top: var(--sp-1); padding: 6px var(--sp-2) 2px; border-top: 1px solid var(--line); font-size: var(--fs-xs); }
+
+/* 가리킨 점의 팝업 */
+.kg-pop { position: absolute; z-index: 7; pointer-events: none; max-width: 260px; background: var(--text); color: var(--bg); border-radius: var(--r-sm); padding: 6px 9px; font-size: var(--fs-xs); line-height: 1.35; box-shadow: var(--shadow); }
+.kg-pop b { display: block; font-size: var(--fs-sm); font-weight: var(--fw-strong); }
+.kg-pop span { opacity: .8; }
+
+/* 범례: 지도 아래 한 띠, 세 칸. 접으면 한 줄 */
+.kg-legend { position: relative; display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, .8fr) minmax(0, 1fr); background: var(--bg-side); border-top: 1px solid var(--line); font-size: var(--fs-xs); color: var(--text); }
+.kg-lgrp { padding: var(--sp-2) 14px 10px; min-width: 0; }
+.kg-lgrp + .kg-lgrp { border-left: 1px solid var(--line); }
+.kg-lgrp p { margin: 0 0 5px; color: var(--text-3); font-size: var(--fs-2xs); font-weight: var(--fw-strong); }
+.kg-lcols { display: grid; grid-template-columns: 1fr 1fr; column-gap: var(--sp-4); }
+.kg-lr { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 6px; align-items: center; padding: 1px 0; }
+.kg-ln { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kg-lc { color: var(--text-3); font-variant-numeric: tabular-nums; }
+.kg-lsw { width: 11px; height: 11px; border-radius: 50%; display: inline-block; margin-left: 1px; }
+.kg-faded { background: var(--line-strong); }
+.kg-lsize { display: inline-flex; align-items: center; gap: 1px; }
+.kg-lsize i { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--text-2); }
+.kg-lsize i + i { width: 9px; height: 9px; }
+.kg-lline { display: inline-block; width: 13px; height: 1.5px; background: var(--text-2); }
+.kg-lhint { margin: var(--sp-1) 0 0 !important; font-weight: var(--fw-normal) !important; }
+.kg-shape { width: 12px; height: 12px; color: var(--text-2); flex-shrink: 0; }
+.kg-fold { position: absolute; top: 5px; right: 6px; width: 26px; height: 26px; border-radius: var(--r-pill); color: var(--text-3); display: grid; place-items: center; z-index: 1; }
+.kg-fold:hover { background: var(--bg-hover); color: var(--text); }
+.kg-legend-mini { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 14px; text-align: left; white-space: nowrap; overflow: hidden; }
+.kg-legend-mini:hover { color: var(--text); background: var(--bg-hover); }
+.kg-legend-mini b { font-size: var(--fs-2xs); font-weight: var(--fw-strong); }
+.kg-mini-dots { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.kg-mini-dots i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.kg-legend-mini .kg-chev { margin-left: auto; }
+
+/* 오른쪽 사이드바 미리 보기 */
+.kg-pv-empty { font-size: var(--fs-sm); }
+.kg-pv-st { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--text-3); font-size: var(--fs-xs); }
+.kg-pv-title { margin: 6px 0 2px; font-size: var(--fs-lg); font-weight: var(--fw-title); }
+.kg-pv-sub { margin: 0 0 10px; font-size: var(--fs-xs); }
+.kg-pv-sum .ob-md { font-size: var(--fs-sm); color: var(--text-2); line-height: 1.55; }
+.kg-pv-act { display: flex; gap: var(--sp-2); margin: 10px 0 14px; }
+.kg-pv-h { margin: 10px 0 6px; color: var(--text-3); font-size: var(--fs-xs); font-weight: var(--fw-strong); }
+.kg-chips { display: flex; flex-wrap: wrap; gap: 2px 0; }
+
+/* 좁은 폭: 범례는 한 칸씩 세로로, 툴바 글은 줄인다. 폰의 ＋ 메모 버튼 자리를 비운다 */
+/* 지도 폭이 좁으면 (오른쪽 사이드바를 연 1200 폭 등) 분야는 한 줄씩, 더 좁으면 칸을 세로로 */
+@container (max-width: 720px) { .kg-lcols { grid-template-columns: 1fr; } }
+@container (max-width: 520px) { .kg-legend { grid-template-columns: 1fr; } .kg-lgrp + .kg-lgrp { border-left: 0; border-top: 1px solid var(--line); } }
+@media (max-width: 760px) {
+  .kg-legend { grid-template-columns: 1fr; }
+  .kg-lgrp + .kg-lgrp { border-left: 0; border-top: 1px solid var(--line); }
+  .kg-search input { width: 90px; }
+  .kg-tool-label, .kg-seg .kg-tool > span:last-child { display: none; }
+  .kg-seg .kg-tool { padding: 0 var(--sp-2); }
+}
+@media (max-width: 600px) { .kg-legend, .kg-legend-mini { padding-right: 112px; } }

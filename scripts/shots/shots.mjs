@@ -61,7 +61,9 @@ try {
   if (!rid) throw new Error('예제 연구가 등록되지 않았습니다')
 
   fs.mkdirSync(out, { recursive: true })
-  const browser = process.env.SHOTS_BROWSER === 'webkit' ? await webkit.launch() : await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {})
+  // 지식 지도는 WebGL(sigma.js)로 그린다: GPU가 없는 CI · 클라우드에서도 그리도록 소프트웨어 WebGL을 켠다 (11/28)
+  const GL_ARGS = ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']
+  const browser = process.env.SHOTS_BROWSER === 'webkit' ? await webkit.launch() : await chromium.launch({ ...(process.env.CHROMIUM_PATH && { executablePath: process.env.CHROMIUM_PATH }), args: GL_ARGS })
   const page = await browser.newPage({ viewport: options.viewport, deviceScaleFactor: options.scale, reducedMotion: 'reduce', colorScheme: screenScheme(options.theme, SCREENS[0]?.[0] ?? '') })
   // Start in the capture language, so the first screen does not load in the browser language and reload (i18n.ts)
   await page.addInitScript((language) => { try { if (!localStorage.getItem('rw-ui')) localStorage.setItem('rw-ui', JSON.stringify({ language })) } catch { /* ignore */ } }, options.lang)
@@ -269,6 +271,8 @@ try {
       if ((on || sel.includes('data-mode=')) && await target.evaluate((el) => el.getAttribute('aria-pressed') === 'true' || el.getAttribute('aria-selected') === 'true', undefined, { timeout: 10_000 }).catch(() => false)) continue
       await target.click({ timeout: 10_000, force }).catch(() => problems.push(`${name}: ${sel}를 누르지 못함`))
     }
+    // 지식 지도는 점 모양 그림을 늦게 읽어 다시 그린다 (WebGL)
+    if (name.includes('knowledge-map')) await page.waitForTimeout(1200)
     if (name === 'note-select') await page.locator('.note-ask p').filter({ visible: true }).first().click({ clickCount: 3, timeout: 10_000 }).catch(() => problems.push(`${name}: 본문 글을 고르지 못함`))
     const uiSel = ui && (ui.startsWith('[') ? ui : `[data-ui="${ui}"]`)
     if (uiSel) await page.locator(uiSel).filter({ visible: true }).first().waitFor({ timeout: 10_000 }).catch(() => problems.push(`${name}: ${uiSel} 없음`))

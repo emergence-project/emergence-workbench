@@ -491,6 +491,7 @@ checked:
 - 파일이 있으면 분류를 쓰고, 없으면 옛 `subject:` 글자를 쓴다.
 - id → `{name}`. id는 `/`로 이은 3단계까지(`math/graph/coloring`), 부모가 있어야 한다.
 - 노트·논문·그림의 `subjects`는 1~3개, 모두 있는 id여야 한다. 하나라도 틀리면 분류 안 됨으로 본다. 첫째가 대표.
+- 맨 위 분류(분야)에는 `color:`를 둘 수 있다(2026-11-28 지식 지도의 점 색): `violet` · `indigo` · `blue` · `cyan` · `teal` · `green` · `olive` · `ochre` · `brown` · `pink` · `magenta` · `gray` 중 하나(`packages/core/src/field-colors.ts`). 모르는 이름은 없는 것으로 보고, 없으면 지도가 기본 차례로 정한다. 앱은 `PUT /api/subjects/colors`로 한 번에 여럿(맞바꾸기)을 고친다.
 
 ### 10.3 논문 코멘트
 

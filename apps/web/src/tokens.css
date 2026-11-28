@@ -49,6 +49,9 @@
   --paint-yellow: rgba(255,208,40,.38); --paint-green: rgba(110,200,100,.34); --paint-blue: rgba(90,145,240,.3); --paint-pink: rgba(240,110,165,.3);
   --select-bg: rgba(37,99,235,.28);
   --proj-1: #7c3aed; --proj-2: #0e7490; --proj-3: #c2410c; --proj-4: #15803d; --proj-5: #be185d;
+  /* 지식 지도의 분야 색 (11/28, 색은 상태에만의 예외: 지도의 점에만 쓴다. 이름은 packages/core/src/field-colors.ts) */
+  --field-violet: #7c3aed; --field-indigo: #4f46e5; --field-blue: #2563eb; --field-cyan: #0e7490; --field-teal: #0f766e; --field-green: #15803d;
+  --field-olive: #4d7c0f; --field-ochre: #a16207; --field-brown: #8a4b14; --field-pink: #be185d; --field-magenta: #a21caf; --field-gray: #6a6a66;
   --shadow: 0 1px 2px rgba(0,0,0,.05), 0 6px 20px rgba(0,0,0,.06);
   /* 카드 (10/5 주제·노트 카드): 카드 바탕, 주제 카드 미리보기 바탕색 다섯(정해 둔 색만, 고치기 창에서 고름), 기본 = 프로젝트 색을 이만큼 섞은 옅은 색 */
   --card-bg: #fcfcfb;
@@ -128,6 +131,8 @@
     --hl-bg: rgba(255,213,64,.25);
     --paint-yellow: rgba(255,208,40,.32); --paint-green: rgba(110,200,100,.3); --paint-blue: rgba(110,160,250,.32); --paint-pink: rgba(245,120,175,.3);
     --proj-1: #a78bfa; --proj-2: #22a5c4; --proj-3: #f97316; --proj-4: #4ade80; --proj-5: #f472b6;
+    --field-violet: #a78bfa; --field-indigo: #818cf8; --field-blue: #60a5fa; --field-cyan: #22b8cf; --field-teal: #2dd4bf; --field-green: #4ade80;
+    --field-olive: #a3c94a; --field-ochre: #e0a83a; --field-brown: #c08457; --field-pink: #f472b6; --field-magenta: #e879f9; --field-gray: #a8a8a3;
     --card-bg: #363634;
     --tc-violet: #463f5c; --tc-blue: #35465a; --tc-teal: #324a46; --tc-orange: #54432f; --tc-gray: #4a4a47;
     --tc-mix: 24%;
@@ -155,6 +160,8 @@
     --hl-bg: rgba(255,213,64,.25);
     --paint-yellow: rgba(255,208,40,.32); --paint-green: rgba(110,200,100,.3); --paint-blue: rgba(110,160,250,.32); --paint-pink: rgba(245,120,175,.3);
     --proj-1: #a78bfa; --proj-2: #22a5c4; --proj-3: #f97316; --proj-4: #4ade80; --proj-5: #f472b6;
+    --field-violet: #a78bfa; --field-indigo: #818cf8; --field-blue: #60a5fa; --field-cyan: #22b8cf; --field-teal: #2dd4bf; --field-green: #4ade80;
+    --field-olive: #a3c94a; --field-ochre: #e0a83a; --field-brown: #c08457; --field-pink: #f472b6; --field-magenta: #e879f9; --field-gray: #a8a8a3;
     --card-bg: #363634;
     --tc-violet: #463f5c; --tc-blue: #35465a; --tc-teal: #324a46; --tc-orange: #54432f; --tc-gray: #4a4a47;
     --tc-mix: 24%;

@@ -1240,5 +1240,16 @@
   "기록 수": "Record count",
   "기록 필터": "Record filter",
   "기록 정렬": "Record sort",
-  "기록 선택 켜기": "Start selecting"
+  "기록 선택 켜기": "Start selecting",
+  "지식 지도 그림": "Knowledge map graph",
+  "지식 지도 머리줄": "Knowledge map header",
+  "지식 지도 툴바": "Knowledge map toolbar",
+  "맞추기 비율": "Zoom ratio",
+  "화면에 맞추기": "Fit to screen",
+  "분야 색": "Field colors",
+  "개념 찾기": "Find a concept",
+  "분야 색 창": "Field color panel",
+  "지도 범례": "Map legend",
+  "지식 지도 미리 보기 내용": "Knowledge map preview content",
+  "지식 지도 미리 보기": "Knowledge map preview"
 }
