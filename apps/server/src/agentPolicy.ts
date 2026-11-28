@@ -12,6 +12,7 @@ import { commandCritical } from './critical.js'
 import { SANDBOX_NET_TOOL } from './agentSandbox.js'
 import { isInside } from './fsutil.js'
 import { t } from './i18n.js'
+import { isResearchWrite } from './mcpToolKinds.js'
 
 // ---------- 허락 규칙 (순수 함수) ----------
 
@@ -29,10 +30,6 @@ export const FREE_TOOLS = new Set(['Skill', 'TodoWrite', 'Task', 'Agent', 'ToolS
 export const PLAN_TOOL = 'ExitPlanMode'
 /** 파일을 바로 쓰는 도구: 1단계에서는 막는다 (노트는 edit_note로) */
 export const FILE_WRITE_TOOLS = ['Write', 'Edit', 'MultiEdit', 'NotebookEdit'] as const
-// 맡긴 일 · 일지 쓰기와 흐름의 claim_add · attempt_record · problem_exception 도 쓰기다 (11/27 보안 검토: 빠져 있어 읽기 전용 · 계획 승인 전에도 묻지 않고 썼다)
-export const MCP_WRITES = new Set(['new_note', 'edit_note', 'edit_concept', 'add_record', 'answer_record', 'problem_propose', 'problem_prepare', 'attempt_add', 'attempt_start', 'attempt_report', 'attempt_verdict', 'direction_report', 'claim_add', 'attempt_record', 'problem_exception', 'add_task', 'report_task', 'checkpoint_task', 'add_journal'])
-/** 앱 고치기 대화가 막는 연구 쪽 쓰기 */
-export const RESEARCH_WRITES = MCP_WRITES
 /** 앱 고치기 대화만 쓰는 앱 MCP 도구: 커밋해 PR 열기 · CI 결과 */
 export const APP_SUBMIT = 'app_submit'
 export const APP_CHECKS = 'app_checks'
@@ -175,7 +172,7 @@ function judgeCentral(ctx: PolicyCtx, tool: string, input: Record<string, unknow
     if (writesFiles(cmd)) return centralWrites
     if (cmd.trim()) return bypassAsk(ctx, cmd, str(input.description))
   }
-  const writes = name ? RESEARCH_WRITES.has(name) || name === APP_SUBMIT || name === APP_CHECKS || name === APP_MERGE || name === FEEDBACK_ANSWER : tool === 'Bash' || (FILE_WRITE_TOOLS as readonly string[]).includes(tool)
+  const writes = name ? isResearchWrite(name) || name === APP_SUBMIT || name === APP_CHECKS || name === APP_MERGE || name === FEEDBACK_ANSWER : tool === 'Bash' || (FILE_WRITE_TOOLS as readonly string[]).includes(tool)
   if (!writes) return name ? { kind: 'allow' } : undefined
   return {
     kind: 'deny',
@@ -270,7 +267,7 @@ function judgeApp(ctx: PolicyCtx, tool: string, input: Record<string, unknown>):
       if (ctx.mode === 'ask') return { kind: 'ask', summary: t('PR 합치기 (squash)', 'Merge PR (squash)'), key: APP_MERGE, label: t('PR 합치기', 'Merge PR') }
       return { kind: 'allow' }
     }
-    if (!RESEARCH_WRITES.has(name)) return { kind: 'allow' }
+    if (!isResearchWrite(name)) return { kind: 'allow' }
     return { kind: 'deny', reason: t('앱 고치기 대화는 연구 프로젝트를 고치지 않습니다', 'App conversations do not change research projects'), message: 'This conversation fixes the app itself; it does not change research notes, records, tasks or flows. Tell the user what should change there instead.' }
   }
   if (tool === 'WebFetch' || tool === 'WebSearch') return judgeWeb(ctx, tool, describeStep(ctx, tool, input).summary)
@@ -340,7 +337,7 @@ export function judge(ctx: PolicyCtx, tool: string, input: Record<string, unknow
   }
   if (tool.startsWith(MCP)) {
     const name = tool.slice(MCP.length)
-    if (!MCP_WRITES.has(name)) return { kind: 'allow' }
+    if (!isResearchWrite(name)) return { kind: 'allow' }
     if (ctx.write === 'read') {
       return { kind: 'deny', reason: t('읽기만 하는 대화라 고치지 않습니다', 'This conversation is read-only'), message: 'This conversation is read-only: do not change notes, records or problems. Tell the user what you would change instead.' }
     }
