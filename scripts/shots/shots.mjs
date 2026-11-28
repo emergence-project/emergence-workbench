@@ -213,7 +213,7 @@ try {
         if (!r.ok) problems.push(`${name}: 처리 기록을 적지 못함 (${r.status})`)
       }
     }
-    if (name === 'agent-beside') {
+    if (name === 'agent-beside' || name === 'agent-panel-chat') {
       // 나란히: 새 문서로 열어 패널을 닫힌 채 시작하고, 끝난 대화를 연 채로
       await page.goto('about:blank')
       await page.goto(base)
@@ -353,7 +353,7 @@ try {
     // 피드백 모드를 켠 채 다음 화면으로 가면 누르기가 모두 피드백 창을 연다: 창을 닫고 모드를 끈다
     if (name === 'feedback-mode-pane') { await page.keyboard.press('Escape'); await page.keyboard.press('Escape') }
     // 패널 자리와 나란히 연 탭을 되돌려 뒤 화면이 같게
-    if (name === 'agent-beside') {
+    if (name === 'agent-beside' || name === 'agent-panel-chat') {
       await page.evaluate((rid) => { localStorage.removeItem(`rw-agent-panel-${rid}`); localStorage.removeItem(`rw-ws-${rid}`) }, rid)
       await page.goto('about:blank')
     }
