@@ -2,6 +2,8 @@
 // 중계 서버가 관리자 개인 저장소의 feedback/from/<보낸 사람>-<번호>/에 커밋하고, 관리자 앱은 개인 저장소를 받을 때 그것을 함께 본다.
 // 보낸 기록(feedback-relay.json, 앱 설정 폴더)에 날짜 파일마다 내용 해시와 보낸 그림을 적어 바뀐 날짜와 새 그림만 보낸다.
 // 이미 보낸 날짜는 그때의 이름으로 다시 보낸다(as): 나중에 이름을 넣어도 관리자 쪽에 같은 항목이 두 폴더로 갈라지지 않게 (11/9).
+// 사용자가 켜기 전에는 보내지 않는다 (11/27 배포 계약 4, docs/release-contract.md): 처음 한 번은 사용자가 「관리자에게 보내기」를 눌러야 하고,
+// 그 누름을 동의(consent)로 적은 뒤에만 설정 › 동기화의 기록 올리기 주기에 따라 저절로 보낸다(수동이면 버튼으로만).
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -14,7 +16,7 @@ import { WorkbenchError } from './workbench.js'
 /** 관리자가 띄운 중계 서버 주소 (relay/README.md). 비우면 바로 보내기를 쓰지 않는다 (RW_FEEDBACK_RELAY로 바꿀 수 있다) */
 export const FEEDBACK_RELAY_URL = 'https://workbench-feedback.sungmin-park-0226.workers.dev'
 
-interface Sent { days: Record<string, string>; pictures: string[]; as?: Record<string, string>; at?: number; error?: string | null }
+interface Sent { days: Record<string, string>; pictures: string[]; as?: Record<string, string>; at?: number; error?: string | null; consent?: boolean }
 
 const senderFile = (configDir: string) => path.join(configDir, 'feedback-sender.json')
 const sentFile = (configDir: string) => path.join(configDir, 'feedback-relay.json')
@@ -37,10 +39,21 @@ function readSent(configDir: string): Sent {
     const v: unknown = JSON.parse(fs.readFileSync(sentFile(configDir), 'utf8'))
     if (v && typeof v === 'object' && 'days' in v && v.days && typeof v.days === 'object' && 'pictures' in v && Array.isArray(v.pictures)) {
       const strings = (o: object) => Object.fromEntries(Object.entries(o).filter((e): e is [string, string] => typeof e[1] === 'string'))
-      return { days: strings(v.days), pictures: v.pictures.filter((x): x is string => typeof x === 'string'), ...('as' in v && typeof v.as === 'object' && v.as !== null ? { as: strings(v.as) } : {}), ...('at' in v && typeof v.at === 'number' && { at: v.at }), ...('error' in v && typeof v.error === 'string' && { error: v.error }) }
+      return { days: strings(v.days), pictures: v.pictures.filter((x): x is string => typeof x === 'string'), ...('as' in v && typeof v.as === 'object' && v.as !== null ? { as: strings(v.as) } : {}), ...('at' in v && typeof v.at === 'number' && { at: v.at }), ...('error' in v && typeof v.error === 'string' && { error: v.error }), ...('consent' in v && v.consent === true && { consent: true }) }
     }
   } catch { /* 없음 */ }
   return { days: {}, pictures: [] }
+}
+
+/** 사용자가 보내기를 켰는지: 「관리자에게 보내기」를 한 번 누른 뒤로 참. 거짓이면 저절로 보내지 않는다 */
+export const relayConsented = (configDir: string): boolean => readSent(configDir).consent === true
+
+/** 사용자가 「관리자에게 보내기」를 눌렀다: 이 뒤로는 남길 때마다 저절로 보낸다 */
+export function grantRelayConsent(configDir: string): void {
+  const sent = readSent(configDir)
+  if (sent.consent) return
+  fs.mkdirSync(configDir, { recursive: true })
+  writeAtomic(sentFile(configDir), JSON.stringify({ ...sent, consent: true }) + '\n')
 }
 
 /** 아직 보내지 않은 날짜 파일과 그림만 담은 묶음, 그리고 그 안의 항목 수 */
@@ -54,7 +67,7 @@ export function pendingBundle(dir: string, configDir: string, from: string, now 
   return { bundle: { ...full, days, pictures }, count, sent }
 }
 
-/** 보내기 상태: 마지막으로 보낸 때와 실패 문장, 보낼 항목 수, 보내는 이름(named: 내 이름이나 GitHub 계정에서 왔는지) */
+/** 보내기 상태: 마지막으로 보낸 때와 실패 문장, 보낼 항목 수, 보내는 이름(named: 내 이름이나 GitHub 계정에서 왔는지). 저절로 보내는지(auto)는 라우트가 보내기 타이머와 같은 판단으로 붙인다 */
 export function relayStatus(dir: string, configDir: string, sender: { from: string; named: boolean }) {
   const sent = readSent(configDir)
   const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => /^\d{4}-\d{2}-\d{2}\.md$/.test(f)) : []

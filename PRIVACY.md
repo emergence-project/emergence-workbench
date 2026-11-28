@@ -8,7 +8,7 @@ Emergence Workbench is a local app. It has no account with us, no server of ours
 
 - The app server listens on `127.0.0.1` only. Other computers on your network cannot reach it.
 - Settings live in `~/.config/research-workspace/`. Sign-in tokens there are readable by your user only.
-- The app collects no analytics, crash reports or usage counts, and sends nothing to the app's maintainers.
+- The app collects no analytics, crash reports or usage counts. It sends nothing to the app's maintainers unless you send them feedback (the last row below).
 
 ## What leaves your computer, and only when you set it up
 
@@ -19,6 +19,7 @@ Emergence Workbench is a local app. It has no account with us, no server of ours
 | Google (optional) | Sign-in, read-only calendar, and an app-only Drive folder holding app settings and the project list (repository addresses and tags). Never note or manuscript contents | Only after you connect a Google account in Settings › Accounts |
 | arXiv, Semantic Scholar, Crossref, doi.org | Paper identifiers or titles you look up | When you add a paper or look up a person's papers |
 | Your coding agent (Claude Code, Codex, …) | The notes, records and files the agent reads for a task you give it. The agent runs with your own sign-in and sends that content to its provider (Anthropic, OpenAI, …) under that provider's terms | Only when you ask an agent, or turn on an automatic agent setting |
+| The maintainers' feedback relay (apps without a personal repository, such as the downloaded app) | The comments you leave in feedback mode, each with what is saved alongside it: the screen and the part you pointed at, up to 120 characters of the text there (which can be your own notes), the open note's name, window size and theme, app version and time, and the screen picture. Also a sending name (your name on the Account page, else your GitHub account, else the computer's user name; shown next to the button) and a random app number | Nothing before you click **Send to maintainer** on the feedback screen. After that first click, new feedback is sent once the Push records interval in Settings › Sync has passed (30 seconds at first). Set that to Manual to send only with the button |
 
 Nothing else is sent. If you find a network call not listed here, please report it as a bug.
 
@@ -32,7 +33,7 @@ Uninstall the app and delete `~/.config/research-workspace/`. Your research repo
 
 Emergence Workbench는 내 컴퓨터에서 도는 앱입니다. 우리 쪽 계정이나 서버가 없고, 사용 기록을 모으지 않습니다. 컴퓨터 밖으로 나가는 것을 모두 적습니다.
 
-**컴퓨터 안에 남는 것:** 앱 서버는 `127.0.0.1`에서만 열려 같은 네트워크의 다른 컴퓨터도 들어오지 못합니다. 설정은 `~/.config/research-workspace/`에 있고, 로그인 토큰은 내 사용자만 읽을 수 있습니다. 사용 통계·오류 보고·사용 횟수를 모으지 않고, 앱 관리자에게 아무것도 보내지 않습니다.
+**컴퓨터 안에 남는 것:** 앱 서버는 `127.0.0.1`에서만 열려 같은 네트워크의 다른 컴퓨터도 들어오지 못합니다. 설정은 `~/.config/research-workspace/`에 있고, 로그인 토큰은 내 사용자만 읽을 수 있습니다. 사용 통계·오류 보고·사용 횟수를 모으지 않습니다. 앱 관리자에게는 내가 피드백을 보낼 때만 보냅니다(아래 표 마지막 줄).
 
 **밖으로 나가는 것 (내가 설정했을 때만):**
 
@@ -43,6 +44,7 @@ Emergence Workbench는 내 컴퓨터에서 도는 앱입니다. 우리 쪽 계�
 | Google (선택) | 로그인, 달력 읽기, 앱 전용 드라이브 폴더(앱 설정과 프로젝트 목록: 저장소 주소 · 태그). 노트 · 원고 내용은 보내지 않음 | 설정 › 계정에서 구글을 연결한 뒤에만 |
 | arXiv · Semantic Scholar · Crossref · doi.org | 찾는 논문의 번호나 제목 | 논문을 더하거나 사람의 논문을 찾을 때 |
 | 내 코딩 에이전트(Claude Code · Codex 등) | 맡긴 일에 에이전트가 읽는 노트 · 기록 · 파일. 에이전트는 내 로그인으로 돌고, 그 내용을 제공자(Anthropic · OpenAI 등)의 약관에 따라 보냄 | 에이전트에게 물었을 때, 또는 자동 에이전트 설정을 켰을 때만 |
+| 관리자의 피드백 중계 서버 (개인 저장소 없이 쓰는 앱, 내려받은 앱 등) | 피드백 모드로 남긴 코멘트와 함께 적힌 것: 화면과 가리킨 부위, 거기 있던 글자 120자까지(내 노트 글일 수 있음), 열린 노트 이름, 창 크기 · 테마, 앱 버전 · 시각, 화면 그림. 그리고 보내는 이름(계정의 내 이름, 없으면 GitHub 계정, 그것도 없으면 컴퓨터 사용자 이름. 버튼 옆에 보임)과 무작위 앱 번호 | 피드백 화면의 **관리자에게 보내기**를 누르기 전에는 보내지 않음. 한 번 누른 뒤로는 설정 › 동기화의 기록 올리기 주기(처음 30초)가 지나면 보냄. 그 주기를 수동으로 두면 버튼으로만 |
 
 이 밖에는 보내지 않습니다. 표에 없는 네트워크 연결을 찾으면 버그로 알려 주세요.
 

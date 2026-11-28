@@ -17,7 +17,7 @@ import { readFeedbackCloud, writeFeedbackCloud } from '../feedbackCloud.js'
 import { CLAIM_TTL_MS, isLiveClaim, lastTouched, readClaims, releaseClaims } from '../feedbackClaims.js'
 import { exportFeedback, importFeedback } from '../feedbackBundle.js'
 import { MOCKUP_FILE, mockupType } from '../feedbackMockups.js'
-import { relayStatus, sendToRelay, senderId } from '../feedbackRelay.js'
+import { grantRelayConsent, relayConsented, relayStatus, sendToRelay, senderId } from '../feedbackRelay.js'
 import { revealInFinder } from '../materials.js'
 import { repoInfo } from '../gitsync.js'
 import os from 'node:os'
@@ -55,11 +55,18 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     return run
   }
   let relayTimer: NodeJS.Timeout | null = null
+  // 저절로 보낼지 (배포 계약 4: 관리자에게 가는 것은 사용자가 켠 뒤에만): 중계가 있고, 사용자가 「관리자에게 보내기」를 한 번 눌렀고,
+  // 설정 › 동기화의 기록 올리기가 수동이 아닐 때. 보내는 타이머와 화면 · 검사가 보는 relay.auto가 이 하나를 쓴다
+  const relayDelay = (): number | null => {
+    if (!opts.feedbackDir || !opts.feedbackRelay || !relayConsented(ctx.registry.configDir)) return null
+    return syncDelayMs(ctx.registry, 'publish', opts.feedbackAutoPublishMs)
+  }
   const scheduleRelay = () => {
-    const delay = syncDelayMs(ctx.registry, 'publish', opts.feedbackAutoPublishMs)
-    if (!opts.feedbackDir || !opts.feedbackRelay || delay === null) return
+    const delay = relayDelay()
+    if (delay === null) return
     if (relayTimer) clearTimeout(relayTimer)
-    relayTimer = setTimeout(() => { relayTimer = null; relayOnce().catch((e) => app.log.warn({ err: e }, '피드백 바로 보내기 실패')) }, delay)
+    // 기다리는 사이 수동으로 바꿨으면 보내지 않는다
+    relayTimer = setTimeout(() => { relayTimer = null; if (relayDelay() === null) return; relayOnce().catch((e) => app.log.warn({ err: e }, '피드백 바로 보내기 실패')) }, delay)
   }
   const scheduleAutoPublish = () => {
     scheduleRelay()
@@ -124,7 +131,7 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     autoPublish: !!opts.feedbackDir && !!opts.feedbackPublish && opts.feedbackAutoPublishMs !== undefined,
     delay: (() => { const d = syncDelayMs(ctx.registry, 'publish', opts.feedbackAutoPublishMs); return d === null ? null : Math.round(d / 1000) })(),
     lastAutoPublish: lastAuto,
-    relay: opts.feedbackDir && opts.feedbackRelay ? relayStatus(opts.feedbackDir, ctx.registry.configDir, { from: sender(), named: !!named() }) : null,
+    relay: opts.feedbackDir && opts.feedbackRelay ? { ...relayStatus(opts.feedbackDir, ctx.registry.configDir, { from: sender(), named: !!named() }), auto: relayDelay() !== null } : null,
     entries: opts.feedbackDir ? listFeedback(opts.feedbackDir) : [],
   }))
 
@@ -178,9 +185,10 @@ export function registerFeedback(app: FastifyInstance, ctx: RouteContext): void 
     if (!opts.sandbox && !process.env.VITEST) void revealInFinder(r.file)
     return r
   })
-  /** 관리자에게 바로 보내기 (11/8): 버튼. 남기면 저절로도 보낸다(scheduleRelay) */
+  /** 관리자에게 바로 보내기 (11/8): 버튼. 누르면 동의로 적고, 그 뒤로는 남기면 저절로도 보낸다(scheduleRelay, 11/27) */
   app.post('/api/feedback/relay', replies(C.FeedbackRelayed), async (): Promise<C.FeedbackRelayed> => {
     if (!opts.feedbackDir || !opts.feedbackRelay) throw new WorkbenchError(404, t('바로 보내기를 쓰지 않는 앱입니다', 'This app does not send feedback directly'))
+    grantRelayConsent(ctx.registry.configDir)
     return await relayOnce()
   })
   /** 받은 피드백 파일 가져오기 (11/8): feedback/from/<보낸 사람>/에 두고, 개인 저장소면 내 피드백처럼 올린다 */

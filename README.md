@@ -70,7 +70,7 @@ Questions go to Discussions, bugs and requests to Issues, and code changes to a 
 
 ## Privacy and security
 
-The app runs on your computer, collects no usage data, and sends nothing to its maintainers. What leaves your computer, and when, is listed in [PRIVACY.md](PRIVACY.md). Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+The app runs on your computer, collects no usage data, and sends nothing to its maintainers unless you click **Send to maintainer** on the feedback screen. What leaves your computer, and when, is listed in [PRIVACY.md](PRIVACY.md). Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
 

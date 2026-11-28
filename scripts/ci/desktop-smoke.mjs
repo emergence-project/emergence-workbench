@@ -8,6 +8,7 @@
 //   3. 「새로 만들기」로 프로젝트를 만들면 폴더 · git 저장소 · workbench/가 생기고 목록에 오르는지
 //   4. PDF를 끌어다 놓듯 올리면 논문이 라이브러리에 들어가는지
 //   5. 창처럼 열쇠를 넘겨 켠 서버가 열쇠 없는 요청을 받지 않는지 (appKey.ts, 공용 PC에서 남의 앱이 열리지 않게)
+//   5-1. 처음 켠 앱이 피드백을 관리자에게 저절로 보내지 않는지 (배포 계약 4)
 //   6. (--shots) 크롬으로 첫 화면 · 프로젝트 · 논문 · 설정을 찍고 콘솔 오류가 없는지. --print면 그림을 기록에 base64 JPEG로도 남긴다(CI 기록에서 보려고)
 // 하나라도 어긋나면 실패한다. 서버 기록은 끝에 보인다.
 import { spawn } from 'node:child_process'
@@ -79,6 +80,11 @@ try {
   const cookie = String(opened.headers.get('set-cookie') ?? '').split(';')[0] ?? ''
   check(opened.status === 303 && cookie === `rw_k_${PORT}=${KEY}`, `창은 /__open으로 열쇠를 건네고 쿠키를 받음 (${opened.status})`)
   check((await fetch(base + '/api', { headers: { origin: base, cookie } })).ok, '그 쿠키로 화면 · API가 열림')
+
+  // 배포 계약 4 (docs/release-contract.md): 처음 켠 앱은 관리자에게 아무것도 저절로 보내지 않는다 (피드백 중계는 사용자가 누른 뒤에만)
+  const fbRes = await get('/api/feedback')
+  const fb = fbRes.ok ? await fbRes.json() : null
+  check(!!fb && (fb.relay === null || fb.relay?.auto === false), `처음 켠 앱은 피드백을 관리자에게 저절로 보내지 않음 (${!fb ? `/api/feedback ${fbRes.status}` : fb.relay ? `중계 있음, auto=${fb.relay.auto}` : '중계 없음'})`)
 
   const term = await (await get('/api/terminal')).json()
   check(term.available === true, `터미널 부품(node-pty)을 읽음 (${term.reason ?? 'ok'})`)

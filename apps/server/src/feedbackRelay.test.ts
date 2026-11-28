@@ -103,6 +103,35 @@ describe('feedback relay', () => {
     expect(coded.status).toBe(403)
   })
 
+  it('sends nothing automatically until the user clicks Send to maintainer once (release contract rule 4)', async () => {
+    const sent: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      if (String(url).startsWith('https://relay.example')) sent.push(JSON.parse(String(init?.body)).from)
+      return new Response('{"count":1}', { status: 200 })
+    }))
+    // 내려받은 앱처럼: 기록 올리기 주기가 설정 › 동기화에 보인다(server.ts의 recordsAutoPublishMs)
+    const app = buildApp({ configDir: mk(), feedbackDir: mk(), feedbackRelay: 'https://relay.example', feedbackAutoPublishMs: 50, recordsAutoPublishMs: 30_000 })
+    try {
+      const relay = async () => (await app.inject({ url: '/api/feedback' })).json().relay
+      expect(await relay()).toMatchObject({ auto: false, pending: 0 })
+      await app.inject({ method: 'POST', url: '/api/feedback', payload: { kind: '버그', target: '홈', text: '하나' } })
+      await new Promise((r) => setTimeout(r, 400))
+      expect(sent).toHaveLength(0)
+      expect(await relay()).toMatchObject({ auto: false, pending: 1 })
+      // 누름이 동의: 보내고, 그 뒤로는 저절로
+      expect((await app.inject({ method: 'POST', url: '/api/feedback/relay' })).json()).toMatchObject({ count: 1 })
+      expect(await relay()).toMatchObject({ auto: true, pending: 0 })
+      await app.inject({ method: 'POST', url: '/api/feedback', payload: { kind: '버그', target: '홈', text: '둘' } })
+      await vi.waitFor(() => expect(sent).toHaveLength(2), { timeout: 5000, interval: 50 })
+      // 설정 › 동기화의 기록 올리기를 수동으로 두면 다시 버튼으로만
+      await app.inject({ method: 'PUT', url: '/api/settings/sync', payload: { publish: { mode: 'manual' } } })
+      expect(await relay()).toMatchObject({ auto: false })
+      await app.inject({ method: 'POST', url: '/api/feedback', payload: { kind: '버그', target: '홈', text: '셋' } })
+      await new Promise((r) => setTimeout(r, 400))
+      expect(sent).toHaveLength(2)
+    } finally { await app.close() }
+  })
+
   it('an app that sends feedback to the relay is not the admin app: no app-fix chats', async () => {
     const steps = { install: async () => {}, build: async () => {}, restart: () => false, canRestart: () => false }
     const appRepo = { root: mk(), running: 'abc', steps }
