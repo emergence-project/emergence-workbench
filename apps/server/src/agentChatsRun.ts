@@ -124,6 +124,8 @@ export abstract class AgentChatsRun extends AgentChatsBase {
         const id = crypto.randomBytes(6).toString('hex')
         // 다시 켜져도 카드를 남기려고 물을 때의 상태를 적어 둔다 (agentAskRestore.ts)
         const base = await askBase(p.repo, c.ci).catch(() => undefined)
+        // 상태를 적는 동안 멈춤 · 한도 · 닫기가 왔으면 카드를 띄우지 않는다 (그 사이 차례가 이미 끝났을 수 있다)
+        if (abort.signal.aborted || this.closing) return { allow: false, message: 'The turn was stopped.' }
         c.askMeta = { ...c.askMeta, [id]: { match, key: v.key, label: v.label, ...(v.turnOn && { turnOn: v.turnOn }), ...(v.plan !== undefined && { plan: true as const }), ...(base && { base }) } }
         const answer = new Promise<Answer>((resolve) => {
           this.asks.set(id, resolve)
@@ -259,8 +261,12 @@ export abstract class AgentChatsRun extends AgentChatsBase {
       delete c.tasks
       delete c.compacting
       this.undraft(c)
-      // 앱이 닫히는 중이면 답 없는 카드를 남긴다 (다시 켜진 뒤 keepAsks가 띄운다)
-      if (!this.closing) for (const it of c.items) if (it.kind === 'ask' && !it.answer) { it.answer = 'deny'; it.expired = true; this.asks.delete(it.id) }
+      // 앱이 닫히는 중이면 답 없는 카드를 남긴다 (다시 켜진 뒤 keepAsks가 띄운다). 아니면 닫고 적어 둔 것도 지운다
+      if (!this.closing) {
+        for (const it of c.items) if (it.kind === 'ask' && !it.answer) { it.answer = 'deny'; it.expired = true; this.asks.delete(it.id) }
+        delete c.askMeta
+      }
+      delete c.preAllowed // 다시 켠 뒤 허락한 호출은 이어 간 그 차례에서만 (result 없이 끝나도)
       this.finish(c, ended)
     }
   }

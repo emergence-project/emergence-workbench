@@ -76,6 +76,12 @@ describe('앱이 다시 켜져도 남는 허락 카드 (11/28)', () => {
     const s = await sinceOf(r, base)
     expect(s).toMatchObject({ files: [], commits: 1 })
     expect((await sinceOf(r, undefined)).error).toBeTruthy()
+    // 줄 수가 같은 고침(+1 −1)과 추적하지 않는 새 파일도 바뀐 것으로 센다
+    fs.writeFileSync(path.join(r, 'a.txt'), 'uno\ntwo\n')
+    const base2 = await askBase(r)
+    fs.writeFileSync(path.join(r, 'a.txt'), 'one\ntwo\n')
+    fs.writeFileSync(path.join(r, 'new.txt'), 'x\ny\n')
+    expect((await sinceOf(r, base2)).files).toEqual([{ file: 'a.txt', added: 0, removed: 0 }, { file: 'new.txt', added: 2, removed: 0 }])
     fs.rmSync(r, { recursive: true, force: true })
   })
 
@@ -89,6 +95,11 @@ describe('앱이 다시 켜져도 남는 허락 카드 (11/28)', () => {
     const card = c.items.find((i) => i.kind === 'ask')!
     expect(card).toMatchObject({ restored: { at: expect.any(String) } })
     await vi.waitFor(() => expect(chats.get(id).items.find((i) => i.kind === 'ask')).toMatchObject({ since: { files: [], commits: 0, main: 0 } }))
+    // 남은 카드가 있는 멈춘 대화는 목록에서 허락 기다림, 보관하면 아니다
+    expect(chats.list().find((x) => x.id === id)?.wait).toBe('ask')
+    chats.archive(id, true)
+    expect(chats.list().find((x) => x.id === id)?.wait).toBeUndefined()
+    chats.archive(id, false)
     const before = runs.length
     chats.answer(id, ask.id, 'always') // 바뀐 것이 없으면 「늘」도 받는다
     await vi.waitFor(() => expect(chats.get(id).state).toBe('idle'))
@@ -100,6 +111,7 @@ describe('앱이 다시 켜져도 남는 허락 카드 (11/28)', () => {
     expect(after.items.filter((i) => i.kind === 'ask')).toHaveLength(1) // 다시 묻지 않음
     expect(after.items.filter((i) => i.kind === 'text').map((i) => (i as { text: string }).text)).toEqual(['ran'])
     expect(after.items.find((i) => i.kind === 'ask')).toMatchObject({ answer: 'always' })
+    expect(JSON.parse(fs.readFileSync(path.join(dir, `${id}.json`), 'utf8')).preAllowed).toBeUndefined()
     await shut(chats, dir, r)
   })
 

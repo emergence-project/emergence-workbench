@@ -211,6 +211,9 @@ export class AgentChats extends AgentChatsRun {
     if (more.mode === 'plan') throw new WorkbenchError(400, t('계획을 승인하면 수동 · 편집 자동 수락 가운데 하나로 이어 갑니다', 'After approving a plan, continue with manual or auto-accept edits'))
     if (LIVE.has(c.state)) throw new WorkbenchError(409, t('대화가 이미 다시 일하고 있습니다. 새 카드에 답해 주세요', 'The conversation is working again. Answer the new card'))
     const meta = c.askMeta?.[it.id]
+    // 이어 가지 못하면(send가 던지면) 카드와 설정을 답하기 전으로 되돌린다
+    const was = { answer: it.answer, note: it.note, mode: it.mode, askMeta: c.askMeta, alwaysKeys: c.alwaysKeys, auto: c.auto, chatMode: c.mode, preAllowed: c.preAllowed }
+    const undo = () => { it.answer = was.answer; it.note = was.note; it.mode = was.mode; c.askMeta = was.askMeta; c.alwaysKeys = was.alwaysKeys; c.auto = was.auto; c.mode = was.chatMode; c.preAllowed = was.preAllowed }
     if (c.askMeta) { const { [it.id]: _, ...rest } = c.askMeta; c.askMeta = Object.keys(rest).length ? rest : undefined }
     const plan = it.plan !== undefined
     // 바뀐 것이 있으면 「늘」은 받지 않고 한 번으로 (카드도 그때 「늘」을 숨긴다)
@@ -237,7 +240,7 @@ export class AgentChats extends AgentChatsRun {
       prompt = `The app restarted while you were waiting for permission for ${what}. The user has now allowed it.\n\n${changed}\nFirst check that the call is still right given these changes. If it is, make exactly the same call again (same tool, same input); it will run once without asking. If something else is right now, do that instead; a different call asks the user again.`
     }
     const text = answer === 'deny' ? t('앱이 다시 켜지기 전에 물은 것을 거절했습니다', 'Declined what it asked before the app restarted') : t('앱이 다시 켜지기 전에 물은 것에 답했습니다. 이어 갑니다', 'Answered what it asked before the app restarted. Continuing')
-    return this.send(c.id, { text }, prompt)
+    try { return this.send(c.id, { text }, prompt) } catch (e) { undo(); this.touch(c); throw e }
   }
 
   /** 도는 동안 보내 기다리는 지시 하나 빼기 (고쳐 쓰려면 빼고 다시 보낸다) */
