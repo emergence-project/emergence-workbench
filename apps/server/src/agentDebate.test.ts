@@ -88,6 +88,7 @@ describe('토론', () => {
   it('설정: 회수 · 참가자 · 정리 모델과 생각은 이 토론에 쓰이고 다음 토론의 기본이 된다', async () => {
     const { chats, asked, dir } = make(() => '판정: 틀림 — 아님', (p) => (stageOf(p) === 'sum' ? SUM : '판정: 맞음 — 그렇다'))
     const { id } = await open(chats, '/토론 맞아? @codex @gemini')
+    expect(asked.at(-1)?.o).toMatchObject({ model: 'opus', effort: 'medium' }) // 처음 기본: 정리는 Opus
     expect(() => chats.debateSettings(id, { seats: [{ agent: 'codex' }, { agent: 'codex' }] })).toThrow(/두 번/)
     chats.debateSettings(id, { rounds: 0, seats: [{ agent: 'codex', model: 'gpt-x', effort: 'high' }, { agent: 'gemini' }], judge: { agent: 'claude-code', model: 'sonnet', effort: 'low' } })
     expect(JSON.parse(fs.readFileSync(path.join(dir, 'agent-room.json'), 'utf8')).debate).toMatchObject({ rounds: 0, judge: { model: 'sonnet' }, seats: [{ agent: 'codex', model: 'gpt-x' }, { agent: 'gemini' }] })
@@ -101,6 +102,17 @@ describe('토론', () => {
     // 다음 토론은 고른 값으로 시작한다
     const { id: next } = await open(chats, '/토론 또 맞아? @codex @gemini')
     expect(chats.get(next).debate).toMatchObject({ rounds: 0, judge: { model: 'sonnet' }, seats: [{ agent: 'codex', model: 'gpt-x', effort: 'high' }, { agent: 'gemini' }] })
+  })
+
+  it('정리에 「기본 모델」을 고르면 Claude의 기본 모델(default)로 묻는다: 모델을 빼면 곁 질문의 작은 모델(haiku)로 돌았다', async () => {
+    const { chats, asked } = make(() => '판정: 틀림 — 아님', (p) => (stageOf(p) === 'sum' ? SUM : '판정: 맞음 — 그렇다'))
+    const { id } = await open(chats, '/토론 맞아? @codex @gemini')
+    chats.debateSettings(id, { rounds: 0, judge: { agent: 'claude-code' } })
+    asked.length = 0
+    chats.send(id, { text: '다시' })
+    await vi.waitFor(() => expect(chats.get(id).state).toBe('idle'))
+    expect(asked.at(-1)).toMatchObject({ who: 'side', o: { model: 'default' } })
+    expect(asked.find((a) => a.who === 'codex')?.o.model).toBeUndefined()
   })
 
   it('토론 끝내기: 기록에 한 줄, 중앙 줄에 결론, 대화는 보관함. 방장은 다음 차례에 결론을 받는다. 더 물으면 꺼내 다시 돈다', async () => {
