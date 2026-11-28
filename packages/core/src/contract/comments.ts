@@ -38,6 +38,8 @@ const entry = {
   suffix: z.string().optional(),
   unsorted: z.literal(true).optional(),
   split: z.literal(true).optional(),
+  /** 위에 고정 (11/28): 목록에서 내 차례 다음, 나머지보다 위에 놓는다 */
+  pinned: z.literal(true).optional(),
   /** 본문에서 인용을 다시 찾지 못함 */
   lost: z.literal(true).optional(),
   /** 연결한 일지 항목의 날짜와 시각, 같은 분에 두 번 적었을 때의 보조 번호 */
@@ -142,7 +144,7 @@ export const NewCommentBody = z.object({
 })
 export const ClassifyBody = z.object({ baseHash })
 /** kind: 고칠 때 종류 바꾸기 (10/21, 메모 · 할 일 · 질문 · 지시 사이, 사용자가 쓰고 답이 없는 기록만) */
-export const CommentChangeBody = z.object({ text: z.string().optional(), state: CommentState.optional(), color: HighlightColor.optional(), kind: CommentKind.optional(), baseHash })
+export const CommentChangeBody = z.object({ text: z.string().optional(), state: CommentState.optional(), color: HighlightColor.optional(), kind: CommentKind.optional(), pinned: z.boolean().optional(), baseHash })
 /** 에이전트가 쓴 답 덧붙이기 (MCP answer_record): by = 에이전트 이름 */
 export const AgentAnswerBody = z.object({ by: z.string(), body: z.string() })
 /** 사용자가 질문 · 지시 아래에 이어 쓰기 (덧붙이기라 baseHash 없음) */

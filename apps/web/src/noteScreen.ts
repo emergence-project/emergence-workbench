@@ -71,6 +71,11 @@ export async function toggleInfoEditing() {
   if (!infoLeave || await infoLeave()) infoEditing.set(false)
 }
 
+// ---------- 기록 칸 머리줄의 「넓게 보기」 (11/28): 지금 기록 칸이 왼쪽 기록 화면을 여는 법을 알린다. 없으면 버튼을 두지 않는다 ----------
+const recordsWide = tiny<(() => void) | null>(null)
+export const useRecordsWide = () => useSyncExternalStore(recordsWide.subscribe, recordsWide.get)
+export const setRecordsWide = (open: (() => void) | null) => recordsWide.set(open)
+
 /** 오른쪽 사이드바를 열고 그 갈래를 보여 달라 (App.tsx가 듣는다) */
 export const OPEN_RIGHT = 'rw:open-right'
 export function openRight(m: RightMode) {

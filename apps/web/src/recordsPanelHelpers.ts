@@ -34,19 +34,55 @@ export function recordWhen(id: string, now = new Date()): { label: string; title
 }
 
 /**
- * 오른쪽 사이드바 기록의 필터 한 줄 (11/21 안 A3): 전체 · 할 일 · 대기. 「전체」는 완료까지 모두(완료는 목록 아래에 접힘),
- * 대기 = 내가 에이전트를 불렀고(질문 · 지시) 답을 기다리는 기록
+ * 오른쪽 사이드바 기록의 필터 메뉴 (11/28 결정 「둘째 줄」): 종류마다 체크(메모 · 할 일 · 질문). 예전 지시는 질문과 함께 거른다.
+ * 11/21~11/27의 전체 · 할 일 · 대기 한 줄을 바꿨다: 답을 기다리는 것은 따로 묶지 않고 카드의 덧붙임 글로만 알린다
  */
-export type SideFilter = '전체' | '할 일' | '대기'
-export const inSideFilter = (c: Pick<CommentEntry, 'kind' | 'by' | 'state'>, f: SideFilter) => c.kind !== '하이라이트'
-  && (f === '전체' || (f === '할 일' ? recordKind(c) === '할 일' : isTalkKind(c.kind) && !c.by && c.state === '대기'))
+export const SIDE_KINDS = ['메모', '할 일', '질문'] as const
+export type SideKind = typeof SIDE_KINDS[number]
+export const sideKindOf = (c: Pick<CommentEntry, 'kind'>): SideKind | null => {
+  const kind = recordKind(c)
+  return kind === '지시' ? '질문' : kind === '메모' || kind === '할 일' || kind === '질문' ? kind : null
+}
+export const inSideKinds = (c: Pick<CommentEntry, 'kind'>, kinds: ReadonlySet<SideKind>) => { const kind = sideKindOf(c); return kind !== null && kinds.has(kind) }
+/** 정렬 (11/28): 최근 것 먼저 | 오래된 것 먼저. 내 차례와 고정은 어느 쪽이든 위에 남는다 */
+export type SideOrder = 'new' | 'old'
 /** 상태 고르기 (10/18 결정): 진행 중(끝내지 않은 기록, 메모 포함) | 완료(끝냄) */
 export type StatusFilter = '진행 중' | '완료'
 /** 완료: 끝냄, 그리고 에이전트가 물은 것에 사용자가 답한 것(답함) — 답했으면 내 일은 끝났으니 「완료 n」으로 접는다 (11/23 시안 코멘트) */
 export const isDoneRecord = (c: Pick<CommentEntry, 'state' | 'kind' | 'by'>) => c.state === '끝냄' || (isTalkKind(c.kind) && Boolean(c.by) && c.state === '답함')
 export const filterByStatus = (items: CommentEntry[], status: StatusFilter) => items.filter((c) => isDoneRecord(c) === (status === '완료'))
-/** 순서 (10/18): 사용자 차례가 맨 위, 나머지는 최근 것이 위 (기록 id가 c-날짜-시각이라 글자 순이 시간 순) */
-export const sortRecords = (items: CommentEntry[]) => [...items].sort((a, b) => Number(isUserTurnRecord(b)) - Number(isUserTurnRecord(a)) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0))
+/** 순서 (10/18, 11/28): 내 차례가 맨 위, 다음은 위에 고정한 것, 나머지는 최근 것이 위 (기록 id가 c-날짜-시각이라 글자 순이 시간 순) */
+type Sortable = Pick<CommentEntry, 'id' | 'kind' | 'by' | 'state' | 'pinned'>
+export const compareRecords = (a: Sortable, b: Sortable, order: SideOrder = 'new') => Number(isUserTurnRecord(b)) - Number(isUserTurnRecord(a))
+  || Number(b.pinned ?? false) - Number(a.pinned ?? false) || (a.id === b.id ? 0 : (a.id < b.id) === (order === 'new') ? 1 : -1)
+export const sortRecords = <T extends Sortable>(items: T[], order: SideOrder = 'new') => [...items].sort((a, b) => compareRecords(a, b, order))
+
+/** 기록 한 줄과 그 파일 (여러 대상의 기록을 한 목록에 놓을 때) */
+export interface RecordAt { file: RecordFile; c: CommentEntry }
+/**
+ * 묶음 없이 한 목록으로 (11/28 결정 「목록 하나」): 진행 중(내 차례 · 고정 · 나머지)과 완료로만 나눈다.
+ * 할 일에 대해 물은 질문은 그 할 일이 목록에 있으면 할 일 아래 대화로만 보인다(따로 줄을 두지 않는다, 10/19)
+ */
+export function flatRecords(files: RecordFile[], kinds: ReadonlySet<SideKind>, order: SideOrder = 'new'): { open: RecordAt[]; done: RecordAt[] } {
+  const rows: RecordAt[] = []
+  for (const file of files) {
+    const listed = file.comments.filter((c) => inSideKinds(c, kinds))
+    const todos = new Set(listed.filter((c) => c.kind === '할 일').map((c) => c.id))
+    for (const c of listed) if (!(c.todo && todos.has(c.todo))) rows.push({ file, c })
+  }
+  rows.sort((a, b) => compareRecords(a.c, b.c, order) || (a.file.target < b.file.target ? -1 : a.file.target > b.file.target ? 1 : 0))
+  return { open: rows.filter((r) => !isDoneRecord(r.c)), done: rows.filter((r) => isDoneRecord(r.c)) }
+}
+/** 이어진 같은 파일의 줄을 한 덩어리로 (RecordList는 파일 하나를 받는다) */
+export function recordRuns(rows: RecordAt[]): { file: RecordFile; items: CommentEntry[] }[] {
+  const runs: { file: RecordFile; items: CommentEntry[] }[] = []
+  for (const { file, c } of rows) {
+    const last = runs.at(-1)
+    if (last && last.file.target === file.target) last.items.push(c)
+    else runs.push({ file, items: [c] })
+  }
+  return runs
+}
 export function recordRoute(rid: string, file: Pick<RecordFile, 'target' | 'source'>, firstPartOf: (target: string) => string | undefined): Route | null {
   if (file.target === 'project') return null
   if (file.target.startsWith('note-') || file.target.startsWith('calc-')) return file.source ? { page: 'part', rid, file: file.source } : null

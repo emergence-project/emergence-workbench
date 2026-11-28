@@ -260,7 +260,7 @@ export async function classifyComments(root: string, target: string, baseHash: s
   return result
 }
 
-export interface CommentChange { state?: CommentState; color?: HighlightColor; text?: string; kind?: CommentKind }
+export interface CommentChange { state?: CommentState; color?: HighlightColor; text?: string; kind?: CommentKind; pinned?: boolean }
 
 const CHANGEABLE_KINDS: CommentKind[] = ['메모', '할 일', '질문', '지시']
 /** 종류 바꾸기 (10/21): 머리의 종류를 바꾸고 상태 줄을 새 종류에 맞춘다(메모는 없음, 나머지는 대기). 분류 전 표시는 뗀다 */
@@ -321,10 +321,10 @@ function replaceBody(lines: string[], id: string, body: string): string[] {
 /** 한 기록의 상태·색·글을 바꾼다. 다른 절·알 수 없는 메타·답·줄바꿈은 그대로 보존한다. */
 /** journal: false면 할 일을 끝내도 일지에 "완료"를 쓰지 않는다 (옛 메모를 옮길 때처럼 오늘 끝낸 일이 아닐 때) */
 export function updateComment(root: string, target: string, id: string, change: CommentChange, baseHash: string, { journal = true }: { journal?: boolean } = {}): CommentFile {
-  const { state, color, text, kind } = change
+  const { state, color, text, kind, pinned } = change
   if (kind !== undefined && !CHANGEABLE_KINDS.includes(kind)) throw new WorkbenchError(400, t('종류는 메모 · 할 일 · 질문 · 지시로 바꿀 수 있음', 'The kind can be changed to 메모, 할 일, 질문 or 지시'))
   if (kind !== undefined && state !== undefined) throw new WorkbenchError(400, t('종류와 상태를 함께 바꾸지 않음', 'Change the kind and the state separately'))
-  if (state === undefined && color === undefined && text === undefined && kind === undefined) throw new WorkbenchError(400, t('상태나 색, 글이 필요함', 'A state, color, or text is required'))
+  if (state === undefined && color === undefined && text === undefined && kind === undefined && pinned === undefined) throw new WorkbenchError(400, t('상태나 색, 글이 필요함', 'A state, color, or text is required'))
   if (state !== undefined && !COMMENT_STATES.includes(state)) throw new WorkbenchError(400, t('상태는 대기·답함·끝냄', 'state must be 대기, 답함, or 끝냄'))
   if (color !== undefined && !HIGHLIGHT_COLORS.includes(color)) throw new WorkbenchError(400, t(`색은 ${HIGHLIGHT_COLORS.join(' · ')}`, `The color must be one of ${HIGHLIGHT_COLORS.join(' · ')}`))
   if (text !== undefined && (typeof text !== 'string' || text.length > 20_000)) throw new WorkbenchError(400, t('글은 20,000자 이내여야 함', 'Text must be 20,000 characters or fewer'))
@@ -358,7 +358,8 @@ export function updateComment(root: string, target: string, id: string, change: 
         out.splice(at, 0, `- 상태: ${state}${cr}`)
       }
     }
-    if (color !== undefined) {
+    // 정보 줄의 값 바꾸기: 색, 위에 고정(풀면 키를 지우고, 남는 값이 없으면 줄도 지운다). 모르는 키는 그대로 둔다
+    if (color !== undefined || pinned !== undefined) {
       const [, end] = sectionOf(out, id)
       let at = -1
       for (let i = s + 1; i < end; i++) {
@@ -366,15 +367,19 @@ export function updateComment(root: string, target: string, id: string, change: 
         if (META_RE.test(line)) at = i
         else if (line.trim() && !STATE_RE.test(line) && !line.startsWith('> ')) break
       }
-      if (at === -1) out.splice(s + 1, 0, `<!-- rw: ${JSON.stringify({ color })} -->${cr}`)
-      else {
-        let meta: Record<string, unknown>
+      let meta: Record<string, unknown> = {}
+      if (at !== -1) {
         try {
           meta = JSON.parse(META_RE.exec(out[at]!.replace(/\r$/, ''))![1]!) as Record<string, unknown>
           if (!meta || typeof meta !== 'object' || Array.isArray(meta)) throw new Error('meta')
         } catch { throw new WorkbenchError(422, t('기록의 숨은 메타를 읽을 수 없어 고치지 않았습니다', 'Not changed: could not read the hidden metadata of the record')) }
-        out[at] = `<!-- rw: ${JSON.stringify({ ...meta, color })} -->${out[at]!.endsWith('\r') ? '\r' : ''}`
       }
+      const next: Record<string, unknown> = { ...meta, ...(color !== undefined && { color }) }
+      if (pinned === true) next.pinned = true
+      else if (pinned === false) delete next.pinned
+      if (at === -1) { if (Object.keys(next).length) out.splice(s + 1, 0, `<!-- rw: ${JSON.stringify(next)} -->${cr}`) }
+      else if (!Object.keys(next).length) out.splice(at, 1)
+      else out[at] = `<!-- rw: ${JSON.stringify(next)} -->${out[at]!.endsWith('\r') ? '\r' : ''}`
     }
     return text === undefined ? out : replaceBody(out, id, guardBody(text).replace(/^> /, '\\> '))
   }, (before, next) => {

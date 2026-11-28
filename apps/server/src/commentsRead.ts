@@ -109,6 +109,7 @@ export function parseComments(target: string, text: string): CommentFile {
           if (m.quoteMultiline === true) quoteMultiline = true
           if (m.unsorted === true) cur.unsorted = true
           if (m.split === true) cur.split = true
+          if (m.pinned === true) cur.pinned = true
           if (typeof m.journal === 'string') cur.journal = m.journal
           if (typeof m.journalIndex === 'number' && Number.isInteger(m.journalIndex) && m.journalIndex >= 0) cur.journalIndex = m.journalIndex
           if (m.edit === '질문' || m.edit === '수정') cur.edit = m.edit

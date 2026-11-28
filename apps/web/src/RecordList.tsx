@@ -26,11 +26,12 @@ import { liveChat, workedFor } from './recordChat'
 import { openChatInSidebar } from './agentPanelOpen'
 import { InlineEdits } from './InlineEdits'
 import { draftMap } from './unsent'
+import { MoreMenu, type MoreItem } from './MoreMenu'
 
 /** 붙은 곳의 이름과 툴팁 (주면 줄 번호 대신). 없으면 줄 · 쪽 번호 */
 export type RecordPlaceOf = (c: CommentEntry) => { label: string; tip: string } | undefined
 
-export function RecordList({ rid, file, filter, status, onGo, items: suppliedItems, work = false, showSource = work, placeOf }: {
+export function RecordList({ rid, file, filter, status, onGo, items: suppliedItems, work = false, showSource = work, placeOf, pick }: {
   rid: string; file: RecordFile; filter: PanelFilter
   /** 오른쪽 사이드바의 상태 고르기 (10/18): 진행 중 | 완료. 주면 그 상태만, 내 차례 먼저 · 최근 것 먼저로 */
   status?: StatusFilter
@@ -39,6 +40,8 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
   /** 줄 아래 왼쪽 링크에 붙은 대상 이름도 적는다 (기록 탭 · 프로젝트의 모든 기록을 모아 볼 때, 10/18) */
   showSource?: boolean
   placeOf?: RecordPlaceOf
+  /** 여럿 선택 중 (11/28): 줄마다 체크 상자를 보이고 행동은 숨긴다 */
+  pick?: { has(c: CommentEntry): boolean; toggle(c: CommentEntry): void }
 }) {
   const active = useSlot(rid, file.target, false).active
   // 409면 다시 읽고 띄운다. 적던 글은 남는다 (기록 줄의 고치기 칸)
@@ -78,6 +81,8 @@ export function RecordList({ rid, file, filter, status, onGo, items: suppliedIte
     {items.map((c) => <RecordRow key={c.id} active={active === c.id} c={c} hash={file.hash} busy={busy} onGo={() => onGo(c)} chat={chatOf(c.id)}
       asking={asking.has(askKey(rid, file.target, c.id))} onAsk={() => void askClaude(rid, file.target, c.id)}
       onState={(state) => act((w) => w.setState(file.target, c.id, state, file.hash))}
+      onPin={(pinned) => act((w) => w.update(file.target, c.id, { pinned, baseHash: file.hash }))}
+      picked={pick?.has(c)} onPick={pick ? () => pick.toggle(c) : undefined}
       onEdit={(text, baseHash, kind) => act((w) => w.update(file.target, c.id, { text, baseHash, ...(kind && kind !== c.kind && { kind }) }))}
       // 이어 물은 질문도 맥의 Claude가 언제 답할지는 설정 › 에이전트 › 질문 · 지시 처리를 따른다 (서버가 받음, 10/28 피드백 22:19)
       onReply={(text) => act((w) => w.reply(file.target, c.id, text))}
@@ -111,7 +116,12 @@ const editKinds = (kind: string): readonly CommentKind[] => kind === '지시' ? 
 
 export interface RecordRowProps {
   c: CommentEntry; active: boolean; hash: string; busy: boolean; asking: boolean; onAsk(): void; onGo(): void
-  onState(state: '대기' | '끝냄'): Promise<boolean>; onEdit(text: string, baseHash: string, kind?: CommentKind): Promise<boolean>; onDelete(): Promise<void>; rid: string
+  onState(state: '대기' | '끝냄'): Promise<boolean>
+  /** 위에 고정 · 풀기 (없으면 메뉴에 두지 않는다: 일지 줄) */
+  onPin?(pinned: boolean): Promise<boolean>
+  /** 여럿 선택 중이면 체크 상자 (picked가 정해져 있을 때) */
+  picked?: boolean; onPick?(): void
+  onEdit(text: string, baseHash: string, kind?: CommentKind): Promise<boolean>; onDelete(): Promise<void>; rid: string
   /** 질문 · 지시 아래에 이어 쓰기 (10/15) */
   onReply?(text: string): Promise<boolean>
   file: Pick<RecordFile, 'target' | 'title'>; work?: boolean; showSource?: boolean; dateLabel?: string; journal?: boolean
@@ -125,7 +135,7 @@ export interface RecordRowProps {
   chat?: ChatRow
 }
 
-export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo, onState, onEdit, onDelete, onReply, rid, file, work = false, showSource = work, dateLabel, journal = false, place, talk: todoTalk, todoText, chat }: RecordRowProps) {
+export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo, onState, onPin, picked, onPick, onEdit, onDelete, onReply, rid, file, work = false, showSource = work, dateLabel, journal = false, place, talk: todoTalk, todoText, chat }: RecordRowProps) {
   const [talkOpen, setTalkOpen] = useState(false)
   const row = useRef<HTMLElement>(null)
   useEffect(() => { if (active) row.current?.scrollIntoView({ block: 'nearest' }) }, [active])
@@ -139,14 +149,15 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
   // 쓴 이 (10/15): 정보 줄에 by가 없으면 사용자. 에이전트가 물은 질문이 대기면 사용자 차례(주황)
   const turn = isUserTurnRecord(c)
   const talk = isTalkKind(kind)
-  const [replying, setReplying] = useState(false)
+  // 답하기 입력란은 오른쪽 아래 ↩로 연다 (11/28: 내 차례 카드도 접어 둔다). 적던 답이 있으면 열어 둔다
+  const [replying, setReplying] = useState(() => unsentReplies.has(`${rid}:${c.id}`))
   // 고친 곳 (10/28 사용자 정정): 수정 검토 화면으로 가지 않고 기록 아래에 펼쳐 그 자리에서 고쳐 승인한다
   const [editsOpen, setEditsOpen] = useState(false)
   // 내가 쓴 질문 · 지시에 아직 답이 없으면 덧붙일 대화가 없어 글을 고친다 (10/19 피드백 10:36)
   const unanswered = !c.by && c.answers.length === 0
   // 대화가 일하는 동안은 답하기 · 반짝이를 숨긴다 (멈추기는 맨 아래 줄의 ■)
   const live = liveChat(chat)
-  const showReply = Boolean(onReply) && talk && c.state !== '끝냄' && !live && (turn || (replying && !unanswered))
+  const showReply = Boolean(onReply) && talk && c.state !== '끝냄' && !live && replying && !unanswered
   // 고칠 때 종류 바꾸기 (10/21): 내가 쓰고 답이 없는 메모 · 할 일 · 질문 · 지시만. 할 일 · 바뀐 곳에 이은 질문과 일지 줄은 그대로
   const kindEditable = !journal && !c.by && c.answers.length === 0 && !c.todo && !c.edit && (editKinds(kind) as readonly string[]).includes(kind)
   const [editKind, setEditKind] = useState<CommentKind>(kind as CommentKind)
@@ -159,30 +170,39 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
   const clampLast = (i: number, body: ReactNode) => i === c.answers.length - 1 && !open ? <Clamp onMore={() => setOpen(true)}>{body}</Clamp> : body
   // 글 속 저장소 경로는 링크로, 누르면 파일 탭 (10/19). 지식 라이브러리 기록은 프로젝트 탭이 없어 글 그대로
   const paths = useMemo(() => rid === LIBRARY_RID ? null : { rid, from: { target: file.target, id: c.id } }, [rid, file.target, c.id])
+  // ⋯ 안 (11/28): 위에 고정, 에이전트에게, 수정, (메모) 완료로 넘기기, 삭제. 카드 겉에는 끝내기 ✓와 ⋯만 남긴다
+  const memoOpen = kind === '메모' && !c.unsorted
+  const moreItems: MoreItem[] = [
+    ...(onPin ? [{ label: c.pinned ? t('고정 풀기', 'Unpin') : t('위에 고정', 'Pin to top'), ui: '위에 고정', onClick: () => void onPin(!c.pinned) }] : []),
+    // 그냥 남긴 메모의 「답 요청」 (11/21 안 A3): 누르면 이 메모가 질문이 되고 에이전트가 읽고 답한다
+    ...(kind === '메모' && !c.by && c.src !== 'app' && c.state !== '끝냄' ? [{ label: asking_ ? t('에이전트에게 보내는 중…', 'Sending to the agent…') : t('답 요청', 'Ask for an answer'), ui: '답 요청', disabled: asking_, onClick: onAsk }] : []),
+    // 아직 대화가 없는 내 질문 · 지시는 설정과 상관없이 여기서 지금 보낸다 (10/28 23:51 피드백)
+    ...(talk && !c.by && !chat && c.state !== '끝냄' ? [{ label: asking_ ? t('Claude가 답을 쓰는 중…', 'Claude is writing an answer…') : t('에이전트에게 보내기', 'Send to agent'), ui: '에이전트에게 보내기', disabled: asking_, onClick: onAsk }] : []),
+    { label: t('수정', 'Edit'), ui: '기록 수정', onClick: () => setEdit((current) => current ?? { text: c.body, original: c.body, hash }) },
+    ...(memoOpen ? [{ label: c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료로 넘기기', 'Move to done'), ui: '메모 완료', onClick: () => void onState(c.state === '끝냄' ? '대기' : '끝냄') }] : []),
+    { label: t('삭제', 'Delete'), ui: '기록 삭제', divider: true, danger: true, onClick: () => void onDelete() },
+  ]
   return <RepoPathContext.Provider value={paths}><article ref={row} className={`record-row${work ? ' record-row-work' : ''}${active ? ' on' : ''}${turn ? ' turn' : ''}${c.state === '끝냄' ? ' done' : ''}${c.split ? ' split' : ''}`} data-ui="기록 줄" data-ui-item={c.id}
     onClick={(e) => { if (!(e.target as Element).closest('button, input, textarea, a, summary')) onGo() }}>
-    {/* 줄 모양 (10/18 결정): 위 줄 종류 · 쓴 이와 오른쪽 끝 행동, 가운데 본문, 아래 줄 왼쪽 붙은 곳 · 오른쪽 시점. 좌우 여백은 같다 */}
+    {/* 카드 모양 (11/28 결정 「기록 카드」): 왼쪽 위 중요한 것(차례 점 · 종류 · 고정 · 어디), 오른쪽 위 끝내기 ✓와 ⋯,
+        왼쪽 아래 참고할 것(쓴 이 · 시각 · 딸린 것), 오른쪽 아래 답하는 행동. 넓은 곳(work)은 아이콘 옆에 이름을 함께 적는다 */}
     <div className="record-row-head">
+      {onPick && <input type="checkbox" className="record-pick" data-ui="기록 선택" aria-label={t('선택', 'Select')} checked={picked ?? false} onChange={onPick} />}
+      {turn && <span className="record-turn" data-tip={work ? undefined : t('내 차례', 'Your turn')}><span className="turn-dot" aria-hidden /><span className="record-wide">{t('내 차례', 'Your turn')}</span></span>}
       {kind === '할 일' ? <input type="checkbox" className="record-marker" aria-label={c.state === '끝냄' ? t('완료 풀기', 'Mark not done') : t('완료', 'Mark done')} checked={c.state === '끝냄'} disabled={busy} onChange={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')} />
         : c.unsorted ? <span className="record-marker unsorted" aria-label={t('분류 전', 'Unsorted')} />
           : <span className="record-marker" aria-hidden>{kind === '질문' ? Icon.ask : kind === '지시' ? Icon.send : Icon.memo}</span>}
-      {/* 쓴 이 (10/21): by = 에이전트, src app = 앱이 저절로, 둘 다 없는 새 기록 = 앱 밖에서 직접 쓴 것(오류) */}
-      <span className={`record-by${c.noAuthor ? ' no-author' : ''}`} title={c.by ? t('쓴 에이전트', 'Written by an agent') : c.noAuthor ? t('앱이나 MCP를 거치지 않고 파일에 직접 쓴 기록입니다', 'Written straight into the file, not through the app or MCP') : c.src === 'app' ? t('앱이 자동으로 남긴 기록', 'Left by the app') : t('사용자가 쓴 기록', 'Written by the user')}>{kindLabel(kind)} · {c.by ? <Author by={c.by} /> : c.noAuthor ? t('작성자 없음', 'No author') : c.src === 'app' ? t('앱', 'App') : t('사용자', 'User')}</span>
-      {turn && <span className="record-turn"><span className="turn-dot" aria-hidden />{t('내 차례', 'Your turn')}</span>}
-      <div className={`record-actions${work ? ' hover-actions' : ''}`} data-ui="고치기·지우기">
-        {/* 그냥 남긴 메모의 「답 요청」 (11/21 안 A3): 누르면 이 메모가 질문이 되고 에이전트가 읽고 답한다. 누르지 않은 메모는 답하지 않는다 */}
-        {kind === '메모' && !c.by && c.src !== 'app' && c.state !== '끝냄' && <button className="icon-btn sm" data-ui="답 요청" data-tip={asking_ ? t('에이전트에게 보내는 중…', 'Sending to the agent…') : t('답 요청', 'Ask for an answer')} aria-label={t('답 요청', 'Ask for an answer')} disabled={busy || asking_} onClick={onAsk}>{Icon.spark}</button>}
-        {/* 메모도 완료한다 (11/21 안 A3): 다 본 메모를 목록 아래 「완료」로 내린다 */}
-        {kind === '메모' && !c.unsorted && <button className="icon-btn sm" data-tip={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} aria-label={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} disabled={busy} onClick={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')}>{c.state === '끝냄' ? Icon.reopen : Icon.check}</button>}
-        {(kind === '질문' || kind === '지시') && <>
-          {/* 질문 · 지시를 누가 언제 하는지는 설정 › 에이전트 › 질문 처리 · 지시 처리(직접 부탁이면 에이전트 세션이 MCP로 집어 감).
-              아직 대화가 없으면 설정과 상관없이 여기서 지금 보낸다 (10/28 23:51 피드백). 대화가 있으면 「답하기」로 이어 쓴다 */}
-          {!c.by && !chat && c.state !== '끝냄' && <button className="icon-btn sm" data-ui="에이전트에게 보내기" data-tip={asking_ ? t('Claude가 답을 쓰는 중…', 'Claude is writing an answer…') : t('에이전트에게 보내기', 'Send to agent')} aria-label={t('에이전트에게 보내기', 'Send to agent')} disabled={busy || asking_} onClick={onAsk}>{Icon.spark}</button>}
-          <button className="icon-btn sm" data-tip={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} aria-label={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} disabled={busy} onClick={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')}>{c.state === '끝냄' ? Icon.reopen : Icon.check}</button>
-        </>}
-        <button className="icon-btn sm" data-tip={t('수정', 'Edit')} aria-label={t('수정', 'Edit')} disabled={busy} onClick={() => setEdit((current) => current ?? { text: c.body, original: c.body, hash })}>{Icon.pencil}</button>
-        <button className="icon-btn sm tip-end" data-tip={t('삭제', 'Delete')} aria-label={t('삭제', 'Delete')} disabled={busy} onClick={() => void onDelete()}>{Icon.trash}</button>
-      </div>
+      <span className="record-kind">{kindLabel(kind)}</span>
+      {c.pinned && <span className="record-pin" data-ui="고정 표시" data-tip={work ? undefined : t('위에 고정', 'Pinned')} aria-label={t('위에 고정', 'Pinned')}>{Icon.pin}<span className="record-wide">{t('고정', 'Pinned')}</span></span>}
+      {/* 어디 (붙은 곳): 누르면 그 노트 · 화면을 열고 본문의 그 자리로 간다. 프로젝트에 붙은 기록은 갈 곳이 없어 기록 탭에서만 이름을 적는다 */}
+      {showSource && file.target === 'project' && !hasPlace ? work && <span className="record-source">{t('이 프로젝트', 'This project')}</span>
+        : (showSource || hasPlace) && <button className="a record-goto" title={place ? `${t('그 자리로 가기', 'Go to the spot')} · ${place.tip}` : t('그 자리로 가기', 'Go to the spot')} onClick={onGo}>
+          {[showSource && (file.target === 'project' ? t('이 프로젝트', 'This project') : file.title), hasPlace && (place?.label ?? (c.page ? t(`${c.page}쪽`, `p. ${c.page}`) : t(`${c.line}줄`, `line ${c.line}`)))].filter(Boolean).join(' · ')}</button>}
+      {!onPick && <div className={`record-actions${work ? ' hover-actions' : ''}`} data-ui="고치기·지우기">
+        {/* 끝내기 ✓는 끝낼 것이 있는 카드에만 (11/28): 질문 · 지시. 할 일은 왼쪽 체크 상자가 끝내기이고, 메모는 처리할 것이 없어 ⋯ 안에 둔다 */}
+        {talk && <button className="icon-btn sm" data-tip={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} aria-label={c.state === '끝냄' ? t('다시 열기', 'Reopen') : t('완료', 'Close')} disabled={busy} onClick={() => void onState(c.state === '끝냄' ? '대기' : '끝냄')}>{c.state === '끝냄' ? Icon.reopen : Icon.check}</button>}
+        <MoreMenu small items={moreItems} disabled={busy} />
+      </div>}
     </div>
     <div className="record-content">
       {todoText && <div className="record-part" title={todoText}>{Icon.todo}<span>{t('할 일', 'To-do')} “{todoText.split('\n')[0]}”</span></div>}
@@ -197,25 +217,7 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
           <span className="sp" />
           <button className="btn sm" disabled={busy} onClick={() => setEdit(null)}>{t('취소', 'Cancel')}</button><button className="btn primary sm" disabled={busy || conflict || !edit.text.trim()} onClick={() => void save()}>{t('저장', 'Save')}</button></div>
       </SendBox> : <div className="record-body"><MemoText text={c.body} /></div>}
-      <div className="record-meta">
-        <span className="record-meta-left">
-          {/* 붙은 곳 링크 (10/18): 누르면 그 노트 · 화면을 열고 본문의 그 자리로 간다. 프로젝트에 붙은 기록은 갈 곳이 없어 기록 탭에서만 이름을 적는다(사이드바는 묶음 이름이 위에 있다) */}
-          {showSource && file.target === 'project' && !hasPlace ? work && <span className="record-source">{t('이 프로젝트', 'This project')}</span>
-            : (showSource || hasPlace) && <button className="a record-goto" title={place ? `${t('그 자리로 가기', 'Go to the spot')} · ${place.tip}` : t('그 자리로 가기', 'Go to the spot')} onClick={onGo}>
-              {[showSource && (file.target === 'project' ? t('이 프로젝트', 'This project') : file.title), hasPlace && (place?.label ?? (c.page ? t(`${c.page}쪽`, `p. ${c.page}`) : t(`${c.line}줄`, `line ${c.line}`)))].filter(Boolean).join(' · ')}</button>}
-          {c.lost && <span>{t('자리를 잃음', 'Position lost')}</span>}
-          {journal && <span>{t('일지', 'Journal')}</span>}{c.unsorted && <span className="tag">{t('분류 전', 'Unsorted')}</span>}{c.split && <span className="tag">{t('나눔', 'Split')}</span>}
-          {kind === '할 일' && !work && rid !== LIBRARY_RID && <button className="a" onClick={() => { chooseRecordFilter('할 일'); go({ page: 'records', rid }) }}>{t('할 일 목록', 'To-do list')} ›</button>}
-          {todoTalk && <>{todoTalk.records.length > 0 ? <span>{talkSummary(todoTalk.records)}</span>
-            : <><span>·</span><button className="a" data-ui="에이전트에게" aria-expanded={talkOpen} onClick={() => setTalkOpen((v) => !v)}>{t('에이전트에게', 'Ask the agent')}</button></>}</>}
-          {talk && <><span>{t('답', 'Answers')} {c.answers.length}</span>{!turn && (work || c.state) && <span>· {work ? stateLabel(c.state ?? (c.answers.length ? '답함' : '대기')) : c.state === '대기' ? t('에이전트 대기', 'Waiting for agent') : stateLabel(c.state!)}</span>}
-</>}
-        </span>
-        {date && <span className="record-when" title={dateLabel ? undefined : when.title}>{date}</span>}
-      </div>
       {/* 기록 탭은 답을 대화로(내 글 오른쪽, 에이전트 글 왼쪽), 오른쪽 사이드바는 좁아서 답을 차례로 쌓는다 (10/15) */}
-      {c.answers.length > 1 && <button className="a record-fold" data-ui="대화 접기" aria-expanded={open} onClick={() => setOpen(!open)}>
-        {open ? t('앞 답 접기', 'Fold earlier answers') : t(`› 앞 답 ${folded}개`, `› ${folded} earlier ${folded === 1 ? 'answer' : 'answers'}`)}</button>}
       {work ? c.answers.length > 0 && <ul className="fbp-thread record-thread" data-ui="기록 대화">
         {shown.map(({ a, i }) => a.by === '앱' ? <li key={i} className="fbp-say-wait muted">{a.body}</li>
           : <SayCard key={i} me={a.by === USER_ANSWER_BY} ui={a.by === USER_ANSWER_BY ? '사용자 글' : '에이전트 글'} name={a.by === USER_ANSWER_BY ? t('사용자', 'User') : <Author by={a.by} />} when={a.at}>
@@ -225,24 +227,36 @@ export function RecordRow({ c, active, hash, busy, asking: asking_, onAsk, onGo,
         : shown.map(({ a, i }) => <RecordAnswer key={i} answer={a} clamp={(body) => clampLast(i, body)} />)}
       {/* 답하기는 대화 맨 아래에 (10/19 피드백 11:31: 긴 대화 위로 올라가 누르지 않게). 내가 쓰고 아직 답이 없으면 두지 않는다(고치기는 위 연필, 10:36) */}
       {live && chat && <RecordWorking chat={chat} />}
-      {(() => {
-        const canReply = onReply && talk && c.state !== '끝냄' && !live && !turn && !unanswered && !replying
-        if (!canReply && !chat) return null
-        const fixable = chat?.needsEdit && !live && c.state !== '끝냄'
-        return <div className="record-follow">
-          {canReply && <button className="a" onClick={() => setReplying(true)}>{t('답하기', 'Reply')}</button>}
-          {/* 고치게 하기 (11/21): 부른 에이전트는 읽기만 한다. 고치는 일이라고 답했으면 여기서 눌러야 같은 대화가 노트를 고치고, 고친 것은 수정 검토로 간다 */}
-          {fixable && <button className="btn sm" data-ui="고치게 하기" disabled={busy} data-tip={t('이 대화가 노트를 고칩니다. 고친 것은 수정 검토에서 승인합니다', 'This conversation changes the note. You approve the changes in change review')} onClick={() => void commentsApi(rid).fix(file.target, c.id).catch((e: Error) => flash(e.message))}>{t('고치게 하기', 'Have it changed')}</button>}
-          {/* 대화 보기 (10/28 시안): 기록에는 결과만, 풀어 쓴 대화는 에이전트 탭에 */}
+      {/* 아랫줄 (11/28): 왼쪽은 참고할 것(쓴 이 · 시각 · 딸린 것)을 옅은 글 한 줄로, 오른쪽은 답하는 행동. 긴 대화 아래에 둔다(10/19 11:31) */}
+      <div className="record-meta">
+        <span className="record-meta-left">
+          {/* 쓴 이는 에이전트 · 앱 · 작성자 없음일 때만 (사용자가 쓴 것이 기본이라 적지 않는다). by = 에이전트, src app = 앱이 저절로, 둘 다 없는 새 기록 = 앱 밖에서 직접 쓴 것(오류) */}
+          {(c.by || c.noAuthor || c.src === 'app') && <span className={`record-by${c.noAuthor ? ' no-author' : ''}`} title={c.by ? t('쓴 에이전트', 'Written by an agent') : c.noAuthor ? t('앱이나 MCP를 거치지 않고 파일에 직접 쓴 기록입니다', 'Written straight into the file, not through the app or MCP') : t('앱이 자동으로 남긴 기록', 'Left by the app')}>{c.by ? <Author by={c.by} /> : c.noAuthor ? t('작성자 없음', 'No author') : t('앱', 'App')}</span>}
+          {date && <span className="record-when" title={dateLabel ? undefined : when.title}>{date}</span>}
+          {c.lost && <span>{t('자리를 잃음', 'Position lost')}</span>}
+          {journal && <span>{t('일지', 'Journal')}</span>}{c.unsorted && <span className="tag">{t('분류 전', 'Unsorted')}</span>}{c.split && <span className="tag">{t('나눔', 'Split')}</span>}
+          {kind === '할 일' && !work && rid !== LIBRARY_RID && <button className="a" onClick={() => { chooseRecordFilter('할 일'); go({ page: 'records', rid }) }}>{t('할 일 목록', 'To-do list')} ›</button>}
+          {todoTalk && (todoTalk.records.length > 0 ? <span>{talkSummary(todoTalk.records)}</span>
+            : <button className="a" data-ui="에이전트에게" aria-expanded={talkOpen} onClick={() => setTalkOpen((v) => !v)}>{t('에이전트에게', 'Ask the agent')}</button>)}
+          {/* 딸린 것: 답이 있을 때만. 둘 이상이면 누르면 앞 답을 펼친다 */}
+          {talk && c.answers.length > 1 ? <button className="a" data-ui="대화 접기" aria-expanded={open} data-tip={open ? t('앞 답 접기', 'Fold earlier answers') : t(`앞 답 ${folded}개 펼치기`, `Show ${folded} earlier ${folded === 1 ? 'answer' : 'answers'}`)} onClick={() => setOpen(!open)}>{t('답', 'Answers')} {c.answers.length} {open ? '⌄' : '›'}</button>
+            : talk && c.answers.length === 1 && <span>{t('답', 'Answers')} 1</span>}
+          {talk && !turn && (work || c.state) && <span>{work ? stateLabel(c.state ?? (c.answers.length ? '답함' : '대기')) : c.state === '대기' ? t('에이전트 대기', 'Waiting for agent') : stateLabel(c.state!)}</span>}
           {/* 이 기록의 대화가 노트를 고쳤으면 고친 곳을 이 자리에 펼친다 (10/28 정정: 페이지를 옮기지 않고, 넓게 볼 때만 수정 검토로) */}
           {chat && chat.changed.length > 0 && <button className="a" data-ui="수정 검토에서 보기" aria-expanded={editsOpen} onClick={() => setEditsOpen(!editsOpen)}>{editsOpen ? t('고친 곳 접기', 'Hide changes') : t('고친 곳 검토 ›', 'Review changes ›')}</button>}
-          {/* 대화는 오른쪽 사이드바 에이전트 탭에서 연다 */}
+          {/* 대화 보기 (10/28 시안): 기록에는 결과만, 풀어 쓴 대화는 오른쪽 사이드바 에이전트 칸에서 연다 */}
           {chat && <button className="a record-chat-link" data-ui="대화 보기" onClick={() => openChatInSidebar(rid, chat.id)}>{Icon.bot}{t('대화 보기', 'View conversation')} ›</button>}
-        </div>
-      })()}
+        </span>
+        <span className="record-meta-right">
+          {/* 고치게 하기 (11/21): 부른 에이전트는 읽기만 한다. 고치는 일이라고 답했으면 여기서 눌러야 같은 대화가 노트를 고치고, 고친 것은 수정 검토로 간다 */}
+          {chat?.needsEdit && !live && c.state !== '끝냄' && <button className="btn sm" data-ui="고치게 하기" disabled={busy} data-tip={t('이 대화가 노트를 고칩니다. 고친 것은 수정 검토에서 승인합니다', 'This conversation changes the note. You approve the changes in change review')} onClick={() => void commentsApi(rid).fix(file.target, c.id).catch((e: Error) => flash(e.message))}>{t('고치게 하기', 'Have it changed')}</button>}
+          {/* 답하기: 아이콘 하나로 오른쪽 아래에 고정 (11/28). 내 차례면 주 버튼. 내가 쓰고 아직 답이 없으면 두지 않는다(고치기는 ⋯ 안, 10/19 10:36) */}
+          {!onPick && onReply && talk && c.state !== '끝냄' && !live && !unanswered && !replying && <button className={`btn sm record-reply-btn${turn ? ' primary' : ''}`} data-ui="답하기" data-tip={work ? undefined : t('답하기', 'Reply')} aria-label={t('답하기', 'Reply')} disabled={busy} onClick={() => setReplying(true)}>{Icon.reply}<span className="record-wide">{t('답하기', 'Reply')}</span></button>}
+        </span>
+      </div>
       {editsOpen && chat && <InlineEdits rid={rid} files={chat.changed} />}
       {showReply && onReply && <RecordReply keep={`${rid}:${c.id}`} busy={busy} asked={Boolean(c.by)} onReply={async (text) => { const ok = await onReply(text); if (ok) setReplying(false); return ok }}
-        onCancel={replying && !turn ? () => setReplying(false) : undefined} />}
+        onCancel={() => setReplying(false)} />}
       {todoTalk && (todoTalk.records.length > 0 || talkOpen) && <TodoTalk records={todoTalk.records} busy={busy} actions={todoTalk}
         onSend={async (k, text) => { const ok = await todoTalk.send(k, text); if (ok) setTalkOpen(false); return ok }} onCancel={todoTalk.records.length ? undefined : () => setTalkOpen(false)} />}
     </div>

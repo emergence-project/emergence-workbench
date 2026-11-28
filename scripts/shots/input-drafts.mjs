@@ -365,6 +365,21 @@ try {
     assert.equal(await box.inputValue(), '', 'The last syllable came back into the emptied memo box')
     assert.deepEqual(posts.map((w) => w.body.text), ['조합 뒤 끝'], 'The memo was not sent exactly once with the whole text')
   })
+  // 기록 카드의 답하기 (11/28 기록 칸): 답 입력란은 ↩를 눌러야 열리고, 적던 답이 있으면 다른 화면을 보고 와도 열린 채로 그 글이 남는다
+  await caseOf('record-reply-draft-reopens-its-box', async (page) => {
+    await page.goto(`${base.href}#/r/${encodeURIComponent(rid)}/log`)
+    const list = page.locator('[data-ui="기록 화면"]')
+    const open = list.locator('[data-ui="답하기"]').first()
+    await open.waitFor()
+    assert.equal(await list.locator('[data-ui="이어 쓰기"]').count(), 0, 'A reply box was open before the reply button was pressed')
+    await open.click()
+    const box = list.locator('[data-ui="이어 쓰기"] textarea')
+    await box.fill('적다 만 답')
+    await page.goto(`${base.href}#/settings`)
+    await page.locator('[data-ui="기록 화면"]').waitFor({ state: 'detached' })
+    await page.goBack()
+    await eventually(async () => (await box.count()) === 1 && (await box.inputValue()) === '적다 만 답', 'The typed reply was not kept open after visiting another screen')
+  })
   // 카드 고치기 창(주제 · 프로젝트)은 조합 중인 키를 모두 버려, 한글을 친 직후의 ⌘↵가 저장되지 않았다 (11/26)
   await caseOf('card-dialog-saves-after-korean-composition', async (page) => {
     const sent = await catchWrites(page)

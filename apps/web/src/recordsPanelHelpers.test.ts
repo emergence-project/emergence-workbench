@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CommentEntry } from './api/comments'
-import { inSideFilter, classifiedRecordCount, filterRecords, recordDate, recordPdfTab, recordRoute, rebaseRecordEdit, isUserTurnRecord, filterByStatus, sortRecords, recordWhen } from './recordsPanelHelpers'
+import { inSideKinds, flatRecords, recordRuns, classifiedRecordCount, filterRecords, recordDate, recordPdfTab, recordRoute, rebaseRecordEdit, isUserTurnRecord, filterByStatus, sortRecords, recordWhen } from './recordsPanelHelpers'
 import { normalizeRightMode } from './noteScreen'
 const entry = (kind: CommentEntry['kind'], rest: Partial<CommentEntry> = {}): CommentEntry => ({ id: 'c-20261006-1200', kind, body: 'text', where: '전체', rects: [], state: null, answers: [], ...rest })
 
@@ -19,13 +19,25 @@ describe('sidebar records', () => {
     ])).toBe(2)
     expect(filterRecords([{ ...split, split: true, unsorted: undefined }], '메모')).toHaveLength(1)
   })
-  it('사이드바 필터: 전체는 완료까지, 할 일은 할 일만, 대기는 내가 부르고 답을 기다리는 것만 (11/21)', () => {
-    const memo = entry('메모', { id: 'm' }), doneMemo = entry('메모', { id: 'dm', state: '끝냄' }), todo = entry('할 일', { id: 't', state: '대기' })
-    const waiting = entry('질문', { id: 'w', state: '대기' }), answered = entry('질문', { id: 'a', state: '답함' }), asked = entry('질문', { id: 'q', state: '대기', by: 'claude' })
-    const all = [memo, doneMemo, todo, waiting, answered, asked, entry('하이라이트', { id: 'h' })]
-    expect(all.filter((c) => inSideFilter(c, '전체')).map((c) => c.id)).toEqual(['m', 'dm', 't', 'w', 'a', 'q'])
-    expect(all.filter((c) => inSideFilter(c, '할 일')).map((c) => c.id)).toEqual(['t'])
-    expect(all.filter((c) => inSideFilter(c, '대기')).map((c) => c.id)).toEqual(['w'])
+  it('사이드바 필터 메뉴 (11/28): 종류마다 거르고, 예전 지시는 질문과 함께, 하이라이트는 언제나 뺀다', () => {
+    const all = [entry('메모', { id: 'm' }), entry('코멘트', { id: 'old' }), entry('할 일', { id: 't', state: '대기' }), entry('질문', { id: 'q', state: '대기' }), entry('지시', { id: 'i', state: '대기' }), entry('하이라이트', { id: 'h' })]
+    expect(all.filter((c) => inSideKinds(c, new Set(['메모', '할 일', '질문']))).map((c) => c.id)).toEqual(['m', 'old', 't', 'q', 'i'])
+    expect(all.filter((c) => inSideKinds(c, new Set(['질문']))).map((c) => c.id)).toEqual(['q', 'i'])
+    expect(all.filter((c) => inSideKinds(c, new Set())).map((c) => c.id)).toEqual([])
+  })
+  it('한 목록 (11/28): 여러 대상의 기록을 내 차례 · 고정 · 최근 것 순으로 섞고, 완료는 따로, 할 일에 이은 질문은 그 할 일이 보이면 뺀다', () => {
+    const file = (target: string, comments: ReturnType<typeof entry>[]) => ({ target, title: target, hash: target, comments })
+    const a = file('note-a', [entry('메모', { id: 'c-20261001-0900' }), entry('메모', { id: 'c-20261003-0900', pinned: true }), entry('할 일', { id: 'c-20261002-0900', state: '대기' }),
+      entry('질문', { id: 'c-20261004-0900', state: '대기', todo: 'c-20261002-0900' })])
+    const b = file('note-b', [entry('질문', { id: 'c-20260901-0900', state: '대기', by: 'claude' }), entry('메모', { id: 'c-20261005-0900' }), entry('할 일', { id: 'c-20261006-0900', state: '끝냄' })])
+    const all = new Set(['메모', '할 일', '질문'] as const)
+    const flat = flatRecords([a, b], all)
+    expect(flat.open.map((r) => `${r.file.target.slice(5)}:${r.c.id.slice(8, 10)}`)).toEqual(['b:01', 'a:03', 'b:05', 'a:02', 'a:01'])
+    expect(flat.done.map((r) => r.c.id)).toEqual(['c-20261006-0900'])
+    expect(flatRecords([a, b], all, 'old').open.map((r) => r.c.id.slice(8, 10))).toEqual(['01', '03', '01', '02', '05'])
+    // 할 일을 거르면 그 할 일에 이은 질문은 제 줄로 나온다
+    expect(flatRecords([a], new Set(['질문'] as const)).open.map((r) => r.c.id)).toEqual(['c-20261004-0900'])
+    expect(recordRuns(flat.open).map((run) => [run.file.target, run.items.length])).toEqual([['note-b', 1], ['note-a', 1], ['note-b', 1], ['note-a', 2]])
   })
   it('splits records into in progress and done, memos stay in progress (10/18)', () => {
     const memo = entry('메모', { id: 'm' }), open = entry('할 일', { id: 'o', state: '대기' }), done = entry('할 일', { id: 'd', state: '끝냄' }), answered = entry('질문', { id: 'a', state: '답함' })

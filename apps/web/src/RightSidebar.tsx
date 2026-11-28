@@ -7,7 +7,7 @@ import { Icon } from './icons'
 import { shortLabel } from './notes'
 import { LOOSE_NOTES_LABEL, NO_KIND_LABEL, NOTE_KIND_LABEL, noteKindChoices } from './noteKinds'
 import { HistoryButton, NoteHistorySide, setNoteHistory, useNoteHistory } from './NoteHistory'
-import { headWriterOf, setInfoEditing, setInfoLeave, toggleInfoEditing, useInfoEditing, useInfoTools, useInfoToolsOwner, useRightMode, useRightSlotsOwner, type RightMode } from './noteScreen'
+import { headWriterOf, setInfoEditing, setInfoLeave, toggleInfoEditing, useInfoEditing, useInfoTools, useInfoToolsOwner, useRecordsWide, useRightMode, useRightSlotsOwner, type RightMode } from './noteScreen'
 import { go, type Route } from './router'
 import { StatusDot } from './StatusDot'
 import { store } from './store'
@@ -37,12 +37,15 @@ export function RightSidebar({ info, records, agent, terminalRid, ownSlots = tru
   const tools = useInfoTools()
   const history = useNoteHistory()
   const editing = useInfoEditing()
+  const recordsWide = useRecordsWide()
   return (
     <div className="rs" data-ui="오른쪽 사이드바">
       {(mode === 'info' || mode === 'records') && <div className="rs-head rs-name" data-ui="오른쪽 사이드바 머리줄"><span className="rs-name-t">{mode === 'info' ? t('정보', 'Info') : t('기록', 'Records')}</span>
         {mode === 'info' && tools.history && <HistoryButton on={history.on} onChange={setNoteHistory} />}
         {mode === 'info' && tools.edit && !(tools.history && history.on) && <button className={`icon-btn${editing ? ' on' : ''}`} data-ui="정보 고치기" aria-pressed={editing}
           data-tip={editing ? t('편집 완료', 'Done editing') : t('수정 — 정보', 'Edit info')} aria-label={t('수정 — 정보', 'Edit info')} onClick={() => void toggleInfoEditing()}>{Icon.pencil}</button>}
+        {/* 넓게 보기: 이 칸의 전체 화면(기록 화면)을 왼쪽에서 연다. 지식 라이브러리에는 기록 화면이 없다 */}
+        {mode === 'records' && recordsWide && <button className="icon-btn" data-ui="모두 보기" data-tip={t('기록 화면에서 넓게 보기', 'Open wide in Records')} aria-label={t('넓게 보기', 'Open wide')} onClick={recordsWide}>{Icon.openNote}</button>}
       </div>}
       {mode === 'info' && <div className="rs-scroll">{info}</div>}
       <div className="rs-col" hidden={mode !== 'records'}>{records}</div>
