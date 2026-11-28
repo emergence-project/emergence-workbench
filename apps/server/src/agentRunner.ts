@@ -131,10 +131,10 @@ function modelLister(): () => Promise<ModelChoice[]> {
 export const SIDE_MODEL = 'haiku'
 
 /** 곁 질문: 도구 · 저장소 설정 없이 한 번 묻고 답을 받는다 (세션을 남기지 않는다) */
-/** 곁 질문 · 토론 정리: model · effort가 오면(토론 자리) 그 모델로, 아니면 작은 모델로 */
+/** 곁 질문 · 토론 정리: model · effort가 오면(토론 자리) 그 모델로(default면 Claude Code의 기본 모델), 아니면 작은 모델로 */
 async function sideAnswer(o: OneShot): Promise<string> {
   const { query } = await import('@anthropic-ai/claude-agent-sdk')
-  const q = query({ prompt: o.prompt, options: { cwd: o.cwd, settingSources: [], strictMcpConfig: true, tools: [], maxTurns: 1, model: o.model ?? SIDE_MODEL, ...(o.effort && { effort: o.effort }), persistSession: false, env: claudeEnv(), ...executable() } })
+  const q = query({ prompt: o.prompt, options: { cwd: o.cwd, settingSources: [], strictMcpConfig: true, tools: [], maxTurns: 1, ...(o.model !== 'default' && { model: o.model ?? SIDE_MODEL }), ...(o.effort && { effort: o.effort }), persistSession: false, env: claudeEnv(), ...executable() } })
   let answer = ''
   try {
     for await (const m of q) {
