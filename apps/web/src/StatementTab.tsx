@@ -6,11 +6,9 @@ import { Icon } from './icons'
 import { ProofMark, StatusDot } from './StatusDot'
 import { isGiven, KIND_COLOR, KIND_LABEL, PROOF_TEXT, proofState, proofsOf, shortLabel, usedBy } from './notes'
 import { NoteHead, NoteToolbar } from './NoteToolbar'
-import { useRightMode } from './noteScreen'
 import { go } from './router'
 import { targetOfTab, useSlot } from './Comments'
-import { openRecordComposer } from './RecordContext'
-import { recordRevealRange, recordSelectionFromLines } from './recordHelpers'
+import { recordRevealRange } from './recordHelpers'
 import { onOutside, useAutosave } from './autosave'
 import { t } from './i18n'
 
@@ -24,7 +22,6 @@ export function StatementTab({ rid, sid, rapi, summary, notes, bus, onChanged }:
   const s = summary.statements.find((x) => x.id === sid)
   const [loaded, setLoaded] = useState<{ content: string; file: string } | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
-  const rightMode = useRightMode()
   const editor = useRef<EditorHandle>(null)
   const { saver, state } = useAutosave(`${rid}/${sid}`, {
     write: (text, hash) => rapi.saveStatement(sid, text, hash),
@@ -80,7 +77,7 @@ export function StatementTab({ rid, sid, rapi, summary, notes, bus, onChanged }:
       <section className="pane">
         <div data-ui="머리줄">
           <NoteToolbar status={<span className="note-status"><ProofMark p={p} /><span className="g-name">{PROOF_TEXT[p]}</span></span>}
-            save={state} saveUi="상태줄" editing={false} onComment={() => openRecordComposer(rid, recordTarget, recordSelectionFromLines(saver.text, editor.current?.selection() ?? null))} commentOn={rightMode === 'records'}
+            save={state} saveUi="상태줄" editing={false}
             saveAction={state === 'conflict'
               ? <button className="btn sm" onClick={() => void load(t('파일을 다시 읽었습니다. 이 화면에서 고친 내용은 버렸습니다.', 'Reloaded the file. Edits made on this screen were discarded.'))}>{t('파일 다시 읽기', 'Reload file')}</button>
               : state === 'error' ? <button className="btn sm" onClick={() => void save()}>{t('다시 저장', 'Save again')}</button> : undefined}

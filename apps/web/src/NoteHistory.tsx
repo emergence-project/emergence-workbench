@@ -11,13 +11,13 @@ import { Icon } from './icons'
 
 /**
  * 노트 이력 보기 (11/8 15:16 논의 → 11/16 「시안은 다 추천대로」, 시안 N7ik 2절 ③′, Overleaf 방식).
- * 툴바 오른쪽 시계로 켜고 끈다(기본 끔, 눈 단추 = 미리보기와 다른 단추). 켜면 오른쪽 사이드바 「정보」가 이 노트 파일을 고친 커밋 목록이 된다:
+ * 오른쪽 사이드바 「정보」 머리줄의 시계로 켜고 끈다(기본 끔. 11/28에 노트 툴바에서 옮김). 켜면 오른쪽 사이드바 「정보」가 이 노트 파일을 고친 커밋 목록이 된다:
  * 줄마다 날짜 · 고친 이(작성자와 Co-Authored-By) · 커밋 메시지 · 번호, 최근이 위. 하나를 고르면 그 커밋의 git diff를,
  * Shift를 누르고 하나 더 고르면 그 사이 diff 전체를 본문에 겹친다: 더한 글은 밑줄 바탕, 지운 글은 줄 그음.
  * 에이전트가 고친 곳은 진행 색을 옅게, 내가 고친 곳은 회색. 재료는 git 기록뿐이다(#419부터 에이전트 저장은 에이전트 이름으로 커밋).
  */
 
-/** 이력 보기 단추: 툴바 오른쪽 시계 (소개와 노트가 같이 쓴다, 11/11 안 C′) */
+/** 이력 보기 단추: 시계 (정보 머리줄과 소개 툴바가 같이 쓴다, 11/11 안 C′) */
 export function HistoryButton({ on, onChange }: { on: boolean; onChange(v: boolean): void }) {
   return (
     <button className={`icon-btn${on ? ' on' : ''}`} data-ui="이력 보기" data-tip={on ? t('이력 끄기', 'Hide history') : t('이력 보기', 'Show history')} aria-pressed={on}
@@ -73,8 +73,7 @@ export function NoteHistorySide({ rid, file }: { rid: string; file: string }) {
   }
   return (
     <div className="nh-side" data-ui="노트 이력">
-      <div className="nh-side-head"><span className="rs-label">{t('이력', 'History')}</span><span className="muted small">{t('커밋 · 최근이 위', 'Commits · newest first')}</span><span className="sp" />
-        <button className="icon-btn" aria-label={t('이력 끄기', 'Hide history')} data-tip={t('닫기', 'Close')} onClick={() => setNoteHistory(false)}>{Icon.x}</button></div>
+      <div className="nh-side-head"><span className="rs-label">{t('이력', 'History')}</span><span className="muted small">{t('커밋 · 최근이 위', 'Commits · newest first')}</span></div>
       {q.isLoading && <p className="muted">{t('불러오는 중…', 'Loading…')}</p>}
       {q.error && <p className="muted">{t('이력을 읽지 못했습니다', 'Could not read the history')}: {(q.error).message}</p>}
       {q.data && !commits.length && <p className="muted">{t('이 노트를 고친 커밋이 아직 없습니다. 저장한 고침은 올라간 뒤 여기에 보입니다.', 'No commit has changed this note yet. Saved edits show here once they are committed.')}</p>}

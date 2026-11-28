@@ -213,15 +213,14 @@ try {
         if (!r.ok) problems.push(`${name}: 처리 기록을 적지 못함 (${r.status})`)
       }
     }
-    if (name === 'agent-dock' || name === 'agent-beside') {
-      // 패널 자리 (아래 · 나란히): 새 문서로 열어 패널을 닫힌 채 시작하고, 아래 자리는 설정으로, 나란히는 끝난 대화를 연 채로
+    if (name === 'agent-beside' || name === 'agent-panel-chat') {
+      // 나란히: 새 문서로 열어 패널을 닫힌 채 시작하고, 끝난 대화를 연 채로
       await page.goto('about:blank')
       await page.goto(base)
-      await page.evaluate(({ rid, done, bottom }) => {
-        localStorage.setItem('rw-agent-place', JSON.stringify(bottom ? 'bottom' : 'right'))
-        localStorage.setItem(`rw-agent-panel-${rid}`, JSON.stringify(bottom ? null : done))
+      await page.evaluate(({ rid, done }) => {
+        localStorage.setItem(`rw-agent-panel-${rid}`, JSON.stringify(done))
         localStorage.removeItem(`rw-ws-${rid}`)
-      }, { rid, done, bottom: name === 'agent-dock' })
+      }, { rid, done })
       await page.goto('about:blank')
     }
     if (name === 'agent-background' && done) {
@@ -354,8 +353,8 @@ try {
     // 피드백 모드를 켠 채 다음 화면으로 가면 누르기가 모두 피드백 창을 연다: 창을 닫고 모드를 끈다
     if (name === 'feedback-mode-pane') { await page.keyboard.press('Escape'); await page.keyboard.press('Escape') }
     // 패널 자리와 나란히 연 탭을 되돌려 뒤 화면이 같게
-    if (name === 'agent-dock' || name === 'agent-beside') {
-      await page.evaluate((rid) => { localStorage.removeItem('rw-agent-place'); localStorage.removeItem(`rw-agent-panel-${rid}`); localStorage.removeItem(`rw-ws-${rid}`) }, rid)
+    if (name === 'agent-beside' || name === 'agent-panel-chat') {
+      await page.evaluate((rid) => { localStorage.removeItem(`rw-agent-panel-${rid}`); localStorage.removeItem(`rw-ws-${rid}`) }, rid)
       await page.goto('about:blank')
     }
     if (name === 'review' || name === 'review-talk' || name === 'feedback-mode-pane') await clearAgentEdits(base)

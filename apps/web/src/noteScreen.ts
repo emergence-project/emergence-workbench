@@ -38,10 +38,37 @@ export const rightModeNow = () => mode.get()
 const slots = tiny<string>('')
 export function publishRightSlots(next: RightMode[] | null) { slots.set(next ? next.join(',') : '') }
 export const useRightSlots = (): RightMode[] | null => { const s = useSyncExternalStore(slots.subscribe, slots.get); return s ? s.split(',').filter((x): x is RightMode => x === 'info' || x === 'records' || x === 'agent') : null }
-/** 열려 있는 동안 자기 칸을 알린다 */
-export function useRightSlotsOwner(list: RightMode[]) {
-  const key = list.join(',')
-  useEffect(() => { publishRightSlots(key ? key.split(',').filter((x): x is RightMode => x === 'info' || x === 'records' || x === 'agent') : null); return () => publishRightSlots(null) }, [key])
+/** 열려 있는 동안 자기 칸을 알린다. null이면 알리지 않는다(바깥 화면이 대신 알릴 때) */
+export function useRightSlotsOwner(list: RightMode[] | null) {
+  const key = list ? list.join(',') : null
+  useEffect(() => {
+    if (key === null) return
+    publishRightSlots(key ? key.split(',').filter((x): x is RightMode => x === 'info' || x === 'records' || x === 'agent') : null)
+    return () => publishRightSlots(null)
+  }, [key])
+}
+
+// ---------- 정보 칸 머리줄의 도구 (11/28: 이력 시계와 고치기 연필은 머리줄 하나에) ----------
+
+/** 지금 정보 칸에 든 것이 머리줄에 둘 도구: history 이력을 볼 수 있다, edit 고칠 값이 있다 */
+export interface InfoTools { history: boolean; edit: boolean }
+const infoTools = tiny<string>('')
+export const useInfoTools = (): InfoTools => { const s = useSyncExternalStore(infoTools.subscribe, infoTools.get); return { history: s.includes('h'), edit: s.includes('e') } }
+/** 정보 칸의 내용이 떠 있는 동안 자기 도구를 알린다 */
+export function useInfoToolsOwner(tools: InfoTools) {
+  const key = `${tools.history ? 'h' : ''}${tools.edit ? 'e' : ''}`
+  useEffect(() => { infoTools.set(key); return () => infoTools.set('') }, [key])
+}
+/** 정보 칸을 고치는 중인가. 평소에는 값만 보이고 머리줄의 연필이 켠다 */
+const infoEditing = tiny<boolean>(false)
+export const useInfoEditing = () => useSyncExternalStore(infoEditing.subscribe, infoEditing.get)
+export const setInfoEditing = (on: boolean) => infoEditing.set(on)
+/** 연필을 끌 때 정보 칸이 할 일(적던 설명 저장). 저장하지 못했으면 false를 돌려 고치는 채로 둔다 */
+let infoLeave: (() => Promise<boolean>) | null = null
+export const setInfoLeave = (f: (() => Promise<boolean>) | null) => { infoLeave = f }
+export async function toggleInfoEditing() {
+  if (!infoEditing.get()) return infoEditing.set(true)
+  if (!infoLeave || await infoLeave()) infoEditing.set(false)
 }
 
 /** 오른쪽 사이드바를 열고 그 갈래를 보여 달라 (App.tsx가 듣는다) */

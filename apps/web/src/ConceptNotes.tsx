@@ -16,7 +16,7 @@ import { NoteScreen } from './NoteScreenFrame'
 import { RightSidebar } from './RightSidebar'
 import { AgentPanel } from './AgentChats'
 import { LIBRARY_RID } from '@rw/core'
-import { openRight, useRightMode } from './noteScreen'
+import { useRightSlotsOwner, type RightMode } from './noteScreen'
 import { showKnowledgeList } from './knowledgeListState'
 import { subjectTree, type SubjNode } from './knowledgeSubjects'
 import { isListRoute } from './router'
@@ -213,6 +213,8 @@ function dropTitle(body: string, title: string): string {
  * 제목 아래: 다른 이름 · 분류 · 쓰는 곳 · 미완성인 이유.
  * rid를 주면 (프로젝트 탭) 그 프로젝트 전체를 이 개념에 잇거나 끊을 수 있고, 본문의 [[링크]]도 프로젝트 탭으로 연다.
  */
+const CONCEPT_SLOTS: RightMode[] = ['info', 'records', 'agent']
+
 export function ConceptNoteView({ id, info, rid, project, side = 'inline', rightOpen = true, tocOwner = null, onChanged, onSaved }: {
   id: string; info: LibraryInfo | null; rid?: string; project?: string
   /** 정보 · 기록을 어디에: 노트 오른쪽의 오른쪽 사이드바(inline, 지식 화면), 또는 앱의 오른쪽 사이드바(external, 프로젝트 탭) */
@@ -246,8 +248,9 @@ export function ConceptNoteView({ id, info, rid, project, side = 'inline', right
   const { saver, state: save, editing, notice, setNotice } = edit
   useNoteSections(scroller, editing ? null : tocOwner, note?.body ?? '', '.cn-body .ob-md h2, .cn-body .ob-md h3')
   const render = useConceptRender()
+  // 사이드바를 닫아 두어도 오른쪽 레일이 이 화면의 칸(정보 · 기록 · 에이전트)을 보인다
+  useRightSlotsOwner(side === 'inline' ? CONCEPT_SLOTS : null)
   const { data } = useKnowledge(info)
-  const mode = useRightMode()
   const [srcs, setSrcs] = useState<ConceptSources | null>(null)
   /** 화면이 가진 노트를 바꾼다 (읽기 · 머리말 고치기). 고치는 중이 아니면 저장기도 그 글로 */
   const adopt = useCallback((n: ConceptMd) => { setNote(n); setError(null); if (saver.state === 'saved' && !saver.pending) saver.load(n.body, n.hash) }, [saver])
@@ -369,7 +372,6 @@ export function ConceptNoteView({ id, info, rid, project, side = 'inline', right
         saveAction: edit.saveAction(discardAndReload),
         view: edit.view, onView: edit.setView,
         onEdit: () => void startEdit(), editDisabled: busy || save === 'conflict', onDone: () => void finish(),
-        onComment: () => openRight('records'), commentOn: mode === 'records',
         menu: [{ label: t('파일 다시 읽기', 'Reload file'), ui: '파일 다시 읽기', tip: t('파일을 다시 읽습니다. 이 화면에서 저장하지 않은 고침은 버립니다', 'Reads the file again. Unsaved edits on this screen are discarded'), onClick: discardAndReload }],
       }}>
       <div ref={scroller} className={`scroll kn-read${editing ? ' cn-editing' : ''}${tocOwner ? ' cn-toc-scroll' : ''}`} onClick={editing ? undefined : follow}>
@@ -383,7 +385,7 @@ export function ConceptNoteView({ id, info, rid, project, side = 'inline', right
           <ConceptRecords note={note} shown={shownBody}><ObsidianMarkdown text={shownBody} options={options} /></ConceptRecords>
           <ConceptSourcesList srcs={srcs} />
         </div>}
-        {side === 'inline' && rightOpen && <aside className="cn-side-col"><RightSidebar info={<div className="rs-pad"><ConceptSidePanel id={id} info={info} rid={rid} project={project} doc={doc} onChanged={onChanged} onSaved={onSaved} /></div>}
+        {side === 'inline' && rightOpen && <aside className="cn-side-col"><RightSidebar ownSlots={false} info={<div className="rs-pad"><ConceptSidePanel id={id} info={info} rid={rid} project={project} doc={doc} onChanged={onChanged} onSaved={onSaved} /></div>}
           records={<ConceptRecordsPanel id={id} title={m.title} />} agent={<AgentPanel rid={LIBRARY_RID} onSaved={onSaved} />} /></aside>}
         </div>
       </div>
