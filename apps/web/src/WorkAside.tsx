@@ -77,6 +77,9 @@ const TAB_KEY = 'rw-agent-pane-tab'
 
 /** 에이전트 화면(AgentPage)의 오른쪽 칸: 세부 패널과 터미널 중 하나 (11/19 B1: 「>_」를 누르면 칸이 터미널로 바뀐다).
  *  pane은 세부 패널을 여는지(기억한다), tab은 세부 패널의 어느 칸인지(기억한다). 터미널은 한 번 열면 가려도 셸을 살려 둔다. rid는 터미널을 열 폴더(대화의 프로젝트) */
+/** 다음에 여는 에이전트 화면이 사이드바의 변경사항 칸을 보이게 (오른쪽 사이드바 머리줄의 변경사항 버튼) */
+export function showChangesNext() { store.set(PANE_KEY, true); store.set(TAB_KEY, 'changes') }
+
 export function useSideColumn(chatPage: boolean, rid?: string) {
   const [pane, setPaneState] = useState(() => store.get<boolean>(PANE_KEY, true))
   const setPane = (v: boolean) => { setPaneState(v); store.set(PANE_KEY, v) }

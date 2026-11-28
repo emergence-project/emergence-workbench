@@ -8,7 +8,7 @@ import { Icon } from './icons'
 import { onListKey } from './listInput'
 import { go } from './router'
 import { useHighlightColor } from './ui'
-import { classifiedRecordCount, flatRecords, inSideKinds, isDoneRecord, isUserTurnRecord, recordRoute, recordRuns, SIDE_KINDS, sideKindOf, type PanelFilter, type RecordAt, type SideKind, type SideOrder } from './recordsPanelHelpers'
+import { classifiedRecordCount, flatRecords, inSideKinds, isDoneRecord, isUserTurnRecord, recordRoute, recordRuns, recordWhen, SIDE_KINDS, sideKindOf, type PanelFilter, type RecordAt, type SideKind, type SideOrder } from './recordsPanelHelpers'
 import { flash } from './flash'
 import { RecordList, type RecordPlaceOf } from './RecordList'
 import { recordWrites, useRecordActions, type RecordWrites } from './useRecordActions'
@@ -58,6 +58,7 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf }: {
   const [order, setOrder] = useState<SideOrder>('new')
   // 완료한 것은 처음과 대상을 바꿀 때마다 접어 둔다 (끝낸 기록은 숨김, 10/18 결정)
   const [doneOpen, setDoneOpen] = useState(false)
+  const [unfolded, setUnfolded] = useState<ReadonlySet<string>>(new Set())
   // 여럿 선택: null이면 끔. 대상을 바꾸면 끈다
   const [picked, setPicked] = useState<ReadonlySet<string> | null>(null)
   useEffect(() => { setDoneOpen(false); setPicked(null) }, [rid, target.target])
@@ -179,7 +180,18 @@ export function RecordsPanel({ rid, target, firstPartOf, onOpenPdf, placeOf }: {
       {/* 완료한 것은 맨 아래에 접어 둔다 (11/21 시안 코멘트) */}
       {flat.done.length > 0 && <details className="record-done-fold" data-ui="완료한 기록" open={doneOpen} onToggle={(e) => setDoneOpen(e.currentTarget.open)}>
         <summary>{t('완료', 'Done')} <span className="n">{flat.done.length}</span></summary>
-        {doneOpen && list(flat.done)}
+        {/* 한 줄 카드 (11/28 틀 ③): 끝난 것은 훑기만 하므로 종류 · 본문 한 줄 · 시각. 누르면 그 줄만 카드로 펼친다 (여럿 선택 중에는 카드로) */}
+        {doneOpen && flat.done.map((r) => {
+          const k = pickKey(r.file.target, r.c.id)
+          if (pick || unfolded.has(k)) return <div key={k}>{list([r])}</div>
+          const kind = sideKindOf(r.c), at = recordWhen(r.c.id)
+          return <button key={k} type="button" className="record-line" data-ui="한 줄 기록" data-ui-item={r.c.body.slice(0, 20)} data-tip={t('펼치기', 'Expand')}
+            onClick={() => setUnfolded((v) => new Set(v).add(k))}>
+            <span className="record-marker" aria-hidden>{kind === '질문' ? Icon.ask : kind === '할 일' ? Icon.check : Icon.memo}</span>
+            <span className="record-line-text">{r.c.body.replace(/\s+/g, ' ')}</span>
+            <span className="record-line-when" title={at.title}>{at.label}</span>
+          </button>
+        })}
       </details>}
       {!filtered && <RecordArchive rid={rid} target={project ? undefined : target.target} onChanged={() => { if (!project) void load(rid, target.target, true) }} />}
       {!shown.length && !error && <p className="empty records-empty">{slot.error ?? t('불러오는 중…', 'Loading…')}</p>}

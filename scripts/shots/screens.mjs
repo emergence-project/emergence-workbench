@@ -117,7 +117,7 @@ export const DEFAULT_SCREENS = [
   ['note-select', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '고른 글 질문'],
   // 나란히 (#233): 끝난 대화를 연 패널의 머리줄에서 노트 옆 칸의 탭으로. 작업 화면 아래 자리는 11/28에 없앰
   ['agent-panel-chat', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '에이전트 패널', ['+맥락 칸 켜고 끄기', '[data-ui="오른쪽 레일"] button[data-mode="agent"]']],
-  ['agent-beside', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '[data-ui="에이전트 대화"]', ['+맥락 칸 켜고 끄기', '[data-ui="오른쪽 레일"] button[data-mode="agent"]', '대화 자리']],
+  ['agent-beside', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '[data-ui="에이전트 대화"]', ['+맥락 칸 켜고 끄기', '[data-ui="오른쪽 레일"] button[data-mode="agent"]', '[data-ui="오른쪽 사이드바 머리줄"] [data-ui="더 보기 메뉴"]', '대화 자리']],
   // 중앙 대화 (11/16 "중앙 에이전트"): 처음 말하는 화면, 그리고 하위 대화 둘(앱 고치기 · 프로젝트 작성)을 연 중앙 (shots.mjs, {central})
   ['agent-central-start', '#/agent/central', '중앙 시작'],
   ['agent-central', '#/agent/{central}', '작업 현황'],
@@ -218,6 +218,8 @@ export const DEFAULT_SCREENS = [
   ['project-records', '#/r/{rid}', '모두 보기'],
   // 기록 카드의 ⋯ 메뉴와 여럿 선택 (11/28 기록 칸): 맨 위 카드의 ⋯를 연 모습, 선택을 켜고 카드 하나를 고른 둘째 줄
   ['project-records-more', '#/r/{rid}', '더 보기 항목', '[data-ui="적기 목록"] [data-ui="더 보기 메뉴"]'],
+  // 끝난 기록은 한 줄 카드로 (11/28 틀 ③): 접힌 「완료」를 편 모습. 여럿 선택 그림보다 앞에 둔다(선택 중에는 카드로 보인다)
+  ['project-records-done', '#/r/{rid}', '한 줄 기록', ['완료한 기록']],
   ['project-records-pick', '#/r/{rid}', '기록 여럿 선택', ['기록 선택 켜기', '기록 선택']],
   // 프로젝트 정보 › 변경사항 (10/27): 예제를 이때 git 저장소로 만들고 커밋 · 커밋 안 된 고침 · 에이전트가 받은 때를 넣는다(changes.mjs). 다른 화면이 git 없이 찍히게 맨 끝
   // 홈 카드의 "변경사항 N"(내가 변경사항 쪽을 열기 전)과 그 쪽. 카드 보기는 home-cards가 기억해 두었다
