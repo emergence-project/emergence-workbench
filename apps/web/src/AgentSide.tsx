@@ -110,6 +110,8 @@ export function InfoOrAgent({ ui, onSaved, infoClass, children }: { ui: string; 
   useRightSlotsOwner(INFO_AGENT)
   return (
     <aside className={`kh-side kh-side-tabs${side ? ' kh-side-agent' : infoClass ? ` ${infoClass}` : ''}`} data-ui={mode === 'agent' ? '에이전트 사이드바' : mode === 'terminal' ? '터미널 사이드바' : ui}>
+      {/* 정보 칸의 머리줄은 어느 화면에서나 「정보」 하나 (11/28 틀). 자기 머리줄을 가진 칸(infoClass)은 그대로 */}
+      {mode === 'info' && !infoClass && <div className="rs-head rs-name kh-info-head" data-ui="오른쪽 사이드바 머리줄"><span className="rs-name-t">{t('정보', 'Info')}</span></div>}
       {mode === 'agent' ? <GlobalAgentPanel onSaved={onSaved} /> : mode === 'info' && children}
       {term.pane}
     </aside>

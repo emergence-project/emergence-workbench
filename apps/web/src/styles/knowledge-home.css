@@ -49,6 +49,8 @@
 /* 오른쪽 칸: 라이브러리 정보 */
 .kh-side { border-left: 1px solid var(--line); padding: var(--sp-5) var(--sp-4); overflow: auto; min-width: 0; }
 .kh-info { display: flex; flex-direction: column; gap: var(--sp-3); font-size: var(--fs-sm); }
+/* 정보 칸 머리줄: 칸의 안쪽 여백을 넘어 가장자리까지 */
+.kh-side > .kh-info-head { margin: calc(-1 * var(--sp-5)) calc(-1 * var(--sp-4)) 0; }
 .kh-side-h { margin: 0; font-size: var(--fs-sm); font-weight: var(--fw-strong); color: var(--text); }
 .kh-side-label { font-size: var(--fs-xs); color: var(--text-3); }
 .kh-store { display: flex; align-items: flex-start; gap: var(--sp-2); min-width: 0; }
