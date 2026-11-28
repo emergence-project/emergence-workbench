@@ -137,7 +137,8 @@ export function ChatView({ id, auto, head = true, pane, onPane, onChanges, tools
   }
   const resume = async () => { setFail(null); try { client.setQueryData(qk.agentChat(id), await agentChatsApi.resume(id)) } catch (e) { setFail((e as Error).message) } }
   // 오류 · 멈춤(앱 재시작 포함)으로 끝난 대화는 같은 세션에서 이어 한다
-  const canResume = chat.state === 'error' || chat.state === 'stopped'
+  // 다시 켠 뒤 남은 허락 · 계획 카드가 있으면 그 카드에 답해서 잇는다 (11/28)
+  const canResume = (chat.state === 'error' || chat.state === 'stopped') && !chat.wait
   const placeholder = chat.state === 'waiting' ? t('위 카드에 답하거나 이어서 쓰기', 'Answer the card above, or keep writing')
     : chat.state === 'queued' ? t('앞 대화가 끝나면 시작합니다 · 이어서 쓰기', 'Starts when a running conversation finishes · keep writing')
       : live ? t('보내면 다음 차례에 읽습니다', 'Sent now, read next turn')

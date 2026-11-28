@@ -31,7 +31,7 @@ export const STATE_NAME: Record<ChatState, string> = {
 }
 const WAIT_NAME: Record<NonNullable<ChatRow['wait']>, string> = { plan: t('계획 승인 기다림', 'Plan waits for you'), ask: t('허락 기다림', 'Needs approval') }
 /** 줄 선 대화는 「대기 n번째」 (11/20 시안 1절: 상태 이름 「일하는 중」→「작업 중」 · 「끝남」→「종료」 · 「줄 섬」→「대기」) */
-export const stateName = (c: Pick<ChatRow, 'state' | 'wait'> & Partial<Pick<ChatRow, 'queue' | 'tasks' | 'asks' | 'archived'>>) => (c.state === 'waiting' && c.wait ? WAIT_NAME[c.wait] : asksMe(c) ? t('답 기다림', 'Waits for your answer') : c.state === 'queued' && c.queue ? t(`대기 ${c.queue}번째`, `Queued #${c.queue}`) : inBackground(c) ? t(`작업 중 · 백그라운드 명령 ${c.tasks}개`, `Working · ${c.tasks} background command${c.tasks! > 1 ? 's' : ''}`) : STATE_NAME[c.state])
+export const stateName = (c: Pick<ChatRow, 'state' | 'wait'> & Partial<Pick<ChatRow, 'queue' | 'tasks' | 'asks' | 'archived'>>) => (c.wait ? WAIT_NAME[c.wait] : asksMe(c) ? t('답 기다림', 'Waits for your answer') : c.state === 'queued' && c.queue ? t(`대기 ${c.queue}번째`, `Queued #${c.queue}`) : inBackground(c) ? t(`작업 중 · 백그라운드 명령 ${c.tasks}개`, `Working · ${c.tasks} background command${c.tasks! > 1 ? 's' : ''}`) : STATE_NAME[c.state])
 
 /** 대화 상태: 작업 중은 진행 점, 사용자 차례(허락 · 계획)는 주황 점, 오류는 위험 색 글자, 나머지는 옅은 이름 */
 export function ChatStateMark({ state, label, name: given }: { state: ChatState; label?: boolean; name?: string }) {
@@ -212,8 +212,8 @@ export function AgentRailCount() {
   // 중앙은 목록에 보이는 하나만 (보이지 않는 옛 중앙 · 이 맥의 중앙은 세지 않는다)
   const shown = list?.filter((c) => !c.archived && (c.rid !== CENTRAL_RID || !c.local)) ?? []
   // 알림 종과 같은 셈 (11/27 결정): 답할 것(허락 · 계획을 기다림, 에이전트가 묻고 끝냄)만 주황 수, 끝났는데 열어 보지 않은 대화 · 오류는 파랑 점(소식)
-  const n = shown.filter((c) => c.state === 'waiting' || asksMe(c)).length
-  const news = shown.filter((c) => c.state !== 'waiting' && !asksMe(c) && (c.state === 'error' || isUnseen(c))).length
+  const n = shown.filter((c) => c.state === 'waiting' || c.wait || asksMe(c)).length
+  const news = shown.filter((c) => c.state !== 'waiting' && !c.wait && !asksMe(c) && (c.state === 'error' || isUnseen(c))).length
   if (n) return <span className="rail-count" title={t(`답할 대화 ${n}개 (허락 · 계획을 기다리거나 에이전트가 물음)`, `${n} conversation(s) to answer (waiting for approval or a plan, or the agent asked)`)}>{n}</span>
   return news ? <span className="rail-new" role="img" aria-label={t(`새 소식이 있는 대화 ${news}개`, `${news} conversation(s) with news`)} title={t(`새 소식이 있는 대화 ${news}개 (끝났는데 열어 보지 않음 · 오류)`, `${news} conversation(s) with news (finished and not opened, or stopped with an error)`)} /> : null
 }

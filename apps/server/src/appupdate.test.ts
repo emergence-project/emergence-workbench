@@ -173,7 +173,7 @@ describe('앱 업데이트', () => {
       calls.length = 0
       const busy = await ub.inject({ method: 'POST', url: '/api/app/restart' })
       expect(busy.statusCode).toBe(409)
-      expect(busy.json().error).toMatch(/에이전트 대화 1개|1 working agent/)
+      expect(busy.json().error).toMatch(/에이전트 대화\(뒤에서 도는 계산 포함\) 1개|1 agent conversation/)
       await vi.advanceTimersByTimeAsync(10_000)
       expect(calls).toEqual([])
       release()
@@ -256,22 +256,25 @@ describe('앱 업데이트', () => {
     expect(waiting.swapped).toBeUndefined()
     expect(calls).toEqual(['build'])
     expect((await ub.inject({ method: 'GET', url: '/api/app/status' })).json().status).toMatchObject({ prepared: true, waitingAgents: 1 })
+    // 차례가 도는 대화는 2시간까지만 기다린다 (11/28): 넘으면 세지 않는다 (다시 켠 뒤 같은 세션으로 이어 감)
+    const realNow = Date.now()
+    const later = vi.spyOn(Date, 'now').mockReturnValue(realNow + 2 * 60 * 60_000 + 1000)
+    try { expect((await ub.inject({ method: 'GET', url: '/api/app/status' })).json().status.waitingAgents).toBe(0) } finally { later.mockRestore() }
     calls.length = 0
     expect((await ub.inject({ method: 'POST', url: '/api/app/restart', payload: { force: true } })).json()).toEqual({ restarting: true })
     expect(calls).toEqual(['restart'])
     expect((await ub.inject({ method: 'GET', url: '/api/app/status' })).json().status.waitingAgents).toBeUndefined()
     release()
-    // 허락 카드를 띄우고 기다리는 대화도 기다린다 (11/20): 다시 켜지면 카드가 만료되고 대화가 멈춘다
+    // 허락 카드를 띄우고 기다리는 대화는 기다리지 않는다 (11/28, 11/20 「함께 기다림」을 바꿈): 다시 켜도 카드가 남고 답하면 이어 간다
     const asking: AgentRunner = async function* (input) { yield { type: 'session', id: 's2' }; await input.canUseTool('Bash', { command: 'python x.py' }); yield { type: 'result', ok: true } }
     const uc = buildApp({ configDir: path.join(tmp, 'config-web-asking'), appRepo, agentRunner: asking })
     expect((await uc.inject({ method: 'POST', url: '/api/agent-central/messages', payload: { text: '일해 줘' } })).statusCode).toBe(200)
     await vi.waitFor(async () => expect((await uc.inject({ method: 'GET', url: '/api/agent-chats' })).json().chats[0].state).toBe('waiting'))
     calls.length = 0
     const held = await uc.inject({ method: 'POST', url: '/api/app/restart', payload: {} })
-    expect(held.statusCode).toBe(409)
-    expect(held.json().error).toContain('허락을 기다리는')
-    expect(calls).toEqual([])
-    expect((await uc.inject({ method: 'GET', url: '/api/app/status' })).json().status.waitingAgents).toBe(1)
+    expect(held.json()).toEqual({ restarting: true })
+    expect(calls).toEqual(['restart'])
+    calls.length = 0
     // 받았지만 빌드가 아직이면 「새 버전 없음」이 아니라 빌드가 준비되지 않았다고 말한다 (11/20 피드백 23:23)
     fs.rmSync(path.join(mac, 'apps/web/dist-next/.commit'))
     const unbuilt = await uc.inject({ method: 'POST', url: '/api/app/restart', payload: { force: true } })

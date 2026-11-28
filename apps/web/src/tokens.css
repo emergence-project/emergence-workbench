@@ -23,7 +23,7 @@
   --s-stopped: #4b5563;
   --s-solved: #0f766e; /* 흰 글자·흰 바탕 위 글자 5.47:1 (10/17) */
   /* 주의 (11/27 사용자 결정 "뜻이 있는 색은 여섯까지, 노랑 하나 더함"): 지금 답할 것은 아니지만 알아 둘 것(오래됨 · 다름 · 갈림 · 경고). 주황은 내 차례 · 멈춤에만. 글자 5.54:1, 점은 밝은 노랑 */
-  --s-caution: #8a6100; --s-caution-dot: #d9a400;
+  --s-caution: #8a6100; --s-caution-dot: #d9a400; --s-caution-bg: #fdf3d0;
   /* 에이전트 색 셋 (10/27 변경사항 표, 10/30 Gemini 더함): 상태가 아니라 누구인지. 그 칸과 대화의 에이전트 표에만. 바탕 위 글자 5.83 · 6.43 · 6.59:1 */
   --ag-cc: #8a4b14; --ag-cc-bg: #f7ece2;
   --ag-cx: #155e63; --ag-cx-bg: #e2f1f1;
@@ -114,7 +114,7 @@
     --primary: #f0f0ee; --on-primary: #1c1c1b; --link: #b4b4af;
     --focus: #4a4322; --focus-line: #a8923a;
     --danger: #f28b8b; --danger-bg: #4a2b2a;
-    --s-progress: #7aa2f7; --s-blocked: #f08a4b; --s-stopped: #a3abb6; --s-solved: #2dd4bf; --s-caution: #e8c15a; --s-caution-dot: #e8c15a;
+    --s-progress: #7aa2f7; --s-blocked: #f08a4b; --s-stopped: #a3abb6; --s-solved: #2dd4bf; --s-caution: #e8c15a; --s-caution-dot: #e8c15a; --s-caution-bg: #4d4226;
     --ag-cc: #f0b47a; --ag-cc-bg: #4a3424; --ag-cx: #7fd1d1; --ag-cx-bg: #213f40; --ag-gm: #aab6f2; --ag-gm-bg: #262d4d; --ag-cc-logo: #e08a6b; --ag-gm-logo: #6aa5ff;
     --code-bg: #2f2f2e; --code-cmd: #c9a9ff; --code-math: #74cde2; --code-comment: var(--text-3);
     --math-zone: rgba(255,255,255,.07); --math-dollar: #7aa2f7; --math-paren: #c9a9ff; --math-display: #f08a4b; --math-bracket: #f472b6;
@@ -141,7 +141,7 @@
     --primary: #f0f0ee; --on-primary: #1c1c1b; --link: #b4b4af;
     --focus: #4a4322; --focus-line: #a8923a;
     --danger: #f28b8b; --danger-bg: #4a2b2a;
-    --s-progress: #7aa2f7; --s-blocked: #f08a4b; --s-stopped: #a3abb6; --s-solved: #2dd4bf; --s-caution: #e8c15a; --s-caution-dot: #e8c15a;
+    --s-progress: #7aa2f7; --s-blocked: #f08a4b; --s-stopped: #a3abb6; --s-solved: #2dd4bf; --s-caution: #e8c15a; --s-caution-dot: #e8c15a; --s-caution-bg: #4d4226;
     --ag-cc: #f0b47a; --ag-cc-bg: #4a3424; --ag-cx: #7fd1d1; --ag-cx-bg: #213f40; --ag-gm: #aab6f2; --ag-gm-bg: #262d4d; --ag-cc-logo: #e08a6b; --ag-gm-logo: #6aa5ff;
     --code-bg: #2f2f2e; --code-cmd: #c9a9ff; --code-math: #74cde2; --code-comment: var(--text-3);
     --math-zone: rgba(255,255,255,.07); --math-dollar: #7aa2f7; --math-paren: #c9a9ff; --math-display: #f08a4b; --math-bracket: #f472b6;

@@ -257,7 +257,7 @@ export function AppUpdateRail() {
 }
 /** 다시 시작이 일하는 에이전트 대화를 기다리는 동안 (11/19): 모두 쉬면 저절로 다시 시작한다 */
 const waitingLine = (n: number) => n > 0
-  ? t(`업데이트 대기 중 (일하거나 허락을 기다리는 대화 ${n}개 끝나면 다시 시작)`, `Update waiting (restarts once ${plural(n, 'conversation')} working or waiting for permission finish)`)
+  ? t(`업데이트 대기 중 (일하는 대화 ${n}개 끝나면 다시 시작)`, `Update waiting (restarts once ${plural(n, 'working conversation')} finish)`)
   : t('업데이트 대기 중 (곧 다시 시작)', 'Update waiting (restarting shortly)')
 
 export function AppUpdate() {
@@ -301,7 +301,7 @@ export function AppUpdate() {
           <button className="btn" disabled={busy} onClick={() => void checkAppUpdate()}>{t('다시 확인', 'Check again')}</button>
           {status?.waitingAgents !== undefined
             ? <button className="btn primary" data-ui="지금 다시 시작" disabled={busy} onClick={() => void restartNow()}
-                title={t('대화를 기다리지 않고 다시 시작합니다. 돌던 차례는 다시 켜진 뒤 이어 가고, 허락을 기다리던 대화는 멈춥니다', 'Restart without waiting. Running turns resume after the restart; conversations waiting for permission stop')}>{t('지금 다시 시작', 'Restart now')}</button>
+                title={t('대화를 기다리지 않고 다시 시작합니다. 돌던 차례는 다시 켜진 뒤 이어 가고, 허락 카드는 남아 답하면 이어 갑니다. 뒤에서 돌던 계산은 끊깁니다', 'Restart without waiting. Running turns resume after the restart, permission cards stay and continue once answered, and background runs stop')}>{t('지금 다시 시작', 'Restart now')}</button>
             : newScreen(status) && !pending && status?.behind === 0
               ? <button className="btn primary" onClick={() => location.reload()}>{t('새로 고침', 'Reload')}</button>
               : <button className="btn primary" disabled={busy || !canUpdate(status)} onClick={() => void runAppUpdate()}>{t('업데이트하고 다시 시작', 'Update and restart')}</button>}

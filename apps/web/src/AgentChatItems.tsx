@@ -18,6 +18,7 @@ import { useDismiss } from './useDismiss'
 import { Changes, openChangeFile } from './AgentChanges'
 import { InlineEdits } from './InlineEdits'
 import { scopeName } from './AgentProjectPick'
+import { RestoredLine, unchanged } from './AgentAskRestored'
 import { isClaude } from './AgentPick'
 import { ReviewButton, ReviewCard } from './AgentReview'
 import { CentralBoardButton } from './CentralChat'
@@ -105,6 +106,8 @@ const DOES_NAME: Record<NonNullable<Ask['does']>, string> = { read: t('읽기', 
 
 function AskCard({ chat, it, onError }: { chat: Chat; it: Ask; onError(m: string): void }) {
   const { busy, answer } = useAnswer(chat, it.id, onError)
+  // 앱이 다시 켜진 뒤의 카드: 바뀐 것이 있거나 아직 세는 중이면 「늘」을 숨기고, 허락은 에이전트가 바뀐 것을 보고 다시 판단한다
+  const changed = !!it.restored && !unchanged(it.since)
   return (
     <li className={`ac-card ac-ask${it.answer ? ' done' : ' wait'}`} data-ui="허락 카드">
       <div className="ac-card-head">
@@ -115,12 +118,13 @@ function AskCard({ chat, it, onError }: { chat: Chat; it: Ask; onError(m: string
       </div>
       <code className="ac-ask-sum">{it.summary}</code>
       {it.note && <div className="muted ac-hint">{t('한 말', 'Said')}: {it.note}</div>}
+      {!it.answer && <RestoredLine it={it} />}
       {!it.answer && (
         <Choices busy={busy}
           choices={[
-            { label: t('네', 'Yes'), ui: '허락 버튼', run: () => void answer('allow') },
-            // 삭제 · 외부는 「늘」 없이 한 번씩 (되돌리기 어려워서)
-            ...(it.once ? [] : [{ label: alwaysName(it), ui: '늘 허락 버튼', run: () => void answer('always') }]),
+            { label: changed ? t('네, 변경사항을 보고 다시 판단하게', 'Yes, but re-check what changed first') : t('네', 'Yes'), ui: '허락 버튼', run: () => void answer('allow') },
+            // 삭제 · 외부는 「늘」 없이 한 번씩 (되돌리기 어려워서). 다시 켠 뒤에는 바뀐 것이 없을 때만
+            ...(it.once || changed ? [] : [{ label: alwaysName(it), ui: '늘 허락 버튼', run: () => void answer('always') }]),
           ]}
           say={{ label: t('아니요, 다르게 하라고 말하기', 'No, tell it what to do instead'), placeholder: t('어떻게 하라고 할까요? (비워 두면 그냥 거절)', 'What should it do instead? (empty = just decline)'), send: (note) => void answer('deny', note ? { note } : undefined) }} />
       )}
@@ -141,6 +145,7 @@ function PlanCard({ chat, it, onError }: { chat: Chat; it: Ask; onError(m: strin
       </div>
       <MemoText text={it.plan ?? ''} />
       {it.note && <div className="muted ac-hint">{t('한 말', 'Said')}: {it.note}</div>}
+      {!it.answer && <RestoredLine it={it} />}
       {!it.answer && <>
         <div className="muted ac-hint ac-choices-q">{t('이대로 할까요? 명령은 승인 뒤에도 묻습니다', 'Go ahead? Commands still ask after approval')}</div>
         <Choices busy={busy}

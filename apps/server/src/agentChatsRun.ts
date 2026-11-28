@@ -11,6 +11,7 @@ import { WorkbenchError } from './workbench.js'
 import { accountEnv } from './claudeAccounts.js'
 import type { RunInput, ToolDecision, Turn } from './agentRun.js'
 import { Inbox } from './agentInbox.js'
+import { askBase, matchOf } from './agentAskRestore.js'
 import { describeStep, FILE_WRITE_TOOLS, judge, MCP, pathOf, PLAN_TOOL, posix, str, type PolicyCtx } from './agentPolicy.js'
 import { appBriefFor, briefFor, reviewPrompt } from './agentPrompts.js'
 import { commandEdits, editOf, fileEditOf, todosOf } from './agentItems.js'
@@ -113,7 +114,17 @@ export abstract class AgentChatsRun extends AgentChatsBase {
           ran('always')
           return { allow: true }
         }
+        // 앱이 다시 켜지기 전에 물은 카드에 사용자가 허락한 호출: 글자까지 같은 것 하나만 묻지 않고 (11/28). 판정이 막는 일(deny)은 여기 오지 않는다
+        const match = matchOf(tool, input)
+        if (c.preAllowed?.match === match && v.plan === undefined) {
+          delete c.preAllowed
+          ran('once'); this.touch(c)
+          return { allow: true }
+        }
         const id = crypto.randomBytes(6).toString('hex')
+        // 다시 켜져도 카드를 남기려고 물을 때의 상태를 적어 둔다 (agentAskRestore.ts)
+        const base = await askBase(p.repo, c.ci).catch(() => undefined)
+        c.askMeta = { ...c.askMeta, [id]: { match, key: v.key, label: v.label, ...(v.turnOn && { turnOn: v.turnOn }), ...(v.plan !== undefined && { plan: true as const }), ...(base && { base }) } }
         const answer = new Promise<Answer>((resolve) => {
           this.asks.set(id, resolve)
           abort.signal.addEventListener('abort', () => resolve({ answer: 'deny' }), { once: true })
@@ -121,8 +132,11 @@ export abstract class AgentChatsRun extends AgentChatsBase {
         c.state = 'waiting'
         this.push(c, { kind: 'ask', at: now(), id, tool: tool.replace(MCP, ''), summary: v.summary, ...(v.plan !== undefined && { plan: v.plan }), ...(v.does && { does: v.does }), ...(v.once && { once: true }) })
         const got = await answer
-        const a = got.answer
         this.asks.delete(id)
+        // 앱이 닫히는 중: 카드를 거절로 닫지 않고 남긴다. 다시 켜진 뒤 같은 카드를 띄우고, 답하면 같은 세션으로 이어 간다
+        if (this.closing) return { allow: false, message: 'The app is restarting. Wait for the user.' }
+        if (c.askMeta?.[id]) { const { [id]: _, ...rest } = c.askMeta; c.askMeta = Object.keys(rest).length ? rest : undefined }
+        const a = got.answer
         const it = c.items.find((x) => x.kind === 'ask' && x.id === id)
         if (it && it.kind === 'ask' && !it.answer) { it.answer = a; if (abort.signal.aborted) it.expired = true }
         // 계획 카드의 「늘」은 이 차례만 (계획마다 다시 본다)
@@ -201,6 +215,7 @@ export abstract class AgentChatsRun extends AgentChatsBase {
         }
         if (e.type === 'result') {
           this.undraft(c)
+          delete c.preAllowed // 다시 켠 뒤 허락한 호출은 이어 간 그 차례에서만
           if (limit) clearTimeout(limit)
           limit = undefined
           if (app && c.write !== 'read') await commandEdits(c, app, p.repo, touched)
@@ -244,7 +259,8 @@ export abstract class AgentChatsRun extends AgentChatsBase {
       delete c.tasks
       delete c.compacting
       this.undraft(c)
-      for (const it of c.items) if (it.kind === 'ask' && !it.answer) { it.answer = 'deny'; it.expired = true; this.asks.delete(it.id) }
+      // 앱이 닫히는 중이면 답 없는 카드를 남긴다 (다시 켜진 뒤 keepAsks가 띄운다)
+      if (!this.closing) for (const it of c.items) if (it.kind === 'ask' && !it.answer) { it.answer = 'deny'; it.expired = true; this.asks.delete(it.id) }
       this.finish(c, ended)
     }
   }

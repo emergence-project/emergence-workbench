@@ -1,4 +1,5 @@
 /** 에이전트 대화의 바탕: 저장 모양 · 상수 · 상태와 줄 (agentChats.ts 머리 설명 참고) */
+import { type AskMeta, sinceOf } from './agentAskRestore.js'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -42,6 +43,10 @@ export type Stored = Omit<Chat, 'always' | 'added' | 'removed' | 'wait' | 'archi
   snap?: Snap
   /** 되돌린 뒤 다음 실행: sessionId의 이 메시지까지만 잇는다 */
   resumeAt?: string
+  /** 기다리는 허락 · 계획 카드마다 다시 켠 뒤 이어 가는 데 필요한 것 (agentAskRestore.ts, 화면에는 보내지 않음) */
+  askMeta?: Record<string, AskMeta>
+  /** 다시 켠 뒤 남은 카드에 허락한 호출: 글자까지 같은 호출 하나만 묻지 않고 통과한다 (차례가 끝나면 지움) */
+  preAllowed?: { match: string }
   /** 앱이 다시 켜져 저절로 이어 간 횟수 (차례가 잘 끝나면 지운다. 같은 대화가 재시작마다 되풀이되지 않게) */
   restarts?: number
   /** 줄 서서 기다리는 차례 (앱이 다시 켜져도 사용자의 지시가 사라지지 않게 파일에 둔다, 11/19) · 중앙이 급히 연 앱 고치기 (줄 · 메모리와 상관없이 연다) */
@@ -153,6 +158,8 @@ export abstract class AgentChatsBase {
   protected readonly draftTimers = new Map<string, NodeJS.Timeout>()
   /** 앱이 다시 켜질 때 돌고 있어 저절로 이어 갈 대화 (resumeRestarted) */
   protected readonly restarted: string[] = []
+  /** 앱이 닫히는 중 (stopAll): 기다리던 카드를 거절로 닫지 않고 남긴다 (다시 켜진 뒤 그대로 띄움, 11/28) */
+  protected closing = false
 
   constructor(protected readonly deps: AgentChatsDeps) {
     fs.mkdirSync(deps.dir, { recursive: true })
@@ -174,15 +181,18 @@ export abstract class AgentChatsBase {
           const u = was === 'queued' ? [...c.items].reverse().find((it) => it.kind === 'user') : undefined
           if (u?.kind === 'user') (c.pending ??= []).push({ prompt: u.text })
           c.state = 'stopped'; c.claims = []
-          for (const it of c.items) if (it.kind === 'ask' && !it.answer) { it.answer = 'deny'; it.expired = true } // 도는 동안 보낸 지시는 그대로 두었다가 다음 지시와 함께 읽는다
+          // 물을 때 적어 둔 것이 있는 카드는 남기고(다시 켠 뒤 답하면 이어 감, 11/28), 없는 옛 카드만 거절로 닫는다. 도는 동안 보낸 지시는 그대로 두었다가 다음 지시와 함께 읽는다
+          const kept = this.keepAsks(c)
           // 일하던 대화만 저절로 이어 간다 (10/30). 사용자 답을 기다리던 대화는 깨우지 않는다 (11/19). 차례를 저장하기 전에 줄 선 대화는 세션이 없어도 그 지시로
           const again = was !== 'waiting' && (!!c.sessionId || !!u) && !c.archived && (c.restarts ?? 0) < RESTART_RESUMES
           if (again) this.restarted.push(c.id)
           c.items.push({ kind: 'error', at: now(), text: again
             ? t('앱이 다시 켜져 멈췄습니다. 같은 대화로 저절로 이어 갑니다', 'Stopped because the app restarted. Continuing the same conversation by itself')
-            : t('앱이 다시 켜져 멈췄습니다. 이어서 지시하면 다시 시작합니다', 'Stopped because the app restarted. Send a message to continue') })
+            : kept ? t('앱이 다시 켜져 멈췄습니다. 위 카드에 답하면 같은 대화로 이어 갑니다', 'Stopped because the app restarted. Answer the card above to continue the same conversation')
+              : t('앱이 다시 켜져 멈췄습니다. 이어서 지시하면 다시 시작합니다', 'Stopped because the app restarted. Send a message to continue') })
           this.write(c)
-        }
+        } else if (!c.archived && this.keepAsks(c)) this.write(c) // 닫히며 멈춤으로 적힌 대화(stopAll)의 남은 카드
+
         this.chats.set(c.id, c)
       } catch { /* 깨진 파일은 건너뛴다 */ }
     }
@@ -283,6 +293,24 @@ export abstract class AgentChatsBase {
     delete c.draft
     clearTimeout(this.draftTimers.get(c.id))
     this.draftTimers.delete(c.id)
+  }
+
+  /**
+   * 앱이 다시 켜졌을 때 답 없는 카드: 물을 때 적어 둔 것(askMeta)이 있으면 남기고(restored) 그 사이 바뀐 것을 뒤에서 센다.
+   * 없는 옛 카드는 예전처럼 거절로 닫는다. 남긴 카드가 하나라도 있으면 true
+   */
+  protected keepAsks(c: Stored): boolean {
+    let kept = false
+    for (const it of c.items) {
+      if (it.kind !== 'ask' || it.answer) continue
+      const meta = c.askMeta?.[it.id]
+      if (!meta) { it.answer = 'deny'; it.expired = true; continue }
+      kept = true
+      if (it.restored) continue
+      it.restored = { at: now() }
+      void sinceOf(this.cwdOf(c), meta.base, c.ci).then((s) => { if (!it.answer) { it.since = s; this.touch(c) } }, () => undefined)
+    }
+    return kept
   }
 
   protected cwdOf(c: Stored): string {
@@ -398,12 +426,12 @@ export const rowOf = (c: Stored): ChatRow => {
   for (const it of c.items) {
     if (it.kind === 'user' && !it.queued) since = it.at
     if (it.kind === 'edit') { added += it.added; removed += it.removed }
-    if (it.kind === 'ask' && !it.answer) wait = it.plan !== undefined ? 'plan' : 'ask'
+    if (it.kind === 'ask' && !it.answer) wait = it.plan !== undefined ? 'plan' : 'ask' // 멈춘 대화에서는 다시 켠 뒤 남은 카드 (11/28)
   }
   return {
     id: c.id, rid: c.rid, title: c.title, agent: c.agent, scope: c.scope, write: c.write, state: c.state,
     mode: c.mode, model: c.model, effort: c.effort, ...(c.account && { account: c.account }), ...(c.auto && { auto: { ...c.auto } }), claims: [...c.claims], changed: [...c.changed], added, removed,
-    ...(c.state === 'waiting' && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.handed && { handed: c.handed }), ...(c.bundle && { bundle: [...c.bundle] }), ...(c.record && { record: { ...c.record } }), ...(c.needsEdit && { needsEdit: true }), ...(c.parent && { parent: c.parent }), ...(c.summary && { summary: c.summary }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.state === 'idle' && !c.tasks && agentAsks(c.items) && { asks: true }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), ...(c.debate && { debate: structuredClone(c.debate) }), created: c.created, updated: c.updated,
+    ...((c.state === 'waiting' || c.state === 'stopped') && wait && { wait }), archived: !!c.archived, ...(c.branch && { branch: c.branch }), ...(c.pr && { pr: { ...c.pr } }), ...(c.feedback && { feedback: c.feedback }), ...(c.handed && { handed: c.handed }), ...(c.bundle && { bundle: [...c.bundle] }), ...(c.record && { record: { ...c.record } }), ...(c.needsEdit && { needsEdit: true }), ...(c.parent && { parent: c.parent }), ...(c.summary && { summary: c.summary }), ...(LIVE.has(c.state) && since && { since }), ...(c.merged && { merged: c.merged }), ...(c.shipped && { shipped: true }), ...(c.live && { live: true }), ...(c.tasks && { tasks: c.tasks }), ...(c.state === 'idle' && !c.tasks && agentAsks(c.items) && { asks: true }), ...(c.compacting && { compacting: true }), ...(c.draft && { draft: c.draft.slice(-MAX_TEXT) }), ...(c.debate && { debate: structuredClone(c.debate) }), created: c.created, updated: c.updated,
   }
 }
 export const wireOf = (c: Stored): Chat => ({ ...rowOf(c), items: c.items.map((i) => ({ ...i })), always: (c.alwaysKeys ?? []).map((a) => a.label), todos: c.todos.map((x) => ({ ...x })), ...(c.trimmed && { trimmed: c.trimmed }) })

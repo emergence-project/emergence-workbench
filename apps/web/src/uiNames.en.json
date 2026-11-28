@@ -1240,5 +1240,9 @@
   "기록 수": "Record count",
   "기록 필터": "Record filter",
   "기록 정렬": "Record sort",
-  "기록 선택 켜기": "Start selecting"
+  "기록 선택 켜기": "Start selecting",
+  "다시 켠 뒤 카드 시각": "Restarted card time",
+  "이상 없음 태그": "No-changes tag",
+  "바뀐 것 태그": "Changes tag",
+  "바뀐 것 상자": "Changes box"
 }

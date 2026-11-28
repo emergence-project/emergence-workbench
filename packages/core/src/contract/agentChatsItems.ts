@@ -86,6 +86,18 @@ export type RoomVerdict = (typeof ROOM_VERDICTS)[number]
 /** 토론 단계 (11/20 「토론 + 정해진 4단계」): answer 각자 답(서로 못 봄) · critique 서로 비판(이름 가림) · revise 고친 답 · sum 정리(투표 안 함) */
 export const DEBATE_STAGES = ['answer', 'critique', 'revise', 'sum'] as const
 export type DebateStage = (typeof DEBATE_STAGES)[number]
+/**
+ * 허락 카드를 물은 뒤 바뀐 것 (앱이 다시 켜진 뒤 남은 카드에만, 11/28): files = 커밋하지 않은 고침이 달라진 파일(지금 HEAD에 견준 줄 수),
+ * commits = 그 사이 브랜치가 움직인 커밋 수, main = main에 새로 생긴 커밋 수, ci = PR 검사가 바뀜, error = 셀 수 없음
+ */
+export const AskSince = z.object({
+  files: z.array(z.object({ file: z.string(), added: z.number(), removed: z.number() }).strict()),
+  commits: z.number(), main: z.number(),
+  ci: z.object({ from: z.string().optional(), to: z.string().optional() }).strict().optional(),
+  error: z.string().optional(),
+}).strict()
+export type AskSince = z.infer<typeof AskSince>
+
 export const ChatItem = z.discriminatedUnion('kind', [
   /** queued = 일하는 중에 보내 다음 차례에 읽을 지시, auto = 사용자가 아니라 앱이 중앙 대화를 깨운 알림 (하위 대화가 끝남 · CI 실패 · PR 합쳐짐, 11/18) */
   z.object({ kind: z.literal('user'), at: z.string(), text: z.string(), attach: z.array(Attach).optional(), images: z.number().optional(), imageNames: z.array(z.string()).optional(), queued: z.boolean().optional(), point: z.string().optional(), auto: z.boolean().optional() }).strict(),
@@ -98,7 +110,8 @@ export const ChatItem = z.discriminatedUnion('kind', [
    * expired = 답하기 전에 멈추거나 앱이 다시 켜져 닫힘(answer는 deny), by = central: 사용자 대신 중앙 대화가 답함 (크리티컬하지 않은 것만, 11/18)
    */
   // does = 명령이 하는 일, once = 「늘」 없이 한 번씩 (삭제 · 외부)
-  z.object({ kind: z.literal('ask'), at: z.string(), id: z.string(), tool: z.string(), summary: z.string(), plan: z.string().optional(), answer: z.enum(ASK_ANSWERS).optional(), note: z.string().optional(), mode: z.enum(CHAT_MODES).optional(), expired: z.boolean().optional(), does: z.enum(CHAT_KINDS).optional(), once: z.boolean().optional(), by: z.literal('central').optional() }).strict(),
+  // restored = 앱이 다시 켜진 뒤에도 남은 카드(at = 다시 켜진 때), since = 물은 뒤 바뀐 것 (11/28, agentAskRestore.ts)
+  z.object({ kind: z.literal('ask'), at: z.string(), id: z.string(), tool: z.string(), summary: z.string(), plan: z.string().optional(), answer: z.enum(ASK_ANSWERS).optional(), note: z.string().optional(), mode: z.enum(CHAT_MODES).optional(), expired: z.boolean().optional(), does: z.enum(CHAT_KINDS).optional(), once: z.boolean().optional(), by: z.literal('central').optional(), restored: z.object({ at: z.string() }).strict().optional(), since: AskSince.optional() }).strict(),
   /** 할 일 목록 (한 차례에 하나, 바뀌면 그 자리에서 고친다) */
   z.object({ kind: z.literal('todos'), at: z.string(), todos: z.array(Todo) }).strict(),
   /**
