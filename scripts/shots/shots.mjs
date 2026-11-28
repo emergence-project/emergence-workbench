@@ -277,7 +277,7 @@ try {
     // 대화는 줄 아래에 열려 첫 화면 밖이라, 그 바뀐 곳부터 보이게 내린다
     if (name === 'review-talk') await page.locator('[data-ui="바뀐 곳"]').filter({ has: page.locator('[data-ui="고친 이유"]') }).first().evaluate((el) => el.scrollIntoView({ block: 'start' })).catch(() => problems.push(`${name}: 대화까지 내리지 못함`))
     // 이식 안내서 (11/19) · 계정 › AI API 키 (11/20): 화면 아래쪽에 있어 그 부위가 화면 가운데 오게 내린다
-    if (name === 'about-ports' || name === 'about-port-link' || name === 'settings-ai-keys') await page.locator(String(uiSel)).filter({ visible: true }).first().evaluate((el) => el.scrollIntoView({ block: 'center' })).catch(() => problems.push(`${name}: ${uiSel}까지 내리지 못함`))
+    if (name === 'project-records-done' || name === 'about-ports' || name === 'about-port-link' || name === 'settings-ai-keys') await page.locator(String(uiSel)).filter({ visible: true }).first().evaluate((el) => el.scrollIntoView({ block: 'center' })).catch(() => problems.push(`${name}: ${uiSel}까지 내리지 못함`))
     if (name === 'project') {
       await page.locator('[data-ui="최근 손댄 노트"] [data-ui="노트 카드"]').filter({ visible: true }).first().waitFor({ timeout: 10_000 })
         .catch(() => problems.push(`${name}: 노트 자료가 아직 없음`))
