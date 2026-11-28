@@ -350,3 +350,33 @@ export function ScreenAreasFigure() {
     </div>
   )
 }
+
+/** 저장소 · 서버 · 계정 (11/28 사용자 "저장소 관련 소개를 한곳에"): 내 컴퓨터들 ↔ GitHub 저장소들, GitHub 없는 사람의 피드백은 중계 서버로 */
+export function RepoMapFigure() {
+  const box = (name: string, sub: string) => <div className="dm-box dm-small"><b>{name}</b><span className="muted">{sub}</span></div>
+  return (
+    <figure className="about-fig about-docmap" aria-label={t('저장소 · 서버의 짜임: 내 컴퓨터들이 GitHub의 저장소들과 받고 올리며, GitHub 없는 사람의 피드백은 중계 서버를 거쳐 관리자 개인 저장소로 간다', 'How repositories and servers fit: your computers pull from and push to repositories on GitHub; feedback from people without GitHub goes through the relay into the maintainer\'s personal repository')}>
+      <div className="dm-box dm-project">
+        <b>{t('내 컴퓨터들', 'Your computers')}</b><span className="muted">{t('컴퓨터마다 앱 서버 하나, 계산과 로그인 열쇠는 여기에', 'one app server each; work and sign-in keys stay here')}</span>
+        <div className="dm-row dm-three">
+          {box(t('컴퓨터', 'Computer'), t('앱 서버 127.0.0.1:5174 · 창', 'app server 127.0.0.1:5174 · window'))}
+          {box(t('집 서버 (선택)', 'Home server (optional)'), t('늘 켜 둔 한 대 · Tailscale로만', 'one always-on computer · Tailscale only'))}
+          {box(t('폰', 'Phone'), t('브라우저로 집 서버나 맥을 엶', 'opens the home server or a Mac in the browser'))}
+        </div>
+      </div>
+      <div className="dm-link muted" aria-hidden>{t('받기 · 올리기 (git)', 'pull · push (git)')}</div>
+      <div className="dm-box dm-library">
+        <b>GitHub</b><span className="muted">{t('정본. 공개는 앱 저장소뿐', 'the source of truth; only the app repository is public')}</span>
+        <div className="dm-row dm-four">
+          {box(t('앱 저장소', 'App'), t('공개 · 코드와 소개', 'public · code and About'))}
+          {box(t('개인 저장소', 'Personal'), t('비공개 · 피드백 · 설정 사본', 'private · feedback · settings copies'))}
+          {box(t('연구 저장소', 'Research'), t('프로젝트마다 · workbench/', 'one per project · workbench/'))}
+          {box(t('라이브러리', 'Library'), t('개념노트 · 논문 · 그림', 'concept notes · papers · figures'))}
+        </div>
+        <span className="muted dm-foot">{t('설치판은 로그인한 계정에 -home · 프로젝트 · -library · -papers 저장소를 만듦', 'the installed app creates -home, per-project, -library and -papers repositories in your account')}</span>
+      </div>
+      <div className="dm-link muted" aria-hidden>{t('GitHub 없는 사람의 피드백', 'feedback from people without GitHub')}</div>
+      {box(t('중계 서버', 'Relay'), t('Cloudflare Worker → 관리자 개인 저장소 feedback/from/', 'Cloudflare Worker → maintainer\'s personal repository feedback/from/'))}
+    </figure>
+  )
+}
