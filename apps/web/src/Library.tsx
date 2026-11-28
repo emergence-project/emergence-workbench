@@ -222,14 +222,14 @@ function NoLibrary({ loading }: { loading: boolean }) {
   return <main className="stage full"><section className="pane"><div className="page-body"><h2>{t('지식', 'Knowledge')}</h2><p className="muted">{t('공용 라이브러리 폴더가 아직 없습니다. 개념노트는 그 폴더에 둡니다. ', 'No shared library folder yet. Concept notes live in that folder. ')}<LibraryLink />{t('에서 폴더를 정해 주세요.', ' is where you set it.')}</p></div></section></main>
 }
 
-/** 지식 지도 (왼쪽 띠의 "지도", 10/6에 지식 화면의 보기에서 자리만 옮김. 지도 자체는 그대로) */
-export function KnowledgeMapPage({ info, topic }: { info: LibraryInfo | null; topic?: string }) {
+/** 지식 지도 (지식 사이드바의 "지도", 11/28 점 그래프로: KnowledgeMap.tsx). 오른쪽 사이드바는 고른 점의 미리 보기 */
+export function KnowledgeMapPage({ info, topic, rightOpen, onSaved }: { info: LibraryInfo | null; topic?: string; rightOpen: boolean; onSaved(m: string): void }) {
   const { data, error } = useKnowledge(info)
   if (!info?.path) return <NoLibrary loading={!info} />
   return (
     <main className="kn-page" data-ui="지식 지도">
       {error && <div className="banner danger">{t('개념노트 목록을 읽지 못했습니다', 'Could not read the concept note list')}: {error}</div>}
-      <KnowledgeMap topics={data?.topics ?? []} focus={topic} onOpen={(key) => go({ page: 'library', topic: key })} />
+      <KnowledgeMap topics={data?.topics ?? []} focus={topic} rightOpen={rightOpen} onSaved={onSaved} />
     </main>
   )
 }

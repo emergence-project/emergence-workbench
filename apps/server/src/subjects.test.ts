@@ -142,3 +142,28 @@ describe('L5 classification API and index', () => {
     fs.rmSync(db)
   })
 })
+
+describe('field colors for the knowledge map (11/28)', () => {
+  it('reads, sets, swaps and clears top-level colors; ignores unknown names; rejects child subjects and stale hashes', async () => {
+    fs.writeFileSync(path.join(lib, 'subjects.yaml'), '# keep\nmath:\n  name: Math\n  color: violet\nmath/graph:\n  name: Graph Theory\ncs:\n  name: Computer Science\n  color: neon\n')
+    let tree = await get('/api/subjects')
+    expect(tree.items.find((s: { id: string }) => s.id === 'math').color).toBe('violet')
+    expect(tree.items.find((s: { id: string }) => s.id === 'cs').color).toBeUndefined()
+    // 맞바꾸기: 한 번에 둘
+    let r = await put('/api/subjects/colors', { colors: { math: 'blue', cs: 'violet' }, baseHash: tree.hash })
+    expect(r.statusCode, r.body).toBe(200)
+    tree = r.json()
+    expect(tree.items.find((s: { id: string }) => s.id === 'math').color).toBe('blue')
+    expect(tree.items.find((s: { id: string }) => s.id === 'cs').color).toBe('violet')
+    const raw = fs.readFileSync(path.join(lib, 'subjects.yaml'), 'utf8')
+    expect(raw.startsWith('# keep\n')).toBe(true)
+    expect(raw).toContain('Graph Theory')
+    expect((await put('/api/subjects/colors', { colors: { math: 'blue' }, baseHash: 'stale' })).statusCode).toBe(409)
+    expect((await put('/api/subjects/colors', { colors: { 'math/graph': 'blue' }, baseHash: tree.hash })).statusCode).toBe(400)
+    expect((await put('/api/subjects/colors', { colors: { math: 'orange' }, baseHash: tree.hash })).statusCode).toBe(400)
+    r = await put('/api/subjects/colors', { colors: { math: null }, baseHash: tree.hash })
+    expect(r.statusCode, r.body).toBe(200)
+    expect(r.json().items.find((s: { id: string }) => s.id === 'math').color).toBeUndefined()
+    expect(YAML.parse(fs.readFileSync(path.join(lib, 'subjects.yaml'), 'utf8')).math).toEqual({ name: 'Math' })
+  })
+})

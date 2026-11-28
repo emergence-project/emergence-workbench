@@ -98,6 +98,10 @@ export const Icon = {
   /** 터미널: 「>_」 (에이전트 대화 머리, 11/19) */
   terminal: <svg viewBox="0 0 24 24"><path d="M5 7l5 5-5 5M12.5 17.5h6.5" /></svg>,
   /** 칸을 크게 · 원래대로 */
+  /** 지식 지도 초점 보기: 이웃 (가운데 점과 고리 하나) · 두 단계 (고리 둘) */
+  ring1: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2" fill="currentColor" /><circle cx="12" cy="12" r="6.5" /></svg>,
+  ring2: <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2" fill="currentColor" /><circle cx="12" cy="12" r="5.5" /><circle cx="12" cy="12" r="9.5" strokeDasharray="2 2.6" /></svg>,
+  minus: <svg viewBox="0 0 24 24"><path d="M5 12h14" /></svg>,
   maximize: <svg viewBox="0 0 24 24"><path d="M14 4.5h5.5V10M10 19.5H4.5V14M19.5 4.5l-6 6M4.5 19.5l6-6" /></svg>,
   minimize: <svg viewBox="0 0 24 24"><path d="M19.5 10H14V4.5M4.5 14H10v5.5M14 10l5.5-5.5M10 14l-5.5 5.5" /></svg>,
   /** 질문(기록 종류): 물음표가 든 말풍선. 말풍선은 기록 묶음의 그림이다 (10/16) */

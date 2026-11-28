@@ -95,6 +95,7 @@ import './styles/notice-bell.css'
 import './styles/research.css'
 import './styles/features.css'
 import './styles/frame.css'
+import './styles/knowledge-map.css'
 
 applyUi(cachedUi())
 phoneStart()

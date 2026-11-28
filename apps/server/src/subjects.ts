@@ -5,17 +5,19 @@ import { fileCache } from './readCache.js'
 import { hashOf, writeAtomic } from './fsutil.js'
 import { WorkbenchError } from './workbench.js'
 import { t } from './i18n.js'
+import { isFieldColor, type FieldColor } from '@rw/core'
 
-export interface Subject { id: string; name: string; parent: string | null }
+export interface Subject { id: string; name: string; parent: string | null; color?: FieldColor }
 export interface SubjectTree { enabled: boolean; hash: string; items: Subject[] }
 export const SUBJECT_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*(?:\/[a-z0-9]+(?:-[a-z0-9]+)*){0,2}$/
 export function parseSubjects(raw: string): Subject[] {
   const doc = YAML.parseDocument(raw)
   if (doc.errors.length || (doc.contents !== null && !YAML.isMap(doc.contents))) throw new WorkbenchError(422, t('subjects.yaml을 읽지 못했습니다', 'Could not read subjects.yaml'))
-  const map = (doc.toJS() ?? {}) as Record<string, { name?: unknown }>
+  const map = (doc.toJS() ?? {}) as Record<string, { name?: unknown; color?: unknown }>
   const items = Object.entries(map).map(([id, entry]) => {
     if (!SUBJECT_ID.test(id) || !entry || typeof entry.name !== 'string' || !entry.name.trim()) throw new WorkbenchError(422, t(`올바르지 않은 분류: ${id}`, `Invalid subject: ${id}`))
-    return { id, name: entry.name.trim(), parent: id.includes('/') ? id.slice(0, id.lastIndexOf('/')) : null }
+    // 모르는 색 이름은 없는 것으로 본다(기본 색): 파일을 손으로 고쳐도 분류 나무 전체가 깨지지 않게
+    return { id, name: entry.name.trim(), parent: id.includes('/') ? id.slice(0, id.lastIndexOf('/')) : null, ...(isFieldColor(entry.color) && { color: entry.color }) }
   })
   for (const item of items) if (item.parent && !Object.hasOwn(map, item.parent)) throw new WorkbenchError(422, t(`상위 분류가 없습니다: ${item.parent}`, `Parent subject not found: ${item.parent}`))
   return items
@@ -85,4 +87,17 @@ export function setEntrySubjects(lib: string | undefined, file: string, key: str
     doc.setIn([key, 'subjects'], doc.createNode(subjects))
   })
   return { subjects, hash }
+}
+/** 지식 지도의 분야 색 (11/28): 맨 위 분류에만. null은 색을 빼서 기본 색으로. 한 번에 여럿(두 분야 맞바꾸기) */
+export function setSubjectColors(lib: string | undefined, colors: Record<string, FieldColor | null>, baseHash: unknown): SubjectTree {
+  const tree = readSubjects(lib)
+  if (!lib || !tree.enabled) throw new WorkbenchError(409, t('분류 나무가 없습니다', 'There is no subject tree'))
+  for (const id of Object.keys(colors)) if (!tree.items.some((s) => s.id === id && s.parent === null)) throw new WorkbenchError(400, t(`맨 위 분류가 아닙니다: ${id}`, `Not a top-level subject: ${id}`))
+  editYaml(path.join(lib, 'subjects.yaml'), baseHash, (doc) => {
+    for (const [id, color] of Object.entries(colors)) {
+      if (color) doc.setIn([id, 'color'], color)
+      else doc.deleteIn([id, 'color'])
+    }
+  })
+  return readSubjects(lib)
 }

@@ -3,9 +3,11 @@
  * 파일 형식은 docs/repo-format.md, 여기는 앱 서버와 화면 사이의 모양이다.
  */
 import { z } from 'zod'
+import { FIELD_COLORS } from '../field-colors.js'
+export { FIELD_COLORS, type FieldColor } from '../field-colors.js'
 
 const counts = { notes: z.number(), figures: z.number(), papers: z.number() }
-const subject = { id: z.string(), name: z.string(), parent: z.string().nullable() }
+const subject = { id: z.string(), name: z.string(), parent: z.string().nullable(), color: z.enum(FIELD_COLORS).optional() }
 
 /** 분류 하나와 거기 든 개념노트·그림·논문 수 */
 export const LibrarySubject = z.object({ ...subject, ...counts }).strict()
@@ -34,6 +36,8 @@ export const RenameSubjectBody = z.object({ id: z.string(), name: z.string(), ba
 export const AddSubjectBody = z.object({ parent: z.string().optional(), name: z.string(), slug: z.string().optional(), baseHash })
 export const SetSubjectsBody = z.object({ subjects: z.array(z.string()), baseHash })
 export const SetFigureSubjectsBody = SetSubjectsBody.extend({ id: z.string() })
+/** PUT /subjects/colors: 맨 위 분류 id → 색 이름 (null이면 색을 빼서 기본 색으로). 두 분야의 색 맞바꾸기는 한 번에 둘 */
+export const SetSubjectColorsBody = z.object({ colors: z.record(z.string(), z.enum(FIELD_COLORS).nullable()), baseHash })
 
 export type LibrarySubject = z.infer<typeof LibrarySubject>
 export type SubjectTree = z.infer<typeof SubjectTree>
@@ -44,3 +48,4 @@ export type RenameSubjectBody = z.input<typeof RenameSubjectBody>
 export type AddSubjectBody = z.input<typeof AddSubjectBody>
 export type SetSubjectsBody = z.input<typeof SetSubjectsBody>
 export type SetFigureSubjectsBody = z.input<typeof SetFigureSubjectsBody>
+export type SetSubjectColorsBody = z.input<typeof SetSubjectColorsBody>

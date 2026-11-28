@@ -85,7 +85,8 @@ export const GLOBAL_PAGES: {
   {
     page: 'kmap', label: '지도', name: t('지도', 'Map'), aria: t('지식 지도', 'Knowledge map'), tip: t('지도 — 개념노트 사이의 링크', 'Map: links between concept notes'), icon: Icon.tree, rail: 'none', under: 'library',
     side: (p) => <ConceptSide info={p.library} route={p.route} />,
-    render: (p) => <KnowledgeMapPage info={p.library} topic={p.route.page === 'kmap' ? p.route.topic : undefined} />,
+    right: (r) => r.page === 'kmap',
+    render: (p) => <KnowledgeMapPage info={p.library} topic={p.route.page === 'kmap' ? p.route.topic : undefined} rightOpen={p.rightOpen} onSaved={p.onSaved} />,
   },
   // 공부: 책 · 강의 (11/10 사용자 결정 "공부는 지식 라이브러리에", 안 A). 지식 사이드바의 「공부」 묶음에서 연다
   {

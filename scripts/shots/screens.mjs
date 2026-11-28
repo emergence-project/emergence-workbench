@@ -64,7 +64,9 @@ export const DEFAULT_SCREENS = [
   ['knowledge', '#/library', '통계 줄'],
   ['knowledge-list', '#/library/list', '지식 목록 줄'],
   ['knowledge-list-filtered', '#/library/list?subject=Mathematics', '분류 정보'],
-  ['knowledge-map', '#/library/map', '지식 지도'],
+  // 지식 지도 (11/28 점 그래프): 전체 지도 · 초점 보기(오른쪽 미리 보기)
+  ['knowledge-map', '#/library/map', '지식 지도 그림'],
+  ['knowledge-map-focus', '#/library/map/planargraph', '지식 지도 미리 보기 내용'],
   ['knowledge-make', '#/library', '개념노트 만들기 메뉴', '개념노트 만들기'],
   ['knowledge-note', '#/library/t/planargraph', '개념노트'],
   ['knowledge-edit', '#/library/t/planargraph', '개념노트 편집기', '고치기'],
@@ -277,6 +279,8 @@ export const SUBJECT_SCREENS = [
   ['subjects-figures', '#/figures', '통계 줄'],
   ['subjects-figures-filtered', '#/figures/subject%3Amath', '그림 카드'],
   ['subjects-figure-picker', '#/figures/list', '분류 고르기 메뉴', ['[data-ui="그림 카드"][data-ui-item="세 나라 지도"], [data-ui="그림 카드"][data-ui-item="Three-country map"]', '분류 더하기']],
+  // 지식 지도의 분야 색 창 (11/28): 분야를 누르면 그 분야만 색 12개
+  ['subjects-knowledge-map-colors', '#/library/map', '분야 색 창', ['분야 색', '[data-ui="분야 색 창"] .kg-crow']],
   ['subjects-papers-filtered', '#/papers/subject%3Amath', '논문 줄'],
   ['subjects-papers-home', '#/papers', '관심 분야'],
   ['subjects-paper-picker', '#/papers/list', '분류 고르기 메뉴', ['[data-ui="논문 줄"][data-ui-item="readerGraph2010"]', '분류 더하기']],
