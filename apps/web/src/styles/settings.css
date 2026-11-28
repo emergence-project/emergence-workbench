@@ -22,7 +22,7 @@
 .sync-pick .segmented.off button { opacity: .5; }
 .sync-own { display: flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); }
 .sync-own input { width: 5em; }
-.sync-warn { margin-top: var(--sp-1); font-size: var(--fs-xs); color: var(--s-blocked); }
+.sync-warn { margin-top: var(--sp-1); font-size: var(--fs-xs); color: var(--s-caution); }
 
 /* 계정 › 시작 준비 (10/21): 점 · 이름과 설명 · 행동. 점은 상태 색(청록 됨 · 주황 할 차례 · 회색 고리 선택) */
 .setup { display: flex; flex-direction: column; }

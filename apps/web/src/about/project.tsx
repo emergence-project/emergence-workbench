@@ -1,12 +1,14 @@
-import * as screenLayout from './project/screen-layout'
-import * as overview from './project/overview'
-import * as projectInfo from './project/project-info'
-import * as workAndRecords from './project/work-and-records'
-import * as edits from './project/edits'
-import * as flow from './project/flow'
+import { mdSection } from './md'
 import type { AboutPart } from './types'
 
-// 소개 › 프로젝트 화면 (#/about/project). 한국어(ko)와 영어(en)는 같은 모양으로 함께 고친다. 절은 같은 이름 폴더에 절마다 파일 하나다.
+const screenLayout = mdSection('project/screen-layout')
+const overview = mdSection('project/overview')
+const projectInfo = mdSection('project/project-info')
+const workAndRecords = mdSection('project/work-and-records')
+const edits = mdSection('project/edits')
+const flow = mdSection('project/flow')
+
+// 소개 › 프로젝트 화면 (#/about/project). 한국어(ko)와 영어(en)는 같은 모양으로 함께 고친다. 절은 같은 이름 폴더에 절마다 .md 파일 하나다(11/27, 형식은 packages/core/src/about-md.ts).
 
 export const ko: AboutPart = {
   id: 'project', title: '프로젝트 화면',

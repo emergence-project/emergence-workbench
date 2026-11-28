@@ -77,7 +77,7 @@ export const DEFAULT_SCREENS = [
   // 바뀐 곳에서 묻기 (10/14): 첫 바뀐 곳에 질문과 답을 넣고(agent-edits.mjs) 대화를 연 모습
   ['review-talk', '#/r/{rid}/edits', '고침 대화', '묻기 버튼'],
   // 피드백 모드로 고침 대화를 누른 모습 (11/23 15:21): 위치가 「작업 화면 › 패널 › …」(예전에는 사이드바로 보였다)
-  ['feedback-mode-pane', '#/r/{rid}/edits', '[data-feedback-ui].fb-pop', ['묻기 버튼', '[data-tip="피드백"]', '![data-ui="고침 대화"]']],
+  ['feedback-mode-pane', '#/r/{rid}/edits', '[data-feedback-ui].fb-pop', ['묻기 버튼', '[data-feedback-ui].fb-toggle', '![data-ui="고침 대화"]']],
   // 확인 필요: 반려한 것을 다시 처리한 항목을 펼쳐 주고받은 기록과 승인·반려를 찍는다 (fixtures/sandbox-feedback)
   ['feedback', '#/feedback', '주고받은 기록', ['피드백 줄']],
   // 전후 그림 크게 보기 (10/13): 그림이 있는 항목을 펼쳐 전 그림을 누른 모습. 11/23부터 시안과 한 창: 위 줄에 전 · 후 · 시안, 오른쪽에 대화와 답 칸
@@ -139,8 +139,8 @@ export const DEFAULT_SCREENS = [
   ['about-flow', '#/about/project/flow', '흐름'],
   // 소개 › 프로젝트 화면 › 화면의 짜임의 그림 (11/23): 상단바 · 레일 · 두 사이드바 · 주 패널 · 옆 패널
   ['about-layout', '#/about/project/screen-layout', '화면의 짜임'],
-  // 소개 › 정의와 원칙 쪽의 정의 절: 글의 짜임 그림에 흐름 · 맡긴 일, 정의에 흐름 · 주장 · 시도 (11/19)
-  ['about-principles', '#/about/principles', '정의'],
+  // 소개 › 구성과 용어 쪽의 용어 절: 글의 짜임 그림에 흐름 · 맡긴 일, 용어에 흐름 · 주장 · 시도 (11/19, 11/27 정의와 원칙에서 옮김)
+  ['about-principles', '#/about/layout/project', '정의'],
   // 피드백 유형과 답 (10/21): 답의 첫 줄에 쓰는 말 표
   ['about-answers', '#/about/feedback/answers', '유형과 답'],
   // 소개 › 단축키와 파일 위치의 「다른 앱에 옮기기」 (11/19): 이식 안내서 docs/ports 목록과 소개 동기화
@@ -151,11 +151,11 @@ export const DEFAULT_SCREENS = [
   ['about-research', '#/about/research', '실험과 판정'],
   ['about-rules', '#/about/rules', '규칙 목록'],
   // 소개 오른쪽 사이드바 (11/20 시안 2 · 3절, 11/24부터 앱 오른쪽 사이드바의 정보 갈래): 상단바 정보 아이콘으로 열고 이력 표의 첫 줄을 누르면 그 절로 가서 바꾼 문장에 하이라이트, 줄 아래 요약.
-  // 그다음 「수정」 탭에서 화면 구조 절의 첫 문단을 고른 모습. 사이드바와 탭이 기억되므로 소개 화면 맨 끝
+  // 그다음 「수정」 탭에서 개요 절의 첫 문단을 고른 모습. 사이드바와 탭이 기억되므로 소개 화면 맨 끝
   // 11/20: 카드의 「고칠 점」을 눌러 카드 바로 아래에 고칠 점 칸을 펼친 모습 (요약 줄의 💬는 커밋 본문이 있어야 보여, 얕게 받는 CI에는 없다).
   // 카드는 날짜 글자를 누른다: CI에는 제목이 없어 카드 가운데가 「맞아요」라 절 전체가 확인함이 되었다
   ['about-check-history', '#/about/principles', '이력 표', ['+맥락 칸 켜고 끄기', '[data-ui="이력 표"] [data-ui="고친 업데이트"] .about-hist-top .muted','[data-ui="이력 표"] [data-ui="고칠 점"]']],
-  ['about-fix', '#/about', '소개 고치기', ['[data-ui="소개 사이드바 갈래"] button:text-matches("^(수정|Edit)")', '[data-ui="화면 구조"] .about-lead']],
+  ['about-fix', '#/about', '소개 고치기', ['[data-ui="소개 사이드바 갈래"] button:text-matches("^(수정|Edit)")', '[data-ui="정의"] .about-lead']],
   ['settings', '#/settings', '설정'],
   // 설정 › 계정 (10/21): 시작 준비 (꼭 할 것 · 선택)
   ['settings-accounts', '#/account', '시작 준비 요약'],
@@ -175,6 +175,8 @@ export const DEFAULT_SCREENS = [
   ['settings-central-memo', '#/settings/agents', '중앙 메모'],
   // 설정 › 에이전트 › 에이전트 자세히 (11/9): Codex 줄을 눌러 들어간 모양 (계정 · 시작 권한 · 자동 허용 · 하는 일)
   ['settings-agent-detail', '#/settings/agents', '에이전트 자세히', ['[data-ui="대화 에이전트"]:nth-of-type(2)']],
+  // 설정 › 기능 (11/27 내장 플러그인 설치 · 제거)
+  ['settings-features', '#/settings/features', '기능 줄'],
   // 폰에서 보기 (10/30): 예제 모드의 가짜 Tailscale을 켜 둔 화면(주소 · QR)
   ['settings-phone', '#/settings/phone', '폰 주소'],
   // 설정 › 공통 규칙 (10/18): 절마다 읽기, 연필로 연 원문 입력란

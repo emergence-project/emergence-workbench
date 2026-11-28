@@ -36,6 +36,23 @@
 4. **안전 규칙**(`safety`)은 효과가 보이지 않아도 사용자 허락 없이 풀지 않는다. 사고는 드물게 일어나서 몇 주의 이력으로는 효과를 잴 수 없다.
 5. **푸는 PR**에는 전후 수(의례 줄 비율, 실패 수)를 적고, 고위험 영역(`scripts/ci/` 등)이면 사용자가 합친다.
 
+## 실험 기능의 울타리
+
+화면 · 서버 곳곳에 걸린 실험(지금은 흐름)은 목록의 `code:`에 그 기능이 가진 파일(`owns`, `*`는 `/` 밖의 아무 글자)과 그 파일을 불러도 되는 바깥 파일(`seams`, 이음매)을 적는다 (2026-11-27 사용자 결정 "실험 기능은 단계별로 켜고 끄고, 별로면 깨끗이 떼어 낸다"). `pnpm test`의 `scripts/ci/check-experiments.mjs`가 본다.
+
+- 이음매가 아닌 파일이 실험 파일을 import하면 실패한다(`tsImport('…')`, 이음매가 `export *`로 다시 내보낸 이름을 가져오는 것 포함). 그 자리가 꼭 필요하면 `seams`에 더하고, 아니면 이미 있는 이음매를 거친다. 끄거나 지울 때 고칠 코드 연결이 이 목록이다.
+- 이음매가 더는 실험 파일을 부르지 않거나, `owns`의 무늬에 맞는 파일이 없으면 실패한다(목록이 낡지 않게).
+- 다시 볼 날이 7일 안이면 알린다(실패는 아님). 다시 볼 날(`review`)이 지났는데 판단이 되돌림 · 없앰이 아니면 실패한다. 사용자와 정해 `verdict` · `note` · `review`를 고친다.
+- 테스트 파일은 부르는 쪽으로 세지 않는다. import가 아닌 연결(주소 · 페이지 이름 같은 문자열, 화면 그림 목록, `package.json`의 명령)은 세지 않으니, 지울 때는 `problems` 같은 이름도 찾아본다.
+
+### 흐름: 검사가 세지 않는 연결 (2026-11-27)
+
+흐름의 import 이음매는 셋(서버 등록부 `apps/server/src/plugins/index.ts`, 화면 등록부 `apps/web/src/plugins/index.tsx`, CSS 차례 때문에 남긴 `apps/web/src/main.tsx`)이다. 흐름 파일은 이름표 · 근거 세기를 `@rw/core/plugins/flow`에서, 화면 호출은 `./api/problems`에서 직접 가져온다(본체 `api.ts` · core `index.ts`는 다시 내보내지 않는다). 흐름을 떼어 낼 때는 아래 글자 연결도 고친다.
+
+- 서버: `watcher.ts`(흐름 파일 알림), `changes.ts`(변경 기록의 흐름 항목), `routes/recordsPublish.ts`(자동 올리기의 `problems`), 에이전트 도구 이름 목록 `agentPolicy.ts`(고위험 영역) · `agentAcp.ts` · `agentRunner.ts`, 안내문 `mcp.ts` · `agentStatus.ts`, 연구 목록 계약 `packages/core/src/contract/research.ts`의 흐름 수.
+- 화면: 주소 `router.ts`, 화면 캐시 키 `queries.ts`, 탭 `workspaceTabs.ts` · `App.tsx` · `appCrumbs.ts`, 파일 나무 `FileTree.tsx`, 변경 화면 `ChangesPage.tsx`, 홈 카드 `HomePage.tsx`, 알림 종 `NoticeBell.tsx`, 프로젝트 정보 `ProjectInfoPage.tsx`, 내 차례 `RecordTurns.tsx`, 폰 차례 `phone/PhoneTurns.tsx`, 연구 알림 타입 `api/research.ts`.
+- 그 밖: 화면 그림 목록 `scripts/shots/screens.mjs` · `scripts/shots/changes.mjs`, `package.json`의 `agent:problem`, 예제 `fixtures/**/workbench/problems/`.
+
 ## 첫 점검 (2026-11-27)
 
 커밋 784개 · PR 754개 · 11/19–11/26 CI 400번(실패 35번 중 19번 분류)을 봤다. 결과와 판단은 `registry.json`의 `note`에 있다.

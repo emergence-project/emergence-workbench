@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { attemptStrength } from '@rw/core'
-import { problemsApi, PROBLEM_LIMIT, type Attempt, type BasisReview, type ClaimSide, type FlowAnswer, type ProblemDoc } from './api'
+import { attemptStrength } from '@rw/core/plugins/flow'
+import { problemsApi, PROBLEM_LIMIT, type Attempt, type BasisReview, type ClaimSide, type FlowAnswer, type ProblemDoc } from './api/problems'
 import { Dialog } from './dialogs'
 import { t } from './i18n'
 import { ANSWER_NAME, objOf, SIDE_NAME, SideTag, TargetSelect } from './problemNames'

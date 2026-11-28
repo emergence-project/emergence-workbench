@@ -72,6 +72,25 @@ describe.skipIf(process.platform === 'win32')('ChatGPT로 답하기 (Codex)', ()
     expect(await codexAsk(tmp(), cwd, '그냥 질문')).toBe('글 없이 답함')
   })
 
+  it('토론 자리의 모델 · 생각 깊이가 codex exec 인자(-m · model_reasoning_effort)로 간다', async () => {
+    // 가짜 codex가 받은 인자를 답으로 돌려준다
+    const bin = path.join(tmp(), 'codex')
+    fs.writeFileSync(bin, `#!/bin/sh
+out=""; prev=""
+for a in "$@"; do [ "$prev" = "--output-last-message" ] && out="$a"; prev="$a"; done
+cat > /dev/null
+echo "$*" > "$out"
+`, { mode: 0o755 })
+    process.env.RW_CODEX_BIN = bin
+    const cwd = tmp()
+    expect(await codexAsk(tmp(), cwd, 'q', undefined, { model: 'gpt-5.2-codex', effort: 'high' })).toContain('-m gpt-5.2-codex -c model_reasoning_effort="high"')
+    expect(await codexAsk(tmp(), cwd, 'q', undefined, { model: 'gpt-5.2-codex/low', effort: 'high' })).toContain('-m gpt-5.2-codex -c model_reasoning_effort="low"')
+    expect(await codexAsk(tmp(), cwd, 'q', undefined, { effort: 'max' })).toMatch(/^exec .* -c model_reasoning_effort="xhigh" --cd/)
+    const plain = await codexAsk(tmp(), cwd, 'q', undefined, { model: 'default' })
+    expect(plain).not.toContain('-m ')
+    expect(plain).not.toContain('model_reasoning_effort')
+  })
+
   it('Codex를 받고 로그인해야 ChatGPT를 고를 수 있고, 고르면 질문이 Codex로 간다', async () => {
     const configDir = tmp()
     const app = buildApp({ configDir })

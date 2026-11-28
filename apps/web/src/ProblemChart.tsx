@@ -1,6 +1,6 @@
 import type { KeyboardEvent, ReactNode } from 'react'
 import { useQueries } from '@tanstack/react-query'
-import { problemsApi, type Attempt, type Claim, type ProblemDoc, type ProblemRow } from './api'
+import { problemsApi, type Attempt, type Claim, type ProblemDoc, type ProblemRow } from './api/problems'
 import { t } from './i18n'
 import { branchPoints, chartGeo, CW, layoutTree, RH, ROOT, roundedPath, wrapName } from './problemLayout'
 import { ANSWER_NAME, ATTEMPT_NAME, SIDE_NAME } from './problemNames'

@@ -13,7 +13,7 @@
 .radio-row { display: flex; gap: var(--sp-3); flex-wrap: wrap; font-size: var(--fs-sm); }
 .radio-row label { display: inline-flex; gap: 5px; align-items: center; }
 .notes { font-size: var(--fs-sm); border-radius: var(--r-sm); padding: var(--sp-2) 10px; }
-.notes.warn { background: color-mix(in srgb, var(--s-blocked) 10%, var(--bg)); }
+.notes.warn { background: color-mix(in srgb, var(--s-caution-dot) 14%, var(--bg)); }
 .notes.err { background: var(--danger-bg); color: var(--danger); }
 .notes ul { margin: 0; padding-left: 18px; }
 .check { display: flex; gap: var(--sp-2); align-items: flex-start; font-size: var(--fs-sm); }

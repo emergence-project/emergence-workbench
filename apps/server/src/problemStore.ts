@@ -1,7 +1,8 @@
 // 흐름 파일 읽기 · 화면 모양 · 쓰기 도우미 (problems.ts에서 나눔). 규칙과 바꾸기는 problems.ts
 import fs from 'node:fs'
 import path from 'node:path'
-import { PROBLEM_STREAK, stamp } from '@rw/core'
+import { stamp } from '@rw/core'
+import { PROBLEM_STREAK } from '@rw/core/plugins/flow'
 import type { Attempt, AttemptState, Claim, DirectionReport, Problem, ProblemList, ProblemRow, ProblemState, ProblemStop } from '@rw/core/contract/problems'
 import { hashOf, writeAtomic } from './fsutil.js'
 import { changedSince } from './problemFiles.js'

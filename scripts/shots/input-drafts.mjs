@@ -468,7 +468,7 @@ try {
     const tabs = page.locator('[data-ui="소개 사이드바 갈래"]')
     if (!await tabs.isVisible().catch(() => false)) await page.locator('[data-ui="머리줄"] button').last().click()
     await tabs.getByRole('tab', { name: /^수정/ }).click()
-    await page.locator('[data-ui="화면 구조"] .about-lead').click()
+    await page.locator('[data-ui="정의"] .about-lead').click()
     await page.locator('[data-ui="고친 글"]').fill('고쳐 쓴 첫 문장')
     await page.locator('[data-ui="담기"]').click()
     const basket = page.locator('[data-ui="담은 곳"]')
@@ -476,7 +476,7 @@ try {
     await page.locator('[data-ui="바라는 점"]').fill('표에 줄 하나 추가')
     // 다음 쪽으로: 수정 탭이 새로 만들어진다
     await page.locator('[data-ui="소개 앞뒤"] .about-step.next').click()
-    await eventually(async () => !(await page.locator('[data-ui="화면 구조"]').count()), 'The next page did not open')
+    await eventually(async () => new URL(page.url()).hash !== '#/about', 'The next page did not open')
     assert.equal(await basket.locator('b').first().innerText(), '담은 곳 1', 'The collected spot was lost when the page changed')
     assert.equal(await page.locator('[data-ui="바라는 점"]').inputValue(), '표에 줄 하나 추가', 'The wish was lost when the page changed')
     // 다른 탭에 다녀와도
@@ -493,10 +493,10 @@ try {
     const tabs = page.locator('[data-ui="소개 사이드바 갈래"]')
     if (!await tabs.isVisible().catch(() => false)) await page.locator('[data-ui="머리줄"] button').last().click()
     await tabs.getByRole('tab', { name: /^수정/ }).click()
-    await page.locator('[data-ui="화면 구조"] .about-lead').click()
+    await page.locator('[data-ui="정의"] .about-lead').click()
     await page.locator('[data-ui="고친 글"]').fill('담기 전에 적던 글')
     await page.locator('[data-ui="소개 앞뒤"] .about-step.next').click()
-    await eventually(async () => !(await page.locator('[data-ui="화면 구조"]').count()), 'The next page did not open')
+    await eventually(async () => new URL(page.url()).hash !== '#/about', 'The next page did not open')
     assert.equal(await page.locator('[data-ui="고친 글"]').inputValue(), '담기 전에 적던 글', 'The typed edit was lost when the page changed')
     // 담으면 처음 고른 쪽의 이름으로 담긴다
     await page.locator('[data-ui="담기"]').click()

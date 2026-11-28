@@ -1,7 +1,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { describe, expect, it } from 'vitest'
-import { BRIEF_MAX } from '@rw/core'
+import { BRIEF_MAX } from '@rw/core/plugins/flow'
 import { createMcpServer } from './mcp.js'
 import { app, R, useSampleApp } from './testkit.js'
 

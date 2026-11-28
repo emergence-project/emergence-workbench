@@ -16,9 +16,12 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { EXPLORE_AGENT, FILE_WRITE_TOOLS, MCP_NAME, type AgentRunner, type OneShot, type RunEvent, type RunInput, type Turn } from './agentChats.js'
 import { CHAT_EFFORTS, CLAUDE_START_MODEL, type ChatEffort, type ModelChoice } from '@rw/core/contract/agentChats'
+import { defaultConfigDir } from './appKey.js'
+import { sandboxForRun } from './agentSandbox.js'
 import { claudeEnv, claudeExecutable } from './ask.js'
 import { skillsPluginDir, userConnectors } from './agentExtras.js'
-import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
+import type { HookCallback, McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
+import { aboutNotifier } from './aboutGuide.js'
 import { gitIdentityEnv } from './git.js'
 import crypto from 'node:crypto'
 import { Unread } from './agentInbox.js'
@@ -128,10 +131,10 @@ function modelLister(): () => Promise<ModelChoice[]> {
 export const SIDE_MODEL = 'haiku'
 
 /** 곁 질문: 도구 · 저장소 설정 없이 한 번 묻고 답을 받는다 (세션을 남기지 않는다) */
-/** 곁 질문 · 토론 정리: model · effort가 오면(토론 자리) 그 모델로, 아니면 작은 모델로 */
+/** 곁 질문 · 토론 정리: model · effort가 오면(토론 자리) 그 모델로(default면 Claude Code의 기본 모델), 아니면 작은 모델로 */
 async function sideAnswer(o: OneShot): Promise<string> {
   const { query } = await import('@anthropic-ai/claude-agent-sdk')
-  const q = query({ prompt: o.prompt, options: { cwd: o.cwd, settingSources: [], strictMcpConfig: true, tools: [], maxTurns: 1, model: o.model ?? SIDE_MODEL, ...(o.effort && { effort: o.effort }), persistSession: false, env: claudeEnv(), ...executable() } })
+  const q = query({ prompt: o.prompt, options: { cwd: o.cwd, settingSources: [], strictMcpConfig: true, tools: [], maxTurns: 1, ...(o.model !== 'default' && { model: o.model ?? SIDE_MODEL }), ...(o.effort && { effort: o.effort }), persistSession: false, env: claudeEnv(), ...executable() } })
   let answer = ''
   try {
     for await (const m of q) {
@@ -147,7 +150,7 @@ async function sideAnswer(o: OneShot): Promise<string> {
 /** 탐색을 맡는 하위 에이전트의 모델 (작고 빠른 것) */
 export const EXPLORE_MODEL = 'haiku'
 /** 읽기만 하는 앱 MCP 도구 (하위 에이전트도 같은 허락 규칙을 거친다) */
-const READ_MCP = ['rules', 'list_projects', 'overview', 'project_status', 'list_notes', 'list_edit_reviews', 'read_note', 'read_records', 'list_records', 'problems', 'problem_read', 'problem_brief', 'list_tasks', 'read_task', 'search_library', 'read_concept']
+const READ_MCP = ['about', 'rules', 'list_projects', 'overview', 'project_status', 'list_notes', 'list_edit_reviews', 'read_note', 'read_records', 'list_records', 'problems', 'problem_read', 'problem_brief', 'list_tasks', 'read_task', 'search_library', 'read_concept']
 const exploreAgent = {
   description: 'Fast read-only explorer on a small model. Use it to search across many files or read several large files; it returns only the findings (paths, line numbers, short quotes), so the main conversation stays short.',
   tools: ['Read', 'Glob', 'Grep', ...READ_MCP.map((t) => `mcp__${MCP_NAME}__${t}`)],
@@ -179,11 +182,14 @@ export function claudeAgentRunner(mcpFor: (appChat?: string, central?: boolean, 
     }
     const abortController = new AbortController()
     input.signal.addEventListener('abort', () => { abortController.abort(); done() }, { once: true })
+    const sandbox = await sandboxForRun(input, defaultConfigDir())
     const q = query({
       prompt: prompt(),
       options: {
         cwd: input.cwd,
         additionalDirectories: input.extraDirs,
+        // 연구 대화의 명령은 OS 격리 안에서 돈다 (11/27, agentSandbox.ts): 판정이 놓친 명령도 작업 폴더 밖을 쓰거나 비밀을 읽지 못한다
+        ...(sandbox && { sandbox }),
         ...(input.sessionId && { resume: input.sessionId }),
         // 되돌린 뒤: 그 메시지까지만 이어 새 세션으로 가른다 (원래 세션은 그대로)
         ...(input.sessionId && input.resumeAt && { resumeSessionAt: input.resumeAt, forkSession: true }),
@@ -201,6 +207,8 @@ export function claudeAgentRunner(mcpFor: (appChat?: string, central?: boolean, 
         model: input.model === 'default' ? CLAUDE_START_MODEL : input.model,
         effort: input.effort,
         includePartialMessages: true,
+        // 앱 고치기 대화 (11/27 실험 about-hook): 읽거나 고친 파일을 구현으로 적은 소개 절의 요약 · 지킬 것을 한 번씩 건넨다
+        ...(input.appChat && { hooks: { PostToolUse: [{ matcher: 'Read|Edit|Write|MultiEdit', hooks: [aboutHook(input.cwd)] }] } }),
         canUseTool: async (tool, toolInput) => {
           const d = await input.canUseTool(tool, toolInput)
           return d.allow ? { behavior: 'allow', updatedInput: toolInput } : { behavior: 'deny', message: d.message }
@@ -241,3 +249,17 @@ export function claudeAgentRunner(mcpFor: (appChat?: string, central?: boolean, 
     }
   }, { models: modelLister(), side: sideAnswer })
 }
+
+/** 소개 훅: 파일 경로를 받는 도구 뒤에 관련 절을 덧붙인다. 소개를 못 읽어도 대화는 그대로 */
+function aboutHook(cwd: string): HookCallback {
+  const note = aboutNotifier(cwd)
+  return async (h) => {
+    if (h.hook_event_name !== 'PostToolUse') return {}
+    const ti = h.tool_input
+    const file = ti && typeof ti === 'object' && 'file_path' in ti && typeof ti.file_path === 'string' ? ti.file_path : undefined
+    let context: string | undefined
+    try { context = file ? note(file) : undefined } catch { context = undefined }
+    return context ? { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: context } } : {}
+  }
+}
+

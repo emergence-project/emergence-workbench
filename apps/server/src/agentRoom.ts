@@ -198,7 +198,8 @@ export class RoomChats extends CentralChats {
     if (run) return readOnlyAsk(run, prompt, cwd, { ...(seat?.model && { model: seat.model }), ...(seat?.effort && { effort: seat.effort }) })
     const side = this.deps.runner.side
     if (!side) throw new WorkbenchError(404, t(`여기서는 ${nameOf(agent)}에게 물을 수 없습니다`, `${nameOf(agent)} cannot be asked here`))
-    return side({ prompt, cwd, ...pick })
+    // 토론 자리(seat)의 「기본 모델」은 그 에이전트의 기본 모델: 모델을 빼면 곁 질문의 작은 모델(haiku)로 돌아 정리가 haiku로 됐다 (11/28)
+    return side({ prompt, cwd, ...(seat && { model: seat.model ?? 'default' }), ...pick })
   }
 
   /**

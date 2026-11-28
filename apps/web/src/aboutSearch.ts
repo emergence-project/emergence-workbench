@@ -25,6 +25,7 @@ export function aboutIndex(): AboutHit[] {
     const where = `${p.title} › ${s.title}`
     return [
       { key: `about:${p.id}:${i}`, text: s.title, where: p.title, to },
+      ...(s.summary ? [{ key: `about:${p.id}:${i}:summary`, text: s.summary, where, to }] : []),
       ...s.items.map((it, j) => {
         const text = nodeText(it.text).replace(/\s+/g, ' ').trim()
         const head = s.id === 'names' ? /^([^:]+):/.exec(text)?.[1] : undefined

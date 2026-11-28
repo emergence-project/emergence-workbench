@@ -46,7 +46,7 @@ import { useProjectIssues } from './projectIssues'
 import { RailProjects } from './RailProjects'
 import { SearchOverlay } from './Search'
 import { TopicPage } from './Topics'
-import { ProblemsPage } from './Problems'
+import { invalidatePluginChange, PluginPage } from './plugins'
 import { moveId, railProjects } from './projectProfile'
 import { railDragImage, useRailSlide } from './railDrag'
 import { setFeedbackNote } from './feedbackNote'
@@ -223,6 +223,7 @@ export function App() {
     // 에이전트가 쓰는 중인 글: 열린 대화에 그대로 붙인다 (다시 받지 않는다)
     if (e.type === 'agent-draft') { client.setQueryData<Chat>(qk.agentChat(e.id), (c) => (c?.state === 'running' ? { ...c, draft: e.text } : c)); return }
     if (appUpdateEvent(e)) return // 앱 업데이트 알림(화면을 바꿔 끼움 · 다시 시작 대기)은 AppUpdate.tsx가 다룬다
+    if (e.type === 'plugins') { invalidatePluginChange(client); return } // 설정 › 기능 설치 · 제거 (plugins/index.tsx)
     figuresMaybeChanged()
     // 화면 캐시: 알림이 바꾸는 자료만 (어느 프로젝트의 것이든. 홈의 프로젝트별 자료도 이것으로 새로워진다)
     invalidation.add(invalidationKeys(e)); slowInvalidation.add(slowInvalidationKeys(e))
@@ -354,7 +355,8 @@ export function App() {
       case 'todo': case 'records': return <WorkPage key="records" rid={rid} rapi={rapi} summary={summary} notes={notes} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} version={version} />
       case 'log': return <WorkPage key="log" rid={rid} rapi={rapi} summary={summary} notes={notes} topics={topics} onSaved={flash} firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} focus="log" />
       case 'map': return <Lazy><MapPage key={rid} rid={rid} summary={summary} notes={notes} /></Lazy>
-      case 'problems': return <ProblemsPage key={rid} rid={rid} id={route.page === 'problems' ? route.id : undefined} view={route.page === 'problems' ? route.view : undefined} at={route.page === 'problems' ? route.at : undefined} attempt={route.page === 'problems' ? route.attempt : undefined} kind={current?.kind} onSaved={flash} />
+      // 플러그인의 페이지 (흐름, 설정 › 기능에서 제거하면 안내만)
+      case 'problems': return <PluginPage name={t.k} rid={rid} route={route} kind={current?.kind} onSaved={flash} />
       case 'edits': return <Lazy><AgentEditsPage key={rid} rid={rid} selected={route.page === 'edits' ? route.key : undefined} version={version} onSaved={flash} /></Lazy>
       case 'chat': {
         // 대화 탭에는 다른 패널에서 보는 노트가 붙는다
