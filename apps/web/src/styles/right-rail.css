@@ -1,0 +1,15 @@
+/* 오른쪽 레일 (RightRail.tsx, 11/28): 열린 것의 면을 고르는 좁은 띠. 왼쪽 레일과 같은 단추, 폭만 좁다 */
+.rail-r { border-right: 0; border-left: 1px solid var(--line); padding: var(--sp-2) 0; }
+.rail-r-cell { display: flex; flex-direction: column; align-items: center; gap: var(--sp-1); }
+.rail-r .rail-btn { width: 32px; height: 32px; }
+.rail-r .rail-btn.on { color: var(--text); }
+.tip-left[data-tip]:hover::after, .tip-left[data-tip]:focus-visible::after { top: 50%; left: auto; right: calc(100% + 4px); transform: translateY(-50%); }
+/* 오른쪽 사이드바 머리줄: 칸 이름. 탭 바와 같은 높이 */
+.rs-head.rs-name { height: 36px; padding: 0 var(--sp-2) 0 var(--sp-3); gap: var(--sp-1); }
+.rs-name-t { flex: 1; min-width: 0; font-size: var(--fs-md); font-weight: var(--fw-title); color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 탭 바 오른쪽 끝의 두 패널 단추 (11/28 상단바에서 옮김) */
+.ws-tabs-wrap { display: flex; align-items: stretch; background: var(--bg-sunken); }
+.ws-tabs-wrap > .ws-tabs { flex: 1; min-width: 0; }
+.ws-split { align-self: center; flex: none; margin: 0 var(--sp-2) 0 var(--sp-1); }
+.ws-tabs-wrap:has(> .ws-split) { box-shadow: inset 0 -1px 0 var(--line); }
+.ws-tabs-wrap:has(> .ws-split)::after { right: 34px; }

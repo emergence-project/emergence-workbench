@@ -94,6 +94,7 @@ import './styles/agent-foreign.css'
 import './styles/notice-bell.css'
 import './styles/research.css'
 import './styles/features.css'
+import './styles/right-rail.css'
 
 applyUi(cachedUi())
 phoneStart()

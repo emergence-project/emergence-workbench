@@ -423,6 +423,7 @@ export function Workspace({ rid, route, layout, setLayout, dragging, titleOf, ui
       {([0, 1] as const).map((i) => (
         <Pane key={i} i={i} two={two} visible={shown.includes(i)} pane={layout.panes[i]} focused={two && layout.focus === i} isFocus={shown.includes(i) && i === focused} titleOf={titleOf} uiTitleOf={uiTitleOf} kindOf={kindOf} renderTab={renderTab} visibleTabs={visibleTabs} groups={groups}
           home={atHome && i === focused ? home : null} canSwap={layout.split}
+          onSplit={i === shown[shown.length - 1] ? () => setLayout((l) => toggleSplit(l, route.page)) : undefined}
           onFocus={() => focusPane(i)} onActivate={(t) => activate(i, t)} onClose={(t) => void close(t)} onDropTab={(key) => move(key, i)} onSwap={swapPanes}
           divider={two && i === 1 ? <div className="ws-divider" onPointerDown={drag('split')} role="separator" aria-label={t('두 패널 경계 — 끌어서 크기 조절', 'Border between panes: drag to resize')} /> : null} />
       ))}
@@ -436,9 +437,11 @@ export function Workspace({ rid, route, layout, setLayout, dragging, titleOf, ui
 
 const ICON: Record<Tab['k'], ReactNode> = { overview: Icon.home, info: Icon.projectInfo, status: Icon.projectInfo, changes: Icon.projectInfo, repo: Icon.repo, files: Icon.repo, agents: Icon.bot, notes: Icon.block, concepts: Icon.concept, papers: Icon.paper, edits: Icon.review, problems: Icon.branch, todo: Icon.task, records: Icon.comment, log: Icon.log, map: Icon.tree, statement: Icon.statement, doc: Icon.pdf, file: Icon.block, part: Icon.block, mspdf: Icon.pdf, concept: Icon.concept, paper: Icon.paper, topic: Icon.layers, task: Icon.task, chat: Icon.spark }
 
-function Pane({ i, two, visible, pane, focused, isFocus, titleOf, uiTitleOf, kindOf, renderTab, visibleTabs, groups, home, canSwap, onFocus, onActivate, onClose, onDropTab, onSwap, divider }: {
+function Pane({ i, two, visible, pane, focused, isFocus, titleOf, uiTitleOf, kindOf, renderTab, visibleTabs, groups, home, canSwap, onSplit, onFocus, onActivate, onClose, onDropTab, onSwap, divider }: {
   i: 0 | 1; two: boolean; visible: boolean; pane: PaneState; focused: boolean; isFocus: boolean; titleOf(t: Tab): string; uiTitleOf(t: Tab): string; kindOf(t: Tab): string | null; renderTab(t: Tab, context: TabRenderContext): ReactNode; visibleTabs: Tab[]; home: ReactNode
   groups: Map<string, AutosaveGroup>; canSwap: boolean
+  /** 탭 바 오른쪽 끝의 두 패널 단추 (보이는 마지막 패널에만, 11/28 상단바에서 옮김) */
+  onSplit?: () => void
   onFocus(): void; onActivate(t: Tab): void; onClose(t: Tab): void; onDropTab(key: string): void; onSwap(): void; divider: ReactNode
 }) {
   const [over, setOver] = useState(false)
@@ -493,6 +496,7 @@ function Pane({ i, two, visible, pane, focused, isFocus, titleOf, uiTitleOf, kin
             )
           })}
         </div>
+        {onSplit && <button className={`icon-btn sm ws-split${two ? ' on' : ''}`} data-ui="두 칸 켜고 끄기" data-tip={t('두 패널', 'Two panes')} aria-label={t('두 패널로 보기 켜고 끄기', 'Toggle two-pane view')} aria-pressed={two} onClick={onSplit}>{Icon.split}</button>}
         </div>
         <div className="ws-body">
           {home && <div className="ws-slot">{home}</div>}

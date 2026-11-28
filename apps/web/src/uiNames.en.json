@@ -337,7 +337,6 @@
   "오류": "Errors",
   "오류 목록": "Error list",
   "오른쪽 사이드바": "Right sidebar",
-  "오른쪽 사이드바 갈래": "Right sidebar view",
   "오른쪽 칸": "Right pane",
   "오른쪽 패널": "Right pane",
   "올리기 결과": "Upload result",
@@ -1222,5 +1221,7 @@
   "기능 줄": "Feature row",
   "기능 다시 볼 날": "Feature review date",
   "기능 제거 버튼": "Remove feature button",
-  "기능 설치 버튼": "Install feature button"
+  "기능 설치 버튼": "Install feature button",
+  "오른쪽 레일": "Right rail",
+  "오른쪽 사이드바 머리줄": "Right sidebar header"
 }

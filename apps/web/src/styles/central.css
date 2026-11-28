@@ -55,8 +55,7 @@ button.cb-row:hover { background: var(--bg-hover); }
 .ac-auto-text { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* 어느 화면에서나 오른쪽 사이드바로 에이전트 (11/16, AgentSide.tsx): 프로젝트 밖 화면의 오른쪽 열 */
-.body.with-agent { grid-template-columns: 52px var(--side-w, 244px) minmax(0, 1fr) 340px; }
-.body.no-side.with-agent { grid-template-columns: 52px minmax(0, 1fr) 340px; }
+.body.with-agent { --col-main: minmax(0, 1fr); --col-agent: 340px; }
 .agent-side { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg); border-left: 1px solid var(--line); }
 .ac-side-talk { display: flex; flex-direction: column; gap: var(--sp-2); }
 @media (max-width: 600px) {
