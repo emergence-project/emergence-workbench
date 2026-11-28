@@ -16,10 +16,11 @@ const EN: Record<string, string> = { ...old, ...table }
  * Korean names that changed after the part was named (docs/design-system.md §5 term table, the same old names
  * check-design.mjs blocks in screen text). The stored data-ui keeps the old name; the screen shows the new one,
  * so feedback mode and the feedback list say "레일", not "왼쪽 띠" (10/11 12:37 feedback).
+ * 「사이드바 머리줄」 is a current term (11/28): only the toolbar parts named plain 「머리줄」 are shown as 「툴바」.
  */
 const KO_RENAMED: [RegExp, string][] = [
   [/왼쪽 띠/g, '레일'], [/보조 노트/g, '노트'], [/제목줄/g, '상단바'], [/거르기/g, '필터'], [/형광펜/g, '하이라이트'],
-  [/이름표/g, '태그'], [/입력칸/g, '입력란'], [/도구 줄|도구 막대|머리줄/g, '툴바'], [/탭 줄/g, '탭 바'],
+  [/이름표/g, '태그'], [/입력칸/g, '입력란'], [/도구 줄|도구 막대|(?<!사이드바 )머리줄/g, '툴바'], [/탭 줄/g, '탭 바'],
   [/맥락 칸/g, '오른쪽 사이드바'], [/왼쪽 칸/g, '왼쪽 패널'], [/오른쪽 칸/g, '오른쪽 패널'], [/작업 칸|지금 칸|다른 칸|옆 칸/g, '패널'], [/다 고침/g, '편집 완료'], [/단추/g, '버튼'],
 ]
 export const koName = (name: string): string => KO_RENAMED.reduce((s, [re, to]) => s.replace(re, to), name)
