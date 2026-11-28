@@ -384,7 +384,7 @@ try {
       await snapshot('focus-other-pane')
       await split.click()
       await snapshot('merge-panes')
-      await ui.page.locator('[data-ui="왼쪽 띠"] [data-ui="홈"]').click()
+      await ui.page.locator('[data-ui="제목줄"] [data-ui="홈"]').click()
       await snapshot('go-home')
       gate.resolve()
       await ui.pane.locator('[data-ui="저장 상태"].error').waitFor({ state: 'visible' })
