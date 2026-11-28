@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, subscribeEvents, type Chat, type LibraryInfo, type ManuscriptInfo, type RecordFile, type ResearchListItem, type ResearchSummary, type Topic, type WorkbenchEvent } from './api'
 import { useFeedbackNotify } from './feedbackNotify'
-import { AGENT_OPEN, AgentBelow, AgentDock, AgentPanel, CENTRAL_PAGE, ChatTab, chatTitles, useAgentNotify, type AgentPlace } from './AgentChats'
+import { AGENT_OPEN, AgentPanel, CENTRAL_PAGE, ChatTab, chatTitles, useAgentNotify } from './AgentChats'
 import { AppUpdateRail, appUpdateEvent } from './AppUpdate'
 import { AgentSideBody, useTerminalAvailable } from './AgentSide'
 import { FeedbackMode } from './FeedbackMode'
@@ -109,17 +109,8 @@ export function App() {
   }, [route])
   const [error, setError] = useState<string | null>(null)
   const [layout, setLayout] = useLayout(rid)
-  /** 에이전트 패널은 오른쪽 사이드바의 에이전트 탭이다 (10/22 안 A). 자리를 작업 화면 아래로 옮겼을 때 그 패널이 열려 있는지 */
-  const [agentPanel, setAgentPanel] = useState(false)
+  /** 에이전트 패널은 오른쪽 사이드바의 에이전트 칸이다 (10/22 안 A. 「작업 화면 아래」 자리는 11/28에 없앰) */
   const rightMode = useRightMode()
-  /** 패널 자리 (10/21 시안 코멘트 "아래로 내리거나 창 분할"): 오른쪽 사이드바 자리 · 작업 화면 아래. 나란히는 대화를 노트 옆 패널의 탭으로 연다 */
-  const [agentPlace, setAgentPlaceState] = useState<AgentPlace>(() => store.get<AgentPlace>('rw-agent-place', 'right'))
-  const setAgentPlace = (v: AgentPlace) => {
-    setAgentPlaceState(v); store.set('rw-agent-place', v)
-    if (v === 'right') { setAgentPanel(false); setRightMode('agent'); setLayout((l) => (l.ctx ? l : { ...l, ctx: true })) } else setAgentPanel(true)
-  }
-  /** 아래 자리에서 에이전트 탭을 고르면 아래 패널을 연다 */
-  useEffect(() => { if (rightMode === 'agent' && agentPlace === 'bottom' && layout.ctx) setAgentPanel(true) }, [rightMode, agentPlace, layout.ctx])
   const [recordOpenRequest, setRecordOpenRequest] = useState<WorkspaceOpenRequest | null>(null)
   const workspaceDragging = useWorkspaceDragging()
   // 프로젝트 밖 화면의 오른쪽 사이드바 (라이브러리 정보 등, globalPages.tsx의 right). 프로젝트의 것(layout.ctx)과 따로 기억한다
@@ -128,8 +119,8 @@ export function App() {
   useEffect(() => {
     const openCtx = () => setLayout((l) => (l.ctx ? l : { ...l, ctx: true })), open = () => { if (agentColHere.current) return; if (agentSideHere.current) setAgentSide(true); else if (globalRightHere.current) setGlobalRight(true); else openCtx() }
     const ask = () => { setRightMode('records'); open() }
-    // 노트의 고른 글 메뉴 「에이전트에게」 (ChatComposer.tsx의 sendToAgent): 오른쪽 사이드바의 에이전트 탭(아래 자리면 아래 패널)을 연다
-    const agent = () => { setRightMode('agent'); if (store.get<AgentPlace>('rw-agent-place', 'right') === 'right') openCtx(); else setAgentPanel(true) }
+    // 노트의 고른 글 메뉴 「에이전트에게」 (ChatComposer.tsx의 sendToAgent): 오른쪽 사이드바의 에이전트 칸을 연다
+    const agent = () => { setRightMode('agent'); openCtx() }
     const close = () => { if (agentSideHere.current) setAgentSide(false); else if (globalRightHere.current) setGlobalRight(false); else setLayout((l) => (l.ctx ? { ...l, ctx: false } : l)) }
     window.addEventListener(OPEN_CONTEXT, ask); window.addEventListener(OPEN_RIGHT, open); window.addEventListener(CLOSE_RIGHT, close); window.addEventListener(AGENT_OPEN, agent)
     return () => { window.removeEventListener(OPEN_CONTEXT, ask); window.removeEventListener(OPEN_RIGHT, open); window.removeEventListener(CLOSE_RIGHT, close); window.removeEventListener(AGENT_OPEN, agent) }
@@ -407,10 +398,9 @@ export function App() {
   /** 나란히: 대화를 다른 칸의 탭으로 열고 패널은 닫는다 */
   const openChatBeside = (id: string) => {
     setLayout((l) => { const p = l.panes[l.split ? l.focus : 0]; return showBeside(l, { k: 'chat', chat: id }, p.active ?? '') })
-    setAgentPanel(false)
     if (rightMode === 'agent') setRightMode('info')
   }
-  const agentPanelOf = (key: string, recordTarget?: { target: string; title: string; source?: string }, r = rid) => r ? <AgentPanel key={key} rid={r} note={agentNote} onSaved={flash} place={agentPlace} onPlace={setAgentPlace} onBeside={openChatBeside} recordTarget={recordTarget} /> : null
+  const agentPanelOf = (key: string, recordTarget?: { target: string; title: string; source?: string }, r = rid) => r ? <AgentPanel key={key} rid={r} note={agentNote} onSaved={flash} onBeside={openChatBeside} recordTarget={recordTarget} /> : null
 
   return (
     <div className={`shell${sandbox ? ' sandbox' : ''}`}>
@@ -492,14 +482,13 @@ export function App() {
                   onChanged={() => { notesChanged(); changed() }} onSaved={flash} />
                   : <NoInfo />
               // 개념노트의 기록은 라이브러리 기록 파일 (workbench/comments/concept-<id>.md, 10/18): 프로젝트 기록과 같은 패널
-              // 에이전트 탭 (10/22 안 A): 자리가 아래면 그 패널을 가리킨다
-              const agent = agentPlace === 'right' ? (cmd ? agentPanelOf(LIBRARY_RID, undefined, LIBRARY_RID) : agentPanelOf(rid, ct ?? { target: 'project', title: summary.research.title })) : <AgentBelow open={agentPanel} onOpen={setAgentPanel} onHere={() => setAgentPlace('right')} />
+              const agent = cmd ? agentPanelOf(LIBRARY_RID, undefined, LIBRARY_RID) : agentPanelOf(rid, ct ?? { target: 'project', title: summary.research.title })
               return <RightSidebar info={info} agent={agent} terminalRid={rid}
                 records={cmd ? <ConceptRecordsPanel key={cmd} id={cmd} title={library?.notes.find((n) => n.kind === 'concept' && n.id === cmd)?.title ?? cmd} /> : <RecordsPanel key={`${rid}|${ct?.target ?? 'project'}`} rid={rid}
                   target={ct ?? { target: 'project', title: summary.research.title }}
                   firstPartOf={firstPartOfRecord} onOpenPdf={openRecordPdf} />} />
             })()} />
-          {agentPanel && agentPlace === 'bottom' && <AgentDock>{agentPanelOf(`${rid}-dock`)}</AgentDock>}</div>
+          </div>
         )}</CrashScreen>
         {agentSideShown && <aside className="agent-side" data-ui="에이전트 사이드바"><AgentSideBody onSaved={flash} terminalOnly={route.page === 'agent'} chatId={route.page === 'agent' ? route.id : undefined} /></aside>}
         {rightAble && <RightRail fallback={rightFallback} open={rightOpenNow} onPick={pickRight} />}

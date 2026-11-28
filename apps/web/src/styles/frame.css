@@ -29,3 +29,7 @@
 
 /* 정보 칸: 평소에는 값만 (고치기는 머리줄의 연필 하나로) */
 .rs-value { font-size: var(--fs-sm); color: var(--text); }
+
+/* 에이전트 칸: 머리줄은 다른 칸과 같고, 둘째 줄의 아랫줄은 왼쪽 누구 · 오른쪽 상태와 시각 */
+.ac-meta.compact .sp { flex: 1; }
+.ac-panel > .ac-panel-chat { flex: 1; min-height: 0; }

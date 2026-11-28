@@ -115,9 +115,8 @@ export const DEFAULT_SCREENS = [
   ['agent-attach', '#/r/{rid}', '붙이기 버튼 항목', ['+맥락 칸 켜고 끄기', '[data-ui="오른쪽 레일"] button[data-mode="agent"]', '붙이기 버튼']],
   // 노트 본문에서 글을 끌어 고른 메뉴 (11/19 「? 질문」): 4색 · 코멘트 · 질문 (shots.mjs가 첫 문단을 세 번 눌러 고른다)
   ['note-select', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '고른 글 질문'],
-  // 패널 자리 (#233): 작업 화면 아래, 노트 옆 칸에 나란히(끝난 대화를 연 패널에서 자리 › 나란히)
-  ['agent-dock', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '에이전트 아래 자리', ['+맥락 칸 켜고 끄기', '[data-ui="오른쪽 레일"] button[data-mode="agent"]']],
-  ['agent-beside', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '[data-ui="에이전트 대화"]', ['+맥락 칸 켜고 끄기', '[data-ui="오른쪽 레일"] button[data-mode="agent"]', '대화 자리', '[data-ui="대화 자리 항목"] button:nth-of-type(3)']],
+  // 나란히 (#233): 끝난 대화를 연 패널의 머리줄에서 노트 옆 칸의 탭으로. 작업 화면 아래 자리는 11/28에 없앰
+  ['agent-beside', '#/r/{rid}/w/workbench%2Fnotes%2Fkempe-recoloring%2Fnote.md', '[data-ui="에이전트 대화"]', ['+맥락 칸 켜고 끄기', '[data-ui="오른쪽 레일"] button[data-mode="agent"]', '대화 자리']],
   // 중앙 대화 (11/16 "중앙 에이전트"): 처음 말하는 화면, 그리고 하위 대화 둘(앱 고치기 · 프로젝트 작성)을 연 중앙 (shots.mjs, {central})
   ['agent-central-start', '#/agent/central', '중앙 시작'],
   ['agent-central', '#/agent/{central}', '작업 현황'],

@@ -306,8 +306,8 @@ export function ChatHead({ chat, onBack, pane, onPane, onDeleted, onSaved, onErr
         {renaming ? <TitleInput value={chat.title} onDone={(v) => { setRenaming(false); if (v !== null) void actions.rename(v) }} />
           : <div className="ac-title" title={chat.title}>{chat.title}</div>}
         {compact ? <div className="ac-meta compact" data-ui="대화 묶음 줄">
-          <span>{chat.rid === APP_RID ? project : chatGroupName(chat)}</span><span>·</span><span>{sname}</span>
-          <span>·</span><span>{relativeTime(Date.parse(chat.updated))}</span>
+          <span className="ac-meta-who">{chat.rid === APP_RID ? project : chatGroupName(chat)}</span><span className="sp" />
+          <span>{sname} · {relativeTime(Date.parse(chat.updated))}</span>
           {chat.archived && <span className="tag">{chat.machine ?? t('보관함', 'Archived')}</span>}
         </div> : <div className="ac-meta">
           {chat.parent && <><button className="a" data-ui="중앙 작업 현황으로" data-tip={t('중앙의 작업 현황에서 다른 맡긴 일과 함께 보기', 'See it with the other handed-off work in Central')} onClick={() => go({ page: 'agent', id: chat.parent })}>{t('‹ 중앙 · 작업 현황', '‹ Central · work status')}</button><span>·</span></>}

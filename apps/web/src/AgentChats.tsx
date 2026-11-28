@@ -310,16 +310,11 @@ export function newChatIn(rid: string): void {
 
 // ---------- 오른쪽 사이드바의 에이전트 탭 패널 ----------
 
-/** 패널 자리: 오른쪽 사이드바 자리 · 작업 화면 아래 (나란히는 대화를 노트 옆 패널의 탭으로 연다) */
-export type AgentPlace = 'right' | 'bottom'
-
-/** 지금 프로젝트의 대화. 머리에서 대화를 고르고(▾) · 자리 · 새 대화 · 에이전트 화면에서 넓게 보기. 연 대화는 프로젝트마다 기억한다 */
-export function AgentPanel({ rid, note, onSaved, place = 'right', onPlace, onBeside, recordTarget }: {
+/** 지금 프로젝트의 대화. 머리줄(11/28): 「에이전트 대화」와 대화 목록 · 나란히 · 넓게 보기. 연 대화는 그 아래 둘째 줄(제목, 묶음과 상태 · 시각)에 보이고 프로젝트마다 기억한다 */
+export function AgentPanel({ rid, note, onSaved, onBeside, recordTarget }: {
   rid: string
   note?: { file: string; title: string }
   onSaved(m: string): void
-  place?: AgentPlace
-  onPlace?(p: AgentPlace): void
   /** 연 대화를 노트 옆 패널의 탭으로 */
   onBeside?(id: string): void
   /** 오른쪽 사이드바 적기 칸의 대상 (「기록으로 남기기」 초안이 그 칸에 뜬다) */
@@ -339,45 +334,32 @@ export function AgentPanel({ rid, note, onSaved, place = 'right', onPlace, onBes
   const current = open && (known || !list) ? open : null
   const auto: Attach | undefined = note ? { kind: 'note', ref: note.file, label: note.title } : undefined
   const sorted = [...(list ?? [])].filter((c) => !c.archived || c.id === current).sort((a, b) => rank(a) - rank(b) || b.updated.localeCompare(a.updated))
-  const placeMenu = onPlace && (
-    <PopButton icon down ui="대화 자리" tip={t('패널 자리', 'Panel position')} label={Icon.split}>
-      {(close) => <>
-        {(['right', 'bottom'] as const).map((v) => (
-          <button key={v} role="menuitemradio" aria-checked={place === v} className={place === v ? 'on' : ''} onClick={() => { close(); onPlace(v) }}>
-            <span className="ac-pop-check" aria-hidden>{place === v ? Icon.check : null}</span>{v === 'right' ? t('오른쪽 사이드바 자리', 'In the right sidebar') : t('작업 화면 아래', 'Below the workspace')}
-          </button>
-        ))}
-        {onBeside && <button role="menuitem" disabled={!current} title={current ? undefined : t('대화를 먼저 여세요', 'Open a conversation first')} onClick={() => { close(); if (current) onBeside(current) }}>
-          <span className="ac-pop-check" aria-hidden />{t('노트 옆 패널에 나란히', 'Side by side with the note')}
-        </button>}
-      </>}
-    </PopButton>
-  )
-  // 안 A (10/28 23:08 결정): 목록 ↔ 대화. 대화를 열면 머리가 ‹ · 제목 · 묶음 · 상태 · ⋯ 로 바뀐다
-  if (current) return (
-    <div className={`rs ac-panel${place === 'bottom' ? ' bottom' : ''}`} data-ui="에이전트 패널">
-      <PanelChat key={current} id={current} auto={auto} onBack={() => setOpen(null)} onDeleted={() => setOpen(null)} onSaved={onSaved} recordTarget={recordTarget} tools={<>
-        {placeMenu}
-        <button className="icon-btn sm" data-ui="넓게 보기" data-tip={t('에이전트 화면에서 넓게 보기', 'Open wide in the agent page')} aria-label={t('넓게 보기', 'Open wide')} onClick={() => go({ page: 'agent', id: current })}>{Icon.openNote}</button>
-      </>} />
+  // 머리줄: 왼쪽 이름, 오른쪽 버튼 셋까지. 대화 목록은 보기 버튼이라 목록을 볼 때 불이 들어온다
+  const head = (
+    <div className="rs-head rs-name ac-panel-head" data-ui="오른쪽 사이드바 머리줄">
+      <span className="rs-name-t">{t('에이전트 대화', 'Agent chat')}</span>
+      <button className={`icon-btn sm${current ? '' : ' on'}`} data-ui="대화 목록으로" aria-pressed={!current} disabled={!current}
+        data-tip={rid === LIBRARY_RID ? t('지식의 대화 목록', 'Knowledge conversations') : t('이 프로젝트의 대화 목록', 'Conversations in this project')} aria-label={t('대화 목록', 'Conversations')} onClick={() => setOpen(null)}>{Icon.list}</button>
+      {onBeside && <button className="icon-btn sm" data-ui="대화 자리" disabled={!current} data-tip={current ? t('노트 옆 패널에 나란히', 'Side by side with the note') : t('대화를 먼저 여세요', 'Open a conversation first')}
+        aria-label={t('노트 옆 패널에 나란히', 'Side by side with the note')} onClick={() => { if (current) onBeside(current) }}>{Icon.split}</button>}
+      <button className="icon-btn sm" data-ui="넓게 보기" data-tip={t('에이전트 화면에서 넓게 보기', 'Open wide in the agent page')} aria-label={t('넓게 보기', 'Open wide')} onClick={() => go(current ? { page: 'agent', id: current } : { page: 'agent' })}>{Icon.openNote}</button>
     </div>
   )
-  const newChat = <NewChat rid={rid} note={note} onCreated={(c) => setOpen(c.id)} />
-  const chats = <div className="ac-panel-chats">
-    <div className="set-side"><ChatListError rid={rid} /><CentralLine row={centralRow} on={false} onOpen={centralRow ? setOpen : undefined} /><ChatGroups chats={sorted} line={(c) => <ChatLine key={c.id} c={c} on={false} onOpen={() => setOpen(c.id)} />} /></div>
-  </div>
+  // 안 A (10/28 23:08 결정): 목록 ↔ 대화. 대화를 열면 둘째 줄이 제목 · 묶음 · 상태 · ⋯ 이다
+  if (current) return (
+    <div className="rs ac-panel" data-ui="에이전트 패널">
+      {head}
+      <PanelChat key={current} id={current} auto={auto} onDeleted={() => setOpen(null)} onSaved={onSaved} recordTarget={recordTarget} />
+    </div>
+  )
   return (
-    <div className={`rs ac-panel${place === 'bottom' ? ' bottom' : ''}`} data-ui="에이전트 패널">
-      <div className="rs-head ac-panel-head">
-        <span className="ac-panel-name" aria-hidden>{Icon.spark}</span>
-        <span className="ac-panel-title">{rid === LIBRARY_RID ? t('지식의 대화', 'Knowledge conversations') : t('이 프로젝트의 대화', 'Conversations in this project')}</span>
-        <span className="sp" />
-        {placeMenu}
-      </div>
-      {/* 오른쪽 자리: 새 대화의 범위 · 입력란은 연 대화의 입력란처럼 패널 아래에 고정하고, 대화 목록은 그 위에서 스크롤 (10/27 17:06 피드백) */}
-      {place === 'bottom'
-        ? <div className="rs-scroll ac-panel-list">{newChat}{chats}</div>
-        : <><div className="rs-scroll ac-panel-list">{chats}</div><div className="ac-compose ac-new-dock">{newChat}</div></>}
+    <div className="rs ac-panel" data-ui="에이전트 패널">
+      {head}
+      {/* 새 대화의 범위 · 입력란은 연 대화의 입력란처럼 패널 아래에 고정하고, 대화 목록은 그 위에서 스크롤 (10/27 17:06 피드백) */}
+      <div className="rs-scroll ac-panel-list"><div className="ac-panel-chats">
+        <div className="set-side"><ChatListError rid={rid} /><CentralLine row={centralRow} on={false} onOpen={centralRow ? setOpen : undefined} /><ChatGroups chats={sorted} line={(c) => <ChatLine key={c.id} c={c} on={false} onOpen={() => setOpen(c.id)} />} /></div>
+      </div></div>
+      <div className="ac-compose ac-new-dock"><NewChat rid={rid} note={note} onCreated={(c) => setOpen(c.id)} /></div>
     </div>
   )
 }
@@ -408,8 +390,8 @@ function RecordBanner({ rid, record }: { rid: string; record: { target: string; 
   )
 }
 
-/** 패널 안의 대화: 머리(‹ · 제목 · 묶음 · 상태 · ⋯)와 대화. 바뀐 곳은 에이전트 화면에서 */
-export function PanelChat({ id, auto, onBack, onDeleted, onSaved, tools, recordTarget }: { id: string; auto?: Attach; onBack(): void; onDeleted(): void; onSaved(m: string): void; tools?: ReactNode; recordTarget?: { target: string; title: string; source?: string } }) {
+/** 패널 안의 대화: 둘째 줄(제목 · 묶음 · 상태 · ⋯)과 대화. 목록으로 가기는 머리줄의 대화 목록 버튼이나 onBack(머리줄이 없는 곳). 바뀐 곳은 에이전트 화면에서 */
+export function PanelChat({ id, auto, onBack, onDeleted, onSaved, tools, recordTarget }: { id: string; auto?: Attach; onBack?(): void; onDeleted(): void; onSaved(m: string): void; tools?: ReactNode; recordTarget?: { target: string; title: string; source?: string } }) {
   const chat = useChat(id).data
   const [fail, setFail] = useState<string | null>(null)
   const [drafting, setDrafting] = useState(false)
@@ -429,44 +411,6 @@ export function PanelChat({ id, auto, onBack, onDeleted, onSaved, tools, recordT
       {fail && <div className="error-text ac-hint">{fail}</div>}
       <ChatView id={id} auto={auto} head={false} onDeleted={onDeleted} onSaved={onSaved} />
     </div>
-  )
-}
-
-// ---------- 아래 자리 · 나란히 ----------
-
-const DOCK_KEY = 'rw-agent-dock-h'
-
-/** 작업 화면 아래 자리: 위 경계를 끌어 높이를 바꾼다 (높이는 기억한다) */
-/** 패널 자리가 작업 화면 아래일 때 오른쪽 사이드바의 에이전트 탭: 그 자리를 알리고 열고 닫거나 이리로 옮긴다 */
-export function AgentBelow({ open, onOpen, onHere }: { open: boolean; onOpen(v: boolean): void; onHere(): void }) {
-  return (
-    <div className="ac-below rs-pad" data-ui="에이전트 아래 자리 안내">
-      <p className="muted">{open ? t('에이전트 패널은 작업 화면 아래에 열려 있습니다.', 'The agent panel is open below the workspace.') : t('에이전트 패널을 작업 화면 아래에 두었습니다.', 'The agent panel is placed below the workspace.')}</p>
-      <div className="ac-below-acts">
-        <button className="btn sm" onClick={() => onOpen(!open)}>{open ? t('아래 패널 닫기', 'Close the panel below') : t('아래 패널 열기', 'Open the panel below')}</button>
-        <button className="btn sm" onClick={onHere}>{t('여기로 옮기기', 'Move it here')}</button>
-      </div>
-    </div>
-  )
-}
-
-export function AgentDock({ children }: { children: ReactNode }) {
-  const [h, setH] = useState(() => store.get<number>(DOCK_KEY, 320))
-  const drag = (e: React.PointerEvent) => {
-    e.preventDefault()
-    const y0 = e.clientY, h0 = h
-    let last = h0
-    const onMove = (ev: PointerEvent) => { last = Math.max(160, Math.min(window.innerHeight - 200, h0 + y0 - ev.clientY)); setH(last) }
-    const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); document.body.classList.remove('resizing'); store.set(DOCK_KEY, last) }
-    document.body.classList.add('resizing')
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-  }
-  return (
-    <section className="ac-dock" data-ui="에이전트 아래 자리" style={{ height: h }}>
-      <div className="ac-dock-edge" role="separator" aria-label={t('에이전트 패널 경계 — 끌어서 높이 조절', 'Agent panel border: drag to resize')} onPointerDown={drag} />
-      {children}
-    </section>
   )
 }
 
