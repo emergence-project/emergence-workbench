@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { isResearchWrite, mcpToolKinds, NOT_RESEARCH_WRITES } from './mcpToolKinds.js'
 
@@ -24,5 +26,24 @@ describe('앱 MCP 도구의 성격 표', () => {
 
   it('예외 목록은 실제로 있는 고치는 도구만 든다 (지운 도구 · 읽는 도구가 남지 않게)', () => {
     for (const name of NOT_RESEARCH_WRITES) expect(kinds.get(name), name).toBe('write')
+  })
+
+  // 도구를 등록하는 소스를 글로 읽는다: 표가 못 본 도구와, 읽기 표시를 달고 서버에 쓰는 도구를 잡는다
+  const dir = path.dirname(new URL(import.meta.url).pathname)
+  const blocks = fs.readdirSync(dir).filter((f) => /^mcp[A-Za-z]*\.ts$/.test(f) && !f.endsWith('.test.ts'))
+    .flatMap((f) => fs.readFileSync(path.join(dir, f), 'utf8').split(/\.registerTool\(/).slice(1))
+    // 도구 하나의 몫은 그 등록이 닫히는 줄까지 (뒤따르는 도우미 함수는 뺀다)
+    .map((b) => ({ name: /^\s*'([a-z_]+)'/.exec(b)?.[1], body: b.slice(0, (/^ {2,6}\}\)+$|\)\)$/m.exec(b)?.index ?? b.length) + 1) }))
+
+  it('소스에 등록된 도구가 모두 표에 있다 (새 대화 종류에서만 나오는 도구를 빠뜨리지 않게, VARIANTS)', () => {
+    expect(blocks.length).toBeGreaterThan(40)
+    expect(blocks.filter((b) => !b.name).length, '도구 이름은 글자 그대로 적는다').toBe(0)
+    expect(blocks.map((b) => b.name).filter((n) => n && !kinds.has(n))).toEqual([])
+  })
+
+  it('읽기만 한다고 밝힌 도구는 서버에 쓰지 않는다 (표시가 판정의 근거라서)', () => {
+    const writes = /\b(post|write)\(/
+    const wrong = blocks.filter((b) => b.name && kinds.get(b.name) === 'read' && writes.test(b.body.replace(/\/\/.*$/gm, ''))).map((b) => b.name)
+    expect(wrong, '서버에 쓰는 도구는 readOnlyHint: false로 등록한다').toEqual([])
   })
 })
