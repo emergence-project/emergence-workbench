@@ -31,7 +31,7 @@
 /* 읽는 법 */
 
 /* 화면 구조 그림: 실제 화면의 영역을 작게 그린 것. 영역마다 그 쪽으로 가는 링크 */
-.about-map { display: grid; grid-template-columns: max-content minmax(0, 1.2fr) minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-2); font-size: var(--fs-xs); }
+.about-map { display: grid; grid-template-columns: max-content minmax(0, 1.2fr) minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) max-content; gap: var(--sp-2); font-size: var(--fs-xs); }
 .about-map a, .about-map > div { border: 1px solid var(--line); border-radius: var(--r-md); background: var(--bg); color: var(--text-2); text-decoration: none; padding: var(--sp-2); display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
 .about-map a:hover { border-color: var(--line-strong); background: var(--bg-hover); color: var(--text); }
 .about-map b { color: var(--text); font-weight: var(--fw-strong); }
@@ -106,6 +106,7 @@
 .dm-project, .dm-library { background: var(--bg-side); }
 .dm-row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: var(--sp-2); margin-top: var(--sp-2); }
 .dm-row.dm-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.dm-row.dm-four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .dm-col { display: flex; flex-direction: column; gap: var(--sp-2); }
 .dm-small { padding: var(--sp-1) var(--sp-2); }
 .dm-notes { display: flex; flex-wrap: wrap; gap: var(--sp-1); margin-top: var(--sp-1); }
@@ -182,7 +183,7 @@
 @media (max-width: 900px) {
   .about-flow { grid-auto-flow: row; gap: var(--sp-3); }
   .about-flow li + li::before { content: '↓'; left: 50%; top: calc(-1 * var(--sp-3)); width: auto; transform: translate(-50%, -2px); }
-  .dm-row, .dm-row.dm-three, .about-turns { grid-template-columns: 1fr; }
+  .dm-row, .dm-row.dm-three, .dm-row.dm-four, .about-turns { grid-template-columns: 1fr; }
   .sl-body { grid-template-columns: 36px minmax(0, 1fr) minmax(0, 1fr); }
   .sl-rail { grid-row: span 3; }
   .sl-area:nth-child(4), .sl-area:nth-child(5) { grid-column: 2 / -1; border-left: 1px solid var(--line); border-top: 1px solid var(--line); }

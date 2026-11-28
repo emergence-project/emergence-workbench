@@ -11,12 +11,12 @@ const split = mdSection('building/core-and-extensions')
 
 export const ko: AboutPart = {
   id: 'building', title: '만드는 방식',
-  sub: '앱이 어느 저장소에 있고, 어떤 기술로 왜 만들었고, 고친 것이 어떻게 반영되고, 무엇이 본체이고 무엇이 확장인지입니다.',
+  sub: '앱과 기록이 어느 저장소 · 서버에 있고, 어떤 기술로 왜 만들었고, 고친 것이 어떻게 반영되고, 무엇이 본체이고 무엇이 확장인지입니다.',
   sections: [repos.ko, stack.ko, policy.ko, split.ko],
 }
 
 export const en: AboutPart = {
   id: 'building', title: 'How it is built',
-  sub: 'Which repositories the app lives in, what it is built with and why, how changes land, and what is core and what is an extension.',
+  sub: 'Which repositories and servers the app and its records live in, what it is built with and why, how changes land, and what is core and what is an extension.',
   sections: [repos.en, stack.en, policy.en, split.en],
 }
