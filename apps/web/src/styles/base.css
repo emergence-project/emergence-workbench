@@ -34,8 +34,10 @@ button.a { text-align: inherit; }
 .tb-where { margin-left: var(--sp-2); font-size: var(--fs-sm); color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; display: flex; align-items: center; padding-block: var(--sp-2); }
 .tb-where b { color: var(--text); font-weight: var(--fw-strong); font-size: var(--fs-md); }
 .tb-right { display: flex; align-items: center; justify-content: flex-end; gap: 2px; padding-right: var(--sp-3); }
-.body { flex: 1; min-height: 0; display: grid; grid-template-columns: 52px var(--side-w, 244px) 1fr; grid-template-rows: minmax(0, 1fr); }
-.body.no-side { grid-template-columns: 52px 1fr; }
+/* 열: 왼쪽 레일 · 왼쪽 사이드바 · 가운데 · (프로젝트 밖 화면의 에이전트 사이드바) · (오른쪽 레일). 없는 열은 변수를 비운다 */
+.body { --col-side: var(--side-w, 244px); --col-main: 1fr; --col-agent: ; --col-rrail: ; flex: 1; min-height: 0; display: grid; grid-template-columns: 52px var(--col-side) var(--col-main) var(--col-agent) var(--col-rrail); grid-template-rows: minmax(0, 1fr); }
+.body.no-side { --col-side: ; }
+.body.with-rrail { --col-main: minmax(0, 1fr); --col-rrail: 44px; }
 
 .icon-btn { width: 28px; height: 28px; border-radius: var(--r-sm); display: grid; place-items: center; color: var(--text-2); }
 .icon-btn:hover:not(:disabled) { background: var(--bg-hover); color: var(--text); }

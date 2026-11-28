@@ -7,6 +7,7 @@
 
   /* 레일 대신 아래 탭 넷 (phone/PhoneTabs.tsx, 10/31 "안 A · 내 차례 먼저") */
   .rail { display: none; }
+  .body.with-rrail { --col-rrail: ; }
   .ph-tabs { grid-row: 2; grid-column: 1; }
 
   /* 사이드바: 본문 위에 덮는 한 장 */

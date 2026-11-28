@@ -34,6 +34,16 @@ export const leaveTerminal = () => setRightMode(normalizeRightMode(store.get<str
 /** 지금 고른 갈래 (OPEN_RIGHT를 듣는 쪽이 읽는다) */
 export const rightModeNow = () => mode.get()
 
+/** 지금 화면의 오른쪽 사이드바가 가진 칸 (열려 있는 사이드바가 알린다. 닫혀 있으면 null이고 오른쪽 레일은 화면 종류의 기본 칸을 쓴다) */
+const slots = tiny<string>('')
+export function publishRightSlots(next: RightMode[] | null) { slots.set(next ? next.join(',') : '') }
+export const useRightSlots = (): RightMode[] | null => { const s = useSyncExternalStore(slots.subscribe, slots.get); return s ? s.split(',').filter((x): x is RightMode => x === 'info' || x === 'records' || x === 'agent') : null }
+/** 열려 있는 동안 자기 칸을 알린다 */
+export function useRightSlotsOwner(list: RightMode[]) {
+  const key = list.join(',')
+  useEffect(() => { publishRightSlots(key ? key.split(',').filter((x): x is RightMode => x === 'info' || x === 'records' || x === 'agent') : null); return () => publishRightSlots(null) }, [key])
+}
+
 /** 오른쪽 사이드바를 열고 그 갈래를 보여 달라 (App.tsx가 듣는다) */
 export const OPEN_RIGHT = 'rw:open-right'
 export function openRight(m: RightMode) {
