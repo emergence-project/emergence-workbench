@@ -80,7 +80,9 @@
 /* 오른쪽 사이드바 미리 보기 */
 .kg-pv-empty { font-size: var(--fs-sm); }
 .kg-pv-st { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--text-3); font-size: var(--fs-xs); }
-.kg-pv-title { margin: 6px 0 2px; font-size: var(--fs-lg); font-weight: var(--fw-title); }
+.kg-pv-head { display: flex; align-items: flex-start; gap: var(--sp-2); margin: 6px 0 2px; }
+.kg-pv-head .icon-btn { flex-shrink: 0; margin: -2px -6px 0 auto; }
+.kg-pv-title { margin: 0; min-width: 0; font-size: var(--fs-lg); font-weight: var(--fw-title); }
 .kg-pv-sub { margin: 0 0 10px; font-size: var(--fs-xs); }
 .kg-pv-sum .ob-md { font-size: var(--fs-sm); color: var(--text-2); line-height: 1.55; }
 .kg-pv-act { display: flex; gap: var(--sp-2); margin: 10px 0 14px; }

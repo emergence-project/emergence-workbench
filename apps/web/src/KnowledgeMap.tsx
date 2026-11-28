@@ -261,13 +261,13 @@ function Preview({ t, nb, byKey, color, focused, onPick, onFocus }: {
   return (
     <div className="rs-pad kg-pv" data-ui="지식 지도 미리 보기 내용">
       <p className="kg-pv-st"><ShapeMark state={st} color={color} /> {NOTE_STATE_NAME[st]} · {sourceWords(t)}</p>
-      <h3 className="kg-pv-title">{t.title}</h3>
+      <div className="kg-pv-head">
+        <h3 className="kg-pv-title">{t.title}</h3>
+        <button className="icon-btn" data-ui="개념노트 열기" aria-label={tl('열기', 'Open')} data-tip={tl('열기', 'Open')} onClick={() => go({ page: 'library', topic: t.key })}>{Icon.openNote}</button>
+      </div>
       <p className="muted kg-pv-sub">{t.subject || NO_FIELD} · {tl(`연결 ${near.length}`, `${near.length} links`)}</p>
       {t.summary && <div className="kg-pv-sum"><ObsidianMarkdown text={t.summary} /></div>}
-      <div className="kg-pv-act">
-        <button className="btn primary" onClick={() => go({ page: 'library', topic: t.key })}>{tl('열기', 'Open')}</button>
-        {!focused && <button className="btn" onClick={() => onFocus(t.key)}>{tl('초점 보기', 'Focus')}</button>}
-      </div>
+      {!focused && <div className="kg-pv-act"><button className="btn" onClick={() => onFocus(t.key)}>{tl('초점 보기', 'Focus')}</button></div>}
       {near.length > 0 && <>
         <p className="kg-pv-h">{tl(`이웃 ${near.length}`, `Neighbors ${near.length}`)}</p>
         <div className="kg-chips">{near.map((n) => <button key={n.key} className="dep-chip" onClick={() => onPick(n.key)}>{n.title}</button>)}</div>
