@@ -4,11 +4,11 @@ import Sigma from 'sigma'
 import { createNodeImageProgram } from '@sigma/node-image'
 import type { FieldColor } from '@rw/core'
 import type { KnowledgeTopic } from './api'
-import { fieldOf, focusLayout, nodeSize, noteState, STATE_NAME, wholeLayout, type NoteState } from './knowledgeGraph'
+import { fieldOf, focusLayout, nodeSize, noteState, STATE_NAME, wholeLayout, type NoteState } from './knowledgeLayout'
 import { t as tl } from './i18n'
 
 /**
- * 지식 지도의 그림 (sigma.js가 WebGL로 그린다, 계산은 knowledgeGraph.ts).
+ * 지식 지도의 그림 (sigma.js가 WebGL로 그린다, 계산은 knowledgeLayout.ts).
  * 전체 지도는 이름 없이 점만: 가리키면 팝업, 누르면 오른쪽 미리 보기, 두 번 누르면 초점 보기.
  * 초점 보기는 가운데와 바로 이웃의 이름을 그린다.
  */

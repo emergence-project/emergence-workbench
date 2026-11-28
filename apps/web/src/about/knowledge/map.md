@@ -7,7 +7,7 @@ summary:
 code:
   - apps/web/src/KnowledgeMap.tsx
   - apps/web/src/KnowledgeGraph.tsx
-  - apps/web/src/knowledgeGraph.ts
+  - apps/web/src/knowledgeLayout.ts
   - apps/web/src/styles/knowledge-map.css
   - packages/core/src/field-colors.ts
 ---

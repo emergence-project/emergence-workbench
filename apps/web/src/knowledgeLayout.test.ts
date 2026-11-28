@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { KnowledgeTopic } from './api'
-import { fieldColors, fieldOf, focusLayout, neighborsOf, NO_FIELD, noteState, swapColor, wholeLayout } from './knowledgeGraph'
+import { fieldColors, fieldOf, focusLayout, neighborsOf, NO_FIELD, noteState, swapColor, wholeLayout } from './knowledgeLayout'
 
 const topic = (key: string, over: Partial<KnowledgeTopic> = {}): KnowledgeTopic =>
   ({ key, title: key, subject: 'Physics › Spin', status: 'draft', papers: [], uses: [], links: [], linkedBy: [], names: [], ...over })
