@@ -35,7 +35,7 @@ import { CLOSE_RIGHT, OPEN_RIGHT, setRightMode, useRightMode, type RightMode } f
 import { RightRail } from './RightRail'
 import { RecordsPanel } from './RecordsPanel'
 import { recordPdfTab, recordRoute } from './recordsPanelHelpers'
-import { NoInfo, NoteInfo, RightSidebar } from './RightSidebar'
+import { NoteInfo, RightSidebar } from './RightSidebar'
 import { TopBar } from './TopBar'
 import { crumbsOf, msKeyOfPdfTab, tabTitle } from './appCrumbs'
 import { useAppKeys, useSideWidth } from './appHooks'
@@ -253,7 +253,10 @@ export function App() {
   const rightOpenNow = globalPage ? (agentSideAble ? agentSide : globalRight) : layout.ctx, toggleRight = () => { if (agentSideAble) setAgentSide((v) => !v); else if (globalPage) setGlobalRight((v) => !v); else setLayout((l) => ({ ...l, ctx: !l.ctx })) }
   // 오른쪽 레일 (11/28): 버튼 하나가 오른쪽 사이드바의 칸 하나. 사이드바가 닫혀 있을 때 보일 칸은 화면 종류로 정한다(열려 있으면 사이드바가 알린다, noteScreen.ts의 useRightSlotsOwner)
   const rightAble = (!!rid && !globalPage) || globalRightAble || agentSideAble
-  const rightFallback: RightMode[] = agentSideAble ? ['agent'] : globalPage ? ['info', 'agent'] : ['agent', 'info', 'records']
+  // 열린 것에 정보가 없으면(주제 · 프로젝트 첫 화면 · PDF 등) 정보 칸 버튼을 보이지 않는다 (11/28 틀 「빈 칸을 열어 두지 않는다」)
+  const focusPane = layout.panes[layout.split ? layout.focus : 0], focusTab = isSection(route.page) ? undefined : focusPane?.tabs.find((x) => tabKey(x) === focusPane.active)
+  const infoHere = focusTab?.k === 'part' ? notes.some((n) => n.file === focusTab.file) : focusTab?.k === 'concept' && library?.notes.find((n) => n.kind === 'concept' && n.id === focusTab.id)?.format === 'md'
+  const rightFallback: RightMode[] = agentSideAble ? ['agent'] : globalPage ? ['info', 'agent'] : infoHere ? ['agent', 'info', 'records'] : ['agent', 'records']
   const pickRight = (m: RightMode, on: boolean) => {
     if (on) { toggleRight(); return }
     setRightMode(m)
@@ -400,7 +403,7 @@ export function App() {
     setLayout((l) => { const p = l.panes[l.split ? l.focus : 0]; return showBeside(l, { k: 'chat', chat: id }, p.active ?? '') })
     if (rightMode === 'agent') setRightMode('info')
   }
-  const agentPanelOf = (key: string, recordTarget?: { target: string; title: string; source?: string }, r = rid) => r ? <AgentPanel key={key} rid={r} note={agentNote} onSaved={flash} onBeside={openChatBeside} recordTarget={recordTarget} /> : null
+  const agentPanelOf = (key: string, recordTarget?: { target: string; title: string; source?: string }, r = rid) => r ? <AgentPanel key={key} rid={r} note={agentNote} onSaved={flash} onBeside={openChatBeside} terminal recordTarget={recordTarget} /> : null
 
   return (
     <div className={`shell${sandbox ? ' sandbox' : ''}`}>
@@ -480,7 +483,7 @@ export function App() {
               const info = cmd ? <div className="cn-ctx"><ConceptSidePanel key={cmd} id={cmd} info={library} rid={rid} project={summary.research.title} slot onChanged={libraryChanged} onSaved={flash} /></div>
                 : row ? <NoteInfo key={row.file} rid={rid} row={row} topics={topics} proves={provesOf({ statements: summary.statements, notes }, row.id)} projectKind={current?.kind ?? 'research'} version={version}
                   onChanged={() => { notesChanged(); changed() }} onSaved={flash} />
-                  : <NoInfo />
+                  : null
               // 개념노트의 기록은 라이브러리 기록 파일 (workbench/comments/concept-<id>.md, 10/18): 프로젝트 기록과 같은 패널
               const agent = cmd ? agentPanelOf(LIBRARY_RID, undefined, LIBRARY_RID) : agentPanelOf(rid, ct ?? { target: 'project', title: summary.research.title })
               return <RightSidebar info={info} agent={agent} terminalRid={rid}

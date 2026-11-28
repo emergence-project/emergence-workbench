@@ -153,6 +153,7 @@
 .cn-info.compact .cn-info-list { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); }
 .cn-info.compact .cn-info-list dt { display: none; }
 .cn-review { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1) var(--sp-2); font-size: var(--fs-xs); }
+.cn-review-value { display: inline-flex; align-items: center; gap: var(--sp-1); color: var(--text-2); }
 /* 프로젝트 탭의 개념노트: 절 목차가 제목 위치를 이 스크롤 칸 기준으로 잰다 (10/7 15:54) */
 .cn-toc-scroll { position: relative; }
 

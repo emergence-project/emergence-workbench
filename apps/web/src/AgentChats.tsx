@@ -10,7 +10,10 @@ import { qk } from './queries'
 import { go } from './router'
 import { StatusDot } from './StatusDot'
 import { store } from './store'
-import { useSideColumn, WorkAside, type PaneTab } from './WorkAside'
+import { showChangesNext, useSideColumn, WorkAside, type PaneTab } from './WorkAside'
+import { MoreMenu, type MoreItem } from './MoreMenu'
+import { openRight } from './noteScreen'
+import { useTerminalAvailable } from './TerminalPane'
 import { ChatInfo, ChatSideTabs } from './AgentChatInfo'
 import { chatLog, isAgentStep, ProcLine, type Step } from './WorkLog'
 import { useMarkSeen } from './agentSeen'
@@ -311,12 +314,14 @@ export function newChatIn(rid: string): void {
 // ---------- 오른쪽 사이드바의 에이전트 탭 패널 ----------
 
 /** 지금 프로젝트의 대화. 머리줄(11/28): 「에이전트 대화」와 대화 목록 · 나란히 · 넓게 보기. 연 대화는 그 아래 둘째 줄(제목, 묶음과 상태 · 시각)에 보이고 프로젝트마다 기억한다 */
-export function AgentPanel({ rid, note, onSaved, onBeside, recordTarget }: {
+export function AgentPanel({ rid, note, onSaved, onBeside, terminal, recordTarget }: {
   rid: string
   note?: { file: string; title: string }
   onSaved(m: string): void
   /** 연 대화를 노트 옆 패널의 탭으로 */
   onBeside?(id: string): void
+  /** 이 사이드바에 터미널 칸이 있다 (머리줄의 터미널 버튼) */
+  terminal?: boolean
   /** 오른쪽 사이드바 적기 칸의 대상 (「기록으로 남기기」 초안이 그 칸에 뜬다) */
   recordTarget?: { target: string; title: string; source?: string }
 }) {
@@ -334,15 +339,24 @@ export function AgentPanel({ rid, note, onSaved, onBeside, recordTarget }: {
   const current = open && (known || !list) ? open : null
   const auto: Attach | undefined = note ? { kind: 'note', ref: note.file, label: note.title } : undefined
   const sorted = [...(list ?? [])].filter((c) => !c.archived || c.id === current).sort((a, b) => rank(a) - rank(b) || b.updated.localeCompare(a.updated))
-  // 머리줄: 왼쪽 이름, 오른쪽 버튼 셋까지. 대화 목록은 보기 버튼이라 목록을 볼 때 불이 들어온다
+  // 머리줄 (11/28 틀): 왼쪽 이름, 오른쪽에 대화 목록(보기 버튼이라 목록을 볼 때 불) · 변경사항 · 터미널, 나머지(나란히 · 넓게 보기)는 ⋯ 안
+  const opened = useChat(current ?? '', !!current).data
+  const [added, removed] = (opened?.items ?? []).reduce(([x, y], i) => (i.kind === 'edit' ? [x + i.added, y + i.removed] : [x, y]), [0, 0])
+  const canTerm = useTerminalAvailable() && !!terminal
+  const more: MoreItem[] = [
+    ...(onBeside ? [{ label: t('노트 옆 패널에 나란히', 'Side by side with the note'), ui: '대화 자리', disabled: !current, note: current ? undefined : t('대화를 먼저 여세요', 'Open a conversation first'), onClick: () => { if (current) onBeside(current) } }] : []),
+    { label: t('에이전트 화면에서 넓게 보기', 'Open wide in the agent page'), ui: '넓게 보기', onClick: () => go(current ? { page: 'agent', id: current } : { page: 'agent' }) },
+  ]
   const head = (
     <div className="rs-head rs-name ac-panel-head" data-ui="오른쪽 사이드바 머리줄">
       <span className="rs-name-t">{t('에이전트 대화', 'Agent chat')}</span>
       <button className={`icon-btn sm${current ? '' : ' on'}`} data-ui="대화 목록으로" aria-pressed={!current} disabled={!current}
         data-tip={rid === LIBRARY_RID ? t('지식의 대화 목록', 'Knowledge conversations') : t('이 프로젝트의 대화 목록', 'Conversations in this project')} aria-label={t('대화 목록', 'Conversations')} onClick={() => setOpen(null)}>{Icon.list}</button>
-      {onBeside && <button className="icon-btn sm" data-ui="대화 자리" disabled={!current} data-tip={current ? t('노트 옆 패널에 나란히', 'Side by side with the note') : t('대화를 먼저 여세요', 'Open a conversation first')}
-        aria-label={t('노트 옆 패널에 나란히', 'Side by side with the note')} onClick={() => { if (current) onBeside(current) }}>{Icon.split}</button>}
-      <button className="icon-btn sm" data-ui="넓게 보기" data-tip={t('에이전트 화면에서 넓게 보기', 'Open wide in the agent page')} aria-label={t('넓게 보기', 'Open wide')} onClick={() => go(current ? { page: 'agent', id: current } : { page: 'agent' })}>{Icon.openNote}</button>
+      <button className="icon-btn sm ac-panel-changes" data-ui="패널 변경사항" disabled={!current || !opened?.changed.length}
+        data-tip={!current ? t('변경사항 (대화를 먼저 여세요)', 'Changes (open a conversation first)') : opened?.changed.length ? t(`변경사항 +${added} −${removed} · 에이전트 화면에서 보기`, `Changes +${added} −${removed}, view in the agent page`) : t('변경사항 (아직 없음)', 'Changes (none yet)')}
+        aria-label={t('변경사항', 'Changes')} onClick={() => { if (current) { showChangesNext(); go({ page: 'agent', id: current }) } }}>{Icon.diff}{!!opened?.changed.length && <i className="ac-side-dot" />}</button>
+      {canTerm && <button className="icon-btn sm" data-ui="패널 터미널" data-tip={t('터미널 (이 프로젝트 폴더)', 'Terminal (this project folder)')} aria-label={t('터미널', 'Terminal')} onClick={() => openRight('terminal')}>{Icon.terminal}</button>}
+      <MoreMenu small items={more} />
     </div>
   )
   // 안 A (10/28 23:08 결정): 목록 ↔ 대화. 대화를 열면 둘째 줄이 제목 · 묶음 · 상태 · ⋯ 이다

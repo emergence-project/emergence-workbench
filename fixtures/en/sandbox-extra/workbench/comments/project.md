@@ -39,3 +39,13 @@ Redraw the figure in chapter 2
 <!-- rw: {"src":"user","pinned":true} -->
 
 Compare with the Thomassen proof whether outer-face vertices can do with lists of size 3.
+
+## c-20260928-1400 · 할 일 · 전체
+- 상태: 끝냄
+
+Align the order of definitions in chapter 1
+
+## c-20260925-1000 · 메모 · 전체
+- 상태: 끝냄
+
+The Kempe chain figure reads better drawn as the subgraph of just two colors.

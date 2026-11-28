@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { api, conceptsApi, type ConceptMd, type ConceptRow, type ConceptSources, type ConceptUse, type LibraryInfo } from './api'
 import { Icon } from './icons'
 import { go } from './router'
-import { setRightSlot } from './noteScreen'
+import { setInfoEditing, setRightSlot, useInfoEditing, useInfoToolsOwner } from './noteScreen'
 import { plural, t } from './i18n'
 
 /**
@@ -22,22 +22,32 @@ export function ConceptDocInfo({ id, doc, compact }: { id: string; doc: DocState
   const m = note.meta
   // Existing none/todo/changed values share one on-screen confirmation state.
   const cur: ReviewChoice = note.checked === 'ok' ? 'ok' : 'none'
+  const editing = useInfoEditing()
+  useInfoToolsOwner({ history: false, edit: true })
+  useEffect(() => () => setInfoEditing(false), [])
   const states = [
     note.unfinished.length > 0 && <span key="un" className="cn-state" title={t('빈 절, TODO 표시, 제목·틀뿐인 노트를 앱이 찾아 붙입니다', 'The app adds this for empty sections, TODO marks, and notes with only a title or outline')}>{t('미완성', 'Unfinished')}</span>,
   ].filter(Boolean)
   return (
     <section className={`cn-info${compact ? ' compact' : ''}`} data-ui="문서 정보">
       {!compact && <h2 className="cn-links-h">{t('문서 정보', 'Document info')}</h2>}
-      <div className="cn-review" data-ui="사용자 확인">
-        <div className="segmented small" role="radiogroup" aria-label={t('사용자 확인', 'Your review')}>
-          {REVIEW.map((r) => <button key={r.v} className={cur === r.v ? 'on' : ''} role="radio" aria-checked={cur === r.v} disabled={busy} title={r.title} onClick={() => { if (cur !== r.v) onReview(r.v) }}>{r.label}</button>)}
+      {/* 평소에는 값만 보이고 머리줄의 연필이 고르기 · 체크를 연다 (11/28 틀: 정보 칸은 하나의 모양) */}
+      {editing ? <>
+        <div className="cn-review" data-ui="사용자 확인">
+          <div className="segmented small" role="radiogroup" aria-label={t('사용자 확인', 'Your review')}>
+            {REVIEW.map((r) => <button key={r.v} className={cur === r.v ? 'on' : ''} role="radio" aria-checked={cur === r.v} disabled={busy} title={r.title} onClick={() => { if (cur !== r.v) onReview(r.v) }}>{r.label}</button>)}
+          </div>
+          {note.checked === 'ok' && m.checked?.at && <span className="muted">{m.checked.at}</span>}
+          {note.checked === 'changed' && <span className="muted" title={t(`${m.checked?.at ?? ''}에 확인했습니다`, `Reviewed at ${m.checked?.at ?? ''}`)}>{t('확인 뒤 고침 · 다시 확인하려면 ✓ 확인함', 'Edited after review · Click ✓ Reviewed to review again')}</span>}
         </div>
-        {note.checked === 'ok' && m.checked?.at && <span className="muted">{m.checked.at}</span>}
-        {note.checked === 'changed' && <span className="muted" title={t(`${m.checked?.at ?? ''}에 확인했습니다`, `Reviewed at ${m.checked?.at ?? ''}`)}>{t('확인 뒤 고침 · 다시 확인하려면 ✓ 확인함', 'Edited after review · Click ✓ Reviewed to review again')}</span>}
-      </div>
-      <label className="check" data-ui="고치기 잠금" title={t('잠그면 앱과 에이전트가 이 노트를 고치지 않습니다. 잠긴 노트도 연필을 누르면 고치는 동안만 풀립니다', 'When locked, the app and agents do not edit this note. The pencil still unlocks it while you edit')}>
-        <input type="checkbox" checked={!!m.locked} disabled={busy} onChange={(e) => doc.onLock(e.target.checked)} />{t('잠그기', 'Lock')}
-      </label>
+        <label className="check" data-ui="고치기 잠금" title={t('잠그면 앱과 에이전트가 이 노트를 고치지 않습니다. 잠긴 노트도 연필을 누르면 고치는 동안만 풀립니다', 'When locked, the app and agents do not edit this note. The pencil still unlocks it while you edit')}>
+          <input type="checkbox" checked={!!m.locked} disabled={busy} onChange={(e) => doc.onLock(e.target.checked)} />{t('잠그기', 'Lock')}
+        </label>
+      </> : <div className="cn-review" data-ui="사용자 확인">
+        <span className="cn-review-value">{cur === 'ok' ? <><i className="mark-ico" aria-hidden>{Icon.check}</i> {t('확인함', 'Reviewed')}</> : <><i className="mark-ico" aria-hidden>{Icon.unchecked}</i> {note.checked === 'changed' ? t('확인 뒤 고침', 'Edited after review') : t('확인 전', 'Not reviewed')}</>}</span>
+        {(note.checked === 'ok' || note.checked === 'changed') && m.checked?.at && <span className="muted">{m.checked.at}</span>}
+        {m.locked && <span className="cn-state" title={t('앱과 에이전트가 이 노트를 고치지 않습니다', 'The app and agents do not edit this note')}>{t('잠김', 'Locked')}</span>}
+      </div>}
       {states.length > 0 && <div className="cn-facts">{states}</div>}
       {note.unfinished.length > 0 && <ul className="cn-why">{note.unfinished.map((u) => <li key={u}>{u}</li>)}</ul>}
       <dl className="cn-info-list">

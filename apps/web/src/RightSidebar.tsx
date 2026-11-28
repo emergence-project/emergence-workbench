@@ -21,18 +21,20 @@ import { SideTerminalClose, TerminalPane, useTerminalAvailable } from './Termina
  * 터미널 칸(terminalRid가 있고 이 컴퓨터에서 연 화면일 때)은 그 프로젝트 폴더의 셸로, 코드 블록 「터미널에서 실행」만 연다(상단바 아이콘은 11/23에 뺌). 한 번 열면 다른 갈래로 가도 셸을 그대로 둔다
  */
 export function RightSidebar({ info, records, agent, terminalRid, ownSlots = true }: {
-  info: ReactNode; records: ReactNode; agent?: ReactNode; terminalRid?: string
+  /** 열린 것의 정보. null이면 정보 칸이 없다(레일에 버튼도 없다) */
+  info: ReactNode | null; records: ReactNode; agent?: ReactNode; terminalRid?: string
   /** false면 칸 목록을 바깥 화면이 알린다(사이드바가 닫혀 있어도 레일이 그 화면의 칸을 보이게) */
   ownSlots?: boolean
 }) {
   const chosen = useRightMode()
   const terminal = useTerminalAvailable() && !!terminalRid
   // 에이전트 · 터미널 탭이 없는 사이드바(개념노트 화면 안 등)에서는 정보를 보인다
-  const mode = (chosen === 'agent' && !agent) || (chosen === 'terminal' && !terminal) ? 'info' : chosen
+  const wanted = (chosen === 'agent' && !agent) || (chosen === 'terminal' && !terminal) ? 'info' : chosen
+  const mode = wanted === 'info' && info === null ? 'records' : wanted
   const [termOpened, setTermOpened] = useState(false)
   useEffect(() => { if (mode === 'terminal') setTermOpened(true) }, [mode])
   // 터미널은 레일에 두지 않는다(11/23: 터미널은 에이전트 대화 창 안). 코드 블록 「터미널에서 실행」(openRight)만 이 칸을 연다
-  const modes: RightMode[] = ['info', 'records', ...(agent ? ['agent' as const] : [])]
+  const modes: RightMode[] = [...(info === null ? [] : ['info' as const]), 'records', ...(agent ? ['agent' as const] : [])]
   useRightSlotsOwner(ownSlots ? modes : null)
   const tools = useInfoTools()
   const history = useNoteHistory()
@@ -224,6 +226,3 @@ function NoteInfoBody({ rid, row, topics, proves = [], projectKind, version, onC
 }
 
 /** 지금 연 것이 노트가 아닐 때 */
-export function NoInfo() {
-  return <p className="empty rs-empty rs-pad">{t('노트를 열면 정보가 여기에 보입니다.', 'Open a note to see its info here.')}</p>
-}
