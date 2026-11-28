@@ -1,7 +1,8 @@
 // 내려받는 앱에 묶은 서버가 그 OS에서 도는지 본다 (윈도우 설치 파일을 만드는 .github/workflows/desktop.yml이 부른다).
-//   node scripts/ci/desktop-smoke.mjs [--shots <폴더>] [--chrome <크롬 실행 파일>] [--print]
-// "계정 없는 사람"으로 본다: 빈 집 폴더(문서 폴더만 있음), git 이름 없음, GitHub · 구글 · Claude 없음(윈도우는 git도 묶은 것만).
-// desktop/standalone/(scripts/bundle-app.mjs가 만든 것)의 Node로 서버를 켜고:
+//   node scripts/ci/desktop-smoke.mjs [--standalone <폴더>] [--shots <폴더>] [--chrome <크롬 실행 파일>] [--print]
+// "계정 없는 사람"으로 본다: 빈 집 폴더(문서 폴더만 있음), git 이름 없음, GitHub · 구글 · Claude 없음(윈도우는 git도 묶은 것만),
+// PATH에 개발 도구(Homebrew · 깐 Node 등) 없음.
+// desktop/standalone/(scripts/bundle-app.mjs가 만든 것)의 Node로 서버를 켜고 (--standalone: 설치한 앱 · dmg에서 꺼낸 앱 안의 그 폴더, release-gate.mjs가 넘긴다):
 //   1. 첫 화면 · API 안내가 답하는지
 //   2. 처음 켠 앱이 문서 폴더에 라이브러리 · PDF 폴더를 만들고, git 이름을 대신 채우는지 (starter.ts, git.ts)
 //   3. 「새로 만들기」로 프로젝트를 만들면 폴더 · git 저장소 · workbench/가 생기고 목록에 오르는지
@@ -17,12 +18,12 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const standalone = path.join(root, 'desktop/standalone')
+const args = process.argv.slice(2)
+const opt = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined }
+const standalone = path.resolve(opt('--standalone') ?? path.join(root, 'desktop/standalone'))
 const win = process.platform === 'win32'
 const node = path.join(standalone, win ? 'node/node.exe' : 'node/bin/node')
 const entry = path.join(standalone, 'app/apps/server/dist/server.mjs')
-const args = process.argv.slice(2)
-const opt = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined }
 const shots = opt('--shots')
 const chrome = opt('--chrome')
 // 창(main.rs)처럼 5174가 아닌 포트와 새 열쇠로 켠다
@@ -46,6 +47,9 @@ delete env.RW_CONFIG_DIR
 if (win) {
   for (const k of Object.keys(env)) if (k.toLowerCase() === 'path') delete env[k]
   env.Path = [path.join(standalone, 'git/cmd'), path.join(sys, 'System32'), sys, path.join(sys, 'System32/WindowsPowerShell/v1.0')].join(';')
+} else {
+  // 맥: 처음 산 맥처럼 시스템 폴더만 (Homebrew · 깐 Node · pnpm 없이 묶은 것만으로 돌아야 한다)
+  env.PATH = '/usr/bin:/bin:/usr/sbin:/sbin'
 }
 const server = spawn(node, [entry], {
   env,

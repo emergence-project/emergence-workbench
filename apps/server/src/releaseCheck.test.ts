@@ -17,6 +17,11 @@ describe('설치 파일로 깐 앱의 새 버전 알림', () => {
     expect(newerVersion('0.2.1', '0.3.0')).toBe(false)
     expect(pickNew(rel('v0.2.2'), { version: '0.2.1', builtAt: '' }, 'win32')).toEqual({ version: '0.2.2', url: 'https://github.com/x/releases/tag/v0.2.2', download: 'https://dl/v0.2.2.exe' })
     expect(pickNew(rel('v0.2.2'), { version: '0.2.1', builtAt: '' }, 'darwin')?.download).toBeNull()
+    // 맥은 칩에 맞는 dmg (공증된 것만 릴리스에 붙는다)
+    const mac = rel('v0.2.2', { assets: ['EmergenceWorkbench_x64-setup.exe', 'EmergenceWorkbench_aarch64.dmg', 'EmergenceWorkbench_x64.dmg'].map((name) => ({ name, browser_download_url: `https://dl/${name}` })) })
+    expect(pickNew(mac, { version: '0.2.1', builtAt: '' }, 'darwin', 'arm64')?.download).toBe('https://dl/EmergenceWorkbench_aarch64.dmg')
+    expect(pickNew(mac, { version: '0.2.1', builtAt: '' }, 'darwin', 'x64')?.download).toBe('https://dl/EmergenceWorkbench_x64.dmg')
+    expect(pickNew(mac, { version: '0.2.1', builtAt: '' }, 'win32', 'x64')?.download).toBe('https://dl/EmergenceWorkbench_x64-setup.exe')
     expect(pickNew(rel('v0.2.1'), { version: '0.2.1', builtAt: '' }, 'win32')).toBeNull()
     expect(pickNew(rel('v0.3.0', { prerelease: true }), { version: '0.2.1', builtAt: '' }, 'win32')).toBeNull()
     // 번호 없는 시험판: 만든 때보다 하루 넘게 뒤의 릴리스만

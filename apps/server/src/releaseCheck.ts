@@ -17,20 +17,21 @@ export function newerVersion(a: string, b: string): boolean {
 
 interface GhRelease { tag_name?: string; html_url?: string; published_at?: string; draft?: boolean; prerelease?: boolean; assets?: { name?: string; browser_download_url?: string }[] }
 
-/** 이 OS에 맞는 설치 파일 */
-const assetFor = (platform: NodeJS.Platform) => platform === 'win32' ? /x64-setup\.exe$/i : platform === 'darwin' ? /\.dmg$/i : /$^/
+/** 이 OS · 칩에 맞는 설치 파일. 맥은 칩마다 dmg가 따로다(EmergenceWorkbench_aarch64.dmg · _x64.dmg, .github/workflows/desktop.yml) */
+const assetFor = (platform: NodeJS.Platform, arch: string) =>
+  platform === 'win32' ? /x64-setup\.exe$/i : platform === 'darwin' ? (arch === 'arm64' ? /_aarch64\.dmg$/i : /_x64\.dmg$/i) : /$^/
 
 /**
  * 받은 최신 릴리스가 지금 판보다 새로운지. 지금 판의 번호가 없으면(태그 없이 만든 시험판) 만든 때보다 하루 넘게 뒤에 낸 릴리스만 새것으로 본다.
  */
-export function pickNew(rel: GhRelease, installed: InstalledBuild, platform: NodeJS.Platform = process.platform): NewRelease | null {
+export function pickNew(rel: GhRelease, installed: InstalledBuild, platform: NodeJS.Platform = process.platform, arch: string = process.arch): NewRelease | null {
   if (!rel.tag_name || !rel.html_url || rel.draft || rel.prerelease) return null
   const version = rel.tag_name.replace(/^v/, '')
   const newer = installed.version
     ? newerVersion(version, installed.version)
     : !!rel.published_at && !!installed.builtAt && Date.parse(rel.published_at) - Date.parse(installed.builtAt) > 24 * 60 * 60_000
   if (!newer) return null
-  const asset = rel.assets?.find((a) => a.name && assetFor(platform).test(a.name))
+  const asset = rel.assets?.find((a) => a.name && assetFor(platform, arch).test(a.name))
   return { version, url: rel.html_url, download: asset?.browser_download_url ?? null }
 }
 
